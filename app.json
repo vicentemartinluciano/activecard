@@ -15,11 +15,18 @@
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.marti.activecard"
+      "bundleIdentifier": "com.marti.activecard",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "ActiveCard convierte tu voz en texto para el Gimnasio Mental.",
+        "NSMicrophoneUsageDescription": "ActiveCard usa el micrófono para dictar tus conexiones de ideas."
+      }
     },
     "web": {
       "output": "static",
@@ -46,6 +53,13 @@
     ],
     "runtimeVersion": {
       "policy": "appVersion"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c0ae7728-da97-4e4c-ae55-c8a010375d8c"
+      }
+    },
+    "owner": "vicentemartinluciano"
   }
 }

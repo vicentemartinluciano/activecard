@@ -1,17 +1,35 @@
 // Tokens de diseño de ActiveCard.
-// Ultra minimalista: fondo oscuro profundo, un solo color de acento, cero ruido.
+// Estética inspirada en Quizlet sobre fondo oscuro profundo: acento azul
+// principal + paleta de apoyo flexible (racha, resaltados, colores de texto)
+// para que la app no sea una plancha monocroma.
 
 export const colors = {
   bg: "#0B0B0F",
   surface: "#15151C",
   surfaceHigh: "#1E1E27",
+  surfaceCard: "#181820", // fondo de tarjetas/paneles destacados
   border: "#26262F",
   text: "#E9E9EF",
   textMuted: "#8B8B98",
-  accent: "#C9A227",
-  accentSoft: "#3A3320",
+  accent: "#3E63DD", // azul profundo (acento principal)
+  accentSoft: "#1C2647", // fondo atenuado del acento
+  accentText: "#8FA6F3", // azul claro para texto/íconos activos sobre oscuro
   danger: "#C05A5F",
   success: "#5F9E6E",
+  streak: "#F76B15", // naranja del fuego de racha
+  streakSoft: "#3A2113",
+  highlight: "#4A3A12", // fondo de resaltado rich text (ámbar oscuro)
+};
+
+// Paleta de colores de texto para el formato de tarjetas (rich text).
+// Las claves son las que viaja el markup [[clave:texto]].
+export const textColors = {
+  rojo: "#E5484D",
+  naranja: "#F76B15",
+  amarillo: "#FFC53D",
+  verde: "#46A758",
+  azul: "#6E8BEB",
+  violeta: "#9E6EDE",
 };
 
 export const spacing = {
