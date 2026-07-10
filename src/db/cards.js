@@ -77,6 +77,16 @@ export async function listAllCards() {
   return db.getAllAsync("SELECT * FROM cards");
 }
 
+// Tarjetas distintas repasadas desde un instante dado en un modo dado.
+export async function countDistinctReviewedSince(mode, sinceIso) {
+  const db = await getDb();
+  const row = await db.getFirstAsync(
+    "SELECT COUNT(DISTINCT card_id) AS n FROM review_logs WHERE mode = ? AND reviewed_at >= ?",
+    [mode, sinceIso]
+  );
+  return row ? row.n : 0;
+}
+
 export async function countDueCards(limitIso) {
   const db = await getDb();
   const row = await db.getFirstAsync("SELECT COUNT(*) AS n FROM cards WHERE due <= ?", [

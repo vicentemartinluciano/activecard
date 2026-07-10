@@ -1,4 +1,4 @@
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -68,7 +68,6 @@ export default function Crear() {
   if (busy) {
     return (
       <Screen style={styles.center}>
-        <Stack.Screen options={{ title: "Crear tarjetas" }} />
         <ActivityIndicator color={colors.accent} size="large" />
         <Text style={[type.body, { textAlign: "center" }]}>{busy}</Text>
         <Text style={type.small}>Esto puede tardar un poco según el tamaño del material.</Text>
@@ -78,7 +77,6 @@ export default function Crear() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: "Crear tarjetas" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
         <View style={styles.section}>
           <Text style={type.small}>¿Cuánto extraer del material?</Text>
@@ -157,7 +155,7 @@ export default function Crear() {
 
         <View style={[styles.section, styles.manualSection]}>
           <Text style={type.small}>¿Sin IA? Creá tarjetas a mano dentro de cada mazo.</Text>
-          <Button label="Ir a mis mazos" kind="ghost" onPress={() => router.push("/mazos")} />
+          <Button label="Ir a la Biblioteca" kind="ghost" onPress={() => router.push("/biblioteca")} />
         </View>
       </ScrollView>
     </Screen>

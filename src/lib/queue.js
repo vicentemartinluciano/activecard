@@ -8,6 +8,13 @@ export function endOfDay(date = new Date()) {
   return d;
 }
 
+// Comienzo del día local de `date` (para contar lo repasado "hoy").
+export function startOfDay(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function monthKey(date = new Date()) {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
