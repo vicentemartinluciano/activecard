@@ -1,15 +1,15 @@
-// Repositorio de mazos y etiquetas.
+// Repositorio de mazos y etiquetas (API asíncrona).
 
 import { getDb } from "./client";
 
-export function listDecks() {
-  const db = getDb();
-  const decks = db.getAllSync(
+export async function listDecks() {
+  const db = await getDb();
+  const decks = await db.getAllAsync(
     `SELECT d.*, COUNT(c.id) AS card_count
      FROM decks d LEFT JOIN cards c ON c.deck_id = d.id
      GROUP BY d.id ORDER BY d.name COLLATE NOCASE`
   );
-  const tagRows = db.getAllSync(
+  const tagRows = await db.getAllAsync(
     `SELECT dt.deck_id, t.id, t.name FROM deck_tags dt JOIN tags t ON t.id = dt.tag_id`
   );
   const tagsByDeck = {};
@@ -19,64 +19,76 @@ export function listDecks() {
   return decks.map((d) => ({ ...d, tags: tagsByDeck[d.id] || [] }));
 }
 
-export function getDeck(id) {
-  const db = getDb();
-  const deck = db.getFirstSync("SELECT * FROM decks WHERE id = ?", [id]);
+export async function getDeck(id) {
+  const db = await getDb();
+  const deck = await db.getFirstAsync("SELECT * FROM decks WHERE id = ?", [id]);
   if (!deck) return null;
-  const tags = db.getAllSync(
+  const tags = await db.getAllAsync(
     `SELECT t.* FROM deck_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.deck_id = ?`,
     [id]
   );
   return { ...deck, tags };
 }
 
-export function createDeck(name) {
-  const db = getDb();
-  const res = db.runSync("INSERT INTO decks (name, created_at) VALUES (?, ?)", [
+export async function createDeck(name) {
+  const db = await getDb();
+  const res = await db.runAsync("INSERT INTO decks (name, created_at) VALUES (?, ?)", [
     name.trim(),
     new Date().toISOString(),
   ]);
   return res.lastInsertRowId;
 }
 
-export function renameDeck(id, name) {
-  getDb().runSync("UPDATE decks SET name = ? WHERE id = ?", [name.trim(), id]);
+export async function renameDeck(id, name) {
+  const db = await getDb();
+  await db.runAsync("UPDATE decks SET name = ? WHERE id = ?", [name.trim(), id]);
 }
 
-export function deleteDeck(id) {
-  getDb().runSync("DELETE FROM decks WHERE id = ?", [id]);
+export async function deleteDeck(id) {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM decks WHERE id = ?", [id]);
 }
 
 // --- Etiquetas ---
 
-export function listTags() {
-  return getDb().getAllSync("SELECT * FROM tags ORDER BY name COLLATE NOCASE");
+export async function listTags() {
+  const db = await getDb();
+  return db.getAllAsync("SELECT * FROM tags ORDER BY name COLLATE NOCASE");
 }
 
 // Devuelve el id de la etiqueta, creándola si no existe.
-export function ensureTag(name) {
-  const db = getDb();
+export async function ensureTag(name) {
+  const db = await getDb();
   const clean = name.trim();
-  const existing = db.getFirstSync("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", [clean]);
+  const existing = await db.getFirstAsync(
+    "SELECT id FROM tags WHERE name = ? COLLATE NOCASE",
+    [clean]
+  );
   if (existing) return existing.id;
-  return db.runSync("INSERT INTO tags (name) VALUES (?)", [clean]).lastInsertRowId;
+  const res = await db.runAsync("INSERT INTO tags (name) VALUES (?)", [clean]);
+  return res.lastInsertRowId;
 }
 
-export function setDeckTags(deckId, tagIds) {
-  const db = getDb();
-  db.runSync("DELETE FROM deck_tags WHERE deck_id = ?", [deckId]);
+export async function setDeckTags(deckId, tagIds) {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM deck_tags WHERE deck_id = ?", [deckId]);
   for (const tagId of tagIds) {
-    db.runSync("INSERT OR IGNORE INTO deck_tags (deck_id, tag_id) VALUES (?, ?)", [deckId, tagId]);
+    await db.runAsync("INSERT OR IGNORE INTO deck_tags (deck_id, tag_id) VALUES (?, ?)", [
+      deckId,
+      tagId,
+    ]);
   }
 }
 
-export function deleteTag(id) {
-  getDb().runSync("DELETE FROM tags WHERE id = ?", [id]);
+export async function deleteTag(id) {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM tags WHERE id = ?", [id]);
 }
 
 // Mapa { deckId: [tagId, ...] } para la lógica de prioridades de la cola.
-export function getDeckTagsMap() {
-  const rows = getDb().getAllSync("SELECT deck_id, tag_id FROM deck_tags");
+export async function getDeckTagsMap() {
+  const db = await getDb();
+  const rows = await db.getAllAsync("SELECT deck_id, tag_id FROM deck_tags");
   const map = {};
   for (const r of rows) {
     (map[r.deck_id] = map[r.deck_id] || []).push(r.tag_id);

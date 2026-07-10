@@ -78,18 +78,18 @@ export const MIGRATIONS = [
   `,
 ];
 
-// Aplica las migraciones pendientes sobre una conexión expo-sqlite.
-export function migrate(db) {
-  const row = db.getFirstSync("PRAGMA user_version");
+// Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).
+export async function migrate(db) {
+  const row = await db.getFirstAsync("PRAGMA user_version");
   const current = row ? row.user_version : 0;
   for (let v = current; v < MIGRATIONS.length; v++) {
-    db.execSync("BEGIN");
+    await db.execAsync("BEGIN");
     try {
-      db.execSync(MIGRATIONS[v]);
-      db.execSync(`PRAGMA user_version = ${v + 1}`);
-      db.execSync("COMMIT");
+      await db.execAsync(MIGRATIONS[v]);
+      await db.execAsync(`PRAGMA user_version = ${v + 1}`);
+      await db.execAsync("COMMIT");
     } catch (e) {
-      db.execSync("ROLLBACK");
+      await db.execAsync("ROLLBACK");
       throw e;
     }
   }

@@ -1,6 +1,6 @@
 import { MIGRATIONS, migrate } from "../schema";
 
-// Doble mínimo de una conexión expo-sqlite: registra qué se ejecuta
+// Doble mínimo de una conexión expo-sqlite async: registra qué se ejecuta
 // y simula PRAGMA user_version.
 function fakeDb(initialVersion = 0) {
   let version = initialVersion;
@@ -10,11 +10,11 @@ function fakeDb(initialVersion = 0) {
     get version() {
       return version;
     },
-    getFirstSync(sql) {
+    async getFirstAsync(sql) {
       if (sql.includes("user_version")) return { user_version: version };
       return null;
     },
-    execSync(sql) {
+    async execAsync(sql) {
       executed.push(sql);
       const m = sql.match(/PRAGMA user_version = (\d+)/);
       if (m) version = Number(m[1]);
@@ -24,42 +24,40 @@ function fakeDb(initialVersion = 0) {
 }
 
 describe("migraciones de esquema", () => {
-  test("aplica todas las migraciones desde cero y fija la versión final", () => {
+  test("aplica todas las migraciones desde cero y fija la versión final", async () => {
     const db = fakeDb(0);
-    migrate(db);
+    await migrate(db);
     expect(db.version).toBe(MIGRATIONS.length);
     for (const sql of MIGRATIONS) {
       expect(db.executed).toContain(sql);
     }
   });
 
-  test("es idempotente: en una DB al día no ejecuta nada", () => {
+  test("es idempotente: en una DB al día no ejecuta nada", async () => {
     const db = fakeDb(MIGRATIONS.length);
-    migrate(db);
+    await migrate(db);
     expect(db.executed.filter((s) => s.includes("CREATE TABLE"))).toHaveLength(0);
   });
 
-  test("cada migración corre dentro de una transacción", () => {
+  test("cada migración corre dentro de una transacción", async () => {
     const db = fakeDb(0);
-    migrate(db);
+    await migrate(db);
     const begins = db.executed.filter((s) => s === "BEGIN").length;
     const commits = db.executed.filter((s) => s === "COMMIT").length;
     expect(begins).toBe(MIGRATIONS.length);
     expect(commits).toBe(MIGRATIONS.length);
   });
 
-  test("si una migración falla hace ROLLBACK y no avanza la versión", () => {
+  test("si una migración falla hace ROLLBACK y no avanza la versión", async () => {
     const db = fakeDb(0);
-    const broken = [...MIGRATIONS];
     const original = MIGRATIONS[0];
     MIGRATIONS[0] = "FALLAR";
     try {
-      expect(() => migrate(db)).toThrow();
+      await expect(migrate(db)).rejects.toThrow();
       expect(db.executed).toContain("ROLLBACK");
       expect(db.version).toBe(0);
     } finally {
       MIGRATIONS[0] = original;
-      expect(MIGRATIONS).toEqual(broken);
     }
   });
 

@@ -1,7 +1,9 @@
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getDueCount } from "../db/reviewQueue";
 import { colors, radius, spacing, type } from "../theme";
 
 function MenuButton({ label, hint, onPress, primary }) {
@@ -24,6 +26,22 @@ function MenuButton({ label, hint, onPress, primary }) {
 
 export default function Home() {
   const router = useRouter();
+  const [dueCount, setDueCount] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      getDueCount()
+        .then((n) => alive && setDueCount(n))
+        .catch((e) => {
+          console.warn("No se pudo leer la cola de repaso:", e);
+          if (alive) setDueCount(null);
+        });
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -35,7 +53,7 @@ export default function Home() {
       <View style={styles.menu}>
         <MenuButton
           primary
-          label="Repasar"
+          label={dueCount != null ? `Repasar (${dueCount})` : "Repasar"}
           hint="La cola de hoy"
           onPress={() => router.push("/repaso")}
         />
