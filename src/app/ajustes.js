@@ -1,8 +1,8 @@
-import { Stack, useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
-import { Chip, Screen } from "../components/ui";
+import { Button, Chip, Screen } from "../components/ui";
 import { listDecks, listTags } from "../db/decks";
 import { listPriorities, setPriority } from "../db/priorities";
 import { getFocusDeckIds, setFocusDeckIds } from "../db/settings";
@@ -36,6 +36,7 @@ function PrioritySelector({ current, onChange }) {
 }
 
 export default function Ajustes() {
+  const router = useRouter();
   const month = monthKey();
   const [decks, setDecks] = useState([]);
   const [tags, setTags] = useState([]);
@@ -155,6 +156,14 @@ export default function Ajustes() {
               />
             </View>
           ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Gimnasio Mental</Text>
+          <Button
+            label="Ver conexiones creadas"
+            onPress={() => router.push("/conexiones")}
+          />
         </View>
       </ScrollView>
     </Screen>

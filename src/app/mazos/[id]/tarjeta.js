@@ -15,6 +15,7 @@ export default function EditorTarjeta() {
   const [existing, setExisting] = useState(null);
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!cardId) return;
@@ -32,13 +33,19 @@ export default function EditorTarjeta() {
   }, [cardId]);
 
   const save = async () => {
-    if (!front.trim() || !back.trim()) return;
-    if (existing) {
-      await updateCardText(existing.id, front, back);
-    } else {
-      await createCard({ deckId, front, back, source: "manual" });
+    if (!front.trim() || !back.trim() || saving) return;
+    setSaving(true);
+    try {
+      if (existing) {
+        await updateCardText(existing.id, front, back);
+      } else {
+        await createCard({ deckId, front, back, source: "manual" });
+      }
+      if (router.canGoBack()) router.back();
+      else router.replace(`/mazos/${deckId}`);
+    } finally {
+      setSaving(false);
     }
-    router.back();
   };
 
   const onDelete = async () => {
@@ -72,10 +79,10 @@ export default function EditorTarjeta() {
           />
         </View>
         <Button
-          label={existing ? "Guardar cambios" : "Crear tarjeta"}
+          label={saving ? "Guardando…" : existing ? "Guardar cambios" : "Crear tarjeta"}
           kind="primary"
           onPress={save}
-          disabled={!front.trim() || !back.trim()}
+          disabled={!front.trim() || !back.trim() || saving}
         />
         {existing ? <Button label="Borrar tarjeta" kind="danger" onPress={onDelete} /> : null}
       </ScrollView>

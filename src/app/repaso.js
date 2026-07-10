@@ -2,11 +2,12 @@ import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import ChatAuditor from "../components/ChatAuditor";
 import FlipCard from "../components/FlipCard";
 import { Button, Screen } from "../components/ui";
 import { reviewCard } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
-import { colors, spacing, type } from "../theme";
+import { colors, radius, spacing, type } from "../theme";
 
 export default function Repaso() {
   const router = useRouter();
@@ -14,7 +15,8 @@ export default function Repaso() {
   const [queue, setQueue] = useState(null); // null = cargando
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [counts, setCounts] = useState({ good: 0, again: 0 });
+  const [phase, setPhase] = useState("card"); // 'card' | 'gym'
+  const [counts, setCounts] = useState({ good: 0, again: 0, connections: 0 });
 
   useEffect(() => {
     let alive = true;
@@ -28,7 +30,15 @@ export default function Repaso() {
     const card = queue[index];
     await reviewCard(card, rating, "daily");
     setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
-    // TODO Fase 5: acá se abre el Gimnasio Mental antes de avanzar.
+    // Tanto si la recordó como si no: espacio de asociación (Gimnasio Mental).
+    setPhase("gym");
+  };
+
+  const finishGym = (result) => {
+    if (result && result.validated) {
+      setCounts((c) => ({ ...c, connections: c.connections + 1 }));
+    }
+    setPhase("card");
     setFlipped(false);
     setIndex((i) => i + 1);
   };
@@ -61,12 +71,29 @@ export default function Repaso() {
         <Text style={type.body}>
           Recordadas: {counts.good} · Olvidadas: {counts.again}
         </Text>
+        {counts.connections > 0 ? (
+          <Text style={type.body}>Conexiones creadas: {counts.connections}</Text>
+        ) : null}
         <Button label="Volver al inicio" kind="primary" onPress={goHome} />
       </Screen>
     );
   }
 
   const card = queue[index];
+
+  if (phase === "gym") {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: "Repaso" }} />
+        <View style={styles.gymConcept}>
+          <Text style={type.small} numberOfLines={2}>
+            {card.front}
+          </Text>
+        </View>
+        <ChatAuditor card={card} onDone={finishGym} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -130,5 +157,12 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     color: colors.textMuted,
+  },
+  gymConcept: {
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
   },
 });
