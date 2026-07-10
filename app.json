@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "ActiveCard",
+    "slug": "activecard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "activecard",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0B0F",
+    "android": {
+      "package": "com.marti.activecard",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0B0F",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.marti.activecard"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B0B0F",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "@jamsch/expo-speech-recognition",
+        {
+          "microphonePermission": "ActiveCard usa el micrófono para dictar tus conexiones de ideas.",
+          "speechRecognitionPermission": "ActiveCard convierte tu voz en texto para el Gimnasio Mental."
+        }
+      ],
+      "expo-sqlite"
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
