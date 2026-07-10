@@ -46,7 +46,11 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Sin notificaciones** (app pasiva). **UI ultra minimalista**, fondo #0B0B0F, un solo acento, todo en español.
 
 ## Dónde estamos
-- Fase 0 (scaffolding) en curso. Siguen: F1 DB+FSRS, F2 CRUD mazos, F3 repaso+Quizlet, F4 generación IA, F5 Gimnasio Mental, F6 pulido UI, F7 claves+EAS+primer APK.
+- Fases 0-6 completas: scaffolding, DB async + FSRS, CRUD de mazos/tarjetas,
+  repaso diario + Quizlet, generación con IA (texto/archivo/Notion),
+  Gimnasio Mental con auditor, ícono y UI pulidos.
+- Falta la Fase 7: crear API key de Anthropic + token de Notion con el usuario,
+  `eas init`, subir env vars a EAS y construir el primer APK.
 - Plan completo: `C:\Users\marti\.claude\plans\mira-quiero-planear-la-moonlit-possum.md`.
 
 ## Cuentas
