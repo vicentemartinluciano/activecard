@@ -1,11 +1,13 @@
 // Lector de páginas de Notion vía internal integration token (sin OAuth).
 // La página debe estar compartida con la integración (menú ··· → Connections).
 
+import { getNotionToken as getNotionTokenFromKeys } from "./keys";
+
 const NOTION_API = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
 
 export function getNotionToken() {
-  return process.env.EXPO_PUBLIC_NOTION_TOKEN || null;
+  return getNotionTokenFromKeys();
 }
 
 // Acepta una URL de Notion o un ID pelado y devuelve el ID normalizado.

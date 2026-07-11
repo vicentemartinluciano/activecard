@@ -2,11 +2,13 @@
 // fetch directo, sin SDK. Modelo fijo: Claude Sonnet 5 para todo
 // (decisión de producto: máxima calidad, un solo proveedor).
 
+import { getAnthropicKey } from "./keys";
+
 export const MODEL = "claude-sonnet-5";
 const API_URL = "https://api.anthropic.com/v1/messages";
 
 export function getApiKey() {
-  return process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || null;
+  return getAnthropicKey();
 }
 
 // Llama a la API. messages: [{role, content}] donde content puede ser string

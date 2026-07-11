@@ -49,7 +49,8 @@
           "speechRecognitionPermission": "ActiveCard convierte tu voz en texto para el Gimnasio Mental."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-sharing"
     ],
     "runtimeVersion": {
       "policy": "appVersion"
