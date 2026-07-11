@@ -1,4 +1,4 @@
-import { buildDailyQueue, cardWeight, endOfDay, monthKey } from "../queue";
+import { buildDailyQueue, endOfDay, startOfDay } from "../queue";
 
 const NOW = new Date("2026-07-10T12:00:00Z");
 
@@ -6,7 +6,7 @@ function card(id, deckId, due) {
   return { id, deck_id: deckId, due };
 }
 
-describe("cola de repaso diaria", () => {
+describe("cola de repaso diaria (prioridad porcentual)", () => {
   beforeAll(() => {
     jest.useFakeTimers();
     jest.setSystemTime(NOW);
@@ -16,8 +16,10 @@ describe("cola de repaso diaria", () => {
     jest.useRealTimers();
   });
 
-  test("monthKey usa el mes local con dos dígitos", () => {
-    expect(monthKey(NOW)).toMatch(/^2026-07$/);
+  test("startOfDay y endOfDay delimitan el día local", () => {
+    expect(startOfDay(NOW).getTime()).toBeLessThan(NOW.getTime());
+    expect(endOfDay(NOW).getTime()).toBeGreaterThan(NOW.getTime());
+    expect(endOfDay(NOW).getTime() - startOfDay(NOW).getTime()).toBe(86399999);
   });
 
   test("solo entran las tarjetas debidas hasta el fin de hoy", () => {
@@ -30,52 +32,71 @@ describe("cola de repaso diaria", () => {
     expect(queue.map((c) => c.id)).toEqual([1, 2]);
   });
 
-  test("ordena por peso del mazo (desc) y luego la más vencida primero", () => {
-    const cards = [
-      card(1, 1, "2026-07-01T08:00:00Z"), // muy vencida, mazo normal
-      card(2, 2, "2026-07-09T08:00:00Z"), // mazo prioritario
-      card(3, 2, "2026-07-05T08:00:00Z"), // mazo prioritario, más vencida
-    ];
-    const priorities = [{ target_type: "deck", target_id: 2, weight: 3, month: monthKey(NOW) }];
-    const queue = buildDailyQueue(cards, { priorities, now: NOW });
-    expect(queue.map((c) => c.id)).toEqual([3, 2, 1]);
-  });
-
-  test("las prioridades por etiqueta pesan a través de deckTags", () => {
-    const priorities = [{ target_type: "tag", target_id: 7, weight: 2, month: monthKey(NOW) }];
-    const deckTags = { 1: [7] };
-    expect(cardWeight(card(1, 1, ""), priorities, deckTags, monthKey(NOW))).toBe(2);
-    expect(cardWeight(card(2, 2, ""), priorities, deckTags, monthKey(NOW))).toBe(1);
-  });
-
-  test("las prioridades de otro mes no cuentan", () => {
-    const priorities = [{ target_type: "deck", target_id: 1, weight: 3, month: "2026-06" }];
-    expect(cardWeight(card(1, 1, ""), priorities, {}, monthKey(NOW))).toBe(1);
-  });
-
-  test("Modo Enfoque filtra a los mazos elegidos", () => {
+  test("un mazo al 0% queda pausado (sus tarjetas no aparecen)", () => {
     const cards = [
       card(1, 1, "2026-07-09T08:00:00Z"),
       card(2, 2, "2026-07-09T08:00:00Z"),
     ];
-    const queue = buildDailyQueue(cards, { now: NOW, focusDeckIds: [2] });
+    const queue = buildDailyQueue(cards, {
+      deckPriorities: { 1: 0, 2: 100 },
+      now: NOW,
+    });
     expect(queue.map((c) => c.id)).toEqual([2]);
   });
 
-  test("Modo Enfoque con pocas debidas completa con las próximas a vencer", () => {
-    const cards = [
-      card(1, 2, "2026-07-09T08:00:00Z"), // debida
-      card(2, 2, "2026-07-20T08:00:00Z"), // futura cercana
-      card(3, 2, "2026-07-25T08:00:00Z"), // futura lejana
-      card(4, 1, "2026-07-11T08:00:00Z"), // otro mazo: afuera
-    ];
-    const queue = buildDailyQueue(cards, { now: NOW, focusDeckIds: [2], minFocus: 3 });
-    expect(queue.map((c) => c.id)).toEqual([1, 2, 3]);
+  test("100% vs 50%: intercala 2 a 1", () => {
+    const cards = [];
+    for (let i = 0; i < 6; i++) cards.push(card(10 + i, 1, `2026-07-0${i + 1}T08:00:00Z`));
+    for (let i = 0; i < 3; i++) cards.push(card(20 + i, 2, `2026-07-0${i + 1}T08:00:00Z`));
+    const queue = buildDailyQueue(cards, {
+      deckPriorities: { 1: 100, 2: 50 },
+      now: NOW,
+    });
+    const deckSeq = queue.map((c) => c.deck_id);
+    // En las primeras 6 emisiones, el mazo 1 (100%) debe aparecer el doble
+    // de veces que el mazo 2 (50%).
+    const first6 = deckSeq.slice(0, 6);
+    expect(first6.filter((d) => d === 1)).toHaveLength(4);
+    expect(first6.filter((d) => d === 2)).toHaveLength(2);
+    // Y todas las tarjetas salen, ninguna se pierde.
+    expect(queue).toHaveLength(9);
   });
 
-  test("sin Modo Enfoque no se adelantan tarjetas futuras", () => {
-    const cards = [card(1, 1, "2026-07-20T08:00:00Z")];
-    const queue = buildDailyQueue(cards, { now: NOW, minFocus: 5 });
-    expect(queue).toEqual([]);
+  test("dentro de cada mazo sale primero la más vencida", () => {
+    const cards = [
+      card(1, 1, "2026-07-08T08:00:00Z"),
+      card(2, 1, "2026-07-01T08:00:00Z"), // más vencida
+      card(3, 1, "2026-07-05T08:00:00Z"),
+    ];
+    const queue = buildDailyQueue(cards, { now: NOW });
+    expect(queue.map((c) => c.id)).toEqual([2, 3, 1]);
+  });
+
+  test("prioridades iguales intercalan parejo y determinístico", () => {
+    const cards = [
+      card(1, 1, "2026-07-01T08:00:00Z"),
+      card(2, 1, "2026-07-02T08:00:00Z"),
+      card(3, 2, "2026-07-01T08:00:00Z"),
+      card(4, 2, "2026-07-02T08:00:00Z"),
+    ];
+    const a = buildDailyQueue(cards, { deckPriorities: { 1: 70, 2: 70 }, now: NOW });
+    const b = buildDailyQueue(cards, { deckPriorities: { 1: 70, 2: 70 }, now: NOW });
+    expect(a.map((c) => c.id)).toEqual(b.map((c) => c.id)); // determinismo
+    // Alterna 1-2-1-2 (empate de crédito → menor deckId primero).
+    expect(a.map((c) => c.deck_id)).toEqual([1, 2, 1, 2]);
+  });
+
+  test("mazo sin prioridad configurada cuenta como 100", () => {
+    const cards = [
+      card(1, 1, "2026-07-01T08:00:00Z"),
+      card(2, 2, "2026-07-01T08:00:00Z"),
+    ];
+    const queue = buildDailyQueue(cards, { deckPriorities: { 2: 100 }, now: NOW });
+    expect(queue).toHaveLength(2);
+  });
+
+  test("sin tarjetas debidas la cola es vacía", () => {
+    const cards = [card(1, 1, "2026-08-01T08:00:00Z")];
+    expect(buildDailyQueue(cards, { now: NOW })).toEqual([]);
   });
 });

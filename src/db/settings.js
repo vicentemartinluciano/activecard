@@ -1,5 +1,4 @@
 // Repositorio de configuración simple (clave-valor). Async.
-// Usado por el Modo Enfoque, entre otros.
 
 import { getDb } from "./client";
 
@@ -21,15 +20,4 @@ export async function setSetting(key, value) {
      ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
     [key, JSON.stringify(value)]
   );
-}
-
-// --- Modo Enfoque ---
-// Guardado como lista de deck_ids; lista vacía o null = modo normal.
-
-export function getFocusDeckIds() {
-  return getSetting("focus_deck_ids", null);
-}
-
-export function setFocusDeckIds(deckIds) {
-  return setSetting("focus_deck_ids", deckIds && deckIds.length > 0 ? deckIds : null);
 }

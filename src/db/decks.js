@@ -44,6 +44,28 @@ export async function renameDeck(id, name) {
   await db.runAsync("UPDATE decks SET name = ? WHERE id = ?", [name.trim(), id]);
 }
 
+// Prioridad porcentual del mazo (0-100, pasos de 5). 0 = pausado.
+export async function updateDeckPriority(id, priority) {
+  const db = await getDb();
+  const clamped = Math.max(0, Math.min(100, Math.round(priority / 5) * 5));
+  await db.runAsync("UPDATE decks SET priority = ? WHERE id = ?", [clamped, id]);
+}
+
+// Ícono del mazo (nombre de ícono Feather) o null.
+export async function updateDeckIcon(id, icon) {
+  const db = await getDb();
+  await db.runAsync("UPDATE decks SET icon = ? WHERE id = ?", [icon || null, id]);
+}
+
+// Mapa { deckId: prioridad } para armar la cola diaria.
+export async function getDeckPriorities() {
+  const db = await getDb();
+  const rows = await db.getAllAsync("SELECT id, priority FROM decks");
+  const map = {};
+  for (const r of rows) map[r.id] = r.priority;
+  return map;
+}
+
 export async function deleteDeck(id) {
   const db = await getDb();
   await db.runAsync("DELETE FROM decks WHERE id = ?", [id]);

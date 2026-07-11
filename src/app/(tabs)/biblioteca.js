@@ -88,6 +88,11 @@ export default function Biblioteca() {
                 {item.tags.length > 0 ? ` · ${item.tags.map((t) => t.name).join(", ")}` : ""}
               </Text>
             </View>
+            {item.priority < 100 ? (
+              <Text style={styles.priorityBadge}>
+                {item.priority === 0 ? "Pausado" : `${item.priority}%`}
+              </Text>
+            ) : null}
           </Pressable>
         )}
       />
@@ -124,5 +129,10 @@ const styles = StyleSheet.create({
     ...type.body,
     fontWeight: "600",
     marginBottom: 2,
+  },
+  priorityBadge: {
+    ...type.small,
+    color: colors.accentText,
+    fontWeight: "700",
   },
 });

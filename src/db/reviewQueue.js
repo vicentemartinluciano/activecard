@@ -1,25 +1,19 @@
 // Compone los repos con la lógica pura de src/lib/queue.js
 // para armar la cola de repaso del día. Async.
 
-import { buildDailyQueue, endOfDay, monthKey, startOfDay } from "../lib/queue";
+import { buildDailyQueue, endOfDay, startOfDay } from "../lib/queue";
 import { countDistinctReviewedSince, countDueCards, listAllCards } from "./cards";
-import { getDeckTagsMap } from "./decks";
-import { listPriorities } from "./priorities";
-import { getFocusDeckIds } from "./settings";
+import { getDeckPriorities } from "./decks";
 
 export async function getDailyQueue(now = new Date()) {
-  const [cards, priorities, deckTags, focusDeckIds] = await Promise.all([
-    listAllCards(),
-    listPriorities(monthKey(now)),
-    getDeckTagsMap(),
-    getFocusDeckIds(),
-  ]);
-  return buildDailyQueue(cards, { priorities, deckTags, focusDeckIds, now });
+  const [cards, deckPriorities] = await Promise.all([listAllCards(), getDeckPriorities()]);
+  return buildDailyQueue(cards, { deckPriorities, now });
 }
 
-// Cantidad de tarjetas debidas hoy (para el "Repasar (N)" de la Home).
-export function getDueCount(now = new Date()) {
-  return countDueCards(endOfDay(now).toISOString());
+// Cantidad de tarjetas debidas hoy en mazos activos (para el "Repasar (N)").
+export async function getDueCount(now = new Date()) {
+  const queue = await getDailyQueue(now);
+  return queue.length;
 }
 
 // Estado del repaso diario para la barra de Inicio:
@@ -27,7 +21,7 @@ export function getDueCount(now = new Date()) {
 export async function getDailyReviewStats(now = new Date()) {
   const [done, remaining] = await Promise.all([
     countDistinctReviewedSince("daily", startOfDay(now).toISOString()),
-    countDueCards(endOfDay(now).toISOString()),
+    getDueCount(now),
   ]);
   const total = done + remaining;
   return {
@@ -37,3 +31,5 @@ export async function getDailyReviewStats(now = new Date()) {
     pct: total > 0 ? Math.round((done / total) * 100) : 0,
   };
 }
+
+export { countDueCards, endOfDay };

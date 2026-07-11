@@ -1,7 +1,10 @@
+import { Feather } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import IconPicker from "../../../components/IconPicker";
+import PercentSlider from "../../../components/PercentSlider";
 import { Button, Chip, confirmAsync, EmptyState, Field, InlineAdd, Screen } from "../../../components/ui";
 import { listCardsByDeck } from "../../../db/cards";
 import {
@@ -11,6 +14,8 @@ import {
   listTags,
   renameDeck,
   setDeckTags,
+  updateDeckIcon,
+  updateDeckPriority,
 } from "../../../db/decks";
 import { colors, radius, spacing, type } from "../../../theme";
 
@@ -24,6 +29,7 @@ export default function DetalleMazo() {
   const [allTags, setAllTags] = useState([]);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   const load = useCallback(async () => {
     const d = await getDeck(deckId);
@@ -117,6 +123,39 @@ export default function DetalleMazo() {
               <InlineAdd placeholder="Etiqueta nueva…" onSubmit={addTag} />
             </View>
 
+            <View style={{ gap: spacing.sm }}>
+              <Text style={type.small}>Prioridad en el repaso diario</Text>
+              <PercentSlider
+                value={deck.priority}
+                onChange={async (p) => {
+                  await updateDeckPriority(deckId, p);
+                  load();
+                }}
+              />
+            </View>
+
+            <View style={{ gap: spacing.sm }}>
+              <Pressable
+                onPress={() => setShowIconPicker((s) => !s)}
+                style={({ pressed }) => [styles.iconRow, pressed && { opacity: 0.7 }]}
+              >
+                <Feather name={deck.icon || "book"} size={20} color={colors.accentText} />
+                <Text style={type.small}>
+                  {showIconPicker ? "Elegí un ícono para el mazo" : "Cambiar ícono"}
+                </Text>
+              </Pressable>
+              {showIconPicker ? (
+                <IconPicker
+                  value={deck.icon || "book"}
+                  onChange={async (icon) => {
+                    await updateDeckIcon(deckId, icon);
+                    setShowIconPicker(false);
+                    load();
+                  }}
+                />
+              ) : null}
+            </View>
+
             <Button
               label="Nueva tarjeta"
               onPress={() => router.push(`/mazos/${deckId}/tarjeta`)}
@@ -152,6 +191,11 @@ const styles = StyleSheet.create({
   tagRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  iconRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   card: {

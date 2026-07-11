@@ -76,6 +76,14 @@ export const MIGRATIONS = [
     value TEXT
   );
   `,
+
+  // v2 — prioridad porcentual e ícono por mazo.
+  // Reemplazan al Modo Enfoque y a las prioridades mensuales (la tabla
+  // priorities queda huérfana a propósito: no se borra, solo se deja de usar).
+  `
+  ALTER TABLE decks ADD COLUMN priority INTEGER NOT NULL DEFAULT 100;
+  ALTER TABLE decks ADD COLUMN icon TEXT;
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).
