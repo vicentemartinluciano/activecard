@@ -1,53 +1,83 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import FlipCard from "../../../components/FlipCard";
 import SwipeCard from "../../../components/SwipeCard";
 import { Button, Screen } from "../../../components/ui";
 import { listCardsByDeck, reviewCard } from "../../../db/cards";
+import { listDeckCardsNotReviewedToday } from "../../../db/progress";
+import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import { spacing, type } from "../../../theme";
 
-// Barajado Fisher-Yates para no estudiar siempre en el mismo orden.
-function shuffle(list) {
-  const a = [...list];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-// Modo Quizlet: se estudia el mazo ENTERO deslizando. Alimenta el algoritmo
-// FSRS igual que el repaso diario, pero sin pasar por el Gimnasio Mental.
+// Modo Quizlet: se estudia el mazo deslizando. Alimenta el algoritmo FSRS
+// igual que el repaso diario, pero sin pasar por el Gimnasio Mental. La
+// sesión NO repite lo que ya estudiaste hoy en este modo (se deriva de
+// review_logs, así que sobrevive a salir y volver a entrar) y, al terminar,
+// ofrece una ronda extra opcional con lo que salió mal.
 export default function Estudiar() {
   const { id } = useLocalSearchParams();
   const deckId = Number(id);
   const router = useRouter();
   const goBack = () => (router.canGoBack() ? router.back() : router.replace(`/mazos/${deckId}`));
 
-  const [cards, setCards] = useState(null);
+  // status: 'loading' | 'done-today' | 'empty' | 'studying'
+  const [status, setStatus] = useState("loading");
+  const [round, setRound] = useState([]); // tarjetas de la ronda actual (barajadas)
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [counts, setCounts] = useState({ good: 0, again: 0 });
+  const [failedIds, setFailedIds] = useState([]);
+
+  const startRound = useCallback((cards) => {
+    setRound(shuffle(cards));
+    setIndex(0);
+    setFlipped(false);
+    setCounts({ good: 0, again: 0 });
+    setFailedIds([]);
+    setStatus("studying");
+  }, []);
 
   useEffect(() => {
     let alive = true;
-    listCardsByDeck(deckId).then((c) => alive && setCards(shuffle(c)));
+    (async () => {
+      const [all, pool] = await Promise.all([
+        listCardsByDeck(deckId),
+        listDeckCardsNotReviewedToday(deckId),
+      ]);
+      if (!alive) return;
+      if (all.length === 0) {
+        setStatus("empty");
+      } else if (pool.length === 0) {
+        setStatus("done-today");
+      } else {
+        startRound(pool);
+      }
+    })();
     return () => {
       alive = false;
     };
-  }, [deckId]);
+  }, [deckId, startRound]);
 
   const grade = async (rating) => {
-    const card = cards[index];
+    const card = round[index];
     await reviewCard(card, rating, "quizlet");
     setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
+    if (rating === "again") setFailedIds((f) => [...f, card.id]);
     setFlipped(false);
     setIndex((i) => i + 1);
   };
 
-  if (cards === null) {
+  const studyAgain = async () => {
+    const all = await listCardsByDeck(deckId);
+    startRound(all);
+  };
+
+  const reviewFailed = () => {
+    startRound(buildFailedRound(round, failedIds));
+  };
+
+  if (status === "loading") {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Estudiar" }} />
@@ -56,7 +86,7 @@ export default function Estudiar() {
     );
   }
 
-  if (cards.length === 0) {
+  if (status === "empty") {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Estudiar" }} />
@@ -66,26 +96,45 @@ export default function Estudiar() {
     );
   }
 
-  if (index >= cards.length) {
+  if (status === "done-today") {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Estudiar" }} />
-        <Text style={type.title}>Mazo completo</Text>
-        <Text style={type.body}>
-          Sabías: {counts.good} · No sabías: {counts.again}
-        </Text>
-        <Button label="Volver" kind="primary" onPress={goBack} />
+        <Text style={type.title}>Ya completaste este mazo hoy</Text>
+        <Text style={type.body}>Podés repasarlo de nuevo si querés reforzarlo.</Text>
+        <Button label="Estudiar de nuevo" kind="primary" onPress={studyAgain} />
+        <Button label="Volver" kind="ghost" onPress={goBack} />
       </Screen>
     );
   }
 
-  const card = cards[index];
+  if (index >= round.length) {
+    return (
+      <Screen style={styles.center}>
+        <Stack.Screen options={{ title: "Estudiar" }} />
+        <Text style={type.title}>Ronda completa</Text>
+        <Text style={type.body}>
+          Sabías: {counts.good} · No sabías: {counts.again}
+        </Text>
+        {failedIds.length > 0 ? (
+          <Button
+            label={`Repasar las falladas (${failedIds.length})`}
+            kind="primary"
+            onPress={reviewFailed}
+          />
+        ) : null}
+        <Button label="Volver" kind="ghost" onPress={goBack} />
+      </Screen>
+    );
+  }
+
+  const card = round[index];
 
   return (
     <Screen>
       <Stack.Screen options={{ title: "Estudiar" }} />
       <Text style={styles.progress}>
-        {index + 1} de {cards.length}
+        {index + 1} de {round.length}
       </Text>
 
       <SwipeCard

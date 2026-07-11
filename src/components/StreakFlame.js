@@ -1,17 +1,27 @@
-// Fuego de racha del header de Inicio.
-// F9: versión estática (ícono + días). En F11 se conecta a la racha real
-// y en nativo se reemplaza por la animación Lottie del usuario.
+// Fuego de racha del header de Inicio — versión nativa (Android/iOS).
+// Anima la animación Lottie del usuario cuando la racha está activa hoy.
+// La versión web vive en StreakFlame.web.js (Metro resuelve por extensión de
+// plataforma, así el bundle web nunca intenta cargar lottie-react-native).
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import LottieView from "lottie-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
-export default function StreakFlame({ days = null, dimmed = true }) {
-  const color = dimmed ? colors.textMuted : colors.streak;
+const streakAnimation = require("../../assets/lottie/streak-fire.json");
+
+export default function StreakFlame({ days = null, active = false }) {
+  const color = active ? colors.streak : colors.textMuted;
+  const size = 30;
+
   return (
     <View style={styles.row}>
-      <MaterialCommunityIcons name="fire" size={26} color={color} />
+      {active ? (
+        <LottieView source={streakAnimation} autoPlay loop style={{ width: size, height: size }} />
+      ) : (
+        <MaterialCommunityIcons name="fire" size={26} color={color} />
+      )}
       {days != null ? <Text style={[styles.days, { color }]}>{days}</Text> : null}
     </View>
   );

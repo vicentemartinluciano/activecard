@@ -7,22 +7,44 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ProgressBar from "../../components/ProgressBar";
 import StreakFlame from "../../components/StreakFlame";
 import { Button } from "../../components/ui";
+import { listDecks } from "../../db/decks";
+import { getDecksDailyProgress } from "../../db/progress";
 import { getDailyReviewStats } from "../../db/reviewQueue";
+import { getStreak } from "../../db/streak";
 import { colors, radius, spacing, type } from "../../theme";
 
 export default function Inicio() {
   const router = useRouter();
   const [stats, setStats] = useState(null);
+  const [streak, setStreak] = useState(null);
+  const [inProgressDecks, setInProgressDecks] = useState([]);
 
   useFocusEffect(
     useCallback(() => {
       let alive = true;
+
       getDailyReviewStats()
         .then((s) => alive && setStats(s))
         .catch((e) => {
           console.warn("No se pudo leer la cola de repaso:", e);
           if (alive) setStats(null);
         });
+
+      getStreak()
+        .then((s) => alive && setStreak(s))
+        .catch(() => alive && setStreak(null));
+
+      Promise.all([listDecks(), getDecksDailyProgress()])
+        .then(([decks, progressByDeck]) => {
+          if (!alive) return;
+          const withProgress = decks
+            .map((d) => ({ ...d, progress: progressByDeck[d.id] }))
+            .filter((d) => d.progress && d.progress.pct > 0 && d.progress.pct < 100)
+            .slice(0, 3);
+          setInProgressDecks(withProgress);
+        })
+        .catch(() => alive && setInProgressDecks([]));
+
       return () => {
         alive = false;
       };
@@ -40,7 +62,7 @@ export default function Inicio() {
           <Text style={type.subtitle}>Soberanía mental, un día a la vez.</Text>
         </View>
         <View style={styles.headerRight}>
-          <StreakFlame />
+          <StreakFlame days={streak ? streak.days : null} active={!!streak && streak.activeToday} />
           <Pressable
             onPress={() => router.push("/ajustes")}
             hitSlop={10}
@@ -75,6 +97,26 @@ export default function Inicio() {
             style={{ marginTop: spacing.md }}
           />
         </View>
+
+        {inProgressDecks.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Seguir estudiando</Text>
+            {inProgressDecks.map((d) => (
+              <Pressable
+                key={d.id}
+                onPress={() => router.push(`/mazos/${d.id}/estudiar`)}
+                style={({ pressed }) => [styles.deckRow, pressed && { opacity: 0.7 }]}
+              >
+                <Feather name={d.icon || "book"} size={18} color={colors.accentText} />
+                <View style={{ flex: 1 }}>
+                  <Text style={type.body}>{d.name}</Text>
+                  <ProgressBar pct={d.progress.pct} style={{ marginTop: 6 }} />
+                </View>
+                <Text style={styles.deckPct}>{d.progress.pct}%</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -102,7 +144,7 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   heroCard: {
     backgroundColor: colors.surfaceCard,
@@ -131,5 +173,25 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "700",
     color: colors.success,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    ...type.body,
+    fontWeight: "700",
+  },
+  deckRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  deckPct: {
+    ...type.small,
+    color: colors.accentText,
+    fontWeight: "700",
   },
 });

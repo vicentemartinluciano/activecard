@@ -5,6 +5,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
+import ProgressBar from "../../../components/ProgressBar";
 import { Button, Chip, confirmAsync, EmptyState, Field, InlineAdd, Screen } from "../../../components/ui";
 import { listCardsByDeck } from "../../../db/cards";
 import {
@@ -17,6 +18,7 @@ import {
   updateDeckIcon,
   updateDeckPriority,
 } from "../../../db/decks";
+import { getDeckDailyProgress } from "../../../db/progress";
 import { colors, radius, spacing, type } from "../../../theme";
 
 export default function DetalleMazo() {
@@ -30,6 +32,7 @@ export default function DetalleMazo() {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [progress, setProgress] = useState(null);
 
   const load = useCallback(async () => {
     const d = await getDeck(deckId);
@@ -38,6 +41,7 @@ export default function DetalleMazo() {
       setName(d.name);
       setCards(await listCardsByDeck(deckId));
       setAllTags(await listTags());
+      setProgress(await getDeckDailyProgress(deckId));
     }
   }, [deckId]);
 
@@ -107,6 +111,15 @@ export default function DetalleMazo() {
                 <Button label="Renombrar" onPress={() => setEditingName(true)} />
               </View>
             )}
+
+            {progress && progress.total > 0 ? (
+              <View style={{ gap: spacing.xs }}>
+                <Text style={type.small}>
+                  Progreso de hoy: {progress.reviewedToday}/{progress.total}
+                </Text>
+                <ProgressBar pct={progress.pct} />
+              </View>
+            ) : null}
 
             <View style={{ gap: spacing.sm }}>
               <Text style={type.small}>Etiquetas del mazo</Text>

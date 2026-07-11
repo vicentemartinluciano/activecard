@@ -3,8 +3,10 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import ProgressBar from "../../components/ProgressBar";
 import { Chip, EmptyState, InlineAdd, Screen } from "../../components/ui";
 import { createDeck, listDecks, listTags } from "../../db/decks";
+import { getDecksDailyProgress } from "../../db/progress";
 import { colors, radius, spacing, type } from "../../theme";
 
 export default function Biblioteca() {
@@ -12,13 +14,15 @@ export default function Biblioteca() {
   const [decks, setDecks] = useState([]);
   const [tags, setTags] = useState([]);
   const [activeTagIds, setActiveTagIds] = useState([]);
+  const [progressByDeck, setProgressByDeck] = useState({});
 
   const refresh = useCallback(() => {
     let alive = true;
-    Promise.all([listDecks(), listTags()]).then(([d, t]) => {
+    Promise.all([listDecks(), listTags(), getDecksDailyProgress()]).then(([d, t, p]) => {
       if (!alive) return;
       setDecks(d);
       setTags(t);
+      setProgressByDeck(p);
     });
     return () => {
       alive = false;
@@ -73,28 +77,36 @@ export default function Biblioteca() {
             }
           />
         }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => router.push(`/mazos/${item.id}`)}
-            style={({ pressed }) => [styles.deck, pressed && { opacity: 0.7 }]}
-          >
-            <View style={styles.deckIcon}>
-              <Feather name={item.icon || "book"} size={20} color={colors.accentText} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.deckName}>{item.name}</Text>
-              <Text style={type.small}>
-                {item.card_count} {item.card_count === 1 ? "tarjeta" : "tarjetas"}
-                {item.tags.length > 0 ? ` · ${item.tags.map((t) => t.name).join(", ")}` : ""}
-              </Text>
-            </View>
-            {item.priority < 100 ? (
-              <Text style={styles.priorityBadge}>
-                {item.priority === 0 ? "Pausado" : `${item.priority}%`}
-              </Text>
-            ) : null}
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const progress = progressByDeck[item.id];
+          return (
+            <Pressable
+              onPress={() => router.push(`/mazos/${item.id}`)}
+              style={({ pressed }) => [styles.deck, pressed && { opacity: 0.7 }]}
+            >
+              <View style={styles.deckRow}>
+                <View style={styles.deckIcon}>
+                  <Feather name={item.icon || "book"} size={20} color={colors.accentText} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.deckName}>{item.name}</Text>
+                  <Text style={type.small}>
+                    {item.card_count} {item.card_count === 1 ? "tarjeta" : "tarjetas"}
+                    {item.tags.length > 0 ? ` · ${item.tags.map((t) => t.name).join(", ")}` : ""}
+                  </Text>
+                </View>
+                {item.priority < 100 ? (
+                  <Text style={styles.priorityBadge}>
+                    {item.priority === 0 ? "Pausado" : `${item.priority}%`}
+                  </Text>
+                ) : null}
+              </View>
+              {progress && progress.pct > 0 ? (
+                <ProgressBar pct={progress.pct} style={{ marginTop: spacing.sm }} />
+              ) : null}
+            </Pressable>
+          );
+        }}
       />
     </Screen>
   );
@@ -113,6 +125,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
+  },
+  deckRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
