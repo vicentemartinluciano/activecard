@@ -2,7 +2,8 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
-import { Button, confirmAsync, Field, Screen } from "../../../components/ui";
+import RichField from "../../../components/RichField";
+import { Button, confirmAsync, Screen } from "../../../components/ui";
 import { createCard, deleteCard, getCard, updateCardText } from "../../../db/cards";
 import { spacing, type } from "../../../theme";
 
@@ -62,20 +63,18 @@ export default function EditorTarjeta() {
       <ScrollView contentContainerStyle={{ gap: spacing.md }}>
         <View style={{ gap: spacing.sm }}>
           <Text style={type.small}>Frente (pregunta)</Text>
-          <Field
+          <RichField
             value={front}
             onChangeText={setFront}
             placeholder="¿Cuáles son las 5 fuerzas de Porter?"
-            multiline
           />
         </View>
         <View style={{ gap: spacing.sm }}>
           <Text style={type.small}>Dorso (respuesta)</Text>
-          <Field
+          <RichField
             value={back}
             onChangeText={setBack}
             placeholder="Competidores del sector, potenciales, sustitutos…"
-            multiline
           />
         </View>
         <Button

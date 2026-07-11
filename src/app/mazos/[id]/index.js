@@ -19,6 +19,7 @@ import {
   updateDeckPriority,
 } from "../../../db/decks";
 import { getDeckDailyProgress } from "../../../db/progress";
+import { toPlainText } from "../../../lib/richtext";
 import { colors, radius, spacing, type } from "../../../theme";
 
 export default function DetalleMazo() {
@@ -182,11 +183,11 @@ export default function DetalleMazo() {
             style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
           >
             <Text style={styles.cardFront} numberOfLines={2}>
-              {item.front}
+              {toPlainText(item.front)}
             </Text>
             <Text style={type.small} numberOfLines={1}>
               {item.source === "hybrid" ? "★ conexión · " : ""}
-              {item.back}
+              {toPlainText(item.back)}
             </Text>
           </Pressable>
         )}

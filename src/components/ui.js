@@ -1,6 +1,6 @@
 // Primitivas de UI compartidas — mantienen la estética minimalista consistente.
 
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -46,9 +46,13 @@ export function Button({ label, onPress, kind = "default", disabled, style }) {
   );
 }
 
-export function Field({ value, onChangeText, placeholder, multiline, style, ...rest }) {
+export const Field = forwardRef(function Field(
+  { value, onChangeText, placeholder, multiline, style, ...rest },
+  ref
+) {
   return (
     <TextInput
+      ref={ref}
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
@@ -58,7 +62,7 @@ export function Field({ value, onChangeText, placeholder, multiline, style, ...r
       {...rest}
     />
   );
-}
+});
 
 export function Chip({ label, active, onPress }) {
   return (

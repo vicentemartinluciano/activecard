@@ -2,10 +2,12 @@ import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Button, Chip, Field, InlineAdd, Screen } from "../../components/ui";
+import RichField from "../../components/RichField";
+import { Button, Chip, InlineAdd, Screen } from "../../components/ui";
 import { createCard } from "../../db/cards";
 import { createDeck, listDecks } from "../../db/decks";
 import { clearDraft, getDraft } from "../../lib/draftStore";
+import { toPlainText } from "../../lib/richtext";
 import { colors, radius, spacing, type } from "../../theme";
 
 // Preselección: revisar lo que propuso la IA antes de que toque el mazo.
@@ -102,27 +104,25 @@ export default function Preseleccion() {
           <View style={[styles.card, !item.kept && styles.cardDiscarded]}>
             {editingKey === item.key ? (
               <View style={{ gap: spacing.sm }}>
-                <Field
+                <RichField
                   value={item.front}
                   onChangeText={(v) => editCard(item.key, "front", v)}
                   placeholder="Frente (pregunta)"
-                  multiline
                 />
-                <Field
+                <RichField
                   value={item.back}
                   onChangeText={(v) => editCard(item.key, "back", v)}
                   placeholder="Dorso (respuesta)"
-                  multiline
                 />
                 <Button label="Listo" kind="primary" onPress={() => setEditingKey(null)} />
               </View>
             ) : (
               <Pressable onPress={() => setEditingKey(item.key)}>
                 <Text style={[styles.front, !item.kept && styles.textDiscarded]}>
-                  {item.front || "(sin frente — tocá para editar)"}
+                  {toPlainText(item.front) || "(sin frente — tocá para editar)"}
                 </Text>
                 <Text style={[type.small, !item.kept && styles.textDiscarded]} numberOfLines={3}>
-                  {item.back || "(sin dorso)"}
+                  {toPlainText(item.back) || "(sin dorso)"}
                 </Text>
               </Pressable>
             )}

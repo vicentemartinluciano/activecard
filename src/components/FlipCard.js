@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
 
+import RichText from "./RichText";
 import { colors, radius, spacing, type } from "../theme";
 
 export default function FlipCard({ front, back, flipped, onFlip }) {
@@ -32,7 +33,7 @@ export default function FlipCard({ front, back, flipped, onFlip }) {
         style={[styles.face, { transform: [{ perspective: 1000 }, { rotateY: frontRotate }] }]}
       >
         <Text style={styles.hint}>Pregunta</Text>
-        <Text style={styles.text}>{front}</Text>
+        <RichText text={front} style={styles.text} />
         <Text style={styles.hint}>tocá para dar vuelta</Text>
       </Animated.View>
       <Animated.View
@@ -43,7 +44,7 @@ export default function FlipCard({ front, back, flipped, onFlip }) {
         ]}
       >
         <Text style={styles.hint}>Respuesta</Text>
-        <Text style={styles.text}>{back}</Text>
+        <RichText text={back} style={styles.text} />
         <Text style={styles.hint} />
       </Animated.View>
     </Pressable>
