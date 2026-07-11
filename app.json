@@ -64,6 +64,9 @@
         "projectId": "c0ae7728-da97-4e4c-ae55-c8a010375d8c"
       }
     },
-    "owner": "vicentemartinluciano"
+    "owner": "vicentemartinluciano",
+    "updates": {
+      "url": "https://u.expo.dev/c0ae7728-da97-4e4c-ae55-c8a010375d8c"
+    }
   }
 }
