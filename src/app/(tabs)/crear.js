@@ -7,15 +7,19 @@ import { setDraft } from "../../lib/draftStore";
 import { pickStudyFile } from "../../lib/files";
 import { generateCardsFromPdf, generateCardsFromText } from "../../lib/generator";
 import { fetchNotionPage } from "../../lib/notion";
+import { parseQuizletExport } from "../../lib/quizletImport";
 import { colors, spacing, type } from "../../theme";
 
 // Fuente de material → IA (opcional) → preselección.
 export default function Crear() {
   const router = useRouter();
   const [mode, setMode] = useState("conceptos_clave");
-  const [source, setSource] = useState("texto"); // 'texto' | 'archivo' | 'notion'
+  const [source, setSource] = useState("texto"); // 'texto' | 'archivo' | 'notion' | 'quizlet'
   const [text, setText] = useState("");
   const [notionUrl, setNotionUrl] = useState("");
+  const [quizletText, setQuizletText] = useState("");
+  const [quizletFieldSep, setQuizletFieldSep] = useState("\t");
+  const [quizletCardSep, setQuizletCardSep] = useState("\n");
   const [busy, setBusy] = useState(null); // string de estado o null
   const [error, setError] = useState(null);
 
@@ -65,6 +69,24 @@ export default function Crear() {
       goPreselect(cards, page.title);
     });
 
+  const importFromQuizlet = () =>
+    run(async () => {
+      if (!quizletText.trim()) return;
+      const cards = parseQuizletExport(quizletText, {
+        fieldSep: quizletFieldSep,
+        cardSep: quizletCardSep,
+      });
+      if (cards.length === 0) {
+        throw new Error(
+          "No se encontró ninguna tarjeta válida. Revisá los separadores elegidos."
+        );
+      }
+      goPreselect(
+        cards.map((c) => ({ ...c, manual: true })),
+        "Quizlet"
+      );
+    });
+
   if (busy) {
     return (
       <Screen style={styles.center}>
@@ -78,21 +100,23 @@ export default function Crear() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
-        <View style={styles.section}>
-          <Text style={type.small}>¿Cuánto extraer del material?</Text>
-          <View style={styles.chipRow}>
-            <Chip
-              label="Solo conceptos clave"
-              active={mode === "conceptos_clave"}
-              onPress={() => setMode("conceptos_clave")}
-            />
-            <Chip
-              label="Creación completa"
-              active={mode === "completo"}
-              onPress={() => setMode("completo")}
-            />
+        {source !== "quizlet" ? (
+          <View style={styles.section}>
+            <Text style={type.small}>¿Cuánto extraer del material?</Text>
+            <View style={styles.chipRow}>
+              <Chip
+                label="Solo conceptos clave"
+                active={mode === "conceptos_clave"}
+                onPress={() => setMode("conceptos_clave")}
+              />
+              <Chip
+                label="Creación completa"
+                active={mode === "completo"}
+                onPress={() => setMode("completo")}
+              />
+            </View>
           </View>
-        </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={type.small}>Fuente del material</Text>
@@ -100,6 +124,7 @@ export default function Crear() {
             <Chip label="Texto" active={source === "texto"} onPress={() => setSource("texto")} />
             <Chip label="Archivo" active={source === "archivo"} onPress={() => setSource("archivo")} />
             <Chip label="Notion" active={source === "notion"} onPress={() => setSource("notion")} />
+            <Chip label="Quizlet" active={source === "quizlet"} onPress={() => setSource("quizlet")} />
           </View>
         </View>
 
@@ -147,6 +172,51 @@ export default function Crear() {
               kind="primary"
               onPress={generateFromNotion}
               disabled={!notionUrl.trim()}
+            />
+          </View>
+        ) : null}
+
+        {source === "quizlet" ? (
+          <View style={styles.section}>
+            <Field
+              value={quizletText}
+              onChangeText={setQuizletText}
+              placeholder="Pegá acá el texto exportado del set…"
+              multiline
+              style={{ minHeight: 200 }}
+            />
+            <Text style={type.small}>
+              En Quizlet: abrí el set → ⋯ → Exportar → copiá el texto que te muestra.
+            </Text>
+            <View style={styles.chipRow}>
+              <Chip
+                label="Separador: Tab"
+                active={quizletFieldSep === "\t"}
+                onPress={() => setQuizletFieldSep("\t")}
+              />
+              <Chip
+                label="Separador: Coma"
+                active={quizletFieldSep === ","}
+                onPress={() => setQuizletFieldSep(",")}
+              />
+            </View>
+            <View style={styles.chipRow}>
+              <Chip
+                label="Tarjetas: nueva línea"
+                active={quizletCardSep === "\n"}
+                onPress={() => setQuizletCardSep("\n")}
+              />
+              <Chip
+                label="Tarjetas: punto y coma"
+                active={quizletCardSep === ";"}
+                onPress={() => setQuizletCardSep(";")}
+              />
+            </View>
+            <Button
+              label="Procesar"
+              kind="primary"
+              onPress={importFromQuizlet}
+              disabled={!quizletText.trim()}
             />
           </View>
         ) : null}
