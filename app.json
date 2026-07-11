@@ -32,6 +32,9 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+    "experiments": {
+      "baseUrl": "/activecard"
+    },
     "plugins": [
       "expo-router",
       [
