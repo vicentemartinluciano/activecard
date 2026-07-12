@@ -1,10 +1,10 @@
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text } from "react-native";
 
-import { EmptyState, Screen } from "../components/ui";
+import { Card, EmptyState, Screen } from "../components/ui";
 import { listConnections } from "../db/connections";
-import { colors, radius, spacing, type } from "../theme";
+import { radius, spacing, type } from "../theme";
 
 // Archivo de conexiones validadas por el Auditor: el registro del criterio propio.
 export default function Conexiones() {
@@ -31,11 +31,11 @@ export default function Conexiones() {
           <EmptyState text="Todavía no validaste ninguna conexión en el Gimnasio Mental." />
         }
         renderItem={({ item }) => (
-          <View style={styles.item}>
+          <Card level="high" style={styles.item}>
             <Text style={type.small}>Sobre: {item.card_front}</Text>
             <Text style={styles.text}>{item.final_text}</Text>
             <Text style={styles.date}>{new Date(item.created_at).toLocaleDateString("es-AR")}</Text>
-          </View>
+          </Card>
         )}
       />
     </Screen>
@@ -44,9 +44,7 @@ export default function Conexiones() {
 
 const styles = StyleSheet.create({
   item: {
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
-    padding: spacing.md,
     gap: spacing.xs,
   },
   text: {

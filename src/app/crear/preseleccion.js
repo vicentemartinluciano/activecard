@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import RichField from "../../components/RichField";
-import { Button, Chip, InlineAdd, Screen } from "../../components/ui";
+import { Button, Card, Chip, InlineAdd, Screen } from "../../components/ui";
 import { createCard } from "../../db/cards";
 import { createDeck, listDecks } from "../../db/decks";
 import { clearDraft, getDraft } from "../../lib/draftStore";
@@ -101,7 +101,7 @@ export default function Preseleccion() {
           </Text>
         }
         renderItem={({ item }) => (
-          <View style={[styles.card, !item.kept && styles.cardDiscarded]}>
+          <Card level="high" style={[styles.card, !item.kept && styles.cardDiscarded]}>
             {editingKey === item.key ? (
               <View style={{ gap: spacing.sm }}>
                 <RichField
@@ -133,7 +133,7 @@ export default function Preseleccion() {
                 onPress={() => toggleKept(item.key)}
               />
             </View>
-          </View>
+          </Card>
         )}
         ListFooterComponent={
           <View style={{ gap: spacing.lg, marginTop: spacing.md }}>
@@ -181,15 +181,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
-    padding: spacing.md,
     gap: spacing.sm,
   },
   cardDiscarded: {
     opacity: 0.5,
-    borderWidth: 1,
-    borderColor: colors.border,
     backgroundColor: colors.bg,
   },
   front: {
