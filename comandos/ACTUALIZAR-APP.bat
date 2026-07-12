@@ -32,7 +32,7 @@ if errorlevel 1 (
 
 echo.
 pause
-call npx eas-cli@latest update --branch preview --message "Actualizacion de ActiveCard"
+call npx eas-cli@latest update --branch preview --environment preview --message "Actualizacion de ActiveCard"
 if errorlevel 1 (
   echo.
   echo  ERROR: el envio de la actualizacion fallo. Revisa el mensaje de arriba
