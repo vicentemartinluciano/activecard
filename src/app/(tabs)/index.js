@@ -11,7 +11,7 @@ import { listDecks } from "../../db/decks";
 import { getDecksDailyProgress } from "../../db/progress";
 import { getDailyReviewStats } from "../../db/reviewQueue";
 import { getStreak } from "../../db/streak";
-import { colors, radius, spacing, type } from "../../theme";
+import { colors, gradients, radius, spacing, type } from "../../theme";
 
 export default function Inicio() {
   const router = useRouter();
@@ -115,7 +115,7 @@ export default function Inicio() {
                 <Feather name={d.icon || "book"} size={18} color={colors.accentText} />
                 <View style={{ flex: 1 }}>
                   <Text style={type.body}>{d.name}</Text>
-                  <ProgressBar pct={d.progress.pct} color={colors.accent} style={{ marginTop: 6 }} />
+                  <ProgressBar pct={d.progress.pct} gradient={gradients.bar} style={{ marginTop: 6 }} />
                 </View>
                 <Text style={styles.deckPct}>{d.progress.pct}%</Text>
               </Card>

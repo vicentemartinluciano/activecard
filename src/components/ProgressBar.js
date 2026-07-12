@@ -1,14 +1,24 @@
 // Barra de progreso fina y redondeada (estilo Quizlet).
 
+import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, View } from "react-native";
 
 import { colors, radius } from "../theme";
 
-export default function ProgressBar({ pct, color = colors.accent, style }) {
+export default function ProgressBar({ pct, color = colors.accent, gradient, style }) {
   const clamped = Math.max(0, Math.min(100, pct || 0));
   return (
     <View style={[styles.track, style]}>
-      <View style={[styles.fill, { width: `${clamped}%`, backgroundColor: color }]} />
+      {gradient ? (
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.fill, { width: `${clamped}%` }]}
+        />
+      ) : (
+        <View style={[styles.fill, { width: `${clamped}%`, backgroundColor: color }]} />
+      )}
     </View>
   );
 }

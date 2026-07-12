@@ -7,7 +7,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import ProgressBar from "./ProgressBar";
 import { Card, Pill } from "./ui";
-import { colors, radius, spacing, type } from "../theme";
+import { colors, gradients, radius, spacing, type } from "../theme";
 
 export default function DeckListItem({ deck, progress, onPress }) {
   return (
@@ -36,7 +36,7 @@ export default function DeckListItem({ deck, progress, onPress }) {
         ) : null}
       </View>
       {progress && progress.pct > 0 ? (
-        <ProgressBar pct={progress.pct} color={colors.accent} style={{ marginTop: spacing.sm }} />
+        <ProgressBar pct={progress.pct} gradient={gradients.bar} style={{ marginTop: spacing.sm }} />
       ) : null}
     </Card>
   );
