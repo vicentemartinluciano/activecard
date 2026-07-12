@@ -95,6 +95,9 @@ muestra la barrita al seleccionar y aplica `wrapSelection`/`wrapColor`/
 
 **Generación IA**: texto | TXT/MD local | PDF→base64 como bloque `document` |
 página de Notion → prompt generador → JSON {cards} → preselección → FSRS.
+`GENERATOR_SYSTEM` (`lib/prompts.js`) incluye reglas de rich text (viñetas, negrita,
+cursiva, subrayado, resaltado, color) para que el dorso use la misma gramática de
+`lib/richtext.js` cuando aporta claridad — solo en el dorso, con moderación.
 **Import Quizlet** (`lib/quizletImport.js`): pega el export (tab/nueva línea
 por defecto, separadores configurables) → mismas pantallas, sin IA.
 

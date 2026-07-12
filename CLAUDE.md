@@ -20,7 +20,8 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Preview web** (verificar cambios): MCP de preview con el server `activecard-web` de
   `.claude/launch.json`. Navegar a `http://localhost:8081/`, verificar por DOM
   (preview_eval) + console errors.
-- OTA al teléfono: `comandos/ACTUALIZAR-APP.bat` (= `eas update --branch preview`). Solo JS/UI.
+- OTA al teléfono: `comandos/ACTUALIZAR-APP.bat` (= `eas update --branch preview --environment preview`,
+  con chequeo previo de Node y sesión de EAS). Solo JS/UI.
 - APK nuevo: `comandos/CONSTRUIR-APP-ANDROID.bat` (= `eas build -p android --profile preview`).
   Solo si se agrega un módulo NATIVO nuevo o cambia el identificador.
 - CI: GitHub Actions corre lint+tests en cada push.
@@ -86,11 +87,27 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 ## Dónde estamos
 - Fases 0-6 y rediseño F8-F15 completos (tema azul, tabs, prioridad %, racha,
   progreso diario, falladas, rich text, import Quizlet, respaldo, web pública).
-- F16: subir env vars a EAS y construir el primer APK + smoke test.
-- F17-F20 completas (rediseño Quizlet 2.0): contenedores Card/Pill en toda la app,
+- F16: env vars en EAS + primer APK + OTA funcionando (verificado por el usuario).
+- F17-F21 completas (rediseño Quizlet 2.0): contenedores Card/Pill en toda la app,
   swipe unificado en el repaso diario, sistema de Carpetas (migración v3 + backup v2)
-  y buscador integrado en Biblioteca.
-- Plan completo: `C:\Users\marti\.claude\plans\mira-quiero-planear-la-moonlit-possum.md`.
+  y buscador integrado en Biblioteca. Mergeado a `main` (PR #1).
+- F22-F27 (fixes chicos post-rediseño, mergeados a `main` en PR #2): `ACTUALIZAR-APP.bat`
+  con diagnóstico de errores (Node/login) y `--environment preview` explícito (evita el
+  prompt interactivo de eas-cli que parecía trabar el script); mensajes de "falta la
+  clave" de Claude/Notion ahora son conscientes de la plataforma (web → Ajustes, en vez
+  de mandar siempre a editar el `.env`); prompt generador de tarjetas con reglas de rich
+  text (viñetas, negrita, cursiva, subrayado, resaltado, color) para que la IA use el
+  mismo formato que ya soporta el editor.
+- **Limitación descubierta**: Notion no permite llamadas directas desde el navegador
+  (sin CORS, a diferencia de la API de Claude) → la conexión por link a Notion NUNCA va
+  a andar en la web pública, solo en el APK. En web hay que exportar la página como
+  Markdown y usar la fuente "Archivo". Documentado en `docs/ARQUITECTURA.md`.
+- **Idea para el roadmap (sin planificar todavía)**: botón "Actualizar mazo" que
+  re-lea la fuente (Notion/texto) y solo AGREGUE tarjetas nuevas, sin tocar ni borrar
+  las existentes — dedupe primero por texto exacto (gratis), evaluar IA si en la
+  práctica hay muchos duplicados con distinta redacción (costo estimado: centavos por
+  actualización, ver conversación de la sesión F22-F27 para el detalle).
+- Plan completo del rediseño Quizlet 2.0: `C:\Users\marti\.claude\plans\mira-quiero-planear-la-moonlit-possum.md`.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).
