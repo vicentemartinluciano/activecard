@@ -65,6 +65,7 @@ export function Button({ label, onPress, kind = "default", disabled, style }) {
         kind === "primary" && styles.buttonPrimary,
         kind === "danger" && styles.buttonDanger,
         kind === "ghost" && styles.buttonGhost,
+        kind === "inverse" && styles.buttonInverse,
         disabled && { opacity: 0.4 },
         pressed && { opacity: 0.7 },
         style,
@@ -76,6 +77,7 @@ export function Button({ label, onPress, kind = "default", disabled, style }) {
           kind === "primary" && { color: "#FFFFFF" },
           kind === "danger" && { color: colors.danger },
           kind === "ghost" && { color: colors.textMuted },
+          kind === "inverse" && styles.buttonInverseLabel,
         ]}
       >
         {label}
@@ -187,10 +189,18 @@ const styles = StyleSheet.create({
   buttonGhost: {
     backgroundColor: "transparent",
   },
+  buttonInverse: {
+    backgroundColor: "#FFFFFF",
+  },
   buttonLabel: {
     fontSize: 15,
     fontWeight: "600",
     color: colors.text,
+  },
+  buttonInverseLabel: {
+    color: colors.bg,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   field: {
     backgroundColor: colors.surface,

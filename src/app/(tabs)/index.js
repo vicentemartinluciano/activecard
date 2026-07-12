@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -56,25 +57,24 @@ export default function Inicio() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <View>
-          <Text style={type.title}>ActiveCard</Text>
-          <Text style={type.subtitle}>Soberanía mental, un día a la vez.</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <StreakFlame days={streak ? streak.days : null} active={!!streak && streak.activeToday} />
-          <Pressable
-            onPress={() => router.push("/ajustes")}
-            hitSlop={10}
-            style={({ pressed }) => pressed && { opacity: 0.6 }}
-          >
-            <Feather name="settings" size={22} color={colors.textMuted} />
-          </Pressable>
-        </View>
+      <View style={styles.topRow}>
+        <StreakFlame days={streak ? streak.days : null} active={!!streak && streak.activeToday} />
+        <Pressable
+          onPress={() => router.push("/ajustes")}
+          hitSlop={10}
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
+        >
+          <Feather name="settings" size={22} color={colors.textMuted} />
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        <Card style={{ padding: spacing.lg }}>
+        <LinearGradient
+          colors={gradients.hero}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
           <Text style={styles.heroLabel}>Repaso de hoy</Text>
           {completedToday ? (
             <Text style={styles.heroDone}>Completado ✓</Text>
@@ -95,12 +95,12 @@ export default function Inicio() {
             />
           ) : null}
           <Button
-            label={completedToday ? "Repasar de nuevo" : "Repasar"}
-            kind="primary"
+            label={completedToday ? "REPASAR DE NUEVO" : "REPASAR AHORA"}
+            kind="inverse"
             onPress={() => router.push("/repaso")}
             style={{ marginTop: spacing.md }}
           />
-        </Card>
+        </LinearGradient>
 
         {inProgressDecks.length > 0 ? (
           <View style={styles.section}>
@@ -132,31 +132,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  header: {
+  topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  headerRight: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-    paddingTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   body: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
     gap: spacing.lg,
   },
+  hero: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.lg,
+    overflow: "hidden",
+  },
   heroLabel: {
     ...type.label,
     marginBottom: spacing.sm,
   },
   heroCount: {
-    fontSize: 40,
+    fontSize: 48,
     fontWeight: "800",
     color: colors.text,
   },

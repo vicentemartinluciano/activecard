@@ -5,6 +5,7 @@
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
+import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
@@ -14,11 +15,26 @@ const streakAnimation = require("../../assets/lottie/streak-fire.json");
 export default function StreakFlame({ days = null, active = false }) {
   const color = active ? colors.streak : colors.textMuted;
   const size = 30;
+  const animationRef = useRef(null);
+
+  // autoPlay a veces se congela en el frame 0 en Android; forzar play() tras
+  // el montado es el fix estándar para que la animación arranque de verdad.
+  useEffect(() => {
+    if (!active) return;
+    const raf = requestAnimationFrame(() => animationRef.current?.play());
+    return () => cancelAnimationFrame(raf);
+  }, [active]);
 
   return (
     <View style={styles.row}>
       {active ? (
-        <LottieView source={streakAnimation} autoPlay loop style={{ width: size, height: size }} />
+        <LottieView
+          ref={animationRef}
+          source={streakAnimation}
+          autoPlay
+          loop
+          style={{ width: size, height: size }}
+        />
       ) : (
         <MaterialCommunityIcons name="fire" size={26} color={color} />
       )}
