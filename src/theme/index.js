@@ -16,9 +16,12 @@ export const colors = {
   accentText: "#8FA6F3", // azul claro para texto/íconos activos sobre oscuro
   danger: "#C05A5F",
   success: "#5F9E6E",
+  successBright: "#4CC38A", // verde brillante estilo Quizlet (barras de progreso, completado)
   streak: "#F76B15", // naranja del fuego de racha
   streakSoft: "#3A2113",
   highlight: "#4A3A12", // fondo de resaltado rich text (ámbar oscuro)
+  pillBg: "#FFFFFF14", // fondo semi-transparente de píldoras/tags
+  pillBorder: "#FFFFFF1F", // borde sutil de píldoras
 };
 
 // Paleta de colores de texto para el formato de tarjetas (rich text).
@@ -40,10 +43,13 @@ export const spacing = {
   xl: 40,
 };
 
+// Semántica: lg = contenedores Card principales, md = filas/superficies internas,
+// sm = botones/inputs, pill = píldoras y barras de progreso.
 export const radius = {
-  sm: 8,
-  md: 14,
-  lg: 22,
+  sm: 10,
+  md: 16,
+  lg: 20,
+  pill: 999,
 };
 
 export const type = {
@@ -51,4 +57,12 @@ export const type = {
   subtitle: { fontSize: 15, color: colors.textMuted },
   body: { fontSize: 17, color: colors.text, lineHeight: 24 },
   small: { fontSize: 13, color: colors.textMuted },
+  heading: { fontSize: 20, fontWeight: "700", color: colors.text },
+  label: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
 };

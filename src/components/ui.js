@@ -1,5 +1,6 @@
 // Primitivas de UI compartidas — mantienen la estética minimalista consistente.
 
+import { Feather } from "@expo/vector-icons";
 import { forwardRef, useState } from "react";
 import {
   Alert,
@@ -15,6 +16,43 @@ import { colors, radius, spacing, type } from "../theme";
 
 export function Screen({ children, style }) {
   return <View style={[styles.screen, style]}>{children}</View>;
+}
+
+// Contenedor de superficie en capas (patrón Quizlet): toda "card" visual de la
+// app sale de acá para no duplicar estilos por pantalla.
+// level: "base" (surfaceCard, contenedores principales) | "high" (surfaceHigh,
+// sub-superficies dentro de otra card).
+export function Card({ children, onPress, level = "base", style }) {
+  const base = [styles.card, level === "high" && styles.cardHigh, style];
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => [...base, pressed && { opacity: 0.7 }]}>
+        {children}
+      </Pressable>
+    );
+  }
+  return <View style={base}>{children}</View>;
+}
+
+// Píldora semi-transparente para tags, contadores y badges.
+export function Pill({ label, icon, color = colors.textMuted, onPress, style }) {
+  const content = (
+    <>
+      {icon ? <Feather name={icon} size={12} color={color} /> : null}
+      <Text style={[styles.pillLabel, { color }]}>{label}</Text>
+    </>
+  );
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }, style]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+  return <View style={[styles.pill, style]}>{content}</View>;
 }
 
 export function Button({ label, onPress, kind = "default", disabled, style }) {
@@ -35,7 +73,7 @@ export function Button({ label, onPress, kind = "default", disabled, style }) {
       <Text
         style={[
           styles.buttonLabel,
-          kind === "primary" && { color: colors.accent },
+          kind === "primary" && { color: "#FFFFFF" },
           kind === "danger" && { color: colors.danger },
           kind === "ghost" && { color: colors.textMuted },
         ]}
@@ -133,15 +171,13 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.surface,
     borderRadius: radius.sm,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: spacing.md,
     alignItems: "center",
     justifyContent: "center",
   },
   buttonPrimary: {
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: colors.accent,
+    backgroundColor: colors.accent,
   },
   buttonDanger: {
     backgroundColor: "transparent",
@@ -170,13 +206,39 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: "top",
   },
-  chip: {
+  card: {
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    padding: spacing.md,
+  },
+  cardHigh: {
+    backgroundColor: colors.surfaceHigh,
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.pillBg,
+    borderWidth: 1,
+    borderColor: colors.pillBorder,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    alignSelf: "flex-start",
+  },
+  pillLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  chip: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.pillBorder,
     paddingVertical: 5,
     paddingHorizontal: spacing.sm + 4,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.pillBg,
   },
   chipActive: {
     borderColor: colors.accent,

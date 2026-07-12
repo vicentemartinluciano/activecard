@@ -84,6 +84,21 @@ export const MIGRATIONS = [
   ALTER TABLE decks ADD COLUMN priority INTEGER NOT NULL DEFAULT 100;
   ALTER TABLE decks ADD COLUMN icon TEXT;
   `,
+
+  // v3 — carpetas que agrupan mazos (un mazo pertenece a 0 o 1 carpeta).
+  // folder_id va SIN REFERENCES a propósito: PRAGMA foreign_keys está ON y una
+  // FK real obligaría a ordenar los inserts del restore de respaldos viejos.
+  // La integridad la garantiza la app: deleteFolder desasigna los mazos en la
+  // misma transacción en la que borra la carpeta.
+  `
+  CREATE TABLE IF NOT EXISTS folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  ALTER TABLE decks ADD COLUMN folder_id INTEGER;
+  CREATE INDEX IF NOT EXISTS idx_decks_folder ON decks(folder_id);
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

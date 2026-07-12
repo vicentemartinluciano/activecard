@@ -1,6 +1,6 @@
 import { buildBackup, restoreBackup } from "../backup";
 
-const TABLES = ["decks", "tags", "deck_tags", "cards", "review_logs", "connections"];
+const TABLES = ["folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections"];
 
 // Doble mínimo de una conexión expo-sqlite async con tablas en memoria.
 function fakeDb(initialTables = {}) {
@@ -41,7 +41,7 @@ describe("buildBackup", () => {
     });
     const backup = await buildBackup(db, NOW);
     expect(backup.app).toBe("activecard");
-    expect(backup.version).toBe(1);
+    expect(backup.version).toBe(2);
     expect(backup.exportedAt).toBe(NOW.toISOString());
     expect(backup.decks).toEqual([{ id: 1, name: "Administración", created_at: "x" }]);
     expect(backup.cards).toEqual([{ id: 1, deck_id: 1, front: "f", back: "b" }]);
@@ -58,8 +58,9 @@ describe("buildBackup", () => {
 describe("restoreBackup", () => {
   const validBackup = {
     app: "activecard",
-    version: 1,
+    version: 2,
     exportedAt: NOW.toISOString(),
+    folders: [],
     decks: [{ id: 1, name: "Nuevo mazo", created_at: "x" }],
     tags: [],
     deck_tags: [],
@@ -74,6 +75,7 @@ describe("restoreBackup", () => {
     expect(db.tables.decks).toEqual(validBackup.decks);
     expect(db.tables.cards).toEqual(validBackup.cards);
     expect(counts).toEqual({
+      folders: 0,
       decks: 1,
       tags: 0,
       deck_tags: 0,
@@ -81,6 +83,40 @@ describe("restoreBackup", () => {
       review_logs: 0,
       connections: 0,
     });
+  });
+
+  test("restaura un respaldo v1 (sin folders) dejando folders vacío", async () => {
+    const db = fakeDb({
+      folders: [{ id: 7, name: "Carpeta vieja", created_at: "z" }],
+    });
+    const v1 = { ...validBackup, version: 1 };
+    delete v1.folders;
+    const counts = await restoreBackup(db, v1);
+    expect(counts.folders).toBe(0);
+    expect(db.tables.folders).toEqual([]);
+    expect(db.tables.decks).toEqual(validBackup.decks);
+  });
+
+  test("roundtrip v2 con carpetas: exportar y reimportar conserva todo", async () => {
+    const source = fakeDb({
+      folders: [{ id: 1, name: "Facultad", created_at: "x" }],
+      decks: [{ id: 1, name: "Filosofía", created_at: "x", folder_id: 1 }],
+      cards: [{ id: 1, deck_id: 1, front: "f", back: "b" }],
+    });
+    const backup = await buildBackup(source, NOW);
+    const target = fakeDb();
+    const counts = await restoreBackup(target, backup);
+    expect(counts.folders).toBe(1);
+    expect(target.tables.folders).toEqual(source.tables.folders);
+    expect(target.tables.decks).toEqual(source.tables.decks);
+    expect(target.tables.cards).toEqual(source.tables.cards);
+  });
+
+  test("rechaza folders no-array en un respaldo v2", async () => {
+    const db = fakeDb();
+    await expect(
+      restoreBackup(db, { ...validBackup, folders: "no es un array" })
+    ).rejects.toThrow(/folders/);
   });
 
   test("corre dentro de una transacción (BEGIN...COMMIT)", async () => {

@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Button, Chip, Field, Screen } from "../../components/ui";
+import { Button, Card, Chip, Field, Screen } from "../../components/ui";
 import { setDraft } from "../../lib/draftStore";
 import { pickStudyFile } from "../../lib/files";
 import { generateCardsFromPdf, generateCardsFromText } from "../../lib/generator";
@@ -100,36 +100,38 @@ export default function Crear() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
-        {source !== "quizlet" ? (
+        <Card style={{ gap: spacing.md }}>
+          {source !== "quizlet" ? (
+            <View style={styles.section}>
+              <Text style={type.label}>¿Cuánto extraer del material?</Text>
+              <View style={styles.chipRow}>
+                <Chip
+                  label="Solo conceptos clave"
+                  active={mode === "conceptos_clave"}
+                  onPress={() => setMode("conceptos_clave")}
+                />
+                <Chip
+                  label="Creación completa"
+                  active={mode === "completo"}
+                  onPress={() => setMode("completo")}
+                />
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.section}>
-            <Text style={type.small}>¿Cuánto extraer del material?</Text>
+            <Text style={type.label}>Fuente del material</Text>
             <View style={styles.chipRow}>
-              <Chip
-                label="Solo conceptos clave"
-                active={mode === "conceptos_clave"}
-                onPress={() => setMode("conceptos_clave")}
-              />
-              <Chip
-                label="Creación completa"
-                active={mode === "completo"}
-                onPress={() => setMode("completo")}
-              />
+              <Chip label="Texto" active={source === "texto"} onPress={() => setSource("texto")} />
+              <Chip label="Archivo" active={source === "archivo"} onPress={() => setSource("archivo")} />
+              <Chip label="Notion" active={source === "notion"} onPress={() => setSource("notion")} />
+              <Chip label="Quizlet" active={source === "quizlet"} onPress={() => setSource("quizlet")} />
             </View>
           </View>
-        ) : null}
-
-        <View style={styles.section}>
-          <Text style={type.small}>Fuente del material</Text>
-          <View style={styles.chipRow}>
-            <Chip label="Texto" active={source === "texto"} onPress={() => setSource("texto")} />
-            <Chip label="Archivo" active={source === "archivo"} onPress={() => setSource("archivo")} />
-            <Chip label="Notion" active={source === "notion"} onPress={() => setSource("notion")} />
-            <Chip label="Quizlet" active={source === "quizlet"} onPress={() => setSource("quizlet")} />
-          </View>
-        </View>
+        </Card>
 
         {source === "texto" ? (
-          <View style={styles.section}>
+          <Card style={styles.section}>
             <Field
               value={text}
               onChangeText={setText}
@@ -143,21 +145,21 @@ export default function Crear() {
               onPress={generateFromText}
               disabled={!text.trim()}
             />
-          </View>
+          </Card>
         ) : null}
 
         {source === "archivo" ? (
-          <View style={styles.section}>
+          <Card style={styles.section}>
             <Text style={type.small}>
               PDF, TXT o Markdown. En Android podés elegir archivos de Google Drive desde el
               selector (los Google Docs, exportalos a PDF primero).
             </Text>
             <Button label="Elegir archivo y generar" kind="primary" onPress={generateFromFile} />
-          </View>
+          </Card>
         ) : null}
 
         {source === "notion" ? (
-          <View style={styles.section}>
+          <Card style={styles.section}>
             <Field
               value={notionUrl}
               onChangeText={setNotionUrl}
@@ -173,11 +175,11 @@ export default function Crear() {
               onPress={generateFromNotion}
               disabled={!notionUrl.trim()}
             />
-          </View>
+          </Card>
         ) : null}
 
         {source === "quizlet" ? (
-          <View style={styles.section}>
+          <Card style={styles.section}>
             <Field
               value={quizletText}
               onChangeText={setQuizletText}
@@ -218,15 +220,15 @@ export default function Crear() {
               onPress={importFromQuizlet}
               disabled={!quizletText.trim()}
             />
-          </View>
+          </Card>
         ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <View style={[styles.section, styles.manualSection]}>
+        <Card level="high" style={styles.section}>
           <Text style={type.small}>¿Sin IA? Creá tarjetas a mano dentro de cada mazo.</Text>
           <Button label="Ir a la Biblioteca" kind="ghost" onPress={() => router.push("/biblioteca")} />
-        </View>
+        </Card>
       </ScrollView>
     </Screen>
   );
@@ -250,10 +252,5 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
-  },
-  manualSection: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
   },
 });

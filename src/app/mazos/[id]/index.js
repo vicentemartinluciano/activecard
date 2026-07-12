@@ -6,7 +6,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
-import { Button, Chip, confirmAsync, EmptyState, Field, InlineAdd, Screen } from "../../../components/ui";
+import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Screen } from "../../../components/ui";
 import { listCardsByDeck } from "../../../db/cards";
 import {
   deleteDeck,
@@ -14,10 +14,12 @@ import {
   getDeck,
   listTags,
   renameDeck,
+  setDeckFolder,
   setDeckTags,
   updateDeckIcon,
   updateDeckPriority,
 } from "../../../db/decks";
+import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
 import { toPlainText } from "../../../lib/richtext";
 import { colors, radius, spacing, type } from "../../../theme";
@@ -30,6 +32,7 @@ export default function DetalleMazo() {
   const [deck, setDeck] = useState(null);
   const [cards, setCards] = useState([]);
   const [allTags, setAllTags] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -42,6 +45,7 @@ export default function DetalleMazo() {
       setName(d.name);
       setCards(await listCardsByDeck(deckId));
       setAllTags(await listTags());
+      setFolders(await listFolders());
       setProgress(await getDeckDailyProgress(deckId));
     }
   }, [deckId]);
@@ -114,61 +118,83 @@ export default function DetalleMazo() {
             )}
 
             {progress && progress.total > 0 ? (
-              <View style={{ gap: spacing.xs }}>
+              <Card style={{ gap: spacing.sm }}>
+                <Text style={type.label}>Progreso de hoy</Text>
                 <Text style={type.small}>
-                  Progreso de hoy: {progress.reviewedToday}/{progress.total}
+                  {progress.reviewedToday}/{progress.total} tarjetas repasadas
                 </Text>
-                <ProgressBar pct={progress.pct} />
-              </View>
+                <ProgressBar pct={progress.pct} color={colors.successBright} />
+              </Card>
             ) : null}
 
-            <View style={{ gap: spacing.sm }}>
-              <Text style={type.small}>Etiquetas del mazo</Text>
-              <View style={styles.tagRow}>
-                {allTags.map((t) => (
-                  <Chip
-                    key={t.id}
-                    label={t.name}
-                    active={deckTagIds.includes(t.id)}
-                    onPress={() => toggleTag(t.id)}
-                  />
-                ))}
+            <Card style={{ gap: spacing.md }}>
+              <View style={{ gap: spacing.sm }}>
+                <Text style={type.label}>Etiquetas</Text>
+                <View style={styles.tagRow}>
+                  {allTags.map((t) => (
+                    <Chip
+                      key={t.id}
+                      label={t.name}
+                      active={deckTagIds.includes(t.id)}
+                      onPress={() => toggleTag(t.id)}
+                    />
+                  ))}
+                </View>
+                <InlineAdd placeholder="Etiqueta nueva…" onSubmit={addTag} />
               </View>
-              <InlineAdd placeholder="Etiqueta nueva…" onSubmit={addTag} />
-            </View>
 
-            <View style={{ gap: spacing.sm }}>
-              <Text style={type.small}>Prioridad en el repaso diario</Text>
-              <PercentSlider
-                value={deck.priority}
-                onChange={async (p) => {
-                  await updateDeckPriority(deckId, p);
-                  load();
-                }}
-              />
-            </View>
+              {folders.length > 0 ? (
+                <View style={{ gap: spacing.sm }}>
+                  <Text style={type.label}>Carpeta</Text>
+                  <View style={styles.tagRow}>
+                    {folders.map((f) => (
+                      <Chip
+                        key={f.id}
+                        label={f.name}
+                        active={deck.folder_id === f.id}
+                        onPress={async () => {
+                          await setDeckFolder(deckId, deck.folder_id === f.id ? null : f.id);
+                          load();
+                        }}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
 
-            <View style={{ gap: spacing.sm }}>
-              <Pressable
-                onPress={() => setShowIconPicker((s) => !s)}
-                style={({ pressed }) => [styles.iconRow, pressed && { opacity: 0.7 }]}
-              >
-                <Feather name={deck.icon || "book"} size={20} color={colors.accentText} />
-                <Text style={type.small}>
-                  {showIconPicker ? "Elegí un ícono para el mazo" : "Cambiar ícono"}
-                </Text>
-              </Pressable>
-              {showIconPicker ? (
-                <IconPicker
-                  value={deck.icon || "book"}
-                  onChange={async (icon) => {
-                    await updateDeckIcon(deckId, icon);
-                    setShowIconPicker(false);
+              <View style={{ gap: spacing.sm }}>
+                <Text style={type.label}>Prioridad en el repaso diario</Text>
+                <PercentSlider
+                  value={deck.priority}
+                  onChange={async (p) => {
+                    await updateDeckPriority(deckId, p);
                     load();
                   }}
                 />
-              ) : null}
-            </View>
+              </View>
+
+              <View style={{ gap: spacing.sm }}>
+                <Pressable
+                  onPress={() => setShowIconPicker((s) => !s)}
+                  style={({ pressed }) => [styles.iconRow, pressed && { opacity: 0.7 }]}
+                >
+                  <Feather name={deck.icon || "book"} size={20} color={colors.accentText} />
+                  <Text style={type.small}>
+                    {showIconPicker ? "Elegí un ícono para el mazo" : "Cambiar ícono"}
+                  </Text>
+                </Pressable>
+                {showIconPicker ? (
+                  <IconPicker
+                    value={deck.icon || "book"}
+                    onChange={async (icon) => {
+                      await updateDeckIcon(deckId, icon);
+                      setShowIconPicker(false);
+                      load();
+                    }}
+                  />
+                ) : null}
+              </View>
+            </Card>
 
             <Button
               label="Nueva tarjeta"
@@ -178,9 +204,10 @@ export default function DetalleMazo() {
         }
         ListEmptyComponent={<EmptyState text="Este mazo no tiene tarjetas todavía." />}
         renderItem={({ item }) => (
-          <Pressable
+          <Card
+            level="high"
             onPress={() => router.push(`/mazos/${deckId}/tarjeta?cardId=${item.id}`)}
-            style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
+            style={styles.card}
           >
             <Text style={styles.cardFront} numberOfLines={2}>
               {toPlainText(item.front)}
@@ -189,7 +216,7 @@ export default function DetalleMazo() {
               {item.source === "hybrid" ? "★ conexión · " : ""}
               {toPlainText(item.back)}
             </Text>
-          </Pressable>
+          </Card>
         )}
         ListFooterComponent={
           <View style={{ marginTop: spacing.xl }}>
@@ -213,9 +240,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
-    padding: spacing.md,
     gap: 4,
   },
   cardFront: {

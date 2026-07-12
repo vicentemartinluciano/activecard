@@ -16,24 +16,29 @@ src/
 │   ├── (tabs)/index.js         # Inicio: racha + engranaje→Ajustes + hero "Repaso de hoy"
 │   │                           #   + "Seguir estudiando" (mazos con progreso parcial)
 │   ├── (tabs)/crear.js         # fuentes: texto | archivo | Notion | Quizlet (pegar export)
-│   ├── (tabs)/biblioteca.js    # mazos (ícono, progreso diario, badge %) + filtro etiquetas
-│   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental)
+│   ├── (tabs)/biblioteca.js    # buscador (carpetas/mazos/tarjetas) + grilla de carpetas
+│   │                           #   + mazos sueltos (DeckListItem) + filtro etiquetas
+│   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado
 │   ├── crear/preseleccion.js   # revisar/editar (RichField) antes de guardar
-│   ├── mazos/[id]/index.js     # detalle: tarjetas, tags, PercentSlider, IconPicker, progreso
+│   ├── mazos/[id]/index.js     # detalle: tarjetas, tags, carpeta, PercentSlider, IconPicker
 │   ├── mazos/[id]/estudiar.js  # modo Quizlet: excluye lo hecho hoy, ronda de falladas
 │   ├── mazos/[id]/tarjeta.js   # editor manual (RichField frente/dorso)
+│   ├── carpetas/[id]/index.js  # carpeta: sus mazos, agregar/quitar, renombrar, borrar
 │   ├── ajustes.js              # prioridades %, Respaldo, Claves (solo web), conexiones
 │   └── conexiones.js           # conexiones validadas del Gimnasio
 ├── db/                         # SQLite async: client (retry OPFS), schema (migraciones),
-│   │                           #   decks, cards, settings, connections, reviewQueue,
-│   │                           #   streak, progress
+│   │                           #   decks, folders, cards, settings, connections,
+│   │                           #   reviewQueue, streak, progress
 ├── lib/                        # claude, prompts, generator, auditor, notion, files,
 │   │                           #   scheduler (ts-fsrs), queue (stride), streak (puro),
-│   │                           #   studySession, richtext, quizletImport, backup(IO), keys
-├── components/                 # ui.js, FlipCard, SwipeCard, MicButton, ChatAuditor,
-│   │                           #   ProgressBar, StreakFlame(.web), PercentSlider,
-│   │                           #   IconPicker, RichText, RichField
-└── theme/                      # colors (azul #3E63DD + paleta), textColors, spacing, type
+│   │                           #   studySession, richtext, quizletImport, backup(IO),
+│   │                           #   keys, search (buscador puro de la Biblioteca)
+├── components/                 # ui.js (Screen/Button/Field/Chip/Card/Pill/InlineAdd),
+│   │                           #   FlipCard, SwipeCard, DeckListItem, MicButton,
+│   │                           #   ChatAuditor, ProgressBar, StreakFlame(.web),
+│   │                           #   PercentSlider, IconPicker, RichText, RichField
+└── theme/                      # colors (azul #3E63DD + paleta), textColors, spacing,
+                                #   radius (sm10/md16/lg20/pill), type (+heading/label)
 ```
 
 ## Esquema SQLite (migraciones con PRAGMA user_version en src/db/schema.js)
@@ -46,6 +51,11 @@ src/
   `connections` · `priorities` (huérfana desde v2) · `settings(key, value)`
 - v2: `decks.priority INTEGER DEFAULT 100` (0-100, pasos de 5) y `decks.icon TEXT`
   (nombre de ícono Feather). Reemplazan a `priorities` y a `focus_deck_ids`.
+- v3: `folders(id, name, created_at)` + `decks.folder_id INTEGER` (0 o 1 carpeta
+  por mazo) + índice `idx_decks_folder`. `folder_id` va SIN FK a propósito
+  (foreign_keys está ON y complicaría el restore de respaldos v1): la
+  integridad la garantiza `deleteFolder` (desasigna mazos + borra, en
+  transacción — los mazos nunca se borran al borrar una carpeta).
 
 Regla: NUNCA editar migraciones aplicadas; solo agregar al final del array.
 
@@ -57,8 +67,10 @@ mazos con prioridad > 0, intercaladas por **stride scheduling** determinístico
 recorrido, empate → menor deckId). 100% aparece el doble de seguido que 50%.
 Dentro de cada mazo, la más vencida primero.
 
-**Repaso diario**: frente → voltear → Good/Again (`reviewCard`, mode 'daily')
-→ Gimnasio Mental (ChatAuditor, salteable) → siguiente.
+**Repaso diario**: mismo swipe que el modo mazo (SwipeCard: derecha = Good,
+izquierda = Again, en cualquier momento, sin exigir voltear; botones
+equivalentes siempre visibles) → `reviewCard` mode 'daily' → Gimnasio Mental
+(ChatAuditor, salteable, tras CADA tarjeta) → siguiente.
 
 **Modo mazo (Quizlet)**: pool = tarjetas del mazo NO repasadas hoy en modo
 'quizlet' (`progress.listDeckCardsNotReviewedToday`) → swipe/botones →
@@ -90,9 +102,23 @@ por defecto, separadores configurables) → mismas pantallas, sin IA.
 {veredicto, feedback, hybrid_card}). Al validar: inserta en `connections` +
 tarjeta híbrida (source 'hybrid', mismo mazo) que entra a FSRS.
 
-**Respaldo** (`lib/backup.js` puro + `backupIO.js`): JSON versionado con
-decks/tags/deck_tags/cards/review_logs/connections (NUNCA settings — ahí
-viven las claves). Restore = reemplazo total transaccional conservando ids.
+**Carpetas** (`db/folders.js`): nivel de organización sobre los mazos.
+Biblioteca = grilla de carpetas (tiles con nombre + cantidad) arriba y mazos
+sueltos abajo; pantalla `carpetas/[id]` gestiona sus mazos; el detalle del
+mazo tiene chips de carpeta con toggle. Las etiquetas siguen siendo solo
+filtro/búsqueda (las carpetas no llevan tags).
+
+**Buscador** (`lib/search.js` puro): filtrado EN MEMORIA, insensible a tildes
+y mayúsculas — carpetas por nombre, mazos por nombre o etiqueta, tarjetas por
+`toPlainText(front/back)` (así el markup `[[color:...]]` no da falsos
+positivos), máx. 20 tarjetas. La UI vive arriba de la Biblioteca; tocar una
+tarjeta abre su editor.
+
+**Respaldo** (`lib/backup.js` puro + `backupIO.js`): JSON versionado (v2) con
+folders/decks/tags/deck_tags/cards/review_logs/connections (NUNCA settings —
+ahí viven las claves). Los respaldos v1 (sin folders) siguen siendo
+restaurables: se normalizan a folders vacío. Restore = reemplazo total
+transaccional conservando ids.
 Web: descarga Blob / picker. Nativo: expo-file-system legacy + expo-sharing.
 
 ## Claves de API (`lib/keys.js`)

@@ -4,9 +4,12 @@ import { StyleSheet, Text, View } from "react-native";
 
 import ChatAuditor from "../components/ChatAuditor";
 import FlipCard from "../components/FlipCard";
-import { Button, Screen } from "../components/ui";
+import ProgressBar from "../components/ProgressBar";
+import SwipeCard from "../components/SwipeCard";
+import { Button, Card, Pill, Screen } from "../components/ui";
 import { reviewCard } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
+import { toPlainText } from "../lib/richtext";
 import { colors, radius, spacing, type } from "../theme";
 
 export default function Repaso() {
@@ -67,14 +70,17 @@ export default function Repaso() {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Repaso" }} />
-        <Text style={type.title}>Repaso terminado</Text>
-        <Text style={type.body}>
-          Recordadas: {counts.good} · Olvidadas: {counts.again}
-        </Text>
-        {counts.connections > 0 ? (
-          <Text style={type.body}>Conexiones creadas: {counts.connections}</Text>
-        ) : null}
-        <Button label="Volver al inicio" kind="primary" onPress={goHome} />
+        <Card style={styles.summary}>
+          <Text style={type.title}>Repaso terminado</Text>
+          <View style={styles.summaryPills}>
+            <Pill color={colors.successBright} label={`Recordadas: ${counts.good}`} />
+            <Pill color={colors.danger} label={`Olvidadas: ${counts.again}`} />
+          </View>
+          {counts.connections > 0 ? (
+            <Pill color={colors.accentText} label={`Conexiones creadas: ${counts.connections}`} />
+          ) : null}
+          <Button label="Volver al inicio" kind="primary" onPress={goHome} />
+        </Card>
       </Screen>
     );
   }
@@ -87,7 +93,7 @@ export default function Repaso() {
         <Stack.Screen options={{ title: "Repaso" }} />
         <View style={styles.gymConcept}>
           <Text style={type.small} numberOfLines={2}>
-            {card.front}
+            {toPlainText(card.front)}
           </Text>
         </View>
         <ChatAuditor card={card} onDone={finishGym} />
@@ -98,39 +104,43 @@ export default function Repaso() {
   return (
     <Screen>
       <Stack.Screen options={{ title: "Repaso" }} />
+      <ProgressBar
+        pct={(index / queue.length) * 100}
+        color={colors.successBright}
+        style={{ marginBottom: spacing.sm }}
+      />
       <Text style={styles.progress}>
         {index + 1} de {queue.length}
       </Text>
 
-      <FlipCard
-        front={card.front}
-        back={card.back}
-        flipped={flipped}
-        onFlip={() => setFlipped((f) => !f)}
-      />
+      <SwipeCard
+        cardKey={card.id}
+        onSwipeLeft={() => grade("again")}
+        onSwipeRight={() => grade("good")}
+      >
+        <FlipCard
+          front={card.front}
+          back={card.back}
+          flipped={flipped}
+          onFlip={() => setFlipped((f) => !f)}
+        />
+      </SwipeCard>
 
       <View style={styles.actions}>
-        {flipped ? (
-          <>
-            <Button
-              label="No lo recordaba"
-              kind="danger"
-              style={{ flex: 1 }}
-              onPress={() => grade("again")}
-            />
-            <Button
-              label="Lo recordaba"
-              kind="primary"
-              style={{ flex: 1 }}
-              onPress={() => grade("good")}
-            />
-          </>
-        ) : (
-          <Text style={[type.small, styles.flipHint]}>
-            Respondé mentalmente y después dá vuelta la tarjeta.
-          </Text>
-        )}
+        <Button
+          label="← No lo recordaba"
+          kind="danger"
+          style={{ flex: 1 }}
+          onPress={() => grade("again")}
+        />
+        <Button
+          label="Lo recordaba →"
+          kind="primary"
+          style={{ flex: 1 }}
+          onPress={() => grade("good")}
+        />
       </View>
+      <Text style={[type.small, styles.hint]}>Deslizá la tarjeta o usá los botones.</Text>
     </Screen>
   );
 }
@@ -150,19 +160,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.lg,
-    minHeight: 44,
-    alignItems: "center",
   },
-  flipHint: {
-    flex: 1,
+  hint: {
     textAlign: "center",
-    color: colors.textMuted,
+    marginTop: spacing.sm,
   },
   gymConcept: {
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.sm,
+    backgroundColor: colors.surfaceHigh,
+    padding: spacing.sm + 4,
     marginBottom: spacing.sm,
+  },
+  summary: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  summaryPills: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
 });

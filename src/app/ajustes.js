@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import PercentSlider from "../components/PercentSlider";
-import { Button, confirmAsync, Field, Screen } from "../components/ui";
+import { Button, Card, confirmAsync, Field, Screen } from "../components/ui";
 import { listDecks, updateDeckPriority } from "../db/decks";
 import { getAnthropicKey, getNotionToken, setAnthropicKey, setNotionToken } from "../lib/keys";
 import { exportBackup, pickBackupFile, restoreParsedBackup } from "../lib/backupIO";
@@ -82,7 +82,7 @@ export default function Ajustes() {
     <Screen>
       <Stack.Screen options={{ title: "Ajustes" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
-        <View style={styles.section}>
+        <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Prioridad de los mazos</Text>
           <Text style={type.small}>
             El porcentaje define cuánta presencia tiene cada mazo en el repaso diario. 0% lo
@@ -99,9 +99,9 @@ export default function Ajustes() {
               <PercentSlider value={d.priority} onChange={(p) => changePriority(d.id, p)} />
             </View>
           ))}
-        </View>
+        </Card>
 
-        <View style={styles.section}>
+        <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Respaldo</Text>
           <Text style={type.small}>
             Exportá un archivo con todos tus mazos, tarjetas y conexiones. Sirve como backup y
@@ -119,10 +119,10 @@ export default function Ajustes() {
             disabled={backupBusy}
           />
           {backupStatus ? <Text style={type.small}>{backupStatus}</Text> : null}
-        </View>
+        </Card>
 
         {Platform.OS === "web" ? (
-          <View style={styles.section}>
+          <Card style={styles.section}>
             <Text style={styles.sectionTitle}>Claves de API</Text>
             <Text style={type.small}>
               En la web pública las claves no vienen incluidas por seguridad: pegalas acá una
@@ -146,13 +146,13 @@ export default function Ajustes() {
             />
             <Button label="Guardar claves" kind="primary" onPress={saveKeys} />
             {keysStatus ? <Text style={type.small}>{keysStatus}</Text> : null}
-          </View>
+          </Card>
         ) : null}
 
-        <View style={styles.section}>
+        <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Gimnasio Mental</Text>
           <Button label="Ver conexiones creadas" onPress={() => router.push("/conexiones")} />
-        </View>
+        </Card>
       </ScrollView>
     </Screen>
   );
@@ -163,8 +163,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    ...type.body,
-    fontWeight: "700",
+    ...type.label,
   },
   priorityItem: {
     gap: spacing.xs,

@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import ProgressBar from "../../components/ProgressBar";
 import StreakFlame from "../../components/StreakFlame";
-import { Button } from "../../components/ui";
+import { Button, Card } from "../../components/ui";
 import { listDecks } from "../../db/decks";
 import { getDecksDailyProgress } from "../../db/progress";
 import { getDailyReviewStats } from "../../db/reviewQueue";
@@ -74,7 +74,7 @@ export default function Inicio() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        <View style={styles.heroCard}>
+        <Card style={{ padding: spacing.lg }}>
           <Text style={styles.heroLabel}>Repaso de hoy</Text>
           {completedToday ? (
             <Text style={styles.heroDone}>Completado ✓</Text>
@@ -88,7 +88,11 @@ export default function Inicio() {
             </Text>
           )}
           {stats && stats.total > 0 ? (
-            <ProgressBar pct={stats.pct} style={{ marginTop: spacing.sm }} />
+            <ProgressBar
+              pct={stats.pct}
+              color={colors.successBright}
+              style={{ marginTop: spacing.sm }}
+            />
           ) : null}
           <Button
             label={completedToday ? "Repasar de nuevo" : "Repasar"}
@@ -96,24 +100,25 @@ export default function Inicio() {
             onPress={() => router.push("/repaso")}
             style={{ marginTop: spacing.md }}
           />
-        </View>
+        </Card>
 
         {inProgressDecks.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Seguir estudiando</Text>
             {inProgressDecks.map((d) => (
-              <Pressable
+              <Card
                 key={d.id}
+                level="high"
                 onPress={() => router.push(`/mazos/${d.id}/estudiar`)}
-                style={({ pressed }) => [styles.deckRow, pressed && { opacity: 0.7 }]}
+                style={styles.deckRow}
               >
                 <Feather name={d.icon || "book"} size={18} color={colors.accentText} />
                 <View style={{ flex: 1 }}>
                   <Text style={type.body}>{d.name}</Text>
-                  <ProgressBar pct={d.progress.pct} style={{ marginTop: 6 }} />
+                  <ProgressBar pct={d.progress.pct} color={colors.accent} style={{ marginTop: 6 }} />
                 </View>
                 <Text style={styles.deckPct}>{d.progress.pct}%</Text>
-              </Pressable>
+              </Card>
             ))}
           </View>
         ) : null}
@@ -146,17 +151,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.lg,
   },
-  heroCard: {
-    backgroundColor: colors.surfaceCard,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-  },
   heroLabel: {
-    ...type.small,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    ...type.label,
     marginBottom: spacing.sm,
   },
   heroCount: {
@@ -172,7 +168,7 @@ const styles = StyleSheet.create({
   heroDone: {
     fontSize: 26,
     fontWeight: "700",
-    color: colors.success,
+    color: colors.successBright,
   },
   section: {
     gap: spacing.sm,
@@ -185,9 +181,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    backgroundColor: colors.surface,
     borderRadius: radius.md,
-    padding: spacing.md,
   },
   deckPct: {
     ...type.small,
