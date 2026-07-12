@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   },
   bubble: {
     borderRadius: radius.md,
-    padding: spacing.sm + 4,
+    padding: spacing.md,
     maxWidth: "88%",
   },
   bubbleUser: {
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   bubbleAuditor: {
     alignSelf: "flex-start",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -184,14 +184,14 @@ const styles = StyleSheet.create({
   validatedBox: {
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.success,
-    backgroundColor: colors.surface,
+    borderColor: colors.successBright,
+    backgroundColor: colors.surfaceCard,
   },
   validatedTitle: {
     ...type.body,
     fontWeight: "700",
-    color: colors.success,
+    color: colors.successBright,
   },
 });

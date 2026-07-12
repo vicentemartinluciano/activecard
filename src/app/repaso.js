@@ -168,10 +168,11 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   gymConcept: {
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.sm,
+    backgroundColor: colors.surfaceHigh,
+    padding: spacing.sm + 4,
     marginBottom: spacing.sm,
   },
   summary: {
