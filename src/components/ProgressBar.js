@@ -2,7 +2,7 @@
 
 import { StyleSheet, View } from "react-native";
 
-import { colors } from "../theme";
+import { colors, radius } from "../theme";
 
 export default function ProgressBar({ pct, color = colors.accent, style }) {
   const clamped = Math.max(0, Math.min(100, pct || 0));
@@ -15,13 +15,13 @@ export default function ProgressBar({ pct, color = colors.accent, style }) {
 
 const styles = StyleSheet.create({
   track: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceHigh,
     overflow: "hidden",
   },
   fill: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: radius.pill,
   },
 });

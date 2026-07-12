@@ -73,7 +73,7 @@ export function Button({ label, onPress, kind = "default", disabled, style }) {
       <Text
         style={[
           styles.buttonLabel,
-          kind === "primary" && { color: colors.accent },
+          kind === "primary" && { color: "#FFFFFF" },
           kind === "danger" && { color: colors.danger },
           kind === "ghost" && { color: colors.textMuted },
         ]}
@@ -171,15 +171,13 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.surface,
     borderRadius: radius.sm,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: spacing.md,
     alignItems: "center",
     justifyContent: "center",
   },
   buttonPrimary: {
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: colors.accent,
+    backgroundColor: colors.accent,
   },
   buttonDanger: {
     backgroundColor: "transparent",

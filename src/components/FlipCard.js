@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   },
   face: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
