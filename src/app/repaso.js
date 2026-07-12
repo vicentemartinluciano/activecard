@@ -5,9 +5,11 @@ import { StyleSheet, Text, View } from "react-native";
 import ChatAuditor from "../components/ChatAuditor";
 import FlipCard from "../components/FlipCard";
 import ProgressBar from "../components/ProgressBar";
+import SwipeCard from "../components/SwipeCard";
 import { Button, Card, Pill, Screen } from "../components/ui";
 import { reviewCard } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
+import { toPlainText } from "../lib/richtext";
 import { colors, radius, spacing, type } from "../theme";
 
 export default function Repaso() {
@@ -91,7 +93,7 @@ export default function Repaso() {
         <Stack.Screen options={{ title: "Repaso" }} />
         <View style={styles.gymConcept}>
           <Text style={type.small} numberOfLines={2}>
-            {card.front}
+            {toPlainText(card.front)}
           </Text>
         </View>
         <ChatAuditor card={card} onDone={finishGym} />
@@ -111,35 +113,34 @@ export default function Repaso() {
         {index + 1} de {queue.length}
       </Text>
 
-      <FlipCard
-        front={card.front}
-        back={card.back}
-        flipped={flipped}
-        onFlip={() => setFlipped((f) => !f)}
-      />
+      <SwipeCard
+        cardKey={card.id}
+        onSwipeLeft={() => grade("again")}
+        onSwipeRight={() => grade("good")}
+      >
+        <FlipCard
+          front={card.front}
+          back={card.back}
+          flipped={flipped}
+          onFlip={() => setFlipped((f) => !f)}
+        />
+      </SwipeCard>
 
       <View style={styles.actions}>
-        {flipped ? (
-          <>
-            <Button
-              label="No lo recordaba"
-              kind="danger"
-              style={{ flex: 1 }}
-              onPress={() => grade("again")}
-            />
-            <Button
-              label="Lo recordaba"
-              kind="primary"
-              style={{ flex: 1 }}
-              onPress={() => grade("good")}
-            />
-          </>
-        ) : (
-          <Text style={[type.small, styles.flipHint]}>
-            Respondé mentalmente y después dá vuelta la tarjeta.
-          </Text>
-        )}
+        <Button
+          label="← No lo recordaba"
+          kind="danger"
+          style={{ flex: 1 }}
+          onPress={() => grade("again")}
+        />
+        <Button
+          label="Lo recordaba →"
+          kind="primary"
+          style={{ flex: 1 }}
+          onPress={() => grade("good")}
+        />
       </View>
+      <Text style={[type.small, styles.hint]}>Deslizá la tarjeta o usá los botones.</Text>
     </Screen>
   );
 }
@@ -159,13 +160,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.lg,
-    minHeight: 44,
-    alignItems: "center",
   },
-  flipHint: {
-    flex: 1,
+  hint: {
     textAlign: "center",
-    color: colors.textMuted,
+    marginTop: spacing.sm,
   },
   gymConcept: {
     borderRadius: radius.md,
