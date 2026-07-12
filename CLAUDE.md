@@ -31,6 +31,11 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Nunca** commitear `.env` ni `.claude/settings.local.json` (ya ignorados).
 - Tests en `**/__tests__/*.test.js`; congelar fecha con `jest.setSystemTime(...)` si hay lógica de fechas.
 - Trabajar en pasos chicos: commit + push + esperar CI verde.
+- **Cuando el usuario indica que la sesión terminó** ("se terminó la sesión", "ya
+  terminamos", "cerramos por hoy", etc.): antes de cerrar, actualizar los docs de
+  contexto del proyecto — este `CLAUDE.md` y `docs/ARQUITECTURA.md` (commitear si
+  hubo cambios) — y también los documentos de contexto equivalentes en Google
+  Drive del usuario, si hay un conector de Drive disponible en la sesión.
 
 ## Decisiones de producto (NO re-litigar sin el usuario)
 - **Identificador Android** `com.marti.activecard` — irreversible una vez que hay OTA activo.
