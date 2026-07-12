@@ -14,10 +14,12 @@ import {
   getDeck,
   listTags,
   renameDeck,
+  setDeckFolder,
   setDeckTags,
   updateDeckIcon,
   updateDeckPriority,
 } from "../../../db/decks";
+import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
 import { toPlainText } from "../../../lib/richtext";
 import { colors, radius, spacing, type } from "../../../theme";
@@ -30,6 +32,7 @@ export default function DetalleMazo() {
   const [deck, setDeck] = useState(null);
   const [cards, setCards] = useState([]);
   const [allTags, setAllTags] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -42,6 +45,7 @@ export default function DetalleMazo() {
       setName(d.name);
       setCards(await listCardsByDeck(deckId));
       setAllTags(await listTags());
+      setFolders(await listFolders());
       setProgress(await getDeckDailyProgress(deckId));
     }
   }, [deckId]);
@@ -138,6 +142,25 @@ export default function DetalleMazo() {
                 </View>
                 <InlineAdd placeholder="Etiqueta nueva…" onSubmit={addTag} />
               </View>
+
+              {folders.length > 0 ? (
+                <View style={{ gap: spacing.sm }}>
+                  <Text style={type.label}>Carpeta</Text>
+                  <View style={styles.tagRow}>
+                    {folders.map((f) => (
+                      <Chip
+                        key={f.id}
+                        label={f.name}
+                        active={deck.folder_id === f.id}
+                        onPress={async () => {
+                          await setDeckFolder(deckId, deck.folder_id === f.id ? null : f.id);
+                          load();
+                        }}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
 
               <View style={{ gap: spacing.sm }}>
                 <Text style={type.label}>Prioridad en el repaso diario</Text>
