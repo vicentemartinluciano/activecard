@@ -44,7 +44,11 @@ async function notionFetch(path) {
       },
     });
   } catch (e) {
-    throw new Error("No se pudo conectar con Notion. ¿Hay internet?");
+    throw new Error(
+      Platform.OS === "web"
+        ? 'No se pudo conectar con Notion desde la web: a diferencia de la API de Claude, la de Notion no permite llamadas directas desde el navegador (CORS). Exportá la página desde Notion como Markdown y usá la fuente "Archivo" en Crear, o hacé la importación desde el celular.'
+        : "No se pudo conectar con Notion. ¿Hay internet?"
+    );
   }
   if (res.status === 404) {
     throw new Error(
