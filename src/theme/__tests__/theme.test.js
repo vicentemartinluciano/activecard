@@ -1,4 +1,4 @@
-import { colors, radius, spacing, textColors, type } from "../index";
+import { colors, gradients, radius, spacing, textColors, type } from "../index";
 
 describe("tokens de tema", () => {
   test("los colores son hex válidos (6 dígitos, alpha opcional)", () => {
@@ -7,8 +7,8 @@ describe("tokens de tema", () => {
     }
   });
 
-  test("el fondo es el oscuro profundo definido en el plan", () => {
-    expect(colors.bg).toBe("#0B0B0F");
+  test("el fondo es el obsidiana profundo del rediseño Obsidian Cobalt", () => {
+    expect(colors.bg).toBe("#09090B");
   });
 
   test("el acento es el azul profundo elegido por el usuario", () => {
@@ -54,5 +54,15 @@ describe("tokens de tema", () => {
   test("los radios de contenedores quedan en el rango 16-20 del rediseño", () => {
     expect(radius.md).toBeGreaterThanOrEqual(16);
     expect(radius.lg).toBeLessThanOrEqual(20);
+  });
+
+  test("los degradados Obsidian Cobalt tienen los stops esperados", () => {
+    expect(gradients.bar).toHaveLength(2);
+    expect(gradients.hero).toHaveLength(3);
+    for (const stops of Object.values(gradients)) {
+      for (const value of stops) {
+        expect(value).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      }
+    }
   });
 });

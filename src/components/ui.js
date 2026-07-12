@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.cardBorder,
     padding: spacing.md,
   },
   cardHigh: {

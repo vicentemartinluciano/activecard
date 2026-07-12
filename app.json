@@ -7,11 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "activecard",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0B0F",
+    "backgroundColor": "#09090B",
     "android": {
       "package": "com.marti.activecard",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0B0F",
+        "backgroundColor": "#09090B",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -40,7 +40,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0B0B0F",
+          "backgroundColor": "#09090B",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }

@@ -4,11 +4,13 @@
 // para que la app no sea una plancha monocroma.
 
 export const colors = {
-  bg: "#0B0B0F",
-  surface: "#15151C",
-  surfaceHigh: "#1E1E27",
-  surfaceCard: "#181820", // fondo de tarjetas/paneles destacados
-  border: "#26262F",
+  bg: "#09090B",
+  surface: "#121216",
+  surfaceHigh: "#1C1C22",
+  surfaceCard: "#151518", // fondo de tarjetas/paneles destacados
+  border: "#202027",
+  track: "#1E1E24", // track de barras de progreso
+  cardBorder: "#FFFFFF0A", // borde translúcido de las cards (Obsidian Cobalt)
   text: "#E9E9EF",
   textMuted: "#8B8B98",
   accent: "#3E63DD", // azul profundo (acento principal)
@@ -50,6 +52,12 @@ export const radius = {
   md: 16,
   lg: 20,
   pill: 999,
+};
+
+// Degradados del rediseño Obsidian Cobalt (expo-linear-gradient).
+export const gradients = {
+  bar: ["#2563EB", "#00F2FE"], // barras de progreso de mazos (cobalto → cian)
+  hero: ["#0F1E36", "#112443", "#1E3A8A"], // tablero "Repaso de hoy"
 };
 
 export const type = {
