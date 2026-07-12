@@ -144,3 +144,10 @@ apertura reintenta ante errores transitorios de locks (ver db/client.js).
 - Metro + OneDrive: watch poco confiable → reiniciar el preview tras editar.
 - El navegador embebido del preview retiene locks OPFS → verificar DB en
   Chrome real.
+- **Notion en la web pública no funciona**: la API de Notion no habilita CORS
+  para llamadas directas desde el navegador (a diferencia de la de Claude, que
+  sí lo permite vía el header `anthropic-dangerous-direct-browser-access`).
+  Falla con error de red al primer fetch. Es una limitación de la API de
+  Notion, no arreglable sin un backend propio (descartado por diseño). En web,
+  usar la fuente "Archivo" con un Markdown exportado desde Notion; la
+  conexión directa solo funciona en el APK.

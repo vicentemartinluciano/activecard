@@ -2,6 +2,8 @@
 // fetch directo, sin SDK. Modelo fijo: Claude Sonnet 5 para todo
 // (decisión de producto: máxima calidad, un solo proveedor).
 
+import { Platform } from "react-native";
+
 import { getAnthropicKey } from "./keys";
 
 export const MODEL = "claude-sonnet-5";
@@ -17,7 +19,9 @@ export async function callClaude({ system, messages, maxTokens = 4096 }) {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error(
-      "Falta la API key de Claude. Configurala en el archivo .env (EXPO_PUBLIC_ANTHROPIC_API_KEY) y reconstruí la app."
+      Platform.OS === "web"
+        ? "Falta la API key de Claude. Pegala en Ajustes (abajo del todo, sección de claves)."
+        : "Falta la API key de Claude. Configurala en el archivo .env (EXPO_PUBLIC_ANTHROPIC_API_KEY) y reconstruí la app."
     );
   }
 

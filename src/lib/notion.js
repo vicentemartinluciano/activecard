@@ -1,6 +1,8 @@
 // Lector de páginas de Notion vía internal integration token (sin OAuth).
 // La página debe estar compartida con la integración (menú ··· → Connections).
 
+import { Platform } from "react-native";
+
 import { getNotionToken as getNotionTokenFromKeys } from "./keys";
 
 const NOTION_API = "https://api.notion.com/v1";
@@ -28,7 +30,9 @@ async function notionFetch(path) {
   const token = getNotionToken();
   if (!token) {
     throw new Error(
-      "Falta el token de Notion. Configuralo en el archivo .env (EXPO_PUBLIC_NOTION_TOKEN)."
+      Platform.OS === "web"
+        ? "Falta el token de Notion. Pegalo en Ajustes (abajo del todo, sección de claves)."
+        : "Falta el token de Notion. Configuralo en el archivo .env (EXPO_PUBLIC_NOTION_TOKEN)."
     );
   }
   let res;
@@ -40,7 +44,11 @@ async function notionFetch(path) {
       },
     });
   } catch (e) {
-    throw new Error("No se pudo conectar con Notion. ¿Hay internet?");
+    throw new Error(
+      Platform.OS === "web"
+        ? 'No se pudo conectar con Notion desde la web: a diferencia de la API de Claude, la de Notion no permite llamadas directas desde el navegador (CORS). Exportá la página desde Notion como Markdown y usá la fuente "Archivo" en Crear, o hacé la importación desde el celular.'
+        : "No se pudo conectar con Notion. ¿Hay internet?"
+    );
   }
   if (res.status === 404) {
     throw new Error(
@@ -48,7 +56,11 @@ async function notionFetch(path) {
     );
   }
   if (res.status === 401) {
-    throw new Error("El token de Notion no es válido (401). Revisá el .env.");
+    throw new Error(
+      Platform.OS === "web"
+        ? "El token de Notion no es válido (401). Revisalo en Ajustes."
+        : "El token de Notion no es válido (401). Revisá el .env."
+    );
   }
   if (!res.ok) {
     throw new Error(`Error de la API de Notion (${res.status}).`);
