@@ -57,6 +57,12 @@ export async function updateDeckIcon(id, icon) {
   await db.runAsync("UPDATE decks SET icon = ? WHERE id = ?", [icon || null, id]);
 }
 
+// Carpeta del mazo (folders.id) o null para dejarlo suelto.
+export async function setDeckFolder(deckId, folderId) {
+  const db = await getDb();
+  await db.runAsync("UPDATE decks SET folder_id = ? WHERE id = ?", [folderId || null, deckId]);
+}
+
 // Mapa { deckId: prioridad } para armar la cola diaria.
 export async function getDeckPriorities() {
   const db = await getDb();
