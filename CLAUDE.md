@@ -42,10 +42,19 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Mazos** (cada tarjeta pertenece a 1) con **ícono Feather** y **prioridad 0-100%**
   (slider, pasos de 5; 0% = pausado; la cola diaria intercala por stride scheduling
   proporcional al %). Reemplazó al viejo Modo Enfoque y a las prioridades mensuales.
-  **Etiquetas** sobre mazos = solo filtro en Biblioteca.
+  **Etiquetas** sobre mazos = solo filtro/búsqueda en Biblioteca.
+- **Carpetas** (tabla `folders`, migración v3): un mazo pertenece a 0 o 1 carpeta.
+  Biblioteca = grilla de carpetas arriba + mazos sueltos abajo; pantalla
+  `carpetas/[id]` gestiona sus mazos; chips de carpeta en el detalle del mazo.
+  Borrar carpeta NUNCA borra mazos (quedan sueltos). Las carpetas no llevan tags.
+- **Buscador de Biblioteca** (`lib/search.js`, en memoria con `toPlainText` — NO SQL
+  LIKE): filtra carpetas por nombre, mazos por nombre/etiqueta y tarjetas por texto
+  plano, insensible a tildes/mayúsculas.
 - **2 modos de estudio**: repaso diario (cola FSRS + Gimnasio Mental) y mazo específico
   estilo Quizlet (swipe, alimenta FSRS, SIN Gimnasio; la sesión excluye lo ya estudiado
   hoy y al final ofrece ronda extra de falladas, que también califica en FSRS).
+  **Swipe unificado**: el repaso diario usa el MISMO SwipeCard que el modo mazo
+  (derecha=Good, izquierda=Again, sin gate de flip; botones siempre visibles).
 - **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) con Lottie en
   nativo y **progreso diario por mazo** (derivado de review_logs, se reinicia solo).
 - **Gimnasio Mental**: chat de texto iterativo con auditor exigente; micrófono opcional (speech nativo Android, sin API extra); al validar → guarda conexión + crea tarjeta híbrida que entra a FSRS. Siempre salteable.
@@ -54,19 +63,28 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   `__subrayado__`, `==resaltado==`, `[[color:texto]]`, listas "- "); editor con barrita
   al seleccionar (RichField), render con RichText, `toPlainText()` para previews/IA.
 - **Respaldo manual** (Ajustes): exporta/importa un JSON con todos los datos (sin
-  settings/claves). Es el puente celu ↔ web (sin sync automático).
+  settings/claves). Es el puente celu ↔ web (sin sync automático). Versión 2
+  (incluye folders); los respaldos v1 siguen siendo restaurables.
 - **Versión web pública** en GitHub Pages (repo público, workflow deploy-web.yml,
   baseUrl /activecard). El build corre sin .env → las claves NO van embebidas en la
   web: se pegan en Ajustes (solo visible en web) y viven en settings del navegador.
   En el APK las claves sí van embebidas por env vars de EAS.
 - **Sin notificaciones** (app pasiva). **UI estilo Quizlet sobre fondo #0B0B0F**, acento
-  azul #3E63DD + paleta de apoyo (racha naranja, textColors), bottom tabs
-  (Inicio/Crear/Biblioteca), engranaje → Ajustes. Todo en español.
+  azul #3E63DD + paleta de apoyo (racha naranja, verde `successBright` para progreso,
+  textColors), bottom tabs (Inicio/Crear/Biblioteca), engranaje → Ajustes. Todo en español.
+- **Convención de superficies** (rediseño Quizlet): toda card visual usa `Card`
+  (surfaceCard nivel base / surfaceHigh nivel "high", radios 16-20 de `theme.radius`)
+  y `Pill` (píldoras translúcidas para tags/contadores/badges) de `components/ui.js` —
+  NO definir cards ad-hoc por pantalla. Barras de progreso: verde = repaso diario,
+  azul = progreso por mazo, naranja = racha.
 
 ## Dónde estamos
 - Fases 0-6 y rediseño F8-F15 completos (tema azul, tabs, prioridad %, racha,
   progreso diario, falladas, rich text, import Quizlet, respaldo, web pública).
-- En curso F16: subir env vars a EAS y construir el primer APK + smoke test.
+- F16: subir env vars a EAS y construir el primer APK + smoke test.
+- F17-F20 completas (rediseño Quizlet 2.0): contenedores Card/Pill en toda la app,
+  swipe unificado en el repaso diario, sistema de Carpetas (migración v3 + backup v2)
+  y buscador integrado en Biblioteca.
 - Plan completo: `C:\Users\marti\.claude\plans\mira-quiero-planear-la-moonlit-possum.md`.
 
 ## Cuentas
