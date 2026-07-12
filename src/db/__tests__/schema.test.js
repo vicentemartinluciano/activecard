@@ -61,6 +61,12 @@ describe("migraciones de esquema", () => {
     }
   });
 
+  test("la migración v3 crea folders y agrega folder_id a decks", () => {
+    expect(MIGRATIONS[2]).toContain("CREATE TABLE IF NOT EXISTS folders");
+    expect(MIGRATIONS[2]).toContain("ALTER TABLE decks ADD COLUMN folder_id");
+    expect(MIGRATIONS[2]).toContain("CREATE INDEX IF NOT EXISTS idx_decks_folder");
+  });
+
   test("el esquema inicial define todas las tablas del plan", () => {
     for (const table of [
       "decks",
