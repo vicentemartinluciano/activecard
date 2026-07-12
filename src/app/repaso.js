@@ -4,7 +4,8 @@ import { StyleSheet, Text, View } from "react-native";
 
 import ChatAuditor from "../components/ChatAuditor";
 import FlipCard from "../components/FlipCard";
-import { Button, Screen } from "../components/ui";
+import ProgressBar from "../components/ProgressBar";
+import { Button, Card, Pill, Screen } from "../components/ui";
 import { reviewCard } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { colors, radius, spacing, type } from "../theme";
@@ -67,14 +68,17 @@ export default function Repaso() {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Repaso" }} />
-        <Text style={type.title}>Repaso terminado</Text>
-        <Text style={type.body}>
-          Recordadas: {counts.good} · Olvidadas: {counts.again}
-        </Text>
-        {counts.connections > 0 ? (
-          <Text style={type.body}>Conexiones creadas: {counts.connections}</Text>
-        ) : null}
-        <Button label="Volver al inicio" kind="primary" onPress={goHome} />
+        <Card style={styles.summary}>
+          <Text style={type.title}>Repaso terminado</Text>
+          <View style={styles.summaryPills}>
+            <Pill color={colors.successBright} label={`Recordadas: ${counts.good}`} />
+            <Pill color={colors.danger} label={`Olvidadas: ${counts.again}`} />
+          </View>
+          {counts.connections > 0 ? (
+            <Pill color={colors.accentText} label={`Conexiones creadas: ${counts.connections}`} />
+          ) : null}
+          <Button label="Volver al inicio" kind="primary" onPress={goHome} />
+        </Card>
       </Screen>
     );
   }
@@ -98,6 +102,11 @@ export default function Repaso() {
   return (
     <Screen>
       <Stack.Screen options={{ title: "Repaso" }} />
+      <ProgressBar
+        pct={(index / queue.length) * 100}
+        color={colors.successBright}
+        style={{ marginBottom: spacing.sm }}
+      />
       <Text style={styles.progress}>
         {index + 1} de {queue.length}
       </Text>
@@ -164,5 +173,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  summary: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  summaryPills: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
 });

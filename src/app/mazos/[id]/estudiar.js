@@ -3,12 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import FlipCard from "../../../components/FlipCard";
+import ProgressBar from "../../../components/ProgressBar";
 import SwipeCard from "../../../components/SwipeCard";
-import { Button, Screen } from "../../../components/ui";
+import { Button, Card, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, reviewCard } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
-import { spacing, type } from "../../../theme";
+import { colors, spacing, type } from "../../../theme";
 
 // Modo Quizlet: se estudia el mazo deslizando. Alimenta el algoritmo FSRS
 // igual que el repaso diario, pero sin pasar por el Gimnasio Mental. La
@@ -112,18 +113,21 @@ export default function Estudiar() {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Estudiar" }} />
-        <Text style={type.title}>Ronda completa</Text>
-        <Text style={type.body}>
-          Sabías: {counts.good} · No sabías: {counts.again}
-        </Text>
-        {failedIds.length > 0 ? (
-          <Button
-            label={`Repasar las falladas (${failedIds.length})`}
-            kind="primary"
-            onPress={reviewFailed}
-          />
-        ) : null}
-        <Button label="Volver" kind="ghost" onPress={goBack} />
+        <Card style={styles.summary}>
+          <Text style={type.title}>Ronda completa</Text>
+          <View style={styles.summaryPills}>
+            <Pill color={colors.successBright} label={`Sabías: ${counts.good}`} />
+            <Pill color={colors.danger} label={`No sabías: ${counts.again}`} />
+          </View>
+          {failedIds.length > 0 ? (
+            <Button
+              label={`Repasar las falladas (${failedIds.length})`}
+              kind="primary"
+              onPress={reviewFailed}
+            />
+          ) : null}
+          <Button label="Volver" kind="ghost" onPress={goBack} />
+        </Card>
       </Screen>
     );
   }
@@ -133,6 +137,11 @@ export default function Estudiar() {
   return (
     <Screen>
       <Stack.Screen options={{ title: "Estudiar" }} />
+      <ProgressBar
+        pct={(index / round.length) * 100}
+        color={colors.accent}
+        style={{ marginBottom: spacing.sm }}
+      />
       <Text style={styles.progress}>
         {index + 1} de {round.length}
       </Text>
@@ -178,5 +187,15 @@ const styles = StyleSheet.create({
   hint: {
     textAlign: "center",
     marginTop: spacing.sm,
+  },
+  summary: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  summaryPills: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
 });
