@@ -7,6 +7,7 @@ import ActionSheet from "../../components/ActionSheet";
 import DeckListItem from "../../components/DeckListItem";
 import { Card, Chip, EmptyState, Field, InlineAdd, Pill, Screen } from "../../components/ui";
 import { listAllCards } from "../../db/cards";
+import { listDecksWithConnections } from "../../db/connections";
 import { createDeck, listDecks, listTags } from "../../db/decks";
 import { createFolder, listFolders } from "../../db/folders";
 import { getDecksDailyProgress } from "../../db/progress";
@@ -22,6 +23,7 @@ export default function Biblioteca() {
   const [allCards, setAllCards] = useState([]);
   const [activeTagIds, setActiveTagIds] = useState([]);
   const [progressByDeck, setProgressByDeck] = useState({});
+  const [gymDecks, setGymDecks] = useState([]);
   const [createStep, setCreateStep] = useState(null); // null | "menu" | "mazo" | "carpeta"
   const [query, setQuery] = useState("");
 
@@ -33,13 +35,15 @@ export default function Biblioteca() {
       listTags(),
       listAllCards(),
       getDecksDailyProgress(),
-    ]).then(([d, f, t, c, p]) => {
+      listDecksWithConnections(),
+    ]).then(([d, f, t, c, p, g]) => {
       if (!alive) return;
       setDecks(d);
       setFolders(f);
       setTags(t);
       setAllCards(c);
       setProgressByDeck(p);
+      setGymDecks(g);
     });
     return () => {
       alive = false;
@@ -203,10 +207,25 @@ export default function Biblioteca() {
         contentContainerStyle={{ paddingVertical: spacing.md, gap: spacing.sm }}
         ListHeaderComponent={
           <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
-            {folders.length > 0 ? (
+            {folders.length > 0 || gymDecks.length > 0 ? (
               <View style={{ gap: spacing.sm }}>
                 <Text style={type.label}>Carpetas</Text>
                 <View style={styles.folderGrid}>
+                  {gymDecks.length > 0 ? (
+                    <Card
+                      onPress={() => router.push("/carpetas/gimnasio")}
+                      style={[styles.folderTile, styles.gymTile]}
+                    >
+                      <Feather name="zap" size={22} color={colors.streak} />
+                      <Text style={styles.folderName} numberOfLines={1}>
+                        Gimnasio Mental
+                      </Text>
+                      <Pill
+                        color={colors.accentText}
+                        label={`${gymDecks.length} ${gymDecks.length === 1 ? "mazo" : "mazos"}`}
+                      />
+                    </Card>
+                  ) : null}
                   {folders.map((f) => (
                     <Card
                       key={f.id}
@@ -326,6 +345,9 @@ const styles = StyleSheet.create({
   folderTile: {
     width: "48%",
     gap: spacing.sm,
+  },
+  gymTile: {
+    borderColor: colors.accent,
   },
   folderName: {
     ...type.body,
