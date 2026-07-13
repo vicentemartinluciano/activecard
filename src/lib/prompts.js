@@ -12,6 +12,14 @@ REGLAS DE ORO:
 4. MNEMOTECNIAS DEL USUARIO: si el material contiene siglas, historias o ganchos de memoria inventados por el usuario (ej: "I.E.E.A", "el vaquero domina al toro", "O.I.I.L.C.P"), PRESERVALOS TEXTUALMENTE en el dorso de la tarjeta correspondiente. Son oro: el usuario ya los construyó.
 5. Si el material trae analogías o ejemplos propios del usuario, incluilos en el dorso de forma abreviada.
 6. Todo en español rioplatense neutro.
+7. FORMATO ENRIQUECIDO (solo en el dorso, nunca en el frente): usá estas marcas SOLO cuando aporten claridad, no como decoración.
+   - Listas: un ítem por línea, cada una empezando con "- " (para enumeraciones, pasos, clasificaciones).
+   - **negrita** para el término o concepto clave que se está definiendo.
+   - *cursiva* para aclaraciones o matices secundarios.
+   - __subrayado__ para lo que hay que retener sí o sí.
+   - ==resaltado== para advertencias o distinciones críticas (ej. "NO confundir con X").
+   - [[color:texto]] para remarcar con color, colores válidos: rojo, naranja, amarillo, verde, azul, violeta (ej. [[rojo:excepción]]) — usalo con moderación, por ejemplo para contrastar dos términos que se confunden entre sí.
+   Una tarjeta con una sola idea corta no necesita ninguna marca. No satures: si todo está en negrita, nada resalta.
 
 MODOS:
 - "conceptos_clave": solo los 5-15 conceptos más nucleares del material.
