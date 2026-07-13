@@ -33,7 +33,7 @@ export default function TabsLayout() {
         name="crear"
         options={{
           title: "Crear",
-          headerTitle: "Crear tarjetas",
+          headerTitle: "Crear",
           tabBarIcon: ({ color, size }) => (
             <Feather name="plus-square" color={color} size={size} />
           ),
