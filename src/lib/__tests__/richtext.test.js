@@ -1,8 +1,13 @@
 import {
   buildEditMap,
+  diffDisplays,
   displayToSource,
+  editSource,
+  getActiveMarks,
   parseRich,
+  setColor,
   sourceToDisplay,
+  toggleMark,
   toPlainText,
   toggleListLines,
   wrapColor,
@@ -298,5 +303,186 @@ describe("toggleListLines", () => {
 
   test("si todas las líneas tocadas ya son lista, las saca (toggle off)", () => {
     expect(toggleListLines("- a\n- b", 0, 7)).toBe("a\nb");
+  });
+});
+
+describe("getActiveMarks", () => {
+  test("rango homogéneo con la marca", () => {
+    expect(getActiveMarks("**hola**", 2, 6)).toEqual({
+      bold: true,
+      italic: false,
+      underline: false,
+      highlight: false,
+      color: null,
+      list: false,
+    });
+  });
+
+  test("rango mixto no reporta la marca", () => {
+    expect(getActiveMarks("**a**b", 2, 6).bold).toBe(false);
+  });
+
+  test("color común del rango", () => {
+    expect(getActiveMarks("[[rojo:abc]]", 7, 10).color).toBe("rojo");
+  });
+
+  test("rango colapsado hereda los estilos del carácter a la izquierda", () => {
+    expect(getActiveMarks("**ab**", 4, 4).bold).toBe(true);
+    expect(getActiveMarks("**ab**cd", 8, 8).bold).toBe(false);
+  });
+
+  test("list solo si todas las líneas tocadas son lista", () => {
+    expect(getActiveMarks("- a\n- b", 0, 7).list).toBe(true);
+    expect(getActiveMarks("- a\nb", 0, 5).list).toBe(false);
+  });
+
+  test("estilos anidados se reportan juntos", () => {
+    const marks = getActiveMarks("**[[azul:x]]**", 9, 10);
+    expect(marks.bold).toBe(true);
+    expect(marks.color).toBe("azul");
+  });
+});
+
+describe("toggleMark", () => {
+  test("envuelve el rango sin marca y deja la selección en el inner", () => {
+    expect(toggleMark("hello world", 0, 5, "**")).toEqual({
+      text: "**hello** world",
+      start: 2,
+      end: 7,
+    });
+  });
+
+  test("quita la marca cuando la selección es el inner del run", () => {
+    expect(toggleMark("**hello** world", 2, 7, "**")).toEqual({
+      text: "hello world",
+      start: 0,
+      end: 5,
+    });
+  });
+
+  test("quita la marca cuando la selección incluye los marcadores", () => {
+    expect(toggleMark("**hello** world", 0, 9, "**")).toEqual({
+      text: "hello world",
+      start: 0,
+      end: 5,
+    });
+  });
+
+  test("parte el run quirúrgicamente cuando la selección está en el medio", () => {
+    expect(toggleMark("**abc def ghi**", 6, 9, "**")).toEqual({
+      text: "**abc **def** ghi**",
+      start: 8,
+      end: 11,
+    });
+  });
+
+  test("quitar la marca externa conserva las anidadas", () => {
+    expect(toggleMark("**[[azul:abc]]**", 9, 12, "**")).toEqual({
+      text: "[[azul:abc]]",
+      start: 7,
+      end: 10,
+    });
+  });
+
+  test("rango mixto aplica la marca a todo (unifica)", () => {
+    expect(toggleMark("**a**b", 2, 6, "**")).toEqual({
+      text: "**ab**",
+      start: 2,
+      end: 4,
+    });
+  });
+
+  test("sin selección no hace nada", () => {
+    expect(toggleMark("hola", 2, 2, "**")).toEqual({ text: "hola", start: 2, end: 2 });
+  });
+});
+
+describe("setColor", () => {
+  test("envuelve el rango sin color", () => {
+    expect(setColor("nota importante", 5, 15, "rojo")).toEqual({
+      text: "nota [[rojo:importante]]",
+      start: 12,
+      end: 22,
+    });
+  });
+
+  test("reemplaza la clave si el rango ya tiene otro color", () => {
+    expect(setColor("[[azul:texto]]", 7, 12, "verde")).toEqual({
+      text: "[[verde:texto]]",
+      start: 8,
+      end: 13,
+    });
+  });
+
+  test("mismo color hace toggle y lo quita", () => {
+    expect(setColor("[[azul:texto]]", 7, 12, "azul")).toEqual({
+      text: "texto",
+      start: 0,
+      end: 5,
+    });
+  });
+
+  test("reemplazar el color conserva las otras marcas anidadas", () => {
+    expect(setColor("**[[azul:x]]**", 9, 10, "verde")).toEqual({
+      text: "**[[verde:x]]**",
+      start: 10,
+      end: 11,
+    });
+  });
+});
+
+describe("diffDisplays", () => {
+  test("tipeo de un carácter", () => {
+    expect(diffDisplays("abc", "abxc")).toEqual({ dStart: 2, dEnd: 2, inserted: "x" });
+  });
+
+  test("borrado de un carácter", () => {
+    expect(diffDisplays("abc", "ac")).toEqual({ dStart: 1, dEnd: 2, inserted: "" });
+  });
+
+  test("reemplazo multi-carácter (IME/autocorrect)", () => {
+    expect(diffDisplays("hola mundo", "hola guapo")).toEqual({
+      dStart: 5,
+      dEnd: 9,
+      inserted: "guap",
+    });
+  });
+
+  test("sin cambios", () => {
+    expect(diffDisplays("ab", "ab")).toEqual({ dStart: 2, dEnd: 2, inserted: "" });
+  });
+});
+
+describe("editSource", () => {
+  test("tipear al final de un run hereda su estilo (bias izquierdo)", () => {
+    expect(editSource("**ab**cd", 2, 2, "x")).toBe("**abx**cd");
+  });
+
+  test("tipear en texto plano no toca las marcas", () => {
+    expect(editSource("**ab**cd", 3, 3, "x")).toBe("**ab**cxd");
+  });
+
+  test("borrar cruzando el límite de un run preserva las marcas", () => {
+    expect(editSource("**ab**cd", 1, 3, "")).toBe("**a**d");
+  });
+
+  test("borrar todo el contenido de un run limpia el par vacío", () => {
+    expect(editSource("**ab**cd", 0, 2, "")).toBe("cd");
+    expect(editSource("[[rojo:x]]y", 0, 1, "")).toBe("y");
+  });
+
+  test("un salto de línea dentro de un run lo cierra y reabre", () => {
+    expect(editSource("**abc**", 2, 2, "\n")).toBe("**ab**\n**c**");
+    expect(editSource("[[rojo:ab]]", 1, 1, "\n")).toBe("[[rojo:a]]\n[[rojo:b]]");
+  });
+
+  test("tipear los marcadores a mano completa el par (colapso estilo Notion)", () => {
+    const step1 = editSource("abc", 0, 0, "*");
+    expect(step1).toBe("*abc");
+    const step2 = editSource(step1, 4, 4, "*");
+    expect(step2).toBe("*abc*");
+    expect(parseRich(step2)).toEqual([
+      { type: "p", spans: [{ text: "abc", italic: true }] },
+    ]);
   });
 });

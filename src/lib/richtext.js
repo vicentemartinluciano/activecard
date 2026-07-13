@@ -241,6 +241,240 @@ export function sourceToDisplay(map, sIdx) {
 }
 
 // ---------------------------------------------------------------------------
+// Edición por estilos (modelo -> serialización)
+//
+// En vez de hacer cirugía de strings (frágil con marcas anidadas), estas
+// funciones parten los tramos de texto según la selección, mutan los estilos
+// del tramo seleccionado y re-serializan la línea entera a markup canónico
+// (orden de anidado: bold > italic > underline > highlight > color). El
+// resultado siempre queda balanceado, incluso partiendo un run al medio:
+//   **left SEL right**  ->  **left**SEL**right**
+// ---------------------------------------------------------------------------
+
+const MARKER_BY_PROP = { bold: "**", italic: "*", underline: "__", highlight: "==" };
+const STYLE_PROPS = ["bold", "italic", "underline", "highlight"];
+
+// Claves de estilo de un tramo, en el orden canónico de anidado.
+function styleKeys(styles) {
+  const keys = [];
+  for (const prop of STYLE_PROPS) {
+    if (styles[prop]) keys.push(prop);
+  }
+  if (styles.color) keys.push(`color:${styles.color}`);
+  return keys;
+}
+
+function openStr(key) {
+  return key.startsWith("color:") ? `[[${key.slice(6)}:` : MARKER_BY_PROP[key];
+}
+
+function closeStr(key) {
+  return key.startsWith("color:") ? "]]" : MARKER_BY_PROP[key];
+}
+
+// Re-escribe `text` aplicando `mutate(styles)` a la parte de cada tramo de
+// texto que cae dentro de [start, end) (coords de source). Devuelve
+// { text, start, end } con la selección reubicada sobre el resultado.
+// Si el rango no toca texto, o la re-serialización no preserva el texto
+// plano (marcas literales patológicas en el contenido), devuelve la entrada
+// sin cambios — nunca rompe el documento.
+function applyStyles(text, start, end, mutate) {
+  const idx = parseIndexed(text);
+  let out = "";
+  const open = [];
+  let newStart = null;
+  let newEnd = null;
+
+  const closeAll = () => {
+    while (open.length) out += closeStr(open.pop());
+  };
+  const emit = (pieceText, styles, selected) => {
+    if (!pieceText) return;
+    const desired = styleKeys(styles);
+    let common = 0;
+    while (common < open.length && common < desired.length && open[common] === desired[common]) {
+      common++;
+    }
+    while (open.length > common) out += closeStr(open.pop());
+    while (open.length < desired.length) {
+      const key = desired[open.length];
+      out += openStr(key);
+      open.push(key);
+    }
+    if (selected && newStart === null) newStart = out.length;
+    out += pieceText;
+    if (selected) newEnd = out.length;
+  };
+
+  for (const seg of idx.segments) {
+    if (seg.kind !== "text") {
+      closeAll();
+      out += seg.text;
+      continue;
+    }
+    const a = Math.max(seg.sStart, start);
+    const b = Math.min(seg.sEnd, end);
+    if (b <= a) {
+      emit(seg.text, seg.styles, false);
+      continue;
+    }
+    emit(text.slice(seg.sStart, a), seg.styles, false);
+    emit(text.slice(a, b), mutate(seg.styles), true);
+    emit(text.slice(b, seg.sEnd), seg.styles, false);
+  }
+  closeAll();
+
+  if (newStart === null) return { text, start, end };
+  if (toPlainText(out) !== toPlainText(text)) return { text, start, end };
+  return { text: out, start: newStart, end: newEnd };
+}
+
+// Estado de formato del rango [start, end) (coords de source): cada prop es
+// true solo si TODO el texto del rango la tiene; color es la clave común o
+// null; list es true si todas las líneas tocadas son ítems de lista. Con el
+// rango colapsado, reporta los estilos del carácter a la izquierda (o a la
+// derecha si está al inicio) — es lo que "hereda" el cursor.
+export function getActiveMarks(text, start, end) {
+  const idx = parseIndexed(text);
+  const marks = { bold: false, italic: false, underline: false, highlight: false, color: null, list: false };
+
+  let touched;
+  if (start === end) {
+    touched = idx.segments.filter(
+      (s) => s.kind === "text" && s.sStart < start && start <= s.sEnd
+    );
+    if (!touched.length) {
+      const right = idx.segments.find((s) => s.kind === "text" && s.sEnd > start);
+      touched = right ? [right] : [];
+    }
+  } else {
+    touched = idx.segments.filter(
+      (s) => s.kind === "text" && s.sEnd > start && s.sStart < end
+    );
+  }
+
+  if (touched.length) {
+    for (const prop of STYLE_PROPS) {
+      marks[prop] = touched.every((s) => Boolean(s.styles[prop]));
+    }
+    const first = touched[0].styles.color || null;
+    marks.color = first && touched.every((s) => s.styles.color === first) ? first : null;
+  }
+
+  const touchedLines = idx.lines.filter((l) => l.end >= start && l.start <= end);
+  marks.list = touchedLines.length > 0 && touchedLines.every((l) => l.isList);
+  return marks;
+}
+
+// Toggle de una marca de estilo sobre el rango [start, end) (coords de
+// source). Si TODO el rango ya tiene la prop, la quita quirúrgicamente
+// (partiendo el run si hace falta); si no, la aplica a todo el rango.
+export function toggleMark(text, start, end, marker) {
+  if (start === end) return { text, start, end };
+  const def = MARKERS.find((m) => m.open === marker);
+  if (!def) return { text, start, end };
+  const turnOn = !getActiveMarks(text, start, end)[def.prop];
+  return applyStyles(text, start, end, (styles) => {
+    const next = { ...styles };
+    if (turnOn) next[def.prop] = true;
+    else delete next[def.prop];
+    return next;
+  });
+}
+
+// Aplica un color al rango [start, end): si el rango ya tiene OTRO color lo
+// reemplaza limpiamente; si ya tiene ESTE color, lo quita (toggle); si no
+// tiene, lo envuelve.
+export function setColor(text, start, end, colorKey) {
+  if (start === end) return { text, start, end };
+  const remove = getActiveMarks(text, start, end).color === colorKey;
+  return applyStyles(text, start, end, (styles) => {
+    const next = { ...styles };
+    delete next.color;
+    if (!remove) next.color = colorKey;
+    return next;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Edición desde el display (para el editor que oculta las marcas)
+// ---------------------------------------------------------------------------
+
+// Diff mínimo entre dos versiones del display: rango reemplazado [dStart,
+// dEnd) del texto anterior + string insertado. Cubre tipeo, borrado y
+// reemplazos multi-char (IME/autocorrect).
+export function diffDisplays(prev, next) {
+  const maxCommon = Math.min(prev.length, next.length);
+  let p = 0;
+  while (p < maxCommon && prev[p] === next[p]) p++;
+  let s = 0;
+  while (s < maxCommon - p && prev[prev.length - 1 - s] === next[next.length - 1 - s]) s++;
+  return { dStart: p, dEnd: prev.length - s, inserted: next.slice(p, next.length - s) };
+}
+
+// Elimina pares de marcas cuyo contenido visible quedó vacío (****,
+// [[rojo:]], anidados incluidos), iterando hasta punto fijo.
+function cleanEmptyMarks(text) {
+  let out = text;
+  for (let guard = 0; guard < 100; guard++) {
+    const idx = parseIndexed(out);
+    const empty = idx.runs.find(
+      (r) =>
+        !idx.segments.some(
+          (s) => s.kind === "text" && s.sStart >= r.innerStart && s.sEnd <= r.innerEnd
+        )
+    );
+    if (!empty) return out;
+    out =
+      out.slice(0, empty.openStart) +
+      out.slice(empty.innerStart, empty.innerEnd) +
+      out.slice(empty.closeEnd);
+  }
+  return out;
+}
+
+// Aplica al string fuente una edición hecha sobre el display: reemplaza el
+// rango de display [dStart, dEnd) por `inserted`. El borrado respeta los
+// marcadores (se borra la intersección con cada tramo de texto, preservando
+// las marcas intermedias: **ab**cd menos "bc" -> **a**d) y la inserción
+// hereda el estilo del carácter anterior (bias izquierdo). Si lo insertado
+// trae saltos de línea dentro de un run, el run se cierra y reabre en cada
+// línea (las marcas nunca cruzan líneas).
+export function editSource(source, dStart, dEnd, inserted) {
+  const idx = parseIndexed(source);
+  const map = buildEditMap(source);
+  const insAt = displayToSource(map, dStart, "left");
+
+  let ins = inserted;
+  if (ins.includes("\n")) {
+    const wrapping = idx.runs
+      .filter((r) => r.innerStart <= insAt && insAt <= r.innerEnd)
+      .sort((a, b) => a.openStart - b.openStart); // externo -> interno
+    if (wrapping.length) {
+      const closers = wrapping
+        .map((r) => (r.kind === "color" ? "]]" : r.marker))
+        .reverse()
+        .join("");
+      const openers = wrapping
+        .map((r) => (r.kind === "color" ? `[[${r.colorKey}:` : r.marker))
+        .join("");
+      ins = ins.split("\n").join(`${closers}\n${openers}`);
+    }
+  }
+
+  let out = source;
+  const overlapping = map.segments.filter((seg) => seg.dEnd > dStart && seg.dStart < dEnd);
+  for (let k = overlapping.length - 1; k >= 0; k--) {
+    const seg = overlapping[k];
+    const from = seg.sStart + Math.max(0, dStart - seg.dStart);
+    const to = seg.sStart + Math.min(seg.dEnd - seg.dStart, dEnd - seg.dStart);
+    out = out.slice(0, from) + out.slice(to);
+  }
+  out = out.slice(0, insAt) + ins + out.slice(insAt);
+  return cleanEmptyMarks(out);
+}
+
+// ---------------------------------------------------------------------------
 // Helpers de edición por selección (legado, siguen en uso por tests/compat)
 // ---------------------------------------------------------------------------
 
