@@ -1,5 +1,8 @@
 import {
+  buildEditMap,
+  displayToSource,
   parseRich,
+  sourceToDisplay,
   toPlainText,
   toggleListLines,
   wrapColor,
@@ -153,6 +156,134 @@ describe("wrapColor", () => {
 
   test("sin selección no hace nada", () => {
     expect(wrapColor("nota", 1, 1, "rojo")).toEqual({ text: "nota", start: 1, end: 1 });
+  });
+});
+
+describe("parseRich — anidamiento profundo", () => {
+  test("negrita con color adentro: **[[azul:concepto]]**", () => {
+    expect(parseRich("**[[azul:concepto]]**")).toEqual([
+      { type: "p", spans: [{ text: "concepto", bold: true, color: "azul" }] },
+    ]);
+  });
+
+  test("color con negrita adentro: [[rojo:**x**]]", () => {
+    expect(parseRich("[[rojo:**x**]]")).toEqual([
+      { type: "p", spans: [{ text: "x", color: "rojo", bold: true }] },
+    ]);
+  });
+
+  test("negrita + subrayado: **__x__**", () => {
+    expect(parseRich("**__x__**")).toEqual([
+      { type: "p", spans: [{ text: "x", bold: true, underline: true }] },
+    ]);
+  });
+
+  test("triple anidado: **[[verde:__núcleo__]]**", () => {
+    expect(parseRich("**[[verde:__núcleo__]]**")).toEqual([
+      {
+        type: "p",
+        spans: [{ text: "núcleo", bold: true, color: "verde", underline: true }],
+      },
+    ]);
+  });
+
+  test("marcas cruzadas mal balanceadas no crashean y degradan a literal", () => {
+    expect(parseRich("**a __b** c__")).toEqual([
+      {
+        type: "p",
+        spans: [
+          { text: "a __b", bold: true },
+          { text: " c__" },
+        ],
+      },
+    ]);
+  });
+
+  test("runs anidados y consecutivos en la misma línea", () => {
+    expect(parseRich("**a *b* y **c** d**")).toEqual([
+      {
+        type: "p",
+        spans: [
+          { text: "a ", bold: true },
+          { text: "b", bold: true, italic: true },
+          { text: " y ", bold: true },
+          { text: "c" },
+          { text: " d", bold: true },
+        ],
+      },
+    ]);
+  });
+});
+
+describe("buildEditMap", () => {
+  test("el display no tiene marcadores; el '- ' de lista y los \\n se conservan", () => {
+    const map = buildEditMap("- **hola** mundo\n[[rojo:ojo]]");
+    expect(map.display).toBe("- hola mundo\nojo");
+  });
+
+  test("texto plano mapea 1 a 1", () => {
+    const map = buildEditMap("abc");
+    expect(map.display).toBe("abc");
+    expect(map.segments).toEqual([
+      { dStart: 0, dEnd: 3, sStart: 0, sEnd: 3, styles: {} },
+    ]);
+  });
+
+  test("los segments llevan los estilos del tramo", () => {
+    const map = buildEditMap("**ab**cd");
+    expect(map.display).toBe("abcd");
+    expect(map.segments).toEqual([
+      { dStart: 0, dEnd: 2, sStart: 2, sEnd: 4, styles: { bold: true } },
+      { dStart: 2, dEnd: 4, sStart: 6, sEnd: 8, styles: {} },
+    ]);
+  });
+
+  test("texto vacío", () => {
+    expect(buildEditMap("")).toEqual({ display: "", segments: [] });
+  });
+});
+
+describe("displayToSource / sourceToDisplay", () => {
+  const map = buildEditMap("**abc**de");
+  // source: **abc**de   display: abcde
+  //           23456        01234
+
+  test("dentro de un segment mapea directo", () => {
+    expect(displayToSource(map, 1, "left")).toBe(3);
+    expect(displayToSource(map, 4, "left")).toBe(8);
+  });
+
+  test("en la frontera, bias left cae dentro de la marca que cierra", () => {
+    expect(displayToSource(map, 3, "left")).toBe(5);
+  });
+
+  test("en la frontera, bias right cae fuera de la marca (inicio del siguiente)", () => {
+    expect(displayToSource(map, 3, "right")).toBe(7);
+  });
+
+  test("selección display [0,3) con right/left cae en el inner del run", () => {
+    expect(displayToSource(map, 0, "right")).toBe(2);
+    expect(displayToSource(map, 3, "left")).toBe(5);
+  });
+
+  test("source a display salta los marcadores", () => {
+    expect(sourceToDisplay(map, 0)).toBe(0);
+    expect(sourceToDisplay(map, 2)).toBe(0);
+    expect(sourceToDisplay(map, 4)).toBe(2);
+    expect(sourceToDisplay(map, 7)).toBe(3);
+    expect(sourceToDisplay(map, 9)).toBe(5);
+  });
+
+  test("multilínea: los índices cruzan el \\n correctamente", () => {
+    const m = buildEditMap("**a**\n- b");
+    expect(m.display).toBe("a\n- b");
+    expect(displayToSource(m, 2, "right")).toBe(6);
+    expect(sourceToDisplay(m, 8)).toBe(4);
+  });
+
+  test("display vacío devuelve 0", () => {
+    const empty = buildEditMap("");
+    expect(displayToSource(empty, 0, "left")).toBe(0);
   });
 });
 

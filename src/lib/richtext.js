@@ -6,8 +6,14 @@
 //   **negrita**   *cursiva*   __subrayado__   ==resaltado==
 //   [[color:texto]]   (color: clave de theme.textColors, ej. [[rojo:urgente]])
 //
-// parseRich(text) -> [{ type: 'p'|'li', spans: [{text, bold, italic,
-//   underline, highlight, color}] }]
+// El motor es un parser recursivo indexado: además de los spans públicos,
+// registra el rango exacto de cada tramo de texto y de cada par de marcas
+// dentro del string fuente. Sobre eso se construyen:
+//   - parseRich(text) -> [{ type: 'p'|'li', spans: [{text, bold, italic,
+//     underline, highlight, color}] }]  (API pública, sin offsets)
+//   - buildEditMap(text) -> mapa display<->source para el editor WYSIWYG
+//     (el display es el texto SIN marcadores; el "- " de lista y los \n
+//     son texto visible y se conservan).
 
 const MARKERS = [
   { open: "**", close: "**", prop: "bold" },
@@ -18,28 +24,56 @@ const MARKERS = [
 
 const COLOR_RE = /^\[\[([a-zA-Z]+):/;
 
-// Parsea una línea a una lista de spans, aplicando los estilos heredados
-// del contexto (para que las marcas puedan anidarse: **a ==b==**).
-function parseLine(line, inherited) {
-  const spans = [];
-  let i = 0;
+// ---------------------------------------------------------------------------
+// Núcleo indexado
+// ---------------------------------------------------------------------------
 
-  const flushText = (text) => {
-    if (text) spans.push({ text, ...inherited });
+// Parsea la región [from, to) de `text` (una línea o el inner de una marca),
+// con la misma semántica de siempre: cierre más cercano dentro de la región,
+// marca cuya prop ya está heredada se toma literal, marca sin cierre se toma
+// literal de un saque. Acumula en `out`:
+//   segments: [{ kind:'text', sStart, sEnd, text, styles }]
+//   runs:     [{ kind:'mark'|'color', prop?, marker?, colorKey?,
+//                openStart, innerStart, innerEnd, closeEnd }]
+function parseRegion(text, from, to, inherited, out) {
+  let i = from;
+  let buffer = "";
+  let bufStart = from;
+
+  const append = (str, at) => {
+    if (!buffer) bufStart = at;
+    buffer += str;
+  };
+  const flush = () => {
+    if (buffer) {
+      out.segments.push({
+        kind: "text",
+        sStart: bufStart,
+        sEnd: bufStart + buffer.length,
+        text: buffer,
+        styles: inherited,
+      });
+    }
+    buffer = "";
   };
 
-  let buffer = "";
-  while (i < line.length) {
+  while (i < to) {
     // Color: [[clave:contenido]]
-    if (line[i] === "[" && line[i + 1] === "[") {
-      const m = COLOR_RE.exec(line.slice(i));
+    if (text[i] === "[" && text[i + 1] === "[") {
+      const m = COLOR_RE.exec(text.slice(i, to));
       if (m) {
-        const closeIdx = line.indexOf("]]", i);
-        if (closeIdx !== -1) {
-          flushText(buffer);
-          buffer = "";
-          const inner = line.slice(i + m[0].length, closeIdx);
-          spans.push(...parseLine(inner, { ...inherited, color: m[1] }));
+        const closeIdx = text.indexOf("]]", i);
+        if (closeIdx !== -1 && closeIdx + 2 <= to) {
+          flush();
+          out.runs.push({
+            kind: "color",
+            colorKey: m[1],
+            openStart: i,
+            innerStart: i + m[0].length,
+            innerEnd: closeIdx,
+            closeEnd: closeIdx + 2,
+          });
+          parseRegion(text, i + m[0].length, closeIdx, { ...inherited, color: m[1] }, out);
           i = closeIdx + 2;
           continue;
         }
@@ -50,19 +84,26 @@ function parseLine(line, inherited) {
     // ** no se interprete como dos *).
     let matched = false;
     for (const marker of MARKERS) {
-      if (line.startsWith(marker.open, i) && !inherited[marker.prop]) {
-        const closeIdx = line.indexOf(marker.close, i + marker.open.length);
-        if (closeIdx !== -1) {
-          flushText(buffer);
-          buffer = "";
-          const inner = line.slice(i + marker.open.length, closeIdx);
-          spans.push(...parseLine(inner, { ...inherited, [marker.prop]: true }));
+      if (text.startsWith(marker.open, i) && !inherited[marker.prop]) {
+        const closeIdx = text.indexOf(marker.close, i + marker.open.length);
+        if (closeIdx !== -1 && closeIdx + marker.close.length <= to) {
+          flush();
+          out.runs.push({
+            kind: "mark",
+            prop: marker.prop,
+            marker: marker.open,
+            openStart: i,
+            innerStart: i + marker.open.length,
+            innerEnd: closeIdx,
+            closeEnd: closeIdx + marker.close.length,
+          });
+          parseRegion(text, i + marker.open.length, closeIdx, { ...inherited, [marker.prop]: true }, out);
           i = closeIdx + marker.close.length;
         } else {
           // Sin cierre: los caracteres se toman como texto literal, de un
           // saque, para que un marcador más corto que comparte carácter
           // (el * suelto dentro de un ** sin cerrar) no lo reinterprete.
-          buffer += marker.open;
+          append(marker.open, i);
           i += marker.open.length;
         }
         matched = true;
@@ -71,24 +112,68 @@ function parseLine(line, inherited) {
     }
     if (matched) continue;
 
-    buffer += line[i];
+    append(text[i], i);
     i++;
   }
-  flushText(buffer);
-  return spans;
+  flush();
 }
 
-export function parseRich(text) {
+// Parsea el texto completo a la representación indexada. Los "- " de lista
+// y los "\n" entre líneas entran como segments propios (son texto visible
+// en el editor), con kind distinto para que parseRich pueda excluirlos.
+function parseIndexed(text) {
   const raw = text == null ? "" : String(text);
+  const out = { source: raw, segments: [], runs: [], lines: [] };
   const lines = raw.split("\n");
-  return lines.map((line) => {
-    const isListItem = line.startsWith("- ");
-    const content = isListItem ? line.slice(2) : line;
-    return {
-      type: isListItem ? "li" : "p",
-      spans: parseLine(content, {}),
-    };
-  });
+  let offset = 0;
+  for (const line of lines) {
+    const lineStart = offset;
+    if (lineStart > 0) {
+      out.segments.push({
+        kind: "newline",
+        sStart: lineStart - 1,
+        sEnd: lineStart,
+        text: "\n",
+        styles: {},
+      });
+    }
+    const isList = line.startsWith("- ");
+    if (isList) {
+      out.segments.push({
+        kind: "listMarker",
+        sStart: lineStart,
+        sEnd: lineStart + 2,
+        text: "- ",
+        styles: {},
+      });
+    }
+    const contentStart = lineStart + (isList ? 2 : 0);
+    parseRegion(raw, contentStart, lineStart + line.length, {}, out);
+    out.lines.push({
+      start: lineStart,
+      contentStart,
+      end: lineStart + line.length,
+      isList,
+    });
+    offset += line.length + 1;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// API pública de lectura
+// ---------------------------------------------------------------------------
+
+export function parseRich(text) {
+  const idx = parseIndexed(text);
+  return idx.lines.map((line) => ({
+    type: line.isList ? "li" : "p",
+    spans: idx.segments
+      .filter(
+        (s) => s.kind === "text" && s.sStart >= line.contentStart && s.sEnd <= line.end
+      )
+      .map((s) => ({ text: s.text, ...s.styles })),
+  }));
 }
 
 // Texto sin ninguna marca — para previews de una línea, para el contexto
@@ -98,6 +183,66 @@ export function toPlainText(text) {
     .map((block) => block.spans.map((s) => s.text).join(""))
     .join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Mapa display <-> source para el editor
+// ---------------------------------------------------------------------------
+
+// El "display" es lo que ve/edita el usuario: el texto fuente SIN los
+// marcadores inline. Conserva los "- " de lista y los "\n" (son tipeables).
+// Cada segment es contiguo en ambos espacios: dEnd-dStart === sEnd-sStart.
+export function buildEditMap(text) {
+  const idx = parseIndexed(text);
+  let display = "";
+  const segments = idx.segments.map((s) => {
+    const dStart = display.length;
+    display += s.text;
+    return {
+      dStart,
+      dEnd: display.length,
+      sStart: s.sStart,
+      sEnd: s.sEnd,
+      styles: s.styles,
+    };
+  });
+  return { display, segments };
+}
+
+// Traduce un índice del display al source. En una frontera entre segments
+// (donde en el source puede haber marcadores invisibles de por medio), el
+// bias decide de qué lado caer: 'left' se pega al final del segment anterior
+// (queda DENTRO de la marca que termina ahí), 'right' al inicio del segment
+// siguiente. Con right en el start y left en el end, una selección de display
+// se mapea al inner de la marca que la envuelve.
+export function displayToSource(map, dIdx, bias) {
+  const segs = map.segments;
+  if (!segs.length) return 0;
+  for (let k = 0; k < segs.length; k++) {
+    const seg = segs[k];
+    if (dIdx > seg.dStart && dIdx < seg.dEnd) {
+      return seg.sStart + (dIdx - seg.dStart);
+    }
+    if (dIdx === seg.dStart && bias === "right") return seg.sStart;
+    if (dIdx === seg.dEnd && bias === "left") return seg.sEnd;
+  }
+  // Fronteras no resueltas por el bias: caer al borde más cercano.
+  if (dIdx <= 0) return segs[0].sStart;
+  return segs[segs.length - 1].sEnd;
+}
+
+// Traduce un índice del source al display. Si cae dentro de un tramo de
+// marcadores (invisible), se ajusta al borde visible más cercano.
+export function sourceToDisplay(map, sIdx) {
+  for (const seg of map.segments) {
+    if (sIdx <= seg.sStart) return seg.dStart;
+    if (sIdx <= seg.sEnd) return seg.dStart + (sIdx - seg.sStart);
+  }
+  return map.display.length;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers de edición por selección (legado, siguen en uso por tests/compat)
+// ---------------------------------------------------------------------------
 
 // Envuelve (o desenvuelve, si ya está envuelto exacto) el rango [start, end)
 // de `text` con el marcador dado ("**", "*", "__", "=="). Devuelve
