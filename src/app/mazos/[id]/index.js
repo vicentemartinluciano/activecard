@@ -23,7 +23,7 @@ import {
 import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
 import { toPlainText } from "../../../lib/richtext";
-import { colors, radius, spacing, type } from "../../../theme";
+import { colors, gradients, radius, spacing, type } from "../../../theme";
 
 export default function DetalleMazo() {
   const { id } = useLocalSearchParams();
@@ -139,7 +139,7 @@ export default function DetalleMazo() {
                 <Text style={type.small}>
                   {progress.reviewedToday}/{progress.total} tarjetas repasadas
                 </Text>
-                <ProgressBar pct={progress.pct} color={colors.successBright} />
+                <ProgressBar pct={progress.pct} gradient={gradients.progress} />
               </Card>
             ) : null}
 

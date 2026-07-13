@@ -36,7 +36,7 @@ export default function DeckListItem({ deck, progress, onPress }) {
         ) : null}
       </View>
       {progress && progress.pct > 0 ? (
-        <ProgressBar pct={progress.pct} gradient={gradients.bar} style={{ marginTop: spacing.sm }} />
+        <ProgressBar pct={progress.pct} gradient={gradients.progress} style={{ marginTop: spacing.sm }} />
       ) : null}
     </Card>
   );

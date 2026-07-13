@@ -83,16 +83,16 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   web: se pegan en Ajustes (solo visible en web) y viven en settings del navegador.
   En el APK las claves sí van embebidas por env vars de EAS.
 - **Sin notificaciones** (app pasiva). **UI "Obsidian Cobalt" sobre fondo #09090B**
-  (cards #151518 con borde translúcido `cardBorder`), acento azul #3E63DD + degradados
-  cobalto→cian (`theme.gradients.bar`, barras de progreso por mazo) y azul profundo
+  (cards #151518 con borde translúcido `cardBorder`), acento azul #3E63DD + degradado
+  verde (`theme.gradients.progress`, TODAS las barras de progreso) y azul profundo
   (`gradients.hero`, hero de Inicio) vía `expo-linear-gradient` + paleta de apoyo (racha
-  naranja, verde `successBright` para progreso, textColors), bottom tabs
-  (Inicio/Crear/Biblioteca), engranaje → Ajustes. Todo en español.
+  naranja, textColors), bottom tabs (Inicio/Crear/Biblioteca), engranaje → Ajustes.
+  Todo en español.
 - **Convención de superficies**: toda card visual usa `Card` (surfaceCard nivel base /
   surfaceHigh nivel "high", radios 16-20 de `theme.radius`, borde `cardBorder`) y `Pill`
   (píldoras translúcidas para tags/contadores/badges) de `components/ui.js` — NO definir
-  cards ad-hoc por pantalla. Barras de progreso: verde = repaso diario, degradado
-  cobalto-cian = progreso por mazo, naranja = racha.
+  cards ad-hoc por pantalla. Barras de progreso: SIEMPRE `gradients.progress` (degradado
+  verde); naranja = racha; `gradients.bar` = card shiny de fin de sesión.
 - **Menús/overlays**: único patrón es `ActionSheet` (`components/ActionSheet.js`, bottom
   sheet con `Modal transparent`) — usado en el "+" de Biblioteca (crear Mazo/Carpeta) y en
   el "..." del detalle de mazo (Renombrar/Editar detalles/Borrar). No crear Modal/menú ad-hoc.

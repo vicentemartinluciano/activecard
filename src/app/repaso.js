@@ -10,7 +10,7 @@ import { Button, Card, Pill, Screen } from "../components/ui";
 import { reviewCard } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { toPlainText } from "../lib/richtext";
-import { colors, radius, spacing, type } from "../theme";
+import { colors, gradients, radius, spacing, type } from "../theme";
 
 export default function Repaso() {
   const router = useRouter();
@@ -106,7 +106,7 @@ export default function Repaso() {
       <Stack.Screen options={{ title: "Repaso" }} />
       <ProgressBar
         pct={(index / queue.length) * 100}
-        color={colors.successBright}
+        gradient={gradients.progress}
         style={{ marginBottom: spacing.sm }}
       />
       <Text style={styles.progress}>

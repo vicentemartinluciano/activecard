@@ -90,7 +90,7 @@ export default function Inicio() {
           {stats && stats.total > 0 ? (
             <ProgressBar
               pct={stats.pct}
-              color={colors.successBright}
+              gradient={gradients.progress}
               style={{ marginTop: spacing.sm }}
             />
           ) : null}
@@ -115,7 +115,7 @@ export default function Inicio() {
                 <Feather name={d.icon || "book"} size={18} color={colors.accentText} />
                 <View style={{ flex: 1 }}>
                   <Text style={type.body}>{d.name}</Text>
-                  <ProgressBar pct={d.progress.pct} gradient={gradients.bar} style={{ marginTop: 6 }} />
+                  <ProgressBar pct={d.progress.pct} gradient={gradients.progress} style={{ marginTop: 6 }} />
                 </View>
                 <Text style={styles.deckPct}>{d.progress.pct}%</Text>
               </Card>

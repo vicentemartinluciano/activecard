@@ -9,7 +9,7 @@ import { Button, Card, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, reviewCard } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
-import { colors, spacing, type } from "../../../theme";
+import { colors, gradients, spacing, type } from "../../../theme";
 
 // Modo Quizlet: se estudia el mazo deslizando. Alimenta el algoritmo FSRS
 // igual que el repaso diario, pero sin pasar por el Gimnasio Mental. La
@@ -139,7 +139,7 @@ export default function Estudiar() {
       <Stack.Screen options={{ title: "Estudiar" }} />
       <ProgressBar
         pct={(index / round.length) * 100}
-        color={colors.accent}
+        gradient={gradients.progress}
         style={{ marginBottom: spacing.sm }}
       />
       <Text style={styles.progress}>

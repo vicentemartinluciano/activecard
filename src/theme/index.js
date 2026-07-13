@@ -56,7 +56,8 @@ export const radius = {
 
 // Degradados del rediseño Obsidian Cobalt (expo-linear-gradient).
 export const gradients = {
-  bar: ["#2563EB", "#00F2FE"], // barras de progreso de mazos (cobalto → cian)
+  progress: ["#30A46C", "#5BE7AD"], // barras de progreso (verde esmeralda → verde claro)
+  bar: ["#2563EB", "#00F2FE"], // card "shiny" de fin de sesión (ex barras de mazos)
   hero: ["#0F1E36", "#112443", "#1E3A8A"], // tablero "Repaso de hoy"
 };
 
