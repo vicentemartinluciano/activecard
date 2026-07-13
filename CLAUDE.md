@@ -63,7 +63,15 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) con Lottie en
   nativo y **progreso diario por mazo** (derivado de review_logs, se reinicia solo).
 - **Gimnasio Mental**: chat de texto iterativo con auditor exigente; micrófono opcional (speech nativo Android, sin API extra); al validar → guarda conexión + crea tarjeta híbrida que entra a FSRS. Siempre salteable.
-- **Generación con IA es opcional** (creación manual + importar de Quizlet pegando el texto exportado). Preservar mnemotecnias del usuario textualmente.
+  **Carpeta virtual "Gimnasio Mental"** en Biblioteca (tile fijo, solo si hay conexiones):
+  lista los mazos con conexiones validadas (`listDecksWithConnections`), ruta
+  `carpetas/gimnasio.js`. NO es una fila de `folders`: no se guarda, no se borra/renombra,
+  no entra al backup ni al buscador.
+- **Generación con IA es opcional** (creación manual). Fuentes: texto / archivo / Notion.
+  Extracción: conceptos_clave / completo / **personalizado** (instrucción libre del
+  usuario, concatenada al mensaje enviado a Claude). Import de Quizlet ELIMINADO (F23):
+  se descartó por inestable — no re-litigar sin el usuario. Preservar mnemotecnias del
+  usuario textualmente.
 - **Rich text en tarjetas**: marcas livianas en el TEXT (`**negrita**`, `*cursiva*`,
   `__subrayado__`, `==resaltado==`, `[[color:texto]]`, listas "- "); editor con barrita
   al seleccionar (RichField), render con RichText, `toPlainText()` para previews/IA.
@@ -74,14 +82,24 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   baseUrl /activecard). El build corre sin .env → las claves NO van embebidas en la
   web: se pegan en Ajustes (solo visible en web) y viven en settings del navegador.
   En el APK las claves sí van embebidas por env vars de EAS.
-- **Sin notificaciones** (app pasiva). **UI estilo Quizlet sobre fondo #0B0B0F**, acento
-  azul #3E63DD + paleta de apoyo (racha naranja, verde `successBright` para progreso,
-  textColors), bottom tabs (Inicio/Crear/Biblioteca), engranaje → Ajustes. Todo en español.
-- **Convención de superficies** (rediseño Quizlet): toda card visual usa `Card`
-  (surfaceCard nivel base / surfaceHigh nivel "high", radios 16-20 de `theme.radius`)
-  y `Pill` (píldoras translúcidas para tags/contadores/badges) de `components/ui.js` —
-  NO definir cards ad-hoc por pantalla. Barras de progreso: verde = repaso diario,
-  azul = progreso por mazo, naranja = racha.
+- **Sin notificaciones** (app pasiva). **UI "Obsidian Cobalt" sobre fondo #09090B**
+  (cards #151518 con borde translúcido `cardBorder`), acento azul #3E63DD + degradados
+  cobalto→cian (`theme.gradients.bar`, barras de progreso por mazo) y azul profundo
+  (`gradients.hero`, hero de Inicio) vía `expo-linear-gradient` + paleta de apoyo (racha
+  naranja, verde `successBright` para progreso, textColors), bottom tabs
+  (Inicio/Crear/Biblioteca), engranaje → Ajustes. Todo en español.
+- **Convención de superficies**: toda card visual usa `Card` (surfaceCard nivel base /
+  surfaceHigh nivel "high", radios 16-20 de `theme.radius`, borde `cardBorder`) y `Pill`
+  (píldoras translúcidas para tags/contadores/badges) de `components/ui.js` — NO definir
+  cards ad-hoc por pantalla. Barras de progreso: verde = repaso diario, degradado
+  cobalto-cian = progreso por mazo, naranja = racha.
+- **Menús/overlays**: único patrón es `ActionSheet` (`components/ActionSheet.js`, bottom
+  sheet con `Modal transparent`) — usado en el "+" de Biblioteca (crear Mazo/Carpeta) y en
+  el "..." del detalle de mazo (Renombrar/Editar detalles/Borrar). No crear Modal/menú ad-hoc.
+- **Runtime OTA vs APK**: `app.json.runtimeVersion.policy: "appVersion"`. Al agregar un
+  módulo NATIVO nuevo, bumpear `version` en el MISMO commit — así los OTA posteriores
+  quedan aislados al próximo APK y nunca crashean el APK instalado (se hizo al agregar
+  `expo-linear-gradient`, versión pasó a 1.1.0).
 
 ## Dónde estamos
 - Fases 0-6 y rediseño F8-F15 completos (tema azul, tabs, prioridad %, racha,
@@ -90,7 +108,15 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - F17-F20 completas (rediseño Quizlet 2.0): contenedores Card/Pill en toda la app,
   swipe unificado en el repaso diario, sistema de Carpetas (migración v3 + backup v2)
   y buscador integrado en Biblioteca.
-- Plan completo: `C:\Users\marti\.claude\plans\mira-quiero-planear-la-moonlit-possum.md`.
+- F21-F28 completas (rediseño "Obsidian Cobalt"): theme nuevo (fondos, cards, bordes
+  translúcidos, degradados), barras de mazos con `expo-linear-gradient` (runtime bumpeado
+  a 1.1.0), Inicio sin título con hero degradado, fix del Lottie de racha (`useRef`+`play()`
+  + Lottie nuevo del usuario), eliminación de Quizlet del flujo Crear, modo "Personalizado"
+  de extracción, `ActionSheet` reutilizable (botón "+" en Biblioteca, menú "..." en detalle
+  de mazo), carpeta virtual "Gimnasio Mental", ícono nuevo (monograma "AC").
+- Pendiente: F29 (build del APK nuevo con `comandos/CONSTRUIR-APP-ANDROID.bat` — lo dispara
+  el usuario, consume créditos de EAS).
+- Plan completo: `C:\Users\marti\.claude\plans\hola-claude-vamos-a-optimized-peach.md`.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).

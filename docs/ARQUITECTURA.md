@@ -13,31 +13,39 @@ src/
 ├── app/                        # rutas (expo-router)
 │   ├── _layout.js              # Stack raíz (initKeys al montar) + (tabs)
 │   ├── (tabs)/_layout.js       # Bottom tabs: Inicio / Crear / Biblioteca (íconos Feather)
-│   ├── (tabs)/index.js         # Inicio: racha + engranaje→Ajustes + hero "Repaso de hoy"
-│   │                           #   + "Seguir estudiando" (mazos con progreso parcial)
-│   ├── (tabs)/crear.js         # fuentes: texto | archivo | Notion | Quizlet (pegar export)
-│   ├── (tabs)/biblioteca.js    # buscador (carpetas/mazos/tarjetas) + grilla de carpetas
-│   │                           #   + mazos sueltos (DeckListItem) + filtro etiquetas
+│   ├── (tabs)/index.js         # Inicio: fila fina (racha izq. + engranaje der., sin título)
+│   │                           #   + hero "Repaso de hoy" (LinearGradient) + "Seguir estudiando"
+│   ├── (tabs)/crear.js         # fuentes: texto | archivo | Notion (tiles simétricos);
+│   │                           #   extracción: conceptos_clave | completo | personalizado
+│   ├── (tabs)/biblioteca.js    # buscador + botón "+" (ActionSheet: Mazo/Carpeta) + grilla de
+│   │                           #   carpetas (con tile virtual "Gimnasio Mental" si hay
+│   │                           #   conexiones) + mazos sueltos (DeckListItem) + filtro etiquetas
 │   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado
 │   ├── crear/preseleccion.js   # revisar/editar (RichField) antes de guardar
-│   ├── mazos/[id]/index.js     # detalle: tarjetas, tags, carpeta, PercentSlider, IconPicker
+│   ├── mazos/[id]/index.js     # detalle: botones grandes Estudiar/Nueva tarjeta, menú "..."
+│   │                           #   (ActionSheet: Renombrar/Editar detalles/Borrar) que revela
+│   │                           #   tags, carpeta, PercentSlider, IconPicker
 │   ├── mazos/[id]/estudiar.js  # modo Quizlet: excluye lo hecho hoy, ronda de falladas
 │   ├── mazos/[id]/tarjeta.js   # editor manual (RichField frente/dorso)
-│   ├── carpetas/[id]/index.js  # carpeta: sus mazos, agregar/quitar, renombrar, borrar
+│   ├── carpetas/[id]/index.js  # carpeta real: sus mazos, agregar/quitar, renombrar, borrar
+│   ├── carpetas/gimnasio.js    # carpeta VIRTUAL: mazos con conexiones (derivada, no es fila
+│   │                           #   de `folders`; ruta estática, no colisiona con [id])
 │   ├── ajustes.js              # prioridades %, Respaldo, Claves (solo web), conexiones
-│   └── conexiones.js           # conexiones validadas del Gimnasio
+│   └── conexiones.js           # conexiones validadas del Gimnasio (?deckId= filtra por mazo)
 ├── db/                         # SQLite async: client (retry OPFS), schema (migraciones),
 │   │                           #   decks, folders, cards, settings, connections,
 │   │                           #   reviewQueue, streak, progress
-├── lib/                        # claude, prompts, generator, auditor, notion, files,
-│   │                           #   scheduler (ts-fsrs), queue (stride), streak (puro),
-│   │                           #   studySession, richtext, quizletImport, backup(IO),
+├── lib/                        # claude, prompts (+ instrucción personalizada), generator,
+│   │                           #   auditor, notion, files, scheduler (ts-fsrs), queue (stride),
+│   │                           #   streak (puro), studySession, richtext, backup(IO),
 │   │                           #   keys, search (buscador puro de la Biblioteca)
-├── components/                 # ui.js (Screen/Button/Field/Chip/Card/Pill/InlineAdd),
-│   │                           #   FlipCard, SwipeCard, DeckListItem, MicButton,
-│   │                           #   ChatAuditor, ProgressBar, StreakFlame(.web),
-│   │                           #   PercentSlider, IconPicker, RichText, RichField
-└── theme/                      # colors (azul #3E63DD + paleta), textColors, spacing,
+├── components/                 # ui.js (Screen/Button[kind+size]/Field/Chip/Card/Pill/InlineAdd),
+│   │                           #   ActionSheet (bottom sheet: menús y "+"), FlipCard, SwipeCard,
+│   │                           #   DeckListItem, MicButton, ChatAuditor, ProgressBar(+gradient),
+│   │                           #   StreakFlame(.web), PercentSlider, IconPicker, RichText, RichField
+└── theme/                      # colors (Obsidian Cobalt: bg #09090B, cards #151518,
+                                #   cardBorder translúcido, azul #3E63DD + paleta), gradients
+                                #   (bar cobalto→cian, hero), textColors, spacing,
                                 #   radius (sm10/md16/lg20/pill), type (+heading/label)
 ```
 
@@ -95,8 +103,11 @@ muestra la barrita al seleccionar y aplica `wrapSelection`/`wrapColor`/
 
 **Generación IA**: texto | TXT/MD local | PDF→base64 como bloque `document` |
 página de Notion → prompt generador → JSON {cards} → preselección → FSRS.
-**Import Quizlet** (`lib/quizletImport.js`): pega el export (tab/nueva línea
-por defecto, separadores configurables) → mismas pantallas, sin IA.
+Extracción: `conceptos_clave` | `completo` | `personalizado` (instrucción libre
+del usuario, concatenada en el mensaje user vía `buildGeneratorMessage({..,
+custom})`/`buildGeneratorPdfPrompt(mode, custom)` — el system prompt queda fijo
+y cacheable). Import de Quizlet eliminado (F23): las fuentes son texto,
+archivo y Notion.
 
 **Gimnasio Mental**: chat multi-turno con el Auditor (JSON
 {veredicto, feedback, hybrid_card}). Al validar: inserta en `connections` +
@@ -106,7 +117,26 @@ tarjeta híbrida (source 'hybrid', mismo mazo) que entra a FSRS.
 Biblioteca = grilla de carpetas (tiles con nombre + cantidad) arriba y mazos
 sueltos abajo; pantalla `carpetas/[id]` gestiona sus mazos; el detalle del
 mazo tiene chips de carpeta con toggle. Las etiquetas siguen siendo solo
-filtro/búsqueda (las carpetas no llevan tags).
+filtro/búsqueda (las carpetas no llevan tags). Se crean/renombran desde el
+botón "+" de la Biblioteca (`ActionSheet` → Mazo/Carpeta), no hay más
+InlineAdd suelto en la pantalla.
+
+**Gimnasio Mental (carpeta virtual)**: tile fijo en la grilla de carpetas,
+visible solo si `listDecksWithConnections()` (`db/connections.js`) devuelve
+algo — mazos con ≥1 conexión validada, agrupados/ordenados por última
+conexión. NO es una fila de `folders`: no tiene id propio, no se puede
+borrar/renombrar, no entra en `searchLibrary` ni en el backup. Ruta
+`carpetas/gimnasio.js` (estática; expo-router la prioriza sobre `[id]`) lista
+esos mazos → cada uno navega a `conexiones?deckId=N` (`listConnections`
+acepta `deckId` opcional para filtrar).
+
+**ActionSheet** (`components/ActionSheet.js`): bottom sheet reutilizable
+(`Modal transparent`, funciona en web y nativo) para menús contextuales.
+Dos usos: botón "+" de la Biblioteca (crear Mazo/Carpeta) y menú "..." del
+header en el detalle de mazo (Renombrar/Editar detalles/Borrar — "Editar
+detalles" togglea la visibilidad de la card de tags/carpeta/prioridad/ícono,
+oculta por defecto). Es el único patrón de overlay de la app; no crear otros
+Modal/ActionSheet ad-hoc.
 
 **Buscador** (`lib/search.js` puro): filtrado EN MEMORIA, insensible a tildes
 y mayúsculas — carpetas por nombre, mazos por nombre o etiqueta, tarjetas por
@@ -134,6 +164,18 @@ SPA) + .nojekyll → actions/deploy-pages. `experiments.baseUrl = "/activecard"`
 URL: https://vicentemartinluciano.github.io/activecard/
 SQLite web (OPFS) funciona sin headers COOP/COEP con la API async; la
 apertura reintenta ante errores transitorios de locks (ver db/client.js).
+
+## Rediseño Obsidian Cobalt (F21-F28)
+Overhaul estético + funcional: fondo `#09090B`, cards `#151518` con borde
+translúcido (`colors.cardBorder`, hex-alpha por el regex del test de theme),
+degradados cobalto→cian (`theme.gradients.bar`) en las barras de progreso por
+mazo vía `expo-linear-gradient` (prop `gradient` de `ProgressBar`, además del
+`color` sólido de siempre) y degradado azul profundo (`gradients.hero`) en el
+hero de Inicio. `expo-linear-gradient` es módulo nativo → se bumpeó
+`app.json.version` a `1.1.0` en el mismo commit que lo instaló: con
+`runtimeVersion.policy: "appVersion"`, los OTA posteriores solo llegan al APK
+que se compile con ese runtime — el APK 1.0.0 no se rompe por un módulo nativo
+que no tiene.
 
 ## Limitaciones conocidas
 - `@jamsch/expo-speech-recognition` no funciona en Expo Go ni web → micrófono
