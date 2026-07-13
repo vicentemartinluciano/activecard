@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 title ActiveCard - Enviar actualizacion al telefono (EAS Update)
 cd /d "%~dp0.."
 echo.
