@@ -3,6 +3,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import ActionSheet from "../../../components/ActionSheet";
 import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
@@ -37,6 +38,8 @@ export default function DetalleMazo() {
   const [name, setName] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [progress, setProgress] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const load = useCallback(async () => {
     const d = await getDeck(deckId);
@@ -93,7 +96,16 @@ export default function DetalleMazo() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: deck.name }} />
+      <Stack.Screen
+        options={{
+          title: deck.name,
+          headerRight: () => (
+            <Pressable onPress={() => setMenuOpen(true)} hitSlop={10}>
+              <Feather name="more-horizontal" size={22} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
       <FlatList
         data={cards}
         keyExtractor={(c) => String(c.id)}
@@ -106,14 +118,18 @@ export default function DetalleMazo() {
                 <Button label="Guardar" kind="primary" onPress={saveName} />
               </View>
             ) : (
-              <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <View style={{ gap: spacing.sm }}>
                 <Button
-                  label="Estudiar este mazo"
+                  label="ESTUDIAR AHORA"
                   kind="primary"
-                  style={{ flex: 1 }}
+                  size="lg"
                   onPress={() => router.push(`/mazos/${deckId}/estudiar`)}
                 />
-                <Button label="Renombrar" onPress={() => setEditingName(true)} />
+                <Button
+                  label="+ NUEVA TARJETA"
+                  size="lg"
+                  onPress={() => router.push(`/mazos/${deckId}/tarjeta`)}
+                />
               </View>
             )}
 
@@ -127,79 +143,76 @@ export default function DetalleMazo() {
               </Card>
             ) : null}
 
-            <Card style={{ gap: spacing.md }}>
-              <View style={{ gap: spacing.sm }}>
-                <Text style={type.label}>Etiquetas</Text>
-                <View style={styles.tagRow}>
-                  {allTags.map((t) => (
-                    <Chip
-                      key={t.id}
-                      label={t.name}
-                      active={deckTagIds.includes(t.id)}
-                      onPress={() => toggleTag(t.id)}
-                    />
-                  ))}
-                </View>
-                <InlineAdd placeholder="Etiqueta nueva…" onSubmit={addTag} />
-              </View>
-
-              {folders.length > 0 ? (
+            {showDetails ? (
+              <Card style={{ gap: spacing.md }}>
                 <View style={{ gap: spacing.sm }}>
-                  <Text style={type.label}>Carpeta</Text>
+                  <Text style={type.label}>Etiquetas</Text>
                   <View style={styles.tagRow}>
-                    {folders.map((f) => (
+                    {allTags.map((t) => (
                       <Chip
-                        key={f.id}
-                        label={f.name}
-                        active={deck.folder_id === f.id}
-                        onPress={async () => {
-                          await setDeckFolder(deckId, deck.folder_id === f.id ? null : f.id);
-                          load();
-                        }}
+                        key={t.id}
+                        label={t.name}
+                        active={deckTagIds.includes(t.id)}
+                        onPress={() => toggleTag(t.id)}
                       />
                     ))}
                   </View>
+                  <InlineAdd placeholder="Etiqueta nueva…" onSubmit={addTag} />
                 </View>
-              ) : null}
 
-              <View style={{ gap: spacing.sm }}>
-                <Text style={type.label}>Prioridad en el repaso diario</Text>
-                <PercentSlider
-                  value={deck.priority}
-                  onChange={async (p) => {
-                    await updateDeckPriority(deckId, p);
-                    load();
-                  }}
-                />
-              </View>
+                {folders.length > 0 ? (
+                  <View style={{ gap: spacing.sm }}>
+                    <Text style={type.label}>Carpeta</Text>
+                    <View style={styles.tagRow}>
+                      {folders.map((f) => (
+                        <Chip
+                          key={f.id}
+                          label={f.name}
+                          active={deck.folder_id === f.id}
+                          onPress={async () => {
+                            await setDeckFolder(deckId, deck.folder_id === f.id ? null : f.id);
+                            load();
+                          }}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
 
-              <View style={{ gap: spacing.sm }}>
-                <Pressable
-                  onPress={() => setShowIconPicker((s) => !s)}
-                  style={({ pressed }) => [styles.iconRow, pressed && { opacity: 0.7 }]}
-                >
-                  <Feather name={deck.icon || "book"} size={20} color={colors.accentText} />
-                  <Text style={type.small}>
-                    {showIconPicker ? "Elegí un ícono para el mazo" : "Cambiar ícono"}
-                  </Text>
-                </Pressable>
-                {showIconPicker ? (
-                  <IconPicker
-                    value={deck.icon || "book"}
-                    onChange={async (icon) => {
-                      await updateDeckIcon(deckId, icon);
-                      setShowIconPicker(false);
+                <View style={{ gap: spacing.sm }}>
+                  <Text style={type.label}>Prioridad en el repaso diario</Text>
+                  <PercentSlider
+                    value={deck.priority}
+                    onChange={async (p) => {
+                      await updateDeckPriority(deckId, p);
                       load();
                     }}
                   />
-                ) : null}
-              </View>
-            </Card>
+                </View>
 
-            <Button
-              label="Nueva tarjeta"
-              onPress={() => router.push(`/mazos/${deckId}/tarjeta`)}
-            />
+                <View style={{ gap: spacing.sm }}>
+                  <Pressable
+                    onPress={() => setShowIconPicker((s) => !s)}
+                    style={({ pressed }) => [styles.iconRow, pressed && { opacity: 0.7 }]}
+                  >
+                    <Feather name={deck.icon || "book"} size={20} color={colors.accentText} />
+                    <Text style={type.small}>
+                      {showIconPicker ? "Elegí un ícono para el mazo" : "Cambiar ícono"}
+                    </Text>
+                  </Pressable>
+                  {showIconPicker ? (
+                    <IconPicker
+                      value={deck.icon || "book"}
+                      onChange={async (icon) => {
+                        await updateDeckIcon(deckId, icon);
+                        setShowIconPicker(false);
+                        load();
+                      }}
+                    />
+                  ) : null}
+                </View>
+              </Card>
+            ) : null}
           </View>
         }
         ListEmptyComponent={<EmptyState text="Este mazo no tiene tarjetas todavía." />}
@@ -218,11 +231,21 @@ export default function DetalleMazo() {
             </Text>
           </Card>
         )}
-        ListFooterComponent={
-          <View style={{ marginTop: spacing.xl }}>
-            <Button label="Borrar mazo" kind="danger" onPress={onDelete} />
-          </View>
-        }
+      />
+
+      <ActionSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title={deck.name}
+        options={[
+          { icon: "edit-2", label: "Renombrar", onPress: () => setEditingName(true) },
+          {
+            icon: "sliders",
+            label: showDetails ? "Ocultar detalles" : "Editar detalles",
+            onPress: () => setShowDetails((s) => !s),
+          },
+          { icon: "trash-2", label: "Borrar mazo", destructive: true, onPress: onDelete },
+        ]}
       />
     </Screen>
   );

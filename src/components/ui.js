@@ -55,7 +55,7 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style }) 
   return <View style={[styles.pill, style]}>{content}</View>;
 }
 
-export function Button({ label, onPress, kind = "default", disabled, style }) {
+export function Button({ label, onPress, kind = "default", size = "md", disabled, style }) {
   return (
     <Pressable
       onPress={onPress}
@@ -66,6 +66,7 @@ export function Button({ label, onPress, kind = "default", disabled, style }) {
         kind === "danger" && styles.buttonDanger,
         kind === "ghost" && styles.buttonGhost,
         kind === "inverse" && styles.buttonInverse,
+        size === "lg" && styles.buttonLg,
         disabled && { opacity: 0.4 },
         pressed && { opacity: 0.7 },
         style,
@@ -78,6 +79,7 @@ export function Button({ label, onPress, kind = "default", disabled, style }) {
           kind === "danger" && { color: colors.danger },
           kind === "ghost" && { color: colors.textMuted },
           kind === "inverse" && styles.buttonInverseLabel,
+          size === "lg" && styles.buttonLgLabel,
         ]}
       >
         {label}
@@ -192,6 +194,9 @@ const styles = StyleSheet.create({
   buttonInverse: {
     backgroundColor: "#FFFFFF",
   },
+  buttonLg: {
+    paddingVertical: 16,
+  },
   buttonLabel: {
     fontSize: 15,
     fontWeight: "600",
@@ -199,6 +204,11 @@ const styles = StyleSheet.create({
   },
   buttonInverseLabel: {
     color: colors.bg,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  buttonLgLabel: {
+    fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
