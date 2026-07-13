@@ -19,7 +19,9 @@ REGLAS DE ORO:
    - __subrayado__ para lo que hay que retener sí o sí.
    - ==resaltado== para advertencias o distinciones críticas (ej. "NO confundir con X").
    - [[color:texto]] para remarcar con color, colores válidos: rojo, naranja, amarillo, verde, azul, violeta (ej. [[rojo:excepción]]) — usalo con moderación, por ejemplo para contrastar dos términos que se confunden entre sí.
+   - Las marcas se pueden ANIDAR cuando aporte claridad: por ejemplo **[[azul:concepto]]** destaca una palabra clave con negrita Y color al mismo tiempo. Usalo con criterio, no en cada tarjeta.
    Una tarjeta con una sola idea corta no necesita ninguna marca. No satures: si todo está en negrita, nada resalta.
+   PROHIBIDO usar HTML o CSS: nada de etiquetas como <span>, <b>, <i>, <u> ni atributos de estilo (style="..."). Ceñite estrictamente a la sintaxis nativa de ActiveCard (**, *, __, ==, [[color:texto]], "- ") y al diccionario de colores permitido (rojo, naranja, amarillo, verde, azul, violeta) — ninguna otra sintaxis de formato es válida.
 
 MODOS:
 - "conceptos_clave": solo los 5-15 conceptos más nucleares del material.

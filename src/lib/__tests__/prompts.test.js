@@ -1,4 +1,16 @@
-import { buildGeneratorMessage, buildGeneratorPdfPrompt } from "../prompts";
+import { buildGeneratorMessage, buildGeneratorPdfPrompt, GENERATOR_SYSTEM } from "../prompts";
+
+describe("GENERATOR_SYSTEM — formato enriquecido", () => {
+  test("fomenta el anidamiento de marcas", () => {
+    expect(GENERATOR_SYSTEM).toContain("ANIDAR");
+    expect(GENERATOR_SYSTEM).toContain("**[[azul:concepto]]**");
+  });
+
+  test("prohíbe HTML/CSS y fija la sintaxis y el diccionario de colores permitidos", () => {
+    expect(GENERATOR_SYSTEM).toContain("PROHIBIDO usar HTML o CSS");
+    expect(GENERATOR_SYSTEM).toContain("rojo, naranja, amarillo, verde, azul, violeta");
+  });
+});
 
 describe("buildGeneratorMessage", () => {
   test("sin instrucción personalizada no incluye el bloque adicional", () => {
