@@ -17,17 +17,17 @@ function validateCards(result) {
   return cards;
 }
 
-// mode: 'conceptos_clave' | 'completo'
-export async function generateCardsFromText(text, mode) {
+// mode: 'conceptos_clave' | 'completo' | 'personalizado'
+export async function generateCardsFromText(text, mode, custom = "") {
   const result = await callClaudeJson({
     system: GENERATOR_SYSTEM,
-    messages: [{ role: "user", content: buildGeneratorMessage({ text, mode }) }],
+    messages: [{ role: "user", content: buildGeneratorMessage({ text, mode, custom }) }],
     maxTokens: 8192,
   });
   return validateCards(result);
 }
 
-export async function generateCardsFromPdf(base64, mode) {
+export async function generateCardsFromPdf(base64, mode, custom = "") {
   const result = await callClaudeJson({
     system: GENERATOR_SYSTEM,
     messages: [
@@ -38,7 +38,7 @@ export async function generateCardsFromPdf(base64, mode) {
             type: "document",
             source: { type: "base64", media_type: "application/pdf", data: base64 },
           },
-          { type: "text", text: buildGeneratorPdfPrompt(mode) },
+          { type: "text", text: buildGeneratorPdfPrompt(mode, custom) },
         ],
       },
     ],

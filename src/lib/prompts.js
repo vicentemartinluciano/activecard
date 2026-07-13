@@ -16,19 +16,26 @@ REGLAS DE ORO:
 MODOS:
 - "conceptos_clave": solo los 5-15 conceptos más nucleares del material.
 - "completo": cobertura exhaustiva de todos los conceptos con nombre propio del material (sin inventar los que no están).
+- "personalizado": seguí las instrucciones adicionales que vienen en el mensaje, sin romper las reglas de oro ni el formato de salida.
 
 FORMATO DE SALIDA — respondé ÚNICAMENTE con este JSON, sin texto adicional:
 {"cards": [{"front": "...", "back": "..."}]}`;
 
-export function buildGeneratorMessage({ text, mode }) {
-  const modeLabel = mode === "completo" ? "completo" : "conceptos_clave";
-  return `Modo: ${modeLabel}\n\nMATERIAL DE ESTUDIO:\n"""\n${text}\n"""`;
+function buildCustomBlock(custom) {
+  return custom && custom.trim()
+    ? `\n\nINSTRUCCIONES ADICIONALES DEL USUARIO:\n"""\n${custom.trim()}\n"""`
+    : "";
+}
+
+export function buildGeneratorMessage({ text, mode, custom }) {
+  const modeLabel = mode === "completo" ? "completo" : mode === "personalizado" ? "personalizado" : "conceptos_clave";
+  return `Modo: ${modeLabel}${buildCustomBlock(custom)}\n\nMATERIAL DE ESTUDIO:\n"""\n${text}\n"""`;
 }
 
 // Para PDFs: el documento va como bloque aparte y este texto lo acompaña.
-export function buildGeneratorPdfPrompt(mode) {
-  const modeLabel = mode === "completo" ? "completo" : "conceptos_clave";
-  return `Modo: ${modeLabel}\n\nEl material de estudio es el PDF adjunto. Extraé las tarjetas según tus reglas.`;
+export function buildGeneratorPdfPrompt(mode, custom) {
+  const modeLabel = mode === "completo" ? "completo" : mode === "personalizado" ? "personalizado" : "conceptos_clave";
+  return `Modo: ${modeLabel}${buildCustomBlock(custom)}\n\nEl material de estudio es el PDF adjunto. Extraé las tarjetas según tus reglas.`;
 }
 
 // ---------------------------------------------------------------------------
