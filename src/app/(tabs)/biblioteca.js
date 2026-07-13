@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import ActionSheet from "../../components/ActionSheet";
 import DeckListItem from "../../components/DeckListItem";
 import { Card, Chip, EmptyState, Field, InlineAdd, Pill, Screen } from "../../components/ui";
 import { listAllCards } from "../../db/cards";
@@ -11,7 +12,7 @@ import { createFolder, listFolders } from "../../db/folders";
 import { getDecksDailyProgress } from "../../db/progress";
 import { searchLibrary } from "../../lib/search";
 import { toPlainText } from "../../lib/richtext";
-import { colors, spacing, type } from "../../theme";
+import { colors, radius, spacing, type } from "../../theme";
 
 export default function Biblioteca() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function Biblioteca() {
   const [allCards, setAllCards] = useState([]);
   const [activeTagIds, setActiveTagIds] = useState([]);
   const [progressByDeck, setProgressByDeck] = useState({});
-  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [createStep, setCreateStep] = useState(null); // null | "menu" | "mazo" | "carpeta"
   const [query, setQuery] = useState("");
 
   const refresh = useCallback(() => {
@@ -49,12 +50,13 @@ export default function Biblioteca() {
 
   const onCreate = async (name) => {
     const id = await createDeck(name);
+    setCreateStep(null);
     router.push(`/mazos/${id}`);
   };
 
   const onCreateFolder = async (name) => {
     await createFolder(name);
-    setShowNewFolder(false);
+    setCreateStep(null);
     refresh();
   };
 
@@ -174,9 +176,13 @@ export default function Biblioteca() {
           placeholder="Buscar carpetas, mazos o tarjetas…"
           style={{ flex: 1 }}
         />
+        <Pressable
+          onPress={() => setCreateStep("menu")}
+          style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.7 }]}
+        >
+          <Feather name="plus" size={20} color="#FFFFFF" />
+        </Pressable>
       </View>
-
-      <InlineAdd placeholder="Nombre del mazo nuevo…" buttonLabel="Crear" onSubmit={onCreate} />
 
       {tags.length > 0 ? (
         <View style={styles.tagRow}>
@@ -197,32 +203,24 @@ export default function Biblioteca() {
         contentContainerStyle={{ paddingVertical: spacing.md, gap: spacing.sm }}
         ListHeaderComponent={
           <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
-            <View style={styles.folderHeader}>
-              <Text style={type.label}>Carpetas</Text>
-              <Pill
-                label="+ Nueva carpeta"
-                color={colors.accentText}
-                onPress={() => setShowNewFolder((s) => !s)}
-              />
-            </View>
-            {showNewFolder ? (
-              <InlineAdd placeholder="Nombre de la carpeta…" onSubmit={onCreateFolder} />
-            ) : null}
             {folders.length > 0 ? (
-              <View style={styles.folderGrid}>
-                {folders.map((f) => (
-                  <Card
-                    key={f.id}
-                    onPress={() => router.push(`/carpetas/${f.id}`)}
-                    style={styles.folderTile}
-                  >
-                    <Feather name="folder" size={22} color={colors.accentText} />
-                    <Text style={styles.folderName} numberOfLines={1}>
-                      {f.name}
-                    </Text>
-                    <Pill label={`${f.deck_count} ${f.deck_count === 1 ? "mazo" : "mazos"}`} />
-                  </Card>
-                ))}
+              <View style={{ gap: spacing.sm }}>
+                <Text style={type.label}>Carpetas</Text>
+                <View style={styles.folderGrid}>
+                  {folders.map((f) => (
+                    <Card
+                      key={f.id}
+                      onPress={() => router.push(`/carpetas/${f.id}`)}
+                      style={styles.folderTile}
+                    >
+                      <Feather name="folder" size={22} color={colors.accentText} />
+                      <Text style={styles.folderName} numberOfLines={1}>
+                        {f.name}
+                      </Text>
+                      <Pill label={`${f.deck_count} ${f.deck_count === 1 ? "mazo" : "mazos"}`} />
+                    </Card>
+                  ))}
+                </View>
               </View>
             ) : null}
             <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
@@ -247,6 +245,43 @@ export default function Biblioteca() {
           />
         )}
       />
+
+      <ActionSheet
+        visible={createStep !== null}
+        onClose={() => setCreateStep(null)}
+        title={
+          createStep === "mazo"
+            ? "Nuevo mazo"
+            : createStep === "carpeta"
+              ? "Nueva carpeta"
+              : "¿Qué querés crear?"
+        }
+      >
+        {createStep === "menu" ? (
+          <>
+            <Pressable
+              style={({ pressed }) => [styles.menuOption, pressed && { opacity: 0.7 }]}
+              onPress={() => setCreateStep("mazo")}
+            >
+              <Feather name="layers" size={18} color={colors.text} />
+              <Text style={type.body}>Mazo</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.menuOption, pressed && { opacity: 0.7 }]}
+              onPress={() => setCreateStep("carpeta")}
+            >
+              <Feather name="folder" size={18} color={colors.text} />
+              <Text style={type.body}>Carpeta</Text>
+            </Pressable>
+          </>
+        ) : null}
+        {createStep === "mazo" ? (
+          <InlineAdd placeholder="Nombre del mazo nuevo…" buttonLabel="Crear" onSubmit={onCreate} />
+        ) : null}
+        {createStep === "carpeta" ? (
+          <InlineAdd placeholder="Nombre de la carpeta…" buttonLabel="Crear" onSubmit={onCreateFolder} />
+        ) : null}
+      </ActionSheet>
     </Screen>
   );
 }
@@ -269,10 +304,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
   },
-  folderHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  addButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accent,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  menuOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: 12,
   },
   folderGrid: {
     flexDirection: "row",
