@@ -94,12 +94,43 @@ racha sigue viva (no se corta hasta que termine el día). StreakFlame la anima
 **Progreso diario por mazo** (`db/progress.js`): COUNT(DISTINCT card_id) de
 review_logs de hoy (modo quizlet) / total del mazo. Sin estado propio.
 
-**Rich text** (`lib/richtext.js`): marcas dentro del mismo TEXT —
-`**b**  *i*  __u__  ==hl==  [[color:texto]]` (claves de theme.textColors) y
-líneas "- " como viñetas. `parseRich` → bloques/spans anidables; marca sin
-cierre = literal. `toPlainText` para previews e IA. El editor (RichField)
-muestra la barrita al seleccionar y aplica `wrapSelection`/`wrapColor`/
-`toggleListLines` sobre el rango.
+**Rich text** (`lib/richtext.js`, refactor F30-F33): marcas dentro del mismo
+TEXT — `**b**  *i*  __u__  ==hl==  [[color:texto]]` (claves de
+theme.textColors, anidables sin límite: `**[[azul:x]]**`) y líneas "- " como
+viñetas. Núcleo = parser recursivo indexado (`parseRegion`/`parseIndexed`):
+además de los spans registra el rango exacto en el string fuente de cada
+tramo de texto y de cada par de marcas — de ahí salen `parseRich` (API
+pública sin offsets, retrocompatible byte a byte con el corpus viejo) y
+`toPlainText` (para previews/IA/buscador, sigue quitando TODO). Sobre ese
+núcleo:
+- `buildEditMap(text)` → `{ display, segments }`: `display` es el texto SIN
+  marcadores (conserva "- " y "\n"); `displayToSource`/`sourceToDisplay`
+  traducen índices entre ambos espacios.
+- `toggleMark`/`setColor`: edición "modelo → serialización" — parten los
+  tramos por la selección, mutan los estilos y re-serializan a markup
+  balanceado (soporta partir un run al medio: `**left SEL right**` →
+  `**left**SEL**right**`). `setColor` reemplaza la clave de color en vez de
+  anidar. `getActiveMarks` da el estado de formato de un rango (para la
+  barra). `wrapSelection`/`wrapColor`/`toggleListLines` quedan como legado.
+- `editSource`/`diffDisplays`: traducen una edición hecha sobre el texto
+  visible (sin marcadores) al string fuente — borrado que preserva marcas
+  intermedias, inserción con bias izquierdo, limpieza de pares vacíos.
+
+**Editor (`components/RichField.js`)**: sin panel de "Vista previa" — el
+campo es el único elemento. El TextInput muestra `buildEditMap(value).display`
+con texto transparente; detrás, una capa fantasma (`pointerEvents="none"`)
+renderiza esos mismos caracteres con los estilos de cada tramo (negrita
+simulada con `textShadow` para no desalinear el caret; cursiva/subrayado/
+resaltado/color reales) — como ambas capas comparten tipografía y padding,
+el caret cae sobre el glifo estilizado. Aplicar/quitar formato no cambia el
+display (los marcadores son invisibles) → no hay salto de caret ni pérdida
+de foco; solo el toggle de lista o el colapso de un marcador tipeado a mano
+reponen la selección por un único render (`forcedSelection`). Barra de
+formato: píldora flotante glass (`pillBg`/`pillBorder`, sin `expo-blur` —
+JS puro, sale por OTA), íconos Feather, estado "encendido" por marca vía
+`getActiveMarks`; se posiciona solapando el borde superior del propio campo
+(no por completo afuera) para no quedar recortada por el `ScrollView`
+cuando el campo está pegado arriba de la pantalla.
 
 **Generación IA**: texto | TXT/MD local | PDF→base64 como bloque `document` |
 página de Notion → prompt generador → JSON {cards} → preselección → FSRS.

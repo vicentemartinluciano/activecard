@@ -73,8 +73,13 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   se descartó por inestable — no re-litigar sin el usuario. Preservar mnemotecnias del
   usuario textualmente.
 - **Rich text en tarjetas**: marcas livianas en el TEXT (`**negrita**`, `*cursiva*`,
-  `__subrayado__`, `==resaltado==`, `[[color:texto]]`, listas "- "); editor con barrita
-  al seleccionar (RichField), render con RichText, `toPlainText()` para previews/IA.
+  `__subrayado__`, `==resaltado==`, `[[color:texto]]`, listas "- "), anidables sin
+  límite (`**[[azul:concepto]]**`, parser recursivo indexado, F30-F33). Editor
+  `RichField` WYSIWYG: sin vista previa aparte, las marcas quedan invisibles mientras
+  se edita (capa fantasma estilizada detrás de un input transparente) y una barra
+  glass flotante hace toggle quirúrgico de marcas / reemplazo limpio de color al
+  seleccionar texto. Render final con RichText, `toPlainText()` para previews/IA/buscador.
+  Prompt del generador prohíbe HTML/CSS y fomenta el anidamiento con criterio.
 - **Respaldo manual** (Ajustes): exporta/importa un JSON con todos los datos (sin
   settings/claves). Es el puente celu ↔ web (sin sync automático). Versión 2
   (incluye folders); los respaldos v1 siguen siendo restaurables.
@@ -114,6 +119,11 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   + Lottie nuevo del usuario), eliminación de Quizlet del flujo Crear, modo "Personalizado"
   de extracción, `ActionSheet` reutilizable (botón "+" en Biblioteca, menú "..." en detalle
   de mazo), carpeta virtual "Gimnasio Mental", ícono nuevo (monograma "AC").
+- F30-F33 completas (refactor Rich Text): parser recursivo indexado con anidamiento
+  robusto (`buildEditMap`/`toggleMark`/`setColor`/`getActiveMarks`/`editSource` en
+  `lib/richtext.js`), `RichField` reescrito como editor WYSIWYG (marcas ocultas, capa
+  fantasma, sin vista previa duplicada, barra glass flotante), y prompt del generador
+  actualizado (anidamiento fomentado, HTML/CSS prohibido). Todo JS-only, sale por OTA.
 - Pendiente: F29 (build del APK nuevo con `comandos/CONSTRUIR-APP-ANDROID.bat` — lo dispara
   el usuario, consume créditos de EAS).
 - Plan completo: `C:\Users\marti\.claude\plans\hola-claude-vamos-a-optimized-peach.md`.
@@ -135,3 +145,17 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   recargas → verificar flujos con DB en un Chrome real apuntando a localhost:8081.
 - **lottie-react-native no funciona en web** → StreakFlame.web.js (resolución por
   extensión de plataforma; un require condicional NO alcanza, Metro resuelve estático).
+- **Overlays flotantes dentro de un ScrollView**: si un elemento `position:absolute`
+  se posiciona por completo AFUERA de su contenedor (ej. una barra flotante arriba de
+  un campo), el ScrollView lo recorta cuando ese contenedor está pegado al borde
+  visible — el overflow del ScrollView clipea a los descendientes aunque sean
+  absolutos. Solución usada en RichField: solapar el borde del propio contenedor en
+  vez de flotar totalmente afuera (ver `styles.toolbar`, `top: -8` en vez de
+  `bottom: 100%`).
+- **`scripts/preview-web.js` corre Metro en modo CI (`CI=true`)**: sin file-watching,
+  y solo bundlea bajo demanda al primer request de cada ruta — reiniciar el server no
+  alcanza, hay que pegarle a la URL (curl o navegar) y esperar la línea "Web Bundled"
+  en el log antes de verificar. Si un restart previo no llegó a matar el proceso
+  anterior (puerto 8081 sigue "LISTEN"), un curl exitoso puede estar pegándole al
+  server VIEJO con el bundle desactualizado — verificar con `lsof -i :8081` o
+  `pgrep -fa "expo start"` y matar por PID si hace falta.
