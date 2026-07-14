@@ -11,7 +11,7 @@ import ProgressBar from "../components/ProgressBar";
 import Skeleton from "../components/Skeleton";
 import SwipeCard from "../components/SwipeCard";
 import { Button, EmptyState, Pill, Screen } from "../components/ui";
-import { reviewCard, snapshotFsrs, undoReview } from "../db/cards";
+import { reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { toPlainText } from "../lib/richtext";
 import { colors, glow, gradients, radius, spacing, type } from "../theme";
@@ -177,6 +177,12 @@ export default function Repaso() {
             back={card.back}
             flipped={flipped}
             onFlip={() => setFlipped((f) => !f)}
+            starred={!!card.starred}
+            onToggleStar={async () => {
+              const v = card.starred ? 0 : 1;
+              await setCardStarred(card.id, v);
+              setQueue((q) => q.map((c) => (c.id === card.id ? { ...c, starred: v } : c)));
+            }}
           />
         </SwipeCard>
       </View>

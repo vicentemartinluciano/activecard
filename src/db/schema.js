@@ -99,6 +99,17 @@ export const MIGRATIONS = [
   ALTER TABLE decks ADD COLUMN folder_id INTEGER;
   CREATE INDEX IF NOT EXISTS idx_decks_folder ON decks(folder_id);
   `,
+
+  // v4 — estrellas estilo Quizlet y orden manual de tarjetas dentro del mazo.
+  // position arranca igual al id (mismo orden de creación); los respaldos
+  // viejos restauran con los DEFAULT (el restore inserta solo las columnas
+  // presentes en cada fila).
+  `
+  ALTER TABLE cards ADD COLUMN starred INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE cards ADD COLUMN position INTEGER;
+  UPDATE cards SET position = id;
+  CREATE INDEX IF NOT EXISTS idx_cards_deck_pos ON cards(deck_id, position);
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

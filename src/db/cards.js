@@ -22,8 +22,9 @@ export async function createCard({ deckId, front, back, source = "manual", origi
   const res = await db.runAsync(
     `INSERT INTO cards (deck_id, front, back, source, origin_card_id, created_at,
        due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses,
-       learning_steps, state, last_review)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       learning_steps, state, last_review, starred, position)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0,
+       (SELECT COALESCE(MAX(position), 0) + 1 FROM cards WHERE deck_id = ?))`,
     [
       deckId,
       front.trim(),
@@ -41,6 +42,7 @@ export async function createCard({ deckId, front, back, source = "manual", origi
       s.learning_steps,
       s.state,
       s.last_review,
+      deckId,
     ]
   );
   return res.lastInsertRowId;
@@ -67,9 +69,34 @@ export async function getCard(id) {
 
 export async function listCardsByDeck(deckId) {
   const db = await getDb();
-  return db.getAllAsync("SELECT * FROM cards WHERE deck_id = ? ORDER BY created_at DESC", [
+  return db.getAllAsync("SELECT * FROM cards WHERE deck_id = ? ORDER BY position ASC, id ASC", [
     deckId,
   ]);
+}
+
+// Marca/desmarca la estrella (starred: 0 | 1).
+export async function setCardStarred(id, starred) {
+  const db = await getDb();
+  await db.runAsync("UPDATE cards SET starred = ? WHERE id = ?", [starred, id]);
+}
+
+// Persiste el orden manual: position = índice + 1 según orderedIds.
+export async function setCardPositions(deckId, orderedIds) {
+  const db = await getDb();
+  await db.execAsync("BEGIN");
+  try {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.runAsync("UPDATE cards SET position = ? WHERE id = ? AND deck_id = ?", [
+        i + 1,
+        orderedIds[i],
+        deckId,
+      ]);
+    }
+    await db.execAsync("COMMIT");
+  } catch (e) {
+    await db.execAsync("ROLLBACK");
+    throw e;
+  }
 }
 
 export async function listAllCards() {

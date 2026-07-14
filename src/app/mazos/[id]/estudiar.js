@@ -10,7 +10,7 @@ import ProgressBar from "../../../components/ProgressBar";
 import Skeleton from "../../../components/Skeleton";
 import SwipeCard from "../../../components/SwipeCard";
 import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
-import { listCardsByDeck, reviewCard, snapshotFsrs, undoReview } from "../../../db/cards";
+import { listCardsByDeck, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import { colors, glow, gradients, radius, spacing, type } from "../../../theme";
@@ -32,22 +32,30 @@ function SummaryHaptic() {
 // review_logs, así que sobrevive a salir y volver a entrar) y, al terminar,
 // ofrece una ronda extra opcional con lo que salió mal.
 export default function Estudiar() {
-  const { id } = useLocalSearchParams();
+  const { id, stars, ordered } = useLocalSearchParams();
   const deckId = Number(id);
+  // Preferencias del sheet "¿Cómo estudiamos?": solo estrelladas / en mi orden.
+  const starsOnly = stars === "1";
+  const inMyOrder = ordered === "1";
   const router = useRouter();
   const goBack = () => (router.canGoBack() ? router.back() : router.replace(`/mazos/${deckId}`));
 
-  // status: 'loading' | 'done-today' | 'empty' | 'studying'
+  // status: 'loading' | 'done-today' | 'empty' | 'empty-stars' | 'studying'
   const [status, setStatus] = useState("loading");
-  const [round, setRound] = useState([]); // tarjetas de la ronda actual (barajadas)
+  const [round, setRound] = useState([]); // tarjetas de la ronda actual
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [counts, setCounts] = useState({ good: 0, again: 0 });
   const [failedIds, setFailedIds] = useState([]);
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
 
-  const startRound = useCallback((cards) => {
-    setRound(shuffle(cards));
+  // keepOrder: respeta el orden manual (position) en vez de barajar.
+  const startRound = useCallback((cards, keepOrder = false) => {
+    setRound(
+      keepOrder
+        ? [...cards].sort((a, b) => (a.position ?? a.id) - (b.position ?? b.id) || a.id - b.id)
+        : shuffle(cards)
+    );
     setIndex(0);
     setFlipped(false);
     setCounts({ good: 0, again: 0 });
@@ -64,18 +72,21 @@ export default function Estudiar() {
         listDeckCardsNotReviewedToday(deckId),
       ]);
       if (!alive) return;
+      const filtered = pool.filter((c) => !starsOnly || c.starred);
       if (all.length === 0) {
         setStatus("empty");
       } else if (pool.length === 0) {
         setStatus("done-today");
+      } else if (filtered.length === 0) {
+        setStatus("empty-stars");
       } else {
-        startRound(pool);
+        startRound(filtered, inMyOrder);
       }
     })();
     return () => {
       alive = false;
     };
-  }, [deckId, startRound]);
+  }, [deckId, startRound, starsOnly, inMyOrder]);
 
   const grade = async (rating) => {
     const card = round[index];
@@ -106,11 +117,19 @@ export default function Estudiar() {
 
   const studyAgain = async () => {
     const all = await listCardsByDeck(deckId);
-    startRound(all);
+    const filtered = all.filter((c) => !starsOnly || c.starred);
+    startRound(filtered.length > 0 ? filtered : all, inMyOrder);
   };
 
   const reviewFailed = () => {
+    // La ronda de falladas siempre va barajada (buildFailedRound ya baraja).
     startRound(buildFailedRound(round, failedIds));
+  };
+
+  const toggleStar = async (card) => {
+    const v = card.starred ? 0 : 1;
+    await setCardStarred(card.id, v);
+    setRound((r) => r.map((c) => (c.id === card.id ? { ...c, starred: v } : c)));
   };
 
   if (status === "loading") {
@@ -132,6 +151,16 @@ export default function Estudiar() {
       <Screen>
         <Stack.Screen options={{ title: "Estudiar" }} />
         <EmptyState full icon="inbox" text="Este mazo no tiene tarjetas." />
+        <Button label="Volver" kind="ghost" onPress={goBack} />
+      </Screen>
+    );
+  }
+
+  if (status === "empty-stars") {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: "Estudiar" }} />
+        <EmptyState full icon="star" text="No hay tarjetas con estrella para estudiar." />
         <Button label="Volver" kind="ghost" onPress={goBack} />
       </Screen>
     );
@@ -213,6 +242,8 @@ export default function Estudiar() {
             back={card.back}
             flipped={flipped}
             onFlip={() => setFlipped((f) => !f)}
+            starred={!!card.starred}
+            onToggleStar={() => toggleStar(card)}
           />
         </SwipeCard>
       </View>

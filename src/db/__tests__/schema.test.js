@@ -67,6 +67,13 @@ describe("migraciones de esquema", () => {
     expect(MIGRATIONS[2]).toContain("CREATE INDEX IF NOT EXISTS idx_decks_folder");
   });
 
+  test("la migración v4 agrega starred y position a cards", () => {
+    expect(MIGRATIONS[3]).toContain("ALTER TABLE cards ADD COLUMN starred INTEGER NOT NULL DEFAULT 0");
+    expect(MIGRATIONS[3]).toContain("ALTER TABLE cards ADD COLUMN position INTEGER");
+    expect(MIGRATIONS[3]).toContain("UPDATE cards SET position = id");
+    expect(MIGRATIONS[3]).toContain("CREATE INDEX IF NOT EXISTS idx_cards_deck_pos");
+  });
+
   test("el esquema inicial define todas las tablas del plan", () => {
     for (const table of [
       "decks",
