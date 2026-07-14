@@ -1,90 +1,54 @@
-// Tarjeta con giro 3D sobrio: frente (pregunta) → tap → dorso (respuesta).
-// Usa Animated de RN core (funciona igual en Android y web).
+// Tarjeta de estudio: una sola cara con layout natural. El "giro" es un
+// aplastado horizontal (scaleX) — robusto en Android new-arch, donde el
+// enfoque de dos caras absolutas con rotateY/opacity se rompía.
 
-import { useEffect, useRef } from "react";
+import { Feather, FontAwesome } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import RichText from "./RichText";
-import { colors, radius, spacing, type } from "../theme";
+import { colors, gradients, radius, spacing, type } from "../theme";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-export default function FlipCard({ front, back, flipped, onFlip }) {
-  const anim = useRef(new Animated.Value(flipped ? 1 : 0)).current;
-  const scale = useRef(new Animated.Value(1)).current;
-  const onPressIn = () =>
-    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
-  const onPressOut = () =>
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }).start();
+export default function FlipCard({ front, back, flipped, onFlip, starred, onToggleStar }) {
+  const scaleX = useRef(new Animated.Value(1)).current;
+  const [showBack, setShowBack] = useState(flipped);
 
   useEffect(() => {
-    Animated.timing(anim, {
-      toValue: flipped ? 1 : 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [flipped, anim]);
-
-  const frontRotate = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "180deg"],
-  });
-  const backRotate = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["180deg", "360deg"],
-  });
-  const frontOpacity = anim.interpolate({
-    inputRange: [0, 0.5, 0.5001, 1],
-    outputRange: [1, 1, 0, 0],
-  });
-  const backOpacity = anim.interpolate({
-    inputRange: [0, 0.4999, 0.5, 1],
-    outputRange: [0, 0, 1, 1],
-  });
+    if (showBack === flipped) return;
+    Animated.timing(scaleX, { toValue: 0, duration: 110, useNativeDriver: true }).start(() => {
+      setShowBack(flipped);
+      Animated.timing(scaleX, { toValue: 1, duration: 110, useNativeDriver: true }).start();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flipped]);
 
   return (
-    <AnimatedPressable
-      onPress={onFlip}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      style={[styles.wrapper, { transform: [{ scale }] }]}
-    >
-      <Animated.View
-        pointerEvents={flipped ? "none" : "auto"}
-        style={[
-          styles.face,
-          !flipped && styles.faceOnTop,
-          {
-            opacity: frontOpacity,
-            transform: [{ perspective: 1000 }, { rotateY: frontRotate }],
-          },
-        ]}
-      >
-        <Text style={styles.hint}>Pregunta</Text>
-        <View style={styles.textBox}>
-          <RichText text={front} style={styles.text} />
-        </View>
-        <Text style={styles.hint}>tocá para dar vuelta</Text>
+    <Pressable onPress={onFlip} style={styles.wrapper}>
+      <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
+        <LinearGradient
+          colors={gradients.card}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.face}
+        >
+          {onToggleStar ? (
+            <Pressable onPress={onToggleStar} hitSlop={10} style={styles.star}>
+              {starred ? (
+                <FontAwesome name="star" size={20} color="#FFC53D" />
+              ) : (
+                <Feather name="star" size={20} color={colors.textMuted} style={{ opacity: 0.35 }} />
+              )}
+            </Pressable>
+          ) : null}
+          <Text style={styles.hint}>{showBack ? "Respuesta" : "Pregunta"}</Text>
+          <View style={styles.textBox}>
+            <RichText text={showBack ? back : front} style={styles.text} />
+          </View>
+          <Text style={styles.hint}>{showBack ? " " : "tocá para dar vuelta"}</Text>
+        </LinearGradient>
       </Animated.View>
-      <Animated.View
-        pointerEvents={flipped ? "auto" : "none"}
-        style={[
-          styles.face,
-          styles.faceBack,
-          flipped && styles.faceOnTop,
-          {
-            opacity: backOpacity,
-            transform: [{ perspective: 1000 }, { rotateY: backRotate }],
-          },
-        ]}
-      >
-        <Text style={styles.hint}>Respuesta</Text>
-        <View style={styles.textBox}>
-          <RichText text={back} style={styles.text} />
-        </View>
-        <Text style={styles.hint} />
-      </Animated.View>
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 
@@ -93,23 +57,22 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 340,
   },
+  card: {
+    flex: 1,
+  },
   face: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.surfaceCard,
+    flex: 1,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.lg,
     justifyContent: "space-between",
     alignItems: "center",
-    backfaceVisibility: "hidden",
-    zIndex: 1,
+    overflow: "hidden",
   },
-  faceOnTop: {
+  star: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
     zIndex: 2,
-  },
-  faceBack: {
-    borderColor: colors.accent,
   },
   textBox: {
     flex: 1,

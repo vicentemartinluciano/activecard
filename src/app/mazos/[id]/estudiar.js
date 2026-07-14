@@ -232,9 +232,19 @@ export default function Estudiar() {
         </SwipeCard>
       </View>
 
-      <View style={styles.actions}>
-        <Button label="← No la sabía" kind="danger" style={{ flex: 1 }} onPress={() => grade("again")} />
-        <Button label="La sabía →" kind="primary" style={{ flex: 1 }} onPress={() => grade("good")} />
+      <View style={styles.grade}>
+        <Pressable
+          onPress={() => grade("again")}
+          style={({ pressed }) => [styles.circle, styles.circleNo, pressed && { opacity: 0.7 }]}
+        >
+          <Feather name="x" size={26} color={colors.danger} />
+        </Pressable>
+        <Pressable
+          onPress={() => grade("good")}
+          style={({ pressed }) => [styles.circle, styles.circleYes, pressed && { opacity: 0.7 }]}
+        >
+          <Feather name="check" size={26} color="#5BE7AD" />
+        </Pressable>
       </View>
       <Text style={[type.small, styles.hint]}>Deslizá la tarjeta o usá los botones.</Text>
     </Screen>
@@ -262,6 +272,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.lg,
+  },
+  grade: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 44,
+    marginTop: spacing.lg,
+  },
+  circle: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceHigh,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  circleNo: {
+    borderColor: "rgba(229,72,77,0.45)",
+  },
+  circleYes: {
+    borderColor: "rgba(91,231,173,0.45)",
   },
   hint: {
     textAlign: "center",
