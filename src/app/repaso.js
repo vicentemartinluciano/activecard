@@ -113,18 +113,20 @@ export default function Repaso() {
         {index + 1} de {queue.length}
       </Text>
 
-      <SwipeCard
-        cardKey={card.id}
-        onSwipeLeft={() => grade("again")}
-        onSwipeRight={() => grade("good")}
-      >
-        <FlipCard
-          front={card.front}
-          back={card.back}
-          flipped={flipped}
-          onFlip={() => setFlipped((f) => !f)}
-        />
-      </SwipeCard>
+      <View style={{ flex: 1, marginVertical: spacing.sm }}>
+        <SwipeCard
+          cardKey={card.id}
+          onSwipeLeft={() => grade("again")}
+          onSwipeRight={() => grade("good")}
+        >
+          <FlipCard
+            front={card.front}
+            back={card.back}
+            flipped={flipped}
+            onFlip={() => setFlipped((f) => !f)}
+          />
+        </SwipeCard>
+      </View>
 
       <View style={styles.actions}>
         <Button
