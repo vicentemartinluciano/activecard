@@ -6,11 +6,52 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import { useEffect, useRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
+// ← si el fueguito sigue congelado en el device, poner false y mandar OTA
+//   (activa la llama en código de abajo, sin Lottie).
+const USE_LOTTIE = true;
+
 const streakAnimation = require("../../assets/lottie/streak-fire.json");
+
+// Plan B: llama animada en código (pulso de escala + parpadeo de opacidad
+// desfasado + glow naranja) — no depende de lottie-react-native.
+function CodeFlame() {
+  const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 1.15, duration: 500, useNativeDriver: true }),
+        Animated.timing(scale, { toValue: 0.95, duration: 500, useNativeDriver: true }),
+      ])
+    );
+    const flicker = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.85, duration: 350, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 650, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    flicker.start();
+    return () => {
+      pulse.stop();
+      flicker.stop();
+    };
+  }, [scale, opacity]);
+
+  return (
+    <View style={styles.flameBox}>
+      <View style={styles.flameGlow} />
+      <Animated.View style={{ transform: [{ scale }], opacity }}>
+        <MaterialCommunityIcons name="fire" size={26} color={colors.streak} />
+      </Animated.View>
+    </View>
+  );
+}
 
 export default function StreakFlame({ days = null, active = false }) {
   const color = active ? colors.streak : colors.textMuted;
@@ -23,7 +64,7 @@ export default function StreakFlame({ days = null, active = false }) {
   // key, play() también desde onLayout del propio LottieView, y un reintento
   // diferido de seguridad además del rAF.
   useEffect(() => {
-    if (!active) return;
+    if (!active || !USE_LOTTIE) return;
     const raf = requestAnimationFrame(() => animationRef.current?.play());
     const t = setTimeout(() => animationRef.current?.play(), 300);
     return () => {
@@ -34,20 +75,21 @@ export default function StreakFlame({ days = null, active = false }) {
 
   return (
     <View style={styles.row}>
-      {active ? (
+      {active && USE_LOTTIE ? (
         <LottieView
           key={active ? "flame-on" : "flame-off"}
           ref={animationRef}
           source={streakAnimation}
           autoPlay
           loop
-          // Si en el device sigue congelado pese a todo lo anterior, el
-          // fallback conocido es renderMode="SOFTWARE" (bug de composición
-          // HARDWARE con ciertos JSON en Android).
-          renderMode="AUTOMATIC"
+          // Plan A del rediseño Neón: SOFTWARE evita el bug de composición
+          // HARDWARE con ciertos JSON en Android (AUTOMATIC quedaba congelado).
+          renderMode="SOFTWARE"
           onLayout={() => animationRef.current?.play()}
           style={{ width: size, height: size }}
         />
+      ) : active ? (
+        <CodeFlame />
       ) : (
         <MaterialCommunityIcons name="fire" size={26} color={color} />
       )}
@@ -65,5 +107,18 @@ const styles = StyleSheet.create({
   days: {
     fontSize: 17,
     fontWeight: "700",
+  },
+  flameBox: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flameGlow: {
+    position: "absolute",
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    boxShadow: "0 0 10px rgba(247,107,21,0.55)",
   },
 });
