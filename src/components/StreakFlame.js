@@ -19,20 +19,33 @@ export default function StreakFlame({ days = null, active = false }) {
 
   // autoPlay a veces se congela en el frame 0 en Android; forzar play() tras
   // el montado es el fix estándar para que la animación arranque de verdad.
+  // F26 (rAF + play()) no alcanzó en el APK real → fix profundo: remount por
+  // key, play() también desde onLayout del propio LottieView, y un reintento
+  // diferido de seguridad además del rAF.
   useEffect(() => {
     if (!active) return;
     const raf = requestAnimationFrame(() => animationRef.current?.play());
-    return () => cancelAnimationFrame(raf);
+    const t = setTimeout(() => animationRef.current?.play(), 300);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
   }, [active]);
 
   return (
     <View style={styles.row}>
       {active ? (
         <LottieView
+          key={active ? "flame-on" : "flame-off"}
           ref={animationRef}
           source={streakAnimation}
           autoPlay
           loop
+          // Si en el device sigue congelado pese a todo lo anterior, el
+          // fallback conocido es renderMode="SOFTWARE" (bug de composición
+          // HARDWARE con ciertos JSON en Android).
+          renderMode="AUTOMATIC"
+          onLayout={() => animationRef.current?.play()}
           style={{ width: size, height: size }}
         />
       ) : (
