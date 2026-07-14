@@ -24,6 +24,8 @@ export const colors = {
   highlight: "#4A3A12", // fondo de resaltado rich text (ámbar oscuro)
   pillBg: "#FFFFFF14", // fondo semi-transparente de píldoras/tags
   pillBorder: "#FFFFFF1F", // borde sutil de píldoras
+  neonBorder: "rgba(77,124,255,0.65)", // borde azul eléctrico de elementos con glow
+  cyanBorder: "rgba(0,242,254,0.35)", // borde cián de la card de cierre de sesión
 };
 
 // Paleta de colores de texto para el formato de tarjetas (rich text).
@@ -61,11 +63,21 @@ export const radius = {
   pill: 999,
 };
 
-// Degradados del rediseño Obsidian Cobalt (expo-linear-gradient).
+// Degradados del rediseño Obsidian Cobalt / Neón (expo-linear-gradient).
 export const gradients = {
-  progress: ["#30A46C", "#5BE7AD"], // barras de progreso (verde esmeralda → verde claro)
-  bar: ["#2563EB", "#00F2FE"], // card "shiny" de fin de sesión (ex barras de mazos)
-  hero: ["#0F1E36", "#112443", "#1E3A8A"], // tablero "Repaso de hoy"
+  progress: ["#30A46C", "#5BE7AD"], // barras de progreso (verde) — todas salvo la del hero
+  bar: ["#2563EB", "#00F2FE"], // barra del hero de Inicio (cobalto → cián neón)
+  hero: ["#0F1E36", "#112443", "#1E3A8A"], // tablero "Repaso de hoy" y botones destacados
+  card: ["#1B1B22", "#131317"], // degradé suave de fondo de cards
+};
+
+// Resplandores neón (boxShadow es cross-platform en RN >= 0.76 new-arch y en web).
+export const glow = {
+  accent: { boxShadow: "0 0 14px rgba(77,124,255,0.45), 0 0 40px rgba(62,99,221,0.28)" },
+  accentSoft: { boxShadow: "0 0 10px rgba(77,124,255,0.12)" },
+  cyan: { boxShadow: "0 0 16px rgba(0,242,254,0.22), 0 0 44px rgba(62,99,221,0.25)" },
+  green: { boxShadow: "0 0 8px rgba(91,231,173,0.5), 0 0 16px rgba(48,164,108,0.3)" },
+  violet: { boxShadow: "0 0 12px rgba(158,110,222,0.18)" },
 };
 
 export const type = {

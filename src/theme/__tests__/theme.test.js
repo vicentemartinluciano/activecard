@@ -1,9 +1,9 @@
-import { colors, gradients, radius, spacing, textColors, type } from "../index";
+import { colors, glow, gradients, radius, spacing, textColors, type } from "../index";
 
 describe("tokens de tema", () => {
-  test("los colores son hex válidos (6 dígitos, alpha opcional)", () => {
+  test("los colores son hex válidos (6 dígitos, alpha opcional) o rgba()", () => {
     for (const value of Object.values(colors)) {
-      expect(value).toMatch(/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/);
+      expect(value).toMatch(/^(#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?|rgba\(\d+,\d+,\d+,0?\.\d+\))$/);
     }
   });
 
@@ -59,10 +59,20 @@ describe("tokens de tema", () => {
   test("los degradados Obsidian Cobalt tienen los stops esperados", () => {
     expect(gradients.bar).toHaveLength(2);
     expect(gradients.hero).toHaveLength(3);
+    expect(gradients.card).toHaveLength(2);
     for (const stops of Object.values(gradients)) {
       for (const value of stops) {
         expect(value).toMatch(/^#[0-9A-Fa-f]{6}$/);
       }
     }
+  });
+
+  test("los glows neón son boxShadow strings no vacíos", () => {
+    for (const token of ["accent", "accentSoft", "cyan", "green", "violet"]) {
+      expect(typeof glow[token].boxShadow).toBe("string");
+      expect(glow[token].boxShadow.length).toBeGreaterThan(0);
+    }
+    // glow vive aparte: no debe colarse dentro de gradients (sus valores son arrays de hex).
+    expect(gradients.glow).toBeUndefined();
   });
 });
