@@ -13,19 +13,35 @@ src/
 ├── app/                        # rutas (expo-router)
 │   ├── _layout.js              # Stack raíz (initKeys al montar) + (tabs)
 │   ├── (tabs)/_layout.js       # Bottom tabs: Inicio / Crear / Biblioteca (íconos Feather)
-│   ├── (tabs)/index.js         # Inicio: fila fina (racha izq. + engranaje der., sin título)
-│   │                           #   + hero "Repaso de hoy" (LinearGradient) + "Seguir estudiando"
-│   ├── (tabs)/crear.js         # fuentes: texto | archivo | Notion (tiles simétricos);
-│   │                           #   extracción: conceptos_clave | completo | personalizado
-│   ├── (tabs)/biblioteca.js    # buscador + botón "+" (ActionSheet: Mazo/Carpeta) + grilla de
-│   │                           #   carpetas (con tile virtual "Gimnasio Mental" si hay
-│   │                           #   conexiones) + mazos sueltos (DeckListItem) + filtro etiquetas
-│   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado
+│   ├── (tabs)/index.js         # Inicio premium: avatar+saludo tocable (→ Ajustes, sin
+│   │                           #   engranaje) + pill de racha; hero "Repaso de hoy" con
+│   │                           #   subtítulo (LinearGradient); sección "EN PROGRESO" (Ver
+│   │                           #   todos → Biblioteca); fila "Gimnasio Mental" si hay
+│   │                           #   conexiones. Sin FAB. Skeleton hasta el primer fetch.
+│   ├── (tabs)/crear.js         # HUB de creación (única puerta): 3 cards — Generar Mazo con
+│   │                           #   IA (→ crear/ia), Nuevo Mazo Manual y Crear Nueva Carpeta
+│   │                           #   (ambas vía ActionSheet+InlineAdd, mismo patrón que antes
+│   │                           #   vivía en Biblioteca)
+│   ├── crear/ia.js             # flujo IA (ex contenido de (tabs)/crear.js): fuentes texto |
+│   │                           #   archivo | Notion; extracción conceptos_clave | completo |
+│   │                           #   personalizado; Stack.Screen title "Generar con IA"
+│   ├── (tabs)/biblioteca.js    # SOLO consulta/filtro (la creación vive en el hub Crear):
+│   │                           #   buscador glassmorphic full-width + grilla de carpetas
+│   │                           #   fluida (con tile virtual "Gimnasio Mental" si hay
+│   │                           #   conexiones) + mazos sueltos (DeckListItem) + filtro de
+│   │                           #   etiquetas GLOBAL (sobre todos los mazos, no solo sueltos;
+│   │                           #   oculta la grilla de carpetas y muestra pill de carpeta
+│   │                           #   por mazo filtrado) + skeleton hasta el primer fetch
+│   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado,
+│   │                           #   deshacer (icono junto al contador + botón en el resumen),
+│   │                           #   resumen "shiny" (LinearGradient) + confeti, skeleton
 │   ├── crear/preseleccion.js   # revisar/editar (RichField) antes de guardar
 │   ├── mazos/[id]/index.js     # detalle: botones grandes Estudiar/Nueva tarjeta, menú "..."
 │   │                           #   (ActionSheet: Renombrar/Editar detalles/Borrar) que revela
 │   │                           #   tags, carpeta, PercentSlider, IconPicker
-│   ├── mazos/[id]/estudiar.js  # modo Quizlet: excluye lo hecho hoy, ronda de falladas
+│   ├── mazos/[id]/estudiar.js  # modo Quizlet: excluye lo hecho hoy, ronda de falladas,
+│   │                           #   deshacer (revierte failedIds si corresponde), resumen
+│   │                           #   "shiny" + confeti, skeleton
 │   ├── mazos/[id]/tarjeta.js   # editor manual (RichField frente/dorso)
 │   ├── carpetas/[id]/index.js  # carpeta real: sus mazos, agregar/quitar, renombrar, borrar
 │   ├── carpetas/gimnasio.js    # carpeta VIRTUAL: mazos con conexiones (derivada, no es fila
@@ -33,20 +49,30 @@ src/
 │   ├── ajustes.js              # prioridades %, Respaldo, Claves (solo web), conexiones
 │   └── conexiones.js           # conexiones validadas del Gimnasio (?deckId= filtra por mazo)
 ├── db/                         # SQLite async: client (retry OPFS), schema (migraciones),
-│   │                           #   decks, folders, cards, settings, connections,
-│   │                           #   reviewQueue, streak, progress
-├── lib/                        # claude, prompts (+ instrucción personalizada), generator,
-│   │                           #   auditor, notion, files, scheduler (ts-fsrs), queue (stride),
+│   │                           #   decks, folders, cards (+ snapshotFsrs/undoReview para
+│   │                           #   deshacer un repaso), settings, connections, reviewQueue,
+│   │                           #   streak, progress
+├── lib/                        # claude (MODELS.sonnet/haiku), prompts (+ instrucción
+│   │                           #   personalizada), generator (Haiku 4.5), auditor (Sonnet 5),
+│   │                           #   notion, files, scheduler (ts-fsrs), queue (stride),
 │   │                           #   streak (puro), studySession, richtext, backup(IO),
 │   │                           #   keys, search (buscador puro de la Biblioteca)
-├── components/                 # ui.js (Screen/Button[kind+size]/Field/Chip/Card/Pill/InlineAdd),
-│   │                           #   ActionSheet (bottom sheet: menús y "+"), FlipCard, SwipeCard,
-│   │                           #   DeckListItem, MicButton, ChatAuditor, ProgressBar(+gradient),
-│   │                           #   StreakFlame(.web), PercentSlider, IconPicker, RichText, RichField
+├── components/                 # ui.js (Screen/Button[spring+kind+size+labelStyle]/Field/
+│   │                           #   Chip/Card/Pill/InlineAdd/EmptyState[icon+full]),
+│   │                           #   ActionSheet (bottom sheet: menús y hub Crear), FlipCard
+│   │                           #   (spring + opacidad/pointerEvents/zIndex por cara, sin
+│   │                           #   parpadeos), SwipeCard, DeckListItem(+folderName),
+│   │                           #   MicButton, ChatAuditor, ProgressBar(+gradient),
+│   │                           #   StreakFlame(.web) (fix profundo del Lottie),
+│   │                           #   ConfettiOverlay(.web) (confeti one-shot de cierre),
+│   │                           #   Skeleton (shimmer reutilizable), PercentSlider,
+│   │                           #   IconPicker, RichText, RichField
 └── theme/                      # colors (Obsidian Cobalt: bg #09090B, cards #151518,
                                 #   cardBorder translúcido, azul #3E63DD + paleta), gradients
-                                #   (bar cobalto→cian, hero), textColors, spacing,
-                                #   radius (sm10/md16/lg20/pill), type (+heading/label)
+                                #   (progress verde → TODAS las barras de progreso; bar
+                                #   cobalto→cian → card shiny de fin de sesión; hero),
+                                #   textColors, spacing, radius (sm10/md16/lg20/pill),
+                                #   type (+heading/label)
 ```
 
 ## Esquema SQLite (migraciones con PRAGMA user_version en src/db/schema.js)
@@ -101,25 +127,47 @@ cierre = literal. `toPlainText` para previews e IA. El editor (RichField)
 muestra la barrita al seleccionar y aplica `wrapSelection`/`wrapColor`/
 `toggleListLines` sobre el rango.
 
-**Generación IA**: texto | TXT/MD local | PDF→base64 como bloque `document` |
-página de Notion → prompt generador → JSON {cards} → preselección → FSRS.
-Extracción: `conceptos_clave` | `completo` | `personalizado` (instrucción libre
-del usuario, concatenada en el mensaje user vía `buildGeneratorMessage({..,
+**Generación IA** (`app/crear/ia.js`, alcanzable desde el hub `(tabs)/crear.js`):
+texto | TXT/MD local | PDF→base64 como bloque `document` | página de Notion →
+prompt generador → JSON {cards} → preselección → FSRS. Extracción:
+`conceptos_clave` | `completo` | `personalizado` (instrucción libre del
+usuario, concatenada en el mensaje user vía `buildGeneratorMessage({..,
 custom})`/`buildGeneratorPdfPrompt(mode, custom)` — el system prompt queda fijo
-y cacheable). Import de Quizlet eliminado (F23): las fuentes son texto,
-archivo y Notion.
+y cacheable). Modelo: **Haiku 4.5** (`MODELS.haiku` en `lib/claude.js`, ⅓ del
+costo de Sonnet, misma calidad de extracción); el auditor del Gimnasio Mental
+sigue en Sonnet 5 (`MODELS.sonnet`, default de `callClaude`/`callClaudeJson`
+cuando no se pasa `model`). Import de Quizlet eliminado (F23): las fuentes son
+texto, archivo y Notion.
+
+**Deshacer un repaso** (`db/cards.js`): `reviewCard` devuelve el `logId` del
+`review_logs` insertado. `snapshotFsrs(card)` captura el estado FSRS ANTES de
+calificar; `undoReview(cardId, prevFields, logId)` restaura esos campos y
+borra el log. Repaso diario y modo mazo guardan un historial en memoria
+(`{index, cardId, prev, logId, rating}`) y exponen un ícono junto al contador
+(solo fase "card") + un botón "Deshacer última" en el resumen. Solo revierte
+la nota: conexiones del Gimnasio y sus tarjetas híbridas NUNCA se borran (si
+la tarjeta deshecha había generado una, la conexión sigue existiendo). El modo
+mazo además revierte la última ocurrencia en `failedIds` si la calificación
+deshecha era "again".
+
+**Cierre de sesión** (repaso y modo mazo): el resumen pasa de `Card` a un
+`LinearGradient` con `gradients.bar` ("shiny", título blanco, pills con fondo
+semitransparente) + `ConfettiOverlay` (Lottie one-shot, solo si se calificó
+≥1 tarjeta; en web no renderiza nada, mismo patrón de resolución por
+extensión que `StreakFlame.web.js`).
 
 **Gimnasio Mental**: chat multi-turno con el Auditor (JSON
 {veredicto, feedback, hybrid_card}). Al validar: inserta en `connections` +
 tarjeta híbrida (source 'hybrid', mismo mazo) que entra a FSRS.
 
 **Carpetas** (`db/folders.js`): nivel de organización sobre los mazos.
-Biblioteca = grilla de carpetas (tiles con nombre + cantidad) arriba y mazos
-sueltos abajo; pantalla `carpetas/[id]` gestiona sus mazos; el detalle del
-mazo tiene chips de carpeta con toggle. Las etiquetas siguen siendo solo
-filtro/búsqueda (las carpetas no llevan tags). Se crean/renombran desde el
-botón "+" de la Biblioteca (`ActionSheet` → Mazo/Carpeta), no hay más
-InlineAdd suelto en la pantalla.
+Biblioteca = grilla de carpetas fluida (`flexGrow`/`flexBasis`, tiles con
+nombre + cantidad) arriba y mazos sueltos abajo; pantalla `carpetas/[id]`
+gestiona sus mazos; el detalle del mazo tiene chips de carpeta con toggle.
+Las etiquetas siguen siendo solo filtro/búsqueda (las carpetas no llevan
+tags). Se crean desde el hub `(tabs)/crear.js` ("Crear Nueva Carpeta" →
+`ActionSheet`+`InlineAdd`, navega a Biblioteca al terminar); se renombran
+desde `carpetas/[id]`. Biblioteca ya NO tiene botón de creación propio.
 
 **Gimnasio Mental (carpeta virtual)**: tile fijo en la grilla de carpetas,
 visible solo si `listDecksWithConnections()` (`db/connections.js`) devuelve
@@ -132,11 +180,11 @@ acepta `deckId` opcional para filtrar).
 
 **ActionSheet** (`components/ActionSheet.js`): bottom sheet reutilizable
 (`Modal transparent`, funciona en web y nativo) para menús contextuales.
-Dos usos: botón "+" de la Biblioteca (crear Mazo/Carpeta) y menú "..." del
-header en el detalle de mazo (Renombrar/Editar detalles/Borrar — "Editar
-detalles" togglea la visibilidad de la card de tags/carpeta/prioridad/ícono,
-oculta por defecto). Es el único patrón de overlay de la app; no crear otros
-Modal/ActionSheet ad-hoc.
+Usos: hub `(tabs)/crear.js` (Nuevo Mazo Manual / Crear Nueva Carpeta, cada uno
+con `InlineAdd`) y menú "..." del header en el detalle de mazo (Renombrar/
+Editar detalles/Borrar — "Editar detalles" togglea la visibilidad de la card
+de tags/carpeta/prioridad/ícono, oculta por defecto). Es el único patrón de
+overlay de la app; no crear otros Modal/ActionSheet ad-hoc.
 
 **Buscador** (`lib/search.js` puro): filtrado EN MEMORIA, insensible a tildes
 y mayúsculas — carpetas por nombre, mazos por nombre o etiqueta, tarjetas por
@@ -168,14 +216,42 @@ apertura reintenta ante errores transitorios de locks (ver db/client.js).
 ## Rediseño Obsidian Cobalt (F21-F28)
 Overhaul estético + funcional: fondo `#09090B`, cards `#151518` con borde
 translúcido (`colors.cardBorder`, hex-alpha por el regex del test de theme),
-degradados cobalto→cian (`theme.gradients.bar`) en las barras de progreso por
-mazo vía `expo-linear-gradient` (prop `gradient` de `ProgressBar`, además del
-`color` sólido de siempre) y degradado azul profundo (`gradients.hero`) en el
-hero de Inicio. `expo-linear-gradient` es módulo nativo → se bumpeó
-`app.json.version` a `1.1.0` en el mismo commit que lo instaló: con
-`runtimeVersion.policy: "appVersion"`, los OTA posteriores solo llegan al APK
-que se compile con ese runtime — el APK 1.0.0 no se rompe por un módulo nativo
-que no tiene.
+degradados en las barras de progreso vía `expo-linear-gradient` (prop
+`gradient` de `ProgressBar`, además del `color` sólido de siempre) y degradado
+azul profundo (`gradients.hero`) en el hero de Inicio. `expo-linear-gradient`
+es módulo nativo → se bumpeó `app.json.version` a `1.1.0` en el mismo commit
+que lo instaló: con `runtimeVersion.policy: "appVersion"`, los OTA posteriores
+solo llegan al APK que se compile con ese runtime — el APK 1.0.0 no se rompe
+por un módulo nativo que no tiene.
+
+## Rediseño "Premium" (F30-F39)
+Acerca la app al prototipo mostrado por Martín (video + captura), en 10
+módulos JS puros (un commit cada uno):
+- **Barras de progreso**: nuevo token `gradients.progress` (verde esmeralda →
+  verde claro) reemplaza `gradients.bar` en TODAS las barras (Home, repaso,
+  modo mazo, DeckListItem, detalle de mazo). `gradients.bar` (cobalto→cian) no
+  se elimina: pasa a ser el fondo de la card "shiny" del resumen de sesión.
+- **Hub de creación**: `(tabs)/crear.js` deja de ser el formulario de IA (que
+  se muda a `crear/ia.js`) y pasa a ser la única puerta de entrada para crear
+  contenido (IA / mazo manual / carpeta); Biblioteca pierde su botón de
+  creación.
+- **FlipCard robusto**: giro por opacidad interpolada + `pointerEvents` por
+  cara (en vez de `zIndex` condicional dinámico) elimina el parpadeo del
+  dorso; `minHeight` sube a 340 y el contenido queda centrado.
+- **Deshacer**: ver sección "Deshacer un repaso" arriba.
+- **Lottie de racha**: fix profundo en `StreakFlame.js` (key por estado +
+  `onLayout` + `renderMode="AUTOMATIC"` + reintento diferido) porque el fix
+  F26 no alcanzaba en el APK real.
+- **Home premium**: ver descripción de `(tabs)/index.js` arriba.
+- **Cierre de sesión con confeti**: ver sección "Cierre de sesión" arriba.
+- **Microinteracciones**: `Button` (global) y `FlipCard` ganan spring scale al
+  presionar; `Skeleton` (shimmer reutilizable) en los estados de carga de
+  Home/Biblioteca/repaso/modo mazo; `EmptyState` gana `icon`/`full` para
+  estados vacíos con ícono grande en pantallas de estudio.
+- **Haiku 4.5**: ver sección "Generación IA" arriba.
+- **Haptics + bump de versión**: pendiente hasta que se dispare el build del
+  APK (ver "Dónde estamos" en CLAUDE.md) — `expo-haptics` es módulo nativo, va
+  en el commit que bumpea `app.json.version` a `1.2.0`.
 
 ## Limitaciones conocidas
 - `@jamsch/expo-speech-recognition` no funciona en Expo Go ni web → micrófono

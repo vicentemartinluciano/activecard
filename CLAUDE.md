@@ -63,7 +63,11 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   **Swipe unificado**: el repaso diario usa el MISMO SwipeCard que el modo mazo
   (derecha=Good, izquierda=Again, sin gate de flip; botones siempre visibles).
 - **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) con Lottie en
-  nativo y **progreso diario por mazo** (derivado de review_logs, se reinicia solo).
+  nativo (fix profundo F35: key por estado + onLayout + renderMode) y **progreso
+  diario por mazo** (derivado de review_logs, se reinicia solo).
+- **Deshacer un repaso**: revierte SOLO la nota (restaura estado FSRS + borra el
+  review_log vía `snapshotFsrs`/`undoReview` en `db/cards.js`). Las conexiones del
+  Gimnasio y sus tarjetas híbridas NUNCA se borran al deshacer.
 - **Gimnasio Mental**: chat de texto iterativo con auditor exigente; micrófono opcional (speech nativo Android, sin API extra); al validar → guarda conexión + crea tarjeta híbrida que entra a FSRS. Siempre salteable.
   **Carpeta virtual "Gimnasio Mental"** en Biblioteca (tile fijo, solo si hay conexiones):
   lista los mazos con conexiones validadas (`listDecksWithConnections`), ruta
@@ -88,15 +92,18 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   (cards #151518 con borde translúcido `cardBorder`), acento azul #3E63DD + degradado
   verde (`theme.gradients.progress`, TODAS las barras de progreso) y azul profundo
   (`gradients.hero`, hero de Inicio) vía `expo-linear-gradient` + paleta de apoyo (racha
-  naranja, textColors), bottom tabs (Inicio/Crear/Biblioteca), engranaje → Ajustes.
-  Todo en español.
+  naranja, textColors), bottom tabs (Inicio/Crear/Biblioteca). En Inicio, el avatar+saludo
+  (arriba a la izquierda) navega a Ajustes — sin engranaje. Todo en español.
+- **Creación centralizada**: toda creación de contenido (mazo con IA, mazo manual,
+  carpeta) vive en el HUB de la pestaña Crear (`(tabs)/crear.js`); Biblioteca es solo
+  consulta/filtro, sin botón de creación propio.
 - **Convención de superficies**: toda card visual usa `Card` (surfaceCard nivel base /
   surfaceHigh nivel "high", radios 16-20 de `theme.radius`, borde `cardBorder`) y `Pill`
   (píldoras translúcidas para tags/contadores/badges) de `components/ui.js` — NO definir
   cards ad-hoc por pantalla. Barras de progreso: SIEMPRE `gradients.progress` (degradado
   verde); naranja = racha; `gradients.bar` = card shiny de fin de sesión.
 - **Menús/overlays**: único patrón es `ActionSheet` (`components/ActionSheet.js`, bottom
-  sheet con `Modal transparent`) — usado en el "+" de Biblioteca (crear Mazo/Carpeta) y en
+  sheet con `Modal transparent`) — usado en el hub de Crear (mazo manual/carpeta) y en
   el "..." del detalle de mazo (Renombrar/Editar detalles/Borrar). No crear Modal/menú ad-hoc.
 - **Runtime OTA vs APK**: `app.json.runtimeVersion.policy: "appVersion"`. Al agregar un
   módulo NATIVO nuevo, bumpear `version` en el MISMO commit — así los OTA posteriores
@@ -116,9 +123,19 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   + Lottie nuevo del usuario), eliminación de Quizlet del flujo Crear, modo "Personalizado"
   de extracción, `ActionSheet` reutilizable (botón "+" en Biblioteca, menú "..." en detalle
   de mazo), carpeta virtual "Gimnasio Mental", ícono nuevo (monograma "AC").
-- Pendiente: F29 (build del APK nuevo con `comandos/CONSTRUIR-APP-ANDROID.bat` — lo dispara
-  el usuario, consume créditos de EAS).
-- Plan completo: `C:\Users\marti\.claude\plans\hola-claude-vamos-a-optimized-peach.md`.
+- F30-F40 completas (rediseño "Premium", ver plan abajo): degradado verde unificado en TODAS las
+  barras de progreso (`gradients.progress`; `gradients.bar` pasa a ser la card shiny de
+  cierre), hub de Crear (IA/mazo manual/carpeta) con Biblioteca solo consulta, FlipCard sin
+  parpadeos (opacidad + pointerEvents por cara) y tarjeta más grande, botón Deshacer en
+  repaso diario y modo mazo, fix profundo del Lottie de racha, Home premium (avatar+saludo,
+  pill de racha, hero con subtítulo, sección "EN PROGRESO", fila Gimnasio Mental, sin FAB),
+  confeti + card shiny al cerrar sesión, microinteracciones (botones/FlipCard elásticos,
+  Skeleton, EmptyState con ícono), generación de tarjetas con Haiku 4.5 (auditor sigue en
+  Sonnet 5).
+- Pendiente: F41 (expo-haptics + bump de versión 1.1.0→1.2.0, ÚLTIMO commit del rediseño
+  Premium — recién ahí se dispara el F29 pendiente: build del APK nuevo con
+  `comandos/CONSTRUIR-APP-ANDROID.bat`, lo dispara el usuario, consume créditos de EAS).
+- Plan del rediseño Premium (F30-F41): `C:\Users\marti\.claude\plans\c-users-marti-videos-grabaciones-de-pan-eager-raccoon.md`.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).
