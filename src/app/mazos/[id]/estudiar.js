@@ -1,16 +1,18 @@
 import { Feather } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import ConfettiOverlay from "../../../components/ConfettiOverlay";
 import FlipCard from "../../../components/FlipCard";
 import ProgressBar from "../../../components/ProgressBar";
 import SwipeCard from "../../../components/SwipeCard";
-import { Button, Card, Pill, Screen } from "../../../components/ui";
+import { Button, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, reviewCard, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
-import { colors, gradients, spacing, type } from "../../../theme";
+import { colors, gradients, radius, spacing, type } from "../../../theme";
 
 // Modo Quizlet: se estudia el mazo deslizando. Alimenta el algoritmo FSRS
 // igual que el repaso diario, pero sin pasar por el Gimnasio Mental. La
@@ -131,14 +133,24 @@ export default function Estudiar() {
   }
 
   if (index >= round.length) {
+    const hasReviews = counts.good + counts.again > 0;
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Estudiar" }} />
-        <Card style={styles.summary}>
-          <Text style={type.title}>Ronda completa</Text>
+        <LinearGradient
+          colors={gradients.bar}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.summaryShiny}
+        >
+          <Text style={styles.summaryTitle}>Ronda completa</Text>
           <View style={styles.summaryPills}>
-            <Pill color={colors.successBright} label={`Sabías: ${counts.good}`} />
-            <Pill color={colors.danger} label={`No sabías: ${counts.again}`} />
+            <Pill
+              color={colors.successBright}
+              label={`Sabías: ${counts.good}`}
+              style={styles.shinyPill}
+            />
+            <Pill color={colors.danger} label={`No sabías: ${counts.again}`} style={styles.shinyPill} />
           </View>
           {failedIds.length > 0 ? (
             <Button
@@ -147,11 +159,17 @@ export default function Estudiar() {
               onPress={reviewFailed}
             />
           ) : null}
-          <Button label="Volver" kind="ghost" onPress={goBack} />
+          <Button label="Volver" kind="ghost" labelStyle={{ color: "#FFFFFF" }} onPress={goBack} />
           {history.length > 0 ? (
-            <Button label="Deshacer última" kind="ghost" onPress={undo} />
+            <Button
+              label="Deshacer última"
+              kind="ghost"
+              labelStyle={{ color: "#FFFFFF" }}
+              onPress={undo}
+            />
           ) : null}
-        </Card>
+        </LinearGradient>
+        {hasReviews ? <ConfettiOverlay /> : null}
       </Screen>
     );
   }
@@ -230,14 +248,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.sm,
   },
-  summary: {
+  summaryShiny: {
     alignSelf: "stretch",
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.lg,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  summaryTitle: {
+    ...type.title,
+    color: "#FFFFFF",
   },
   summaryPills: {
     flexDirection: "row",
     gap: spacing.sm,
+  },
+  shinyPill: {
+    backgroundColor: "#FFFFFF22",
+    borderColor: "#FFFFFF33",
   },
 });

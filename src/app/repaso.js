@@ -1,13 +1,15 @@
 import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import ChatAuditor from "../components/ChatAuditor";
+import ConfettiOverlay from "../components/ConfettiOverlay";
 import FlipCard from "../components/FlipCard";
 import ProgressBar from "../components/ProgressBar";
 import SwipeCard from "../components/SwipeCard";
-import { Button, Card, Pill, Screen } from "../components/ui";
+import { Button, Pill, Screen } from "../components/ui";
 import { reviewCard, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { toPlainText } from "../lib/richtext";
@@ -82,23 +84,43 @@ export default function Repaso() {
   }
 
   if (index >= queue.length) {
+    const hasReviews = counts.good + counts.again > 0;
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Repaso" }} />
-        <Card style={styles.summary}>
-          <Text style={type.title}>Repaso terminado</Text>
+        <LinearGradient
+          colors={gradients.bar}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.summaryShiny}
+        >
+          <Text style={styles.summaryTitle}>Repaso terminado</Text>
           <View style={styles.summaryPills}>
-            <Pill color={colors.successBright} label={`Recordadas: ${counts.good}`} />
-            <Pill color={colors.danger} label={`Olvidadas: ${counts.again}`} />
+            <Pill
+              color={colors.successBright}
+              label={`Recordadas: ${counts.good}`}
+              style={styles.shinyPill}
+            />
+            <Pill color={colors.danger} label={`Olvidadas: ${counts.again}`} style={styles.shinyPill} />
           </View>
           {counts.connections > 0 ? (
-            <Pill color={colors.accentText} label={`Conexiones creadas: ${counts.connections}`} />
+            <Pill
+              color={colors.accentText}
+              label={`Conexiones creadas: ${counts.connections}`}
+              style={styles.shinyPill}
+            />
           ) : null}
           <Button label="Volver al inicio" kind="primary" onPress={goHome} />
           {history.length > 0 ? (
-            <Button label="Deshacer última" kind="ghost" onPress={undo} />
+            <Button
+              label="Deshacer última"
+              kind="ghost"
+              labelStyle={{ color: "#FFFFFF" }}
+              onPress={undo}
+            />
           ) : null}
-        </Card>
+        </LinearGradient>
+        {hasReviews ? <ConfettiOverlay /> : null}
       </Screen>
     );
   }
@@ -209,14 +231,24 @@ const styles = StyleSheet.create({
     padding: spacing.sm + 4,
     marginBottom: spacing.sm,
   },
-  summary: {
+  summaryShiny: {
     alignSelf: "stretch",
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.lg,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  summaryTitle: {
+    ...type.title,
+    color: "#FFFFFF",
   },
   summaryPills: {
     flexDirection: "row",
     gap: spacing.sm,
+  },
+  shinyPill: {
+    backgroundColor: "#FFFFFF22",
+    borderColor: "#FFFFFF33",
   },
 });

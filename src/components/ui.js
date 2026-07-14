@@ -55,7 +55,7 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style }) 
   return <View style={[styles.pill, style]}>{content}</View>;
 }
 
-export function Button({ label, onPress, kind = "default", size = "md", disabled, style }) {
+export function Button({ label, onPress, kind = "default", size = "md", disabled, style, labelStyle }) {
   return (
     <Pressable
       onPress={onPress}
@@ -80,6 +80,7 @@ export function Button({ label, onPress, kind = "default", size = "md", disabled
           kind === "ghost" && { color: colors.textMuted },
           kind === "inverse" && styles.buttonInverseLabel,
           size === "lg" && styles.buttonLgLabel,
+          labelStyle,
         ]}
       >
         {label}
