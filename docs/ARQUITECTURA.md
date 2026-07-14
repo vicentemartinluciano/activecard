@@ -13,15 +13,20 @@ src/
 ├── app/                        # rutas (expo-router)
 │   ├── _layout.js              # Stack raíz (initKeys al montar) + (tabs)
 │   ├── (tabs)/_layout.js       # Bottom tabs: Inicio / Crear / Biblioteca (íconos Feather)
-│   ├── (tabs)/index.js         # Inicio premium: avatar+saludo tocable (→ Ajustes, sin
-│   │                           #   engranaje) + pill de racha; hero "Repaso de hoy" con
-│   │                           #   subtítulo (LinearGradient); sección "EN PROGRESO" (Ver
-│   │                           #   todos → Biblioteca); fila "Gimnasio Mental" si hay
-│   │                           #   conexiones. Sin FAB. Skeleton hasta el primer fetch.
-│   ├── (tabs)/crear.js         # HUB de creación (única puerta): 3 cards — Generar Mazo con
-│   │                           #   IA (→ crear/ia), Nuevo Mazo Manual y Crear Nueva Carpeta
-│   │                           #   (ambas vía ActionSheet+InlineAdd, mismo patrón que antes
-│   │                           #   vivía en Biblioteca)
+│   ├── (tabs)/index.js         # Inicio neón: avatar+saludo tocable (→ Ajustes, sin
+│   │                           #   engranaje) + racha SUELTA (fueguito + "1 día"/"N días",
+│   │                           #   sin recuadro); hero "Repaso de hoy" con borde neón +
+│   │                           #   glow.accent y barra cián (gradients.bar + glow.cyan);
+│   │                           #   botón blanco "REPASAR AHORA" (sin flecha); sección
+│   │                           #   "EN PROGRESO" (sin chevron, con % a la derecha,
+│   │                           #   glow.accentSoft). SIN fila Gimnasio Mental (solo queda
+│   │                           #   la carpeta virtual en Biblioteca). Skeleton inicial.
+│   ├── (tabs)/crear.js         # HUB de creación minimalista: 3 cards idénticas (emoji en
+│   │                           #   cuadradito 44×44 + título, sin descripciones ni pill,
+│   │                           #   fondo gradients.card); card IA con glow neón permanente
+│   │                           #   que se intensifica en hover/pressed (Pressable directo,
+│   │                           #   excepción comentada al patrón Card). Mazo manual y
+│   │                           #   carpeta vía ActionSheet+InlineAdd
 │   ├── crear/ia.js             # flujo IA (ex contenido de (tabs)/crear.js): fuentes texto |
 │   │                           #   archivo | Notion; extracción conceptos_clave | completo |
 │   │                           #   personalizado; Stack.Screen title "Generar con IA"
@@ -33,16 +38,23 @@ src/
 │   │                           #   oculta la grilla de carpetas y muestra pill de carpeta
 │   │                           #   por mazo filtrado) + skeleton hasta el primer fetch
 │   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado,
+│   │                           #   círculos ✕/✓ para calificar, estrella en la tarjeta,
 │   │                           #   deshacer (icono junto al contador + botón en el resumen),
-│   │                           #   resumen "shiny" (LinearGradient) + confeti, skeleton
+│   │                           #   resumen oscuro con glow cián + confeti propio, skeleton
 │   ├── crear/preseleccion.js   # revisar/editar (RichField) antes de guardar
-│   ├── mazos/[id]/index.js     # detalle: botones grandes Estudiar/Nueva tarjeta, menú "..."
-│   │                           #   (ActionSheet: Renombrar/Editar detalles/Borrar) que revela
-│   │                           #   tags, carpeta, PercentSlider, IconPicker
-│   ├── mazos/[id]/estudiar.js  # modo Quizlet: excluye lo hecho hoy, ronda de falladas,
-│   │                           #   deshacer (revierte failedIds si corresponde), resumen
-│   │                           #   "shiny" + confeti, skeleton
-│   ├── mazos/[id]/tarjeta.js   # editor manual (RichField frente/dorso)
+│   ├── mazos/[id]/index.js     # detalle: HeroButton "ESTUDIAR AHORA" (visual del hero, abre
+│   │                           #   el sheet "¿Cómo estudiamos?": Todas/Solo ⭐ y Barajado/Mi
+│   │                           #   orden, persiste en settings "studyPrefs"); lista de
+│   │                           #   tarjetas arrastrable (react-native-sortables, long-press;
+│   │                           #   en web lista estática) con estrella por fila; fila
+│   │                           #   punteada "+" al final (reemplaza a "+ NUEVA TARJETA");
+│   │                           #   menú "..." (Renombrar/Editar detalles/Borrar)
+│   ├── mazos/[id]/estudiar.js  # modo Quizlet: excluye lo hecho hoy, params ?stars=&ordered=
+│   │                           #   (filtra por estrella / respeta el orden manual; falladas
+│   │                           #   siempre barajadas), ronda de falladas, deshacer, resumen
+│   │                           #   oscuro con glow cián + confeti propio, skeleton
+│   ├── mazos/[id]/tarjeta.js   # editor manual (RichField frente/dorso) con
+│   │                           #   KeyboardAvoidingView + keyboardShouldPersistTaps
 │   ├── carpetas/[id]/index.js  # carpeta real: sus mazos, agregar/quitar, renombrar, borrar
 │   ├── carpetas/gimnasio.js    # carpeta VIRTUAL: mazos con conexiones (derivada, no es fila
 │   │                           #   de `folders`; ruta estática, no colisiona con [id])
@@ -57,20 +69,26 @@ src/
 │   │                           #   notion, files, scheduler (ts-fsrs), queue (stride),
 │   │                           #   streak (puro), studySession, richtext, backup(IO),
 │   │                           #   keys, search (buscador puro de la Biblioteca)
-├── components/                 # ui.js (Screen/Button[spring+kind+size+labelStyle]/Field/
-│   │                           #   Chip/Card/Pill/InlineAdd/EmptyState[icon+full]),
-│   │                           #   ActionSheet (bottom sheet: menús y hub Crear), FlipCard
-│   │                           #   (spring + opacidad/pointerEvents/zIndex por cara, sin
-│   │                           #   parpadeos), SwipeCard, DeckListItem(+folderName),
-│   │                           #   MicButton, ChatAuditor, ProgressBar(+gradient),
-│   │                           #   StreakFlame(.web) (fix profundo del Lottie),
-│   │                           #   ConfettiOverlay(.web) (confeti one-shot de cierre),
-│   │                           #   Skeleton (shimmer reutilizable), PercentSlider,
-│   │                           #   IconPicker, RichText, RichField
+├── components/                 # ui.js (Screen/Button[píldora: Animated.View externo +
+│   │                           #   Pressable interno — NUNCA AnimatedPressable con
+│   │                           #   style-función]/Field/Chip/Card/Pill/InlineAdd/
+│   │                           #   EmptyState[icon+full]), ActionSheet (bottom sheet con
+│   │                           #   listeners de teclado: sube con marginBottom=kbHeight),
+│   │                           #   FlipCard (UNA cara con scaleX "aplastar y voltear", sin
+│   │                           #   bordes, fondo gradients.card, estrella opcional),
+│   │                           #   SwipeCard, DeckListItem (fondo gradients.card),
+│   │                           #   MicButton, ChatAuditor, ProgressBar(+gradient+glowStyle),
+│   │                           #   StreakFlame(.web) (flag USE_LOTTIE: Lottie SOFTWARE o
+│   │                           #   CodeFlame en código), ConfettiOverlay (confeti en código,
+│   │                           #   un solo archivo nativo+web, sin Lottie), Skeleton,
+│   │                           #   PercentSlider, IconPicker, RichText, RichField
 └── theme/                      # colors (Obsidian Cobalt: bg #09090B, cards #151518,
-                                #   cardBorder translúcido, azul #3E63DD + paleta), gradients
-                                #   (progress verde → TODAS las barras de progreso; bar
-                                #   cobalto→cian → card shiny de fin de sesión; hero),
+                                #   cardBorder translúcido, azul #3E63DD + paleta,
+                                #   neonBorder/cyanBorder rgba), gradients (progress verde →
+                                #   barras de progreso SALVO la del hero; bar cobalto→cian →
+                                #   barra del hero de Inicio; hero; card → degradé suave de
+                                #   fondo de cards), glow (boxShadow neón: accent/accentSoft/
+                                #   cyan/green/violet — cross-platform en RN 0.76+ new-arch),
                                 #   textColors, spacing, radius (sm10/md16/lg20/pill),
                                 #   type (+heading/label), layout (maxWidth 480:
                                 #   columna centrada en web de escritorio; en el
@@ -92,6 +110,10 @@ src/
   (foreign_keys está ON y complicaría el restore de respaldos v1): la
   integridad la garantiza `deleteFolder` (desasigna mazos + borra, en
   transacción — los mazos nunca se borran al borrar una carpeta).
+- v4: `cards.starred INTEGER DEFAULT 0` (estrella Quizlet) + `cards.position
+  INTEGER` (orden manual; se inicializa = id) + índice `idx_cards_deck_pos`.
+  El backup NO cambió de versión: el restore inserta solo las columnas
+  presentes en cada fila, así que los respaldos viejos toman los DEFAULT.
 
 Regla: NUNCA editar migraciones aplicadas; solo agregar al final del array.
 
@@ -114,10 +136,25 @@ al final, si hubo falladas, ronda extra opcional (repetible) que también
 llama a `reviewCard` (decisión de producto: la recuperación cuenta en FSRS).
 Si el mazo ya está al 100% del día → "Estudiar de nuevo" con el mazo entero.
 
+**Estrellas y orden manual (v4)**: `setCardStarred(id, 0|1)` (toggle desde la
+lista del mazo y desde la tarjeta en estudio/repaso) y `setCardPositions(
+deckId, orderedIds)` (transacción, position = índice+1; lo dispara el drag &
+drop de `react-native-sortables` — agarre por long-press, solo nativo; en web
+la lista es estática). `listCardsByDeck` ordena por `position ASC, id ASC`;
+`createCard` asigna `MAX(position)+1` del mazo. El sheet "¿Cómo estudiamos?"
+(ActionSheet en el detalle del mazo) elige Tarjetas (Todas / Solo ⭐, con
+contador y deshabilitado si no hay) y Orden (Barajado / Mi orden), recuerda la
+última elección en settings `studyPrefs` y navega a
+`estudiar?stars=&ordered=`. El repaso diario NO cambia (siempre su cola FSRS).
+
 **Racha** (`lib/streak.js` puro + `db/streak.js`): días consecutivos con ≥1
 fila en review_logs (fecha local). Si hoy aún no repasaste pero ayer sí, la
-racha sigue viva (no se corta hasta que termine el día). StreakFlame la anima
-(Lottie en nativo / ícono estático en web).
+racha sigue viva (no se corta hasta que termine el día). `StreakFlame` la
+anima: flag `USE_LOTTIE` al tope del archivo — true = Lottie con
+`renderMode="SOFTWARE"` (Plan A del fix del congelamiento new-arch); false =
+`CodeFlame` (llama en código: pulso de escala + parpadeo + glow naranja,
+Plan B activable por OTA). Web: ícono estático en `StreakFlame.web.js`.
+En Inicio va suelta (fueguito + "1 día"/"N días"), sin recuadro.
 
 **Progreso diario por mazo** (`db/progress.js`): COUNT(DISTINCT card_id) de
 review_logs de hoy (modo quizlet) / total del mazo. Sin estado propio.
@@ -152,11 +189,12 @@ la tarjeta deshecha había generado una, la conexión sigue existiendo). El modo
 mazo además revierte la última ocurrencia en `failedIds` si la calificación
 deshecha era "again".
 
-**Cierre de sesión** (repaso y modo mazo): el resumen pasa de `Card` a un
-`LinearGradient` con `gradients.bar` ("shiny", título blanco, pills con fondo
-semitransparente) + `ConfettiOverlay` (Lottie one-shot, solo si se calificó
-≥1 tarjeta; en web no renderiza nada, mismo patrón de resolución por
-extensión que `StreakFlame.web.js`).
+**Cierre de sesión** (repaso y modo mazo): card OSCURA (`surfaceCard`) con
+borde `cyanBorder` + `glow.cyan`, pills estándar legibles y botones píldora +
+`ConfettiOverlay` (solo si se calificó ≥1 tarjeta): ~22 piezas `Animated.View`
+en código (translateY + rotate escalonados por índice, one-shot,
+`useNativeDriver`), un solo archivo que funciona en nativo Y web — reemplazó
+al Lottie, que se congelaba en el APK new-arch.
 
 **Gimnasio Mental**: chat multi-turno con el Auditor (JSON
 {veredicto, feedback, hybrid_card}). Al validar: inserta en `connections` +
@@ -251,9 +289,32 @@ módulos JS puros (un commit cada uno):
   Home/Biblioteca/repaso/modo mazo; `EmptyState` gana `icon`/`full` para
   estados vacíos con ícono grande en pantallas de estudio.
 - **Haiku 4.5**: ver sección "Generación IA" arriba.
-- **Haptics + bump de versión**: pendiente hasta que se dispare el build del
-  APK (ver "Dónde estamos" en CLAUDE.md) — `expo-haptics` es módulo nativo, va
-  en el commit que bumpea `app.json.version` a `1.2.0`.
+- **Haptics + bump de versión**: `expo-haptics` (módulo nativo) entró en el
+  commit que bumpeó `app.json.version` a `1.2.0` (F41).
+
+## Rediseño correctivo "Neón" — Etapa 1 (F43-F52)
+El APK 1.2.0 salió mal en el device (Android new-arch / Fabric): botones sin
+fondo, FlipCard rota, Lottie congelado (racha Y confeti), ActionSheet tapado
+por el teclado. La Etapa 1 es 100% JS (va por OTA al runtime 1.2.0):
+- **Tokens neón** (`theme`): `glow.*` (boxShadow strings — soportado en RN
+  0.76+ new-arch y web), `gradients.card`, `colors.neonBorder/cyanBorder`.
+  `gradients.bar` pasa de "card shiny" a barra del hero de Inicio.
+- **Causa raíz de los botones**: `Animated.createAnimatedComponent(Pressable)`
+  con `style` como FUNCIÓN pierde los fondos en Android new-arch. `Button` se
+  reescribió como `Animated.View` externo (scale + style del caller) +
+  `Pressable` interno con los estilos visuales, forma píldora.
+- **FlipCard**: las dos caras `absoluteFill` con rotateY/opacity se rompían en
+  el device → UNA cara con layout natural que se "aplasta" (scaleX 1→0→1) y
+  cambia de contenido. Sin bordes, fondo `gradients.card`, estrella opcional.
+- **Calificación**: círculos ✕ (rojo) / ✓ (verde) estilo Quizlet reemplazan a
+  los dos botones anchos en repaso y modo mazo (el swipe sigue igual).
+- **Confeti sin Lottie / racha con flag**: ver "Cierre de sesión" y "Racha".
+- **Teclado**: ActionSheet con listeners de Keyboard (Modal Android no se
+  ajusta solo) + `statusBarTranslucent`; tarjeta.js con KeyboardAvoidingView.
+- **Estrellas + orden manual + sheet de estudio**: migración v4, ver arriba.
+- **Etapa 2 pendiente**: editor estilo Notion (WebView + TipTap v3 vendoreado,
+  split .web.js) → exige `react-native-webview` (nativo) + bump 1.3.0 + APK.
+  Antes de arrancarla, Martín debe confirmar la Etapa 1 en el teléfono.
 
 ## Limitaciones conocidas
 - `@jamsch/expo-speech-recognition` no funciona en Expo Go ni web → micrófono

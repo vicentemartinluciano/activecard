@@ -61,10 +61,31 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   estilo Quizlet (swipe, alimenta FSRS, SIN Gimnasio; la sesión excluye lo ya estudiado
   hoy y al final ofrece ronda extra de falladas, que también califica en FSRS).
   **Swipe unificado**: el repaso diario usa el MISMO SwipeCard que el modo mazo
-  (derecha=Good, izquierda=Again, sin gate de flip; botones siempre visibles).
-- **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) con Lottie en
-  nativo (fix profundo F35: key por estado + onLayout + renderMode) y **progreso
-  diario por mazo** (derivado de review_logs, se reinicia solo).
+  (derecha=Good, izquierda=Again, sin gate de flip). **Calificar = círculos ✕/✓**
+  estilo Quizlet (sin texto), en ambos modos.
+- **Estrellas + orden manual (migración v4)**: `cards.starred` y `cards.position`.
+  Estrella en cada fila del detalle del mazo Y en la tarjeta durante estudio/repaso;
+  drag & drop con `react-native-sortables` (long-press, solo nativo; web = lista
+  estática). El "ESTUDIAR AHORA" del mazo (visual hero, `HeroButton`) abre el sheet
+  "¿Cómo estudiamos?" (Todas/Solo ⭐ + Barajado/Mi orden; recuerda en settings
+  `studyPrefs`; falladas siempre barajadas). Fila punteada "+" al final de la lista
+  reemplaza al botón "+ NUEVA TARJETA". El repaso diario NO cambia.
+- **UI Neón (F43-F52)**: glow por `boxShadow` (tokens `theme.glow`) — MARCADO en el
+  hero de Inicio (borde `neonBorder` + `glow.accent`) y en la card IA de Crear (se
+  intensifica en hover/pressed); SUTIL en filas EN PROGRESO (`accentSoft`) y tile
+  Gimnasio de Biblioteca (violeta); cián en la card de cierre de sesión. Barras de
+  progreso siguen VERDES + `glow.green`, SALVO la del hero: `gradients.bar`
+  (cobalto→cián) + `glow.cyan`. Botones = píldora (primario sólido, secundarios
+  translúcidos, spring). Cards con degradé suave `gradients.card`. Tarjeta de estudio
+  SIN bordes, flip "aplastar y voltear" (scaleX) — NADA de rotateY 3D. Home: racha
+  suelta (sin recuadro, "1 día"/"N días" correcto), SIN fila Gimnasio (queda solo la
+  carpeta virtual en Biblioteca), EN PROGRESO con % y sin chevron. Crear minimalista
+  (emoji 🤖✏️📁 en cuadradito + título, sin descripciones). Cierre de sesión: card
+  oscura + glow cián + confeti EN CÓDIGO (sin Lottie) + haptic.
+- **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) y **progreso
+  diario por mazo** (derivado de review_logs, se reinicia solo). Animación: flag
+  `USE_LOTTIE` en `StreakFlame.js` — true = Lottie `renderMode="SOFTWARE"` (Plan A);
+  si en el device sigue congelada → false (Plan B: llama en código) + OTA.
 - **Deshacer un repaso**: revierte SOLO la nota (restaura estado FSRS + borra el
   review_log vía `snapshotFsrs`/`undoReview` en `db/cards.js`). Las conexiones del
   Gimnasio y sus tarjetas híbridas NUNCA se borran al deshacer.
@@ -100,8 +121,10 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Convención de superficies**: toda card visual usa `Card` (surfaceCard nivel base /
   surfaceHigh nivel "high", radios 16-20 de `theme.radius`, borde `cardBorder`) y `Pill`
   (píldoras translúcidas para tags/contadores/badges) de `components/ui.js` — NO definir
-  cards ad-hoc por pantalla. Barras de progreso: SIEMPRE `gradients.progress` (degradado
-  verde); naranja = racha; `gradients.bar` = card shiny de fin de sesión.
+  cards ad-hoc por pantalla. Barras de progreso: `gradients.progress` (verde) +
+  `glow.green`, salvo la del hero de Inicio (`gradients.bar` + `glow.cyan`); naranja =
+  racha. Única excepción documentada al patrón Card: las 3 cards del hub Crear
+  (Pressable directo, porque necesitan el estado hovered para el glow).
 - **Menús/overlays**: único patrón es `ActionSheet` (`components/ActionSheet.js`, bottom
   sheet con `Modal transparent`) — usado en el hub de Crear (mazo manual/carpeta) y en
   el "..." del detalle de mazo (Renombrar/Editar detalles/Borrar). No crear Modal/menú ad-hoc.
@@ -132,10 +155,25 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   confeti + card shiny al cerrar sesión, microinteracciones (botones/FlipCard elásticos,
   Skeleton, EmptyState con ícono), generación de tarjetas con Haiku 4.5 (auditor sigue en
   Sonnet 5).
-- Pendiente: F41 (expo-haptics + bump de versión 1.1.0→1.2.0, ÚLTIMO commit del rediseño
-  Premium — recién ahí se dispara el F29 pendiente: build del APK nuevo con
-  `comandos/CONSTRUIR-APP-ANDROID.bat`, lo dispara el usuario, consume créditos de EAS).
-- Plan del rediseño Premium (F30-F41): `C:\Users\marti\.claude\plans\c-users-marti-videos-grabaciones-de-pan-eager-raccoon.md`.
+- F41-F42 completas: expo-haptics + bump a 1.2.0 → APK 1.2.0 construido e instalado;
+  ancho máximo centrado en web de escritorio.
+- **El APK 1.2.0 salió MAL en el device** (Android new-arch/Fabric): botones sin fondo,
+  FlipCard rota, Lottie congelado (racha y confeti), ActionSheet tapado por el teclado.
+  → Rediseño correctivo "Neón" en 2 etapas (plan:
+  `C:\Users\marti\.claude\plans\c-users-marti-appdata-local-packages-53-prancy-stroustrup.md`).
+- **F43-F52 completas (Etapa 1 del rediseño Neón, 100% JS)**: tokens glow/gradients.card,
+  Button píldora (fix del fondo perdido), FlipCard scaleX + círculos ✕/✓, Home neón (glow
+  hero, barra cián, racha suelta, % en EN PROGRESO, sin fila Gimnasio), hub Crear
+  minimalista con glow en IA, cierre de sesión oscuro + confeti en código, racha con flag
+  USE_LOTTIE (SOFTWARE / llama en código), fix de teclado (ActionSheet + editor),
+  estrellas + orden manual (migración v4, react-native-sortables) + sheet de estudio,
+  Biblioteca con glow violeta y degradé en cards.
+- **Pendiente inmediato**: Martín dispara `comandos/ACTUALIZAR-APP.bat` (OTA al APK
+  1.2.0) y hace el smoke test de la Etapa 1 en el teléfono (checklist en el plan). Si la
+  racha sigue congelada → flip `USE_LOTTIE=false` + commit + OTA de nuevo.
+- **Etapa 2 (F54-F55) NO arrancada**: editor estilo Notion (WebView + TipTap v3 propio,
+  conversión marcas↔HTML en `lib/richhtml.js` con tests) → `react-native-webview`
+  (nativo) + bump 1.2.0→1.3.0 + APK nuevo. Recién cuando Martín confirme la Etapa 1.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).
@@ -154,3 +192,13 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   recargas → verificar flujos con DB en un Chrome real apuntando a localhost:8081.
 - **lottie-react-native no funciona en web** → StreakFlame.web.js (resolución por
   extensión de plataforma; un require condicional NO alcanza, Metro resuelve estático).
+- **`Animated.createAnimatedComponent(Pressable)` con `style` como FUNCIÓN pierde los
+  fondos en Android new-arch** — patrón PROHIBIDO. Usar `Animated.View` externo (lleva
+  el scale y el style del caller) + `Pressable` interno con los estilos visuales
+  (así está `Button` en ui.js).
+- **lottie-react-native se congela en el APK new-arch** (pasó con la racha Y el confeti,
+  dos JSON distintos) — el confeti ya es código propio (ConfettiOverlay); la racha tiene
+  el flag `USE_LOTTIE` en StreakFlame.js (Plan B en código, activable por OTA).
+- **Dos caras `absoluteFill` con rotateY/opacity interpolada se rompen en Android
+  new-arch** (tarjeta de ~90px, texto invisible) — FlipCard usa UNA cara con scaleX
+  ("aplastar y voltear"); no volver al enfoque 3D.
