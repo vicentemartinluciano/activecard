@@ -13,12 +13,18 @@ import {
   View,
 } from "react-native";
 
-import { colors, radius, spacing, type } from "../theme";
+import { colors, layout, radius, spacing, type } from "../theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// El contenedor externo pinta el fondo a todo el ancho y centra el contenido;
+// el interno lo capa a layout.maxWidth (columna tipo móvil en web de escritorio).
 export function Screen({ children, style }) {
-  return <View style={[styles.screen, style]}>{children}</View>;
+  return (
+    <View style={styles.screenOuter}>
+      <View style={[styles.screen, style]}>{children}</View>
+    </View>
+  );
 }
 
 // Contenedor de superficie en capas (patrón Quizlet): toda "card" visual de la
@@ -184,9 +190,15 @@ export function InlineAdd({ placeholder, buttonLabel = "Agregar", onSubmit }) {
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  screenOuter: {
     flex: 1,
     backgroundColor: colors.bg,
+    alignItems: "center",
+  },
+  screen: {
+    flex: 1,
+    width: "100%",
+    maxWidth: layout.maxWidth,
     padding: spacing.md,
   },
   button: {

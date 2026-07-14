@@ -14,7 +14,7 @@ import { listDecks } from "../../db/decks";
 import { getDecksDailyProgress } from "../../db/progress";
 import { getDailyReviewStats } from "../../db/reviewQueue";
 import { getStreak } from "../../db/streak";
-import { colors, gradients, radius, spacing, textColors, type } from "../../theme";
+import { colors, gradients, layout, radius, spacing, textColors, type } from "../../theme";
 
 export default function Inicio() {
   const router = useRouter();
@@ -73,7 +73,7 @@ export default function Inicio() {
   if (!loaded) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.body}>
+        <View style={[styles.inner, styles.body]}>
           <Skeleton height={200} style={{ borderRadius: radius.lg }} />
           <Skeleton height={72} />
           <Skeleton height={72} />
@@ -85,6 +85,7 @@ export default function Inicio() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.inner}>
       <View style={styles.topRow}>
         <Pressable
           onPress={() => router.push("/ajustes")}
@@ -193,6 +194,7 @@ export default function Inicio() {
           </Card>
         ) : null}
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -201,6 +203,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+    alignItems: "center",
+  },
+  inner: {
+    flex: 1,
+    width: "100%",
+    maxWidth: layout.maxWidth,
   },
   topRow: {
     flexDirection: "row",

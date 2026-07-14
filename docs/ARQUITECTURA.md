@@ -72,7 +72,9 @@ src/
                                 #   (progress verde → TODAS las barras de progreso; bar
                                 #   cobalto→cian → card shiny de fin de sesión; hero),
                                 #   textColors, spacing, radius (sm10/md16/lg20/pill),
-                                #   type (+heading/label)
+                                #   type (+heading/label), layout (maxWidth 480:
+                                #   columna centrada en web de escritorio; en el
+                                #   teléfono no aplica)
 ```
 
 ## Esquema SQLite (migraciones con PRAGMA user_version en src/db/schema.js)

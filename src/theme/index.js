@@ -45,6 +45,13 @@ export const spacing = {
   xl: 40,
 };
 
+// Ancho máximo del contenido: en el teléfono no aplica (la pantalla es más
+// angosta), pero en la web de escritorio evita que todo se estire a lo ancho
+// del monitor — la app queda como una columna centrada tipo móvil.
+export const layout = {
+  maxWidth: 480,
+};
+
 // Semántica: lg = contenedores Card principales, md = filas/superficies internas,
 // sm = botones/inputs, pill = píldoras y barras de progreso.
 export const radius = {
