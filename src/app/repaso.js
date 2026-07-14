@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -15,7 +14,7 @@ import { Button, EmptyState, Pill, Screen } from "../components/ui";
 import { reviewCard, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { toPlainText } from "../lib/richtext";
-import { colors, gradients, radius, spacing, type } from "../theme";
+import { colors, glow, gradients, radius, spacing, type } from "../theme";
 
 // Vibración de éxito al entrar al resumen — montado solo ahí, no en cada
 // render de la pantalla de repaso.
@@ -109,38 +108,20 @@ export default function Repaso() {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Repaso" }} />
-        <LinearGradient
-          colors={gradients.bar}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.summaryShiny}
-        >
+        <View style={styles.summaryNeon}>
           <Text style={styles.summaryTitle}>Repaso terminado</Text>
           <View style={styles.summaryPills}>
-            <Pill
-              color={colors.successBright}
-              label={`Recordadas: ${counts.good}`}
-              style={styles.shinyPill}
-            />
-            <Pill color={colors.danger} label={`Olvidadas: ${counts.again}`} style={styles.shinyPill} />
+            <Pill color="#5BE7AD" label={`Recordadas: ${counts.good}`} />
+            <Pill color={colors.danger} label={`Olvidadas: ${counts.again}`} />
           </View>
           {counts.connections > 0 ? (
-            <Pill
-              color={colors.accentText}
-              label={`Conexiones creadas: ${counts.connections}`}
-              style={styles.shinyPill}
-            />
+            <Pill color={colors.accentText} label={`Conexiones creadas: ${counts.connections}`} />
           ) : null}
           <Button label="Volver al inicio" kind="primary" onPress={goHome} />
           {history.length > 0 ? (
-            <Button
-              label="Deshacer última"
-              kind="ghost"
-              labelStyle={{ color: "#FFFFFF" }}
-              onPress={undo}
-            />
+            <Button label="Deshacer última" kind="ghost" onPress={undo} />
           ) : null}
-        </LinearGradient>
+        </View>
         {hasReviews ? <ConfettiOverlay /> : null}
         {hasReviews ? <SummaryHaptic /> : null}
       </Screen>
@@ -274,24 +255,22 @@ const styles = StyleSheet.create({
     padding: spacing.sm + 4,
     marginBottom: spacing.sm,
   },
-  summaryShiny: {
+  summaryNeon: {
     alignSelf: "stretch",
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.lg,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
-    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.cyanBorder,
+    ...glow.cyan,
   },
   summaryTitle: {
     ...type.title,
-    color: "#FFFFFF",
   },
   summaryPills: {
     flexDirection: "row",
     gap: spacing.sm,
-  },
-  shinyPill: {
-    backgroundColor: "#FFFFFF22",
-    borderColor: "#FFFFFF33",
   },
 });

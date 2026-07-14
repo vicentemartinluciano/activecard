@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -14,7 +13,7 @@ import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, reviewCard, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
-import { colors, gradients, radius, spacing, type } from "../../../theme";
+import { colors, glow, gradients, radius, spacing, type } from "../../../theme";
 
 // Vibración de éxito al entrar al resumen — montado solo ahí, no en cada
 // render de la pantalla de estudio.
@@ -155,20 +154,11 @@ export default function Estudiar() {
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Estudiar" }} />
-        <LinearGradient
-          colors={gradients.bar}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.summaryShiny}
-        >
+        <View style={styles.summaryNeon}>
           <Text style={styles.summaryTitle}>Ronda completa</Text>
           <View style={styles.summaryPills}>
-            <Pill
-              color={colors.successBright}
-              label={`Sabías: ${counts.good}`}
-              style={styles.shinyPill}
-            />
-            <Pill color={colors.danger} label={`No sabías: ${counts.again}`} style={styles.shinyPill} />
+            <Pill color="#5BE7AD" label={`Sabías: ${counts.good}`} />
+            <Pill color={colors.danger} label={`No sabías: ${counts.again}`} />
           </View>
           {failedIds.length > 0 ? (
             <Button
@@ -177,16 +167,11 @@ export default function Estudiar() {
               onPress={reviewFailed}
             />
           ) : null}
-          <Button label="Volver" kind="ghost" labelStyle={{ color: "#FFFFFF" }} onPress={goBack} />
+          <Button label="Volver" onPress={goBack} />
           {history.length > 0 ? (
-            <Button
-              label="Deshacer última"
-              kind="ghost"
-              labelStyle={{ color: "#FFFFFF" }}
-              onPress={undo}
-            />
+            <Button label="Deshacer última" kind="ghost" onPress={undo} />
           ) : null}
-        </LinearGradient>
+        </View>
         {hasReviews ? <ConfettiOverlay /> : null}
         {hasReviews ? <SummaryHaptic /> : null}
       </Screen>
@@ -298,24 +283,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.sm,
   },
-  summaryShiny: {
+  summaryNeon: {
     alignSelf: "stretch",
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.lg,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
-    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.cyanBorder,
+    ...glow.cyan,
   },
   summaryTitle: {
     ...type.title,
-    color: "#FFFFFF",
   },
   summaryPills: {
     flexDirection: "row",
     gap: spacing.sm,
-  },
-  shinyPill: {
-    backgroundColor: "#FFFFFF22",
-    borderColor: "#FFFFFF33",
   },
 });
