@@ -3,13 +3,12 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import ActionSheet from "../../components/ActionSheet";
 import DeckListItem from "../../components/DeckListItem";
-import { Card, Chip, EmptyState, Field, InlineAdd, Pill, Screen } from "../../components/ui";
+import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
 import { listAllCards } from "../../db/cards";
 import { listDecksWithConnections } from "../../db/connections";
-import { createDeck, listDecks, listTags } from "../../db/decks";
-import { createFolder, listFolders } from "../../db/folders";
+import { listDecks, listTags } from "../../db/decks";
+import { listFolders } from "../../db/folders";
 import { getDecksDailyProgress } from "../../db/progress";
 import { searchLibrary } from "../../lib/search";
 import { toPlainText } from "../../lib/richtext";
@@ -24,7 +23,6 @@ export default function Biblioteca() {
   const [activeTagIds, setActiveTagIds] = useState([]);
   const [progressByDeck, setProgressByDeck] = useState({});
   const [gymDecks, setGymDecks] = useState([]);
-  const [createStep, setCreateStep] = useState(null); // null | "menu" | "mazo" | "carpeta"
   const [query, setQuery] = useState("");
 
   const refresh = useCallback(() => {
@@ -52,18 +50,6 @@ export default function Biblioteca() {
 
   useFocusEffect(refresh);
 
-  const onCreate = async (name) => {
-    const id = await createDeck(name);
-    setCreateStep(null);
-    router.push(`/mazos/${id}`);
-  };
-
-  const onCreateFolder = async (name) => {
-    await createFolder(name);
-    setCreateStep(null);
-    refresh();
-  };
-
   const toggleTag = (tagId) => {
     setActiveTagIds((ids) =>
       ids.includes(tagId) ? ids.filter((t) => t !== tagId) : [...ids, tagId]
@@ -71,12 +57,14 @@ export default function Biblioteca() {
   };
 
   // La lista principal muestra solo los mazos sueltos; los que tienen carpeta
-  // viven dentro de su carpeta (grilla de arriba).
+  // viven dentro de su carpeta (grilla de arriba). Filtrar por etiqueta pasa a
+  // ser global: busca sobre TODOS los mazos, no solo los sueltos.
   const looseDecks = decks.filter((d) => !d.folder_id);
-  const visibleDecks =
-    activeTagIds.length === 0
-      ? looseDecks
-      : looseDecks.filter((d) => d.tags.some((t) => activeTagIds.includes(t.id)));
+  const tagFiltering = activeTagIds.length > 0;
+  const visibleDecks = tagFiltering
+    ? decks.filter((d) => d.tags.some((t) => activeTagIds.includes(t.id)))
+    : looseDecks;
+  const folderNameById = Object.fromEntries(folders.map((f) => [f.id, f.name]));
 
   const searching = query.trim().length > 0;
   const results = searching
@@ -96,7 +84,7 @@ export default function Biblioteca() {
             value={query}
             onChangeText={setQuery}
             placeholder="Buscar carpetas, mazos o tarjetas…"
-            style={{ flex: 1 }}
+            style={styles.searchField}
           />
           <Pressable onPress={() => setQuery("")} hitSlop={8}>
             <Feather name="x" size={18} color={colors.textMuted} />
@@ -108,7 +96,7 @@ export default function Biblioteca() {
           contentContainerStyle={{ paddingVertical: spacing.md }}
           ListHeaderComponent={
             <View style={{ gap: spacing.md }}>
-              {empty ? <EmptyState text="Sin resultados." /> : null}
+              {empty ? <EmptyState text="Sin resultados." icon="search" /> : null}
               {results.folders.length > 0 ? (
                 <View style={{ gap: spacing.sm }}>
                   <Text style={type.label}>Carpetas</Text>
@@ -178,14 +166,13 @@ export default function Biblioteca() {
           value={query}
           onChangeText={setQuery}
           placeholder="Buscar carpetas, mazos o tarjetas…"
-          style={{ flex: 1 }}
+          style={styles.searchField}
         />
-        <Pressable
-          onPress={() => setCreateStep("menu")}
-          style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.7 }]}
-        >
-          <Feather name="plus" size={20} color="#FFFFFF" />
-        </Pressable>
+        {query.length > 0 ? (
+          <Pressable onPress={() => setQuery("")} hitSlop={8}>
+            <Feather name="x" size={18} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
       </View>
 
       {tags.length > 0 ? (
@@ -206,101 +193,72 @@ export default function Biblioteca() {
         keyExtractor={(d) => String(d.id)}
         contentContainerStyle={{ paddingVertical: spacing.md, gap: spacing.sm }}
         ListHeaderComponent={
-          <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
-            {folders.length > 0 || gymDecks.length > 0 ? (
-              <View style={{ gap: spacing.sm }}>
-                <Text style={type.label}>Carpetas</Text>
-                <View style={styles.folderGrid}>
-                  {gymDecks.length > 0 ? (
-                    <Card
-                      onPress={() => router.push("/carpetas/gimnasio")}
-                      style={[styles.folderTile, styles.gymTile]}
-                    >
-                      <Feather name="zap" size={22} color={colors.streak} />
-                      <Text style={styles.folderName} numberOfLines={1}>
-                        Gimnasio Mental
-                      </Text>
-                      <Pill
-                        color={colors.accentText}
-                        label={`${gymDecks.length} ${gymDecks.length === 1 ? "mazo" : "mazos"}`}
-                      />
-                    </Card>
-                  ) : null}
-                  {folders.map((f) => (
-                    <Card
-                      key={f.id}
-                      onPress={() => router.push(`/carpetas/${f.id}`)}
-                      style={styles.folderTile}
-                    >
-                      <Feather name="folder" size={22} color={colors.accentText} />
-                      <Text style={styles.folderName} numberOfLines={1}>
-                        {f.name}
-                      </Text>
-                      <Pill label={`${f.deck_count} ${f.deck_count === 1 ? "mazo" : "mazos"}`} />
-                    </Card>
-                  ))}
+          !tagFiltering ? (
+            <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
+              {folders.length > 0 || gymDecks.length > 0 ? (
+                <View style={{ gap: spacing.sm }}>
+                  <Text style={type.label}>Carpetas</Text>
+                  <View style={styles.folderGrid}>
+                    {gymDecks.length > 0 ? (
+                      <Card
+                        onPress={() => router.push("/carpetas/gimnasio")}
+                        style={[styles.folderTile, styles.gymTile]}
+                      >
+                        <Feather name="zap" size={22} color={colors.streak} />
+                        <Text style={styles.folderName} numberOfLines={1}>
+                          Gimnasio Mental
+                        </Text>
+                        <Pill
+                          color={colors.accentText}
+                          label={`${gymDecks.length} ${gymDecks.length === 1 ? "mazo" : "mazos"}`}
+                        />
+                      </Card>
+                    ) : null}
+                    {folders.map((f) => (
+                      <Card
+                        key={f.id}
+                        onPress={() => router.push(`/carpetas/${f.id}`)}
+                        style={styles.folderTile}
+                      >
+                        <Feather name="folder" size={22} color={colors.accentText} />
+                        <Text style={styles.folderName} numberOfLines={1}>
+                          {f.name}
+                        </Text>
+                        <Pill label={`${f.deck_count} ${f.deck_count === 1 ? "mazo" : "mazos"}`} />
+                      </Card>
+                    ))}
+                  </View>
                 </View>
-              </View>
-            ) : null}
-            <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
-          </View>
+              ) : null}
+              <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
+            </View>
+          ) : (
+            <Text style={[type.label, { marginBottom: spacing.sm }]}>Resultados</Text>
+          )
         }
         ListEmptyComponent={
           <EmptyState
             text={
-              decks.length === 0
-                ? "Todavía no hay mazos. Creá el primero arriba."
-                : looseDecks.length === 0
-                  ? "Todos los mazos están dentro de carpetas."
-                  : "Ningún mazo suelto tiene esas etiquetas."
+              tagFiltering
+                ? "Ningún mazo tiene esas etiquetas."
+                : decks.length === 0
+                  ? "Todavía no hay mazos. Creá el primero en la pestaña Crear."
+                  : looseDecks.length === 0
+                    ? "Todos los mazos están dentro de carpetas."
+                    : "Ningún mazo suelto tiene esas etiquetas."
             }
+            icon="search"
           />
         }
         renderItem={({ item }) => (
           <DeckListItem
             deck={item}
             progress={progressByDeck[item.id]}
+            folderName={tagFiltering ? folderNameById[item.folder_id] : undefined}
             onPress={() => router.push(`/mazos/${item.id}`)}
           />
         )}
       />
-
-      <ActionSheet
-        visible={createStep !== null}
-        onClose={() => setCreateStep(null)}
-        title={
-          createStep === "mazo"
-            ? "Nuevo mazo"
-            : createStep === "carpeta"
-              ? "Nueva carpeta"
-              : "¿Qué querés crear?"
-        }
-      >
-        {createStep === "menu" ? (
-          <>
-            <Pressable
-              style={({ pressed }) => [styles.menuOption, pressed && { opacity: 0.7 }]}
-              onPress={() => setCreateStep("mazo")}
-            >
-              <Feather name="layers" size={18} color={colors.text} />
-              <Text style={type.body}>Mazo</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.menuOption, pressed && { opacity: 0.7 }]}
-              onPress={() => setCreateStep("carpeta")}
-            >
-              <Feather name="folder" size={18} color={colors.text} />
-              <Text style={type.body}>Carpeta</Text>
-            </Pressable>
-          </>
-        ) : null}
-        {createStep === "mazo" ? (
-          <InlineAdd placeholder="Nombre del mazo nuevo…" buttonLabel="Crear" onSubmit={onCreate} />
-        ) : null}
-        {createStep === "carpeta" ? (
-          <InlineAdd placeholder="Nombre de la carpeta…" buttonLabel="Crear" onSubmit={onCreateFolder} />
-        ) : null}
-      </ActionSheet>
     </Screen>
   );
 }
@@ -310,7 +268,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    backgroundColor: colors.pillBg,
+    borderWidth: 1,
+    borderColor: colors.pillBorder,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
+  },
+  searchField: {
+    flex: 1,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    paddingHorizontal: 0,
   },
   searchFolderRow: {
     flexDirection: "row",
@@ -323,27 +292,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
   },
-  addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  menuOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: 12,
-  },
   folderGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
   folderTile: {
-    width: "48%",
+    flexGrow: 1,
+    flexBasis: "45%",
     gap: spacing.sm,
   },
   gymTile: {

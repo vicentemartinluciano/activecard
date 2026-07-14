@@ -9,7 +9,7 @@ import ProgressBar from "./ProgressBar";
 import { Card, Pill } from "./ui";
 import { colors, gradients, radius, spacing, type } from "../theme";
 
-export default function DeckListItem({ deck, progress, onPress }) {
+export default function DeckListItem({ deck, progress, onPress, folderName }) {
   return (
     <Card onPress={onPress}>
       <View style={styles.row}>
@@ -25,6 +25,7 @@ export default function DeckListItem({ deck, progress, onPress }) {
           icon="layers"
           label={`${deck.card_count} ${deck.card_count === 1 ? "tarjeta" : "tarjetas"}`}
         />
+        {folderName ? <Pill icon="folder" label={folderName} /> : null}
         {(deck.tags || []).map((t) => (
           <Pill key={t.id} label={t.name} />
         ))}
