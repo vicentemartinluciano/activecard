@@ -9,19 +9,17 @@ import ProgressBar from "../../components/ProgressBar";
 import Skeleton from "../../components/Skeleton";
 import StreakFlame from "../../components/StreakFlame";
 import { Button, Card, Pill } from "../../components/ui";
-import { listDecksWithConnections } from "../../db/connections";
 import { listDecks } from "../../db/decks";
 import { getDecksDailyProgress } from "../../db/progress";
 import { getDailyReviewStats } from "../../db/reviewQueue";
 import { getStreak } from "../../db/streak";
-import { colors, gradients, layout, radius, spacing, textColors, type } from "../../theme";
+import { colors, glow, gradients, layout, radius, spacing, type } from "../../theme";
 
 export default function Inicio() {
   const router = useRouter();
   const [stats, setStats] = useState(null);
   const [streak, setStreak] = useState(null);
   const [inProgressDecks, setInProgressDecks] = useState([]);
-  const [gymDecks, setGymDecks] = useState([]);
   const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
 
   useFocusEffect(
@@ -56,10 +54,6 @@ export default function Inicio() {
         })
         .catch(() => alive && setInProgressDecks([]));
 
-      listDecksWithConnections()
-        .then((g) => alive && setGymDecks(g))
-        .catch(() => alive && setGymDecks([]));
-
       return () => {
         alive = false;
       };
@@ -68,7 +62,6 @@ export default function Inicio() {
 
   const remaining = stats ? stats.remaining : null;
   const completedToday = stats && stats.total > 0 && stats.remaining === 0;
-  const totalConnections = gymDecks.reduce((s, d) => s + d.connection_count, 0);
 
   if (!loaded) {
     return (
@@ -101,9 +94,9 @@ export default function Inicio() {
           </View>
         </Pressable>
 
-        <View style={styles.streakPill}>
+        <View style={styles.streakRow}>
           <StreakFlame days={streak ? streak.days : null} active={!!streak && streak.activeToday} />
-          <Text style={styles.streakLabel}>días</Text>
+          <Text style={styles.streakLabel}>{streak && streak.days === 1 ? "día" : "días"}</Text>
         </View>
       </View>
 
@@ -135,12 +128,13 @@ export default function Inicio() {
           {stats && stats.total > 0 ? (
             <ProgressBar
               pct={stats.pct}
-              gradient={gradients.progress}
+              gradient={gradients.bar}
+              glowStyle={glow.cyan}
               style={{ marginTop: spacing.sm }}
             />
           ) : null}
           <Button
-            label={completedToday ? "Repasar de nuevo" : "Repasar ahora →"}
+            label={completedToday ? "REPASAR DE NUEVO" : "REPASAR AHORA"}
             kind="inverse"
             onPress={() => router.push("/repaso")}
             style={{ marginTop: spacing.md }}
@@ -165,33 +159,17 @@ export default function Inicio() {
                 <Feather name={d.icon || "book"} size={18} color={colors.accentText} />
                 <View style={{ flex: 1 }}>
                   <Text style={type.body}>{d.name}</Text>
-                  <ProgressBar pct={d.progress.pct} gradient={gradients.progress} style={{ marginTop: 6 }} />
+                  <ProgressBar
+                    pct={d.progress.pct}
+                    gradient={gradients.progress}
+                    glowStyle={glow.green}
+                    style={{ marginTop: 6 }}
+                  />
                 </View>
-                <Text style={styles.deckPct}>
-                  {d.progress.reviewedToday}/{d.progress.total}
-                </Text>
-                <Feather name="chevron-right" size={18} color={colors.textMuted} />
+                <Text style={styles.deckPct}>{Math.round(d.progress.pct)}%</Text>
               </Card>
             ))}
           </View>
-        ) : null}
-
-        {totalConnections > 0 ? (
-          <Card
-            level="high"
-            onPress={() => router.push("/carpetas/gimnasio")}
-            style={styles.deckRow}
-          >
-            <View style={styles.gymIcon}>
-              <Feather name="zap" size={20} color={textColors.violeta} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[type.body, { fontWeight: "700" }]}>Gimnasio Mental</Text>
-              <Text style={type.small}>{totalConnections} conexiones consolidadas</Text>
-            </View>
-            <Pill label="AUDITORÍA IA" color={textColors.violeta} />
-            <Feather name="chevron-right" size={18} color={colors.textMuted} />
-          </Card>
         ) : null}
       </ScrollView>
       </View>
@@ -243,16 +221,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
-  streakPill: {
+  streakRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.streakSoft,
-    borderWidth: 1,
-    borderColor: colors.pillBorder,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
   },
   streakLabel: {
     color: colors.streak,
@@ -264,9 +236,11 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   hero: {
+    marginTop: spacing.lg,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: colors.neonBorder,
+    ...glow.accent,
     padding: spacing.lg,
     overflow: "hidden",
     gap: spacing.sm,
@@ -308,18 +282,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     borderRadius: radius.md,
+    ...glow.accentSoft,
   },
   deckPct: {
-    ...type.small,
     color: colors.accentText,
     fontWeight: "700",
-  },
-  gymIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceHigh,
-    alignItems: "center",
-    justifyContent: "center",
+    fontSize: 13,
   },
 });

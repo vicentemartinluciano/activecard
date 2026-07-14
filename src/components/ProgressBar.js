@@ -1,14 +1,16 @@
 // Barra de progreso fina y redondeada (estilo Quizlet).
+// glowStyle: resplandor neón opcional (tokens de theme.glow). Va en el track
+// porque su overflow:hidden se comería el boxShadow del fill.
 
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, View } from "react-native";
 
 import { colors, radius } from "../theme";
 
-export default function ProgressBar({ pct, color = colors.accent, gradient, style }) {
+export default function ProgressBar({ pct, color = colors.accent, gradient, glowStyle, style }) {
   const clamped = Math.max(0, Math.min(100, pct || 0));
   return (
-    <View style={[styles.track, style]}>
+    <View style={[styles.track, glowStyle, style]}>
       {gradient ? (
         <LinearGradient
           colors={gradient}
