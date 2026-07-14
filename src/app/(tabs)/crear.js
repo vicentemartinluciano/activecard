@@ -1,34 +1,18 @@
-import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
-import { Card, InlineAdd, Pill, Screen } from "../../components/ui";
+import { InlineAdd, Screen } from "../../components/ui";
 import { createDeck } from "../../db/decks";
 import { createFolder } from "../../db/folders";
-import { colors, radius, spacing, type } from "../../theme";
+import { colors, glow, gradients, radius, spacing, type } from "../../theme";
 
 const OPTIONS = [
-  {
-    key: "ia",
-    icon: "cpu",
-    title: "Generar Mazo con IA",
-    desc: "Generá fichas de estudio a partir de tus archivos, textos o Notion.",
-    highlight: true,
-  },
-  {
-    key: "mazo",
-    icon: "edit-3",
-    title: "Nuevo Mazo Manual",
-    desc: "Escribí tus tarjetas directo con el editor de marcas.",
-  },
-  {
-    key: "carpeta",
-    icon: "folder-plus",
-    title: "Crear Nueva Carpeta",
-    desc: "Organizá tus materias en carpetas.",
-  },
+  { key: "ia", emoji: "🤖", title: "Generar Mazo con IA", highlight: true },
+  { key: "mazo", emoji: "✏️", title: "Nuevo Mazo Manual" },
+  { key: "carpeta", emoji: "📁", title: "Crear Nueva Carpeta" },
 ];
 
 // Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
@@ -59,23 +43,32 @@ export default function Crear() {
       <Text style={[type.title, { marginBottom: spacing.lg }]}>¿Qué querés crear hoy?</Text>
 
       <View style={{ gap: spacing.md }}>
+        {/* Excepción al patrón Card: Pressable directo porque la card IA
+            intensifica su glow con hovered (web) / pressed (nativo), y Card
+            no expone esos estados. El resto de la app sigue usando Card. */}
         {OPTIONS.map((opt) => (
-          <Card
+          <Pressable
             key={opt.key}
             onPress={() => handlePress(opt.key)}
-            style={[styles.row, opt.highlight && styles.rowHighlight]}
+            style={({ pressed, hovered }) => [
+              styles.row,
+              opt.highlight && styles.rowIa,
+              opt.highlight && (pressed || hovered) && styles.rowIaHot,
+              !opt.highlight && pressed && { opacity: 0.7 },
+            ]}
           >
-            <View style={styles.iconBox}>
-              <Feather name={opt.icon} size={20} color={colors.accentText} />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <View style={styles.titleRow}>
-                <Text style={[type.body, { fontWeight: "700" }]}>{opt.title}</Text>
-                {opt.highlight ? <Pill label="IA" color={colors.accentText} /> : null}
+            <LinearGradient
+              colors={gradients.card}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.rowInner}
+            >
+              <View style={styles.emojiBox}>
+                <Text style={{ fontSize: 22 }}>{opt.emoji}</Text>
               </View>
-              <Text style={type.small}>{opt.desc}</Text>
-            </View>
-          </Card>
+              <Text style={[type.body, { fontWeight: "800" }]}>{opt.title}</Text>
+            </LinearGradient>
+          </Pressable>
         ))}
       </View>
 
@@ -97,24 +90,31 @@ export default function Crear() {
 
 const styles = StyleSheet.create({
   row: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    overflow: "hidden",
+  },
+  rowIa: {
+    borderColor: colors.neonBorder,
+    ...glow.accent,
+  },
+  rowIaHot: {
+    boxShadow: "0 0 20px rgba(77,124,255,0.65), 0 0 52px rgba(62,99,221,0.42)",
+  },
+  rowInner: {
+    minHeight: 76,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+    paddingHorizontal: spacing.md,
   },
-  rowHighlight: {
-    borderColor: colors.accent,
-  },
-  iconBox: {
+  emojiBox: {
     width: 44,
     height: 44,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceHigh,
     alignItems: "center",
     justifyContent: "center",
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
   },
 });
