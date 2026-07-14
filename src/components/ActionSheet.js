@@ -2,15 +2,41 @@
 // Funciona en nativo y web (react-native-web soporta Modal).
 
 import { Feather } from "@expo/vector-icons";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, radius, spacing, type } from "../theme";
 
 export default function ActionSheet({ visible, onClose, title, options = [], children }) {
+  // El Modal de Android no se ajusta al teclado (adjustResize no aplica dentro
+  // de Modals): subimos el sheet a mano con la altura reportada del teclado.
+  // En web los listeners no disparan y kbHeight queda 0 — inofensivo.
+  const [kbHeight, setKbHeight] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === "android" ? "keyboardDidShow" : "keyboardWillShow",
+      (e) => setKbHeight(e.endCoordinates.height)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "android" ? "keyboardDidHide" : "keyboardWillHide",
+      () => setKbHeight(0)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable style={[styles.sheet, { marginBottom: kbHeight }]} onPress={() => {}}>
           <View style={styles.handle} />
           {title ? <Text style={styles.title}>{title}</Text> : null}
           {options.map((opt) => (

@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 
 import RichField from "../../../components/RichField";
 import { Button, confirmAsync, Screen } from "../../../components/ui";
@@ -60,7 +60,15 @@ export default function EditorTarjeta() {
   return (
     <Screen>
       <Stack.Screen options={{ title: existing ? "Editar tarjeta" : "Nueva tarjeta" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing.md }}>
+      {/* Android usa adjustResize nativo fuera de Modals; el behavior padding es para iOS. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+      <ScrollView
+        contentContainerStyle={{ gap: spacing.md }}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={{ gap: spacing.sm }}>
           <Text style={type.small}>Frente (pregunta)</Text>
           <RichField
@@ -85,6 +93,7 @@ export default function EditorTarjeta() {
         />
         {existing ? <Button label="Borrar tarjeta" kind="danger" onPress={onDelete} /> : null}
       </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
