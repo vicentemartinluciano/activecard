@@ -15,8 +15,6 @@ import {
 
 import { colors, layout, radius, spacing, type } from "../theme";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 // El contenedor externo pinta el fondo a todo el ancho y centra el contenido;
 // el interno lo capa a layout.maxWidth (columna tipo móvil en web de escritorio).
 export function Screen({ children, style }) {
@@ -64,46 +62,49 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style }) 
   return <View style={[styles.pill, style]}>{content}</View>;
 }
 
+// Animated.View externo (scale + style del caller) con Pressable interno:
+// Animated.createAnimatedComponent(Pressable) con style-función pierde los
+// fondos en Android new-arch — patrón prohibido en esta app.
 export function Button({ label, onPress, kind = "default", size = "md", disabled, style, labelStyle }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const onPressIn = () =>
+  const pressIn = () =>
     Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
-  const onPressOut = () =>
+  const pressOut = () =>
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }).start();
 
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.button,
-        kind === "primary" && styles.buttonPrimary,
-        kind === "danger" && styles.buttonDanger,
-        kind === "ghost" && styles.buttonGhost,
-        kind === "inverse" && styles.buttonInverse,
-        size === "lg" && styles.buttonLg,
-        disabled && { opacity: 0.4 },
-        pressed && { opacity: 0.85 },
-        { transform: [{ scale }] },
-        style,
-      ]}
-    >
-      <Text
-        style={[
-          styles.buttonLabel,
-          kind === "primary" && { color: "#FFFFFF" },
-          kind === "danger" && { color: colors.danger },
-          kind === "ghost" && { color: colors.textMuted },
-          kind === "inverse" && styles.buttonInverseLabel,
-          size === "lg" && styles.buttonLgLabel,
-          labelStyle,
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        disabled={disabled}
+        style={({ pressed }) => [
+          styles.button,
+          kind === "primary" && styles.buttonPrimary,
+          kind === "danger" && styles.buttonDanger,
+          kind === "ghost" && styles.buttonGhost,
+          kind === "inverse" && styles.buttonInverse,
+          size === "lg" && styles.buttonLg,
+          disabled && { opacity: 0.4 },
+          pressed && { opacity: 0.85 },
         ]}
       >
-        {label}
-      </Text>
-    </AnimatedPressable>
+        <Text
+          style={[
+            styles.buttonLabel,
+            kind === "primary" && { color: "#FFFFFF" },
+            kind === "danger" && { color: colors.danger },
+            kind === "ghost" && { color: colors.textMuted },
+            kind === "inverse" && styles.buttonInverseLabel,
+            size === "lg" && styles.buttonLgLabel,
+            labelStyle,
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -202,8 +203,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   button: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
+    backgroundColor: colors.pillBg, // secundario translúcido
+    borderWidth: 1,
+    borderColor: colors.pillBorder,
+    borderRadius: radius.pill,
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
     alignItems: "center",
@@ -211,17 +214,19 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   buttonDanger: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: colors.danger,
+    backgroundColor: "rgba(229,72,77,0.10)",
+    borderColor: "rgba(229,72,77,0.35)",
   },
   buttonGhost: {
     backgroundColor: "transparent",
+    borderColor: "transparent",
   },
   buttonInverse: {
     backgroundColor: "#FFFFFF",
+    borderColor: "#FFFFFF",
   },
   buttonLg: {
     paddingVertical: 16,
