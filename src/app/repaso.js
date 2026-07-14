@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import ChatAuditor from "../components/ChatAuditor";
 import ConfettiOverlay from "../components/ConfettiOverlay";
@@ -15,6 +16,17 @@ import { reviewCard, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { toPlainText } from "../lib/richtext";
 import { colors, gradients, radius, spacing, type } from "../theme";
+
+// Vibración de éxito al entrar al resumen — montado solo ahí, no en cada
+// render de la pantalla de repaso.
+function SummaryHaptic() {
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+  }, []);
+  return null;
+}
 
 export default function Repaso() {
   const router = useRouter();
@@ -130,6 +142,7 @@ export default function Repaso() {
           ) : null}
         </LinearGradient>
         {hasReviews ? <ConfettiOverlay /> : null}
+        {hasReviews ? <SummaryHaptic /> : null}
       </Screen>
     );
   }

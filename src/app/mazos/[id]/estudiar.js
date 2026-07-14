@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import ConfettiOverlay from "../../../components/ConfettiOverlay";
 import FlipCard from "../../../components/FlipCard";
@@ -14,6 +15,17 @@ import { listCardsByDeck, reviewCard, snapshotFsrs, undoReview } from "../../../
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import { colors, gradients, radius, spacing, type } from "../../../theme";
+
+// Vibración de éxito al entrar al resumen — montado solo ahí, no en cada
+// render de la pantalla de estudio.
+function SummaryHaptic() {
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+  }, []);
+  return null;
+}
 
 // Modo Quizlet: se estudia el mazo deslizando. Alimenta el algoritmo FSRS
 // igual que el repaso diario, pero sin pasar por el Gimnasio Mental. La
@@ -176,6 +188,7 @@ export default function Estudiar() {
           ) : null}
         </LinearGradient>
         {hasReviews ? <ConfettiOverlay /> : null}
+        {hasReviews ? <SummaryHaptic /> : null}
       </Screen>
     );
   }
