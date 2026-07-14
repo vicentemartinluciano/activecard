@@ -1,13 +1,14 @@
+import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import ChatAuditor from "../components/ChatAuditor";
 import FlipCard from "../components/FlipCard";
 import ProgressBar from "../components/ProgressBar";
 import SwipeCard from "../components/SwipeCard";
 import { Button, Card, Pill, Screen } from "../components/ui";
-import { reviewCard } from "../db/cards";
+import { reviewCard, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { toPlainText } from "../lib/richtext";
 import { colors, gradients, radius, spacing, type } from "../theme";
@@ -20,6 +21,7 @@ export default function Repaso() {
   const [flipped, setFlipped] = useState(false);
   const [phase, setPhase] = useState("card"); // 'card' | 'gym'
   const [counts, setCounts] = useState({ good: 0, again: 0, connections: 0 });
+  const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
 
   useEffect(() => {
     let alive = true;
@@ -31,10 +33,23 @@ export default function Repaso() {
 
   const grade = async (rating) => {
     const card = queue[index];
-    await reviewCard(card, rating, "daily");
+    const prev = snapshotFsrs(card);
+    const updated = await reviewCard(card, rating, "daily");
+    setHistory((h) => [...h, { index, cardId: card.id, prev, logId: updated.logId, rating }]);
     setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
     // Tanto si la recordó como si no: espacio de asociación (Gimnasio Mental).
     setPhase("gym");
+  };
+
+  const undo = async () => {
+    const last = history[history.length - 1];
+    if (!last) return;
+    await undoReview(last.cardId, last.prev, last.logId);
+    setHistory((h) => h.slice(0, -1));
+    setCounts((c) => ({ ...c, [last.rating]: c[last.rating] - 1 }));
+    setIndex(last.index);
+    setFlipped(false);
+    setPhase("card");
   };
 
   const finishGym = (result) => {
@@ -80,6 +95,9 @@ export default function Repaso() {
             <Pill color={colors.accentText} label={`Conexiones creadas: ${counts.connections}`} />
           ) : null}
           <Button label="Volver al inicio" kind="primary" onPress={goHome} />
+          {history.length > 0 ? (
+            <Button label="Deshacer última" kind="ghost" onPress={undo} />
+          ) : null}
         </Card>
       </Screen>
     );
@@ -109,9 +127,19 @@ export default function Repaso() {
         gradient={gradients.progress}
         style={{ marginBottom: spacing.sm }}
       />
-      <Text style={styles.progress}>
-        {index + 1} de {queue.length}
-      </Text>
+      <View style={styles.progressRow}>
+        <Text style={styles.progress}>
+          {index + 1} de {queue.length}
+        </Text>
+        <Pressable
+          onPress={undo}
+          disabled={history.length === 0}
+          hitSlop={10}
+          style={{ opacity: history.length === 0 ? 0.15 : 0.35 }}
+        >
+          <Feather name="rotate-ccw" size={18} color={colors.textMuted} />
+        </Pressable>
+      </View>
 
       <View style={{ flex: 1, marginVertical: spacing.sm }}>
         <SwipeCard
@@ -153,10 +181,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.md,
   },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   progress: {
     ...type.small,
     textAlign: "center",
-    marginBottom: spacing.md,
   },
   actions: {
     flexDirection: "row",

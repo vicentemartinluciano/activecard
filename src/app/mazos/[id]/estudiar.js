@@ -1,12 +1,13 @@
+import { Feather } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import FlipCard from "../../../components/FlipCard";
 import ProgressBar from "../../../components/ProgressBar";
 import SwipeCard from "../../../components/SwipeCard";
 import { Button, Card, Pill, Screen } from "../../../components/ui";
-import { listCardsByDeck, reviewCard } from "../../../db/cards";
+import { listCardsByDeck, reviewCard, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import { colors, gradients, spacing, type } from "../../../theme";
@@ -29,6 +30,7 @@ export default function Estudiar() {
   const [flipped, setFlipped] = useState(false);
   const [counts, setCounts] = useState({ good: 0, again: 0 });
   const [failedIds, setFailedIds] = useState([]);
+  const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
 
   const startRound = useCallback((cards) => {
     setRound(shuffle(cards));
@@ -36,6 +38,7 @@ export default function Estudiar() {
     setFlipped(false);
     setCounts({ good: 0, again: 0 });
     setFailedIds([]);
+    setHistory([]);
     setStatus("studying");
   }, []);
 
@@ -62,11 +65,29 @@ export default function Estudiar() {
 
   const grade = async (rating) => {
     const card = round[index];
-    await reviewCard(card, rating, "quizlet");
+    const prev = snapshotFsrs(card);
+    const updated = await reviewCard(card, rating, "quizlet");
+    setHistory((h) => [...h, { index, cardId: card.id, prev, logId: updated.logId, rating }]);
     setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
     if (rating === "again") setFailedIds((f) => [...f, card.id]);
     setFlipped(false);
     setIndex((i) => i + 1);
+  };
+
+  const undo = async () => {
+    const last = history[history.length - 1];
+    if (!last) return;
+    await undoReview(last.cardId, last.prev, last.logId);
+    setHistory((h) => h.slice(0, -1));
+    setCounts((c) => ({ ...c, [last.rating]: c[last.rating] - 1 }));
+    if (last.rating === "again") {
+      setFailedIds((f) => {
+        const i = f.lastIndexOf(last.cardId);
+        return i === -1 ? f : [...f.slice(0, i), ...f.slice(i + 1)];
+      });
+    }
+    setIndex(last.index);
+    setFlipped(false);
   };
 
   const studyAgain = async () => {
@@ -127,6 +148,9 @@ export default function Estudiar() {
             />
           ) : null}
           <Button label="Volver" kind="ghost" onPress={goBack} />
+          {history.length > 0 ? (
+            <Button label="Deshacer última" kind="ghost" onPress={undo} />
+          ) : null}
         </Card>
       </Screen>
     );
@@ -142,9 +166,19 @@ export default function Estudiar() {
         gradient={gradients.progress}
         style={{ marginBottom: spacing.sm }}
       />
-      <Text style={styles.progress}>
-        {index + 1} de {round.length}
-      </Text>
+      <View style={styles.progressRow}>
+        <Text style={styles.progress}>
+          {index + 1} de {round.length}
+        </Text>
+        <Pressable
+          onPress={undo}
+          disabled={history.length === 0}
+          hitSlop={10}
+          style={{ opacity: history.length === 0 ? 0.15 : 0.35 }}
+        >
+          <Feather name="rotate-ccw" size={18} color={colors.textMuted} />
+        </Pressable>
+      </View>
 
       <View style={{ flex: 1, marginVertical: spacing.sm }}>
         <SwipeCard
@@ -176,10 +210,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.md,
   },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   progress: {
     ...type.small,
     textAlign: "center",
-    marginBottom: spacing.md,
   },
   actions: {
     flexDirection: "row",

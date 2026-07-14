@@ -104,9 +104,26 @@ export async function reviewCard(card, rating, mode, now = new Date()) {
     `UPDATE cards SET ${FSRS_COLS.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`,
     [...FSRS_COLS.map((c) => next[c]), card.id]
   );
-  await db.runAsync(
+  const logRes = await db.runAsync(
     "INSERT INTO review_logs (card_id, rating, mode, reviewed_at) VALUES (?, ?, ?, ?)",
     [card.id, rating, mode, now.toISOString()]
   );
-  return { ...card, ...next };
+  return { ...card, ...next, logId: logRes.lastInsertRowId };
+}
+
+// Snapshot del estado FSRS de una tarjeta, para poder restaurarlo con undoReview.
+export function snapshotFsrs(card) {
+  return Object.fromEntries(FSRS_COLS.map((c) => [c, card[c]]));
+}
+
+// Revierte una calificación: restaura el estado FSRS previo y borra el
+// review_log correspondiente. Las conexiones del Gimnasio Mental y sus
+// tarjetas híbridas NUNCA se tocan acá.
+export async function undoReview(cardId, prevFields, logId) {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE cards SET ${FSRS_COLS.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`,
+    [...FSRS_COLS.map((c) => prevFields[c]), cardId]
+  );
+  await db.runAsync("DELETE FROM review_logs WHERE id = ?", [logId]);
 }
