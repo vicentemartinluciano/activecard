@@ -1,12 +1,17 @@
-// Cliente único de la API de Claude (Anthropic).
-// fetch directo, sin SDK. Modelo fijo: Claude Sonnet 5 para todo
-// (decisión de producto: máxima calidad, un solo proveedor).
+// Cliente único de la API de Claude (Anthropic). fetch directo, sin SDK.
+// Sonnet 5 audita el Gimnasio Mental (criterio exigente); Haiku 4.5 genera
+// tarjetas (extracción, ⅓ del costo, misma calidad para esa tarea).
+// Un solo proveedor.
 
 import { Platform } from "react-native";
 
 import { getAnthropicKey } from "./keys";
 
-export const MODEL = "claude-sonnet-5";
+export const MODELS = {
+  sonnet: "claude-sonnet-5", // auditor Gimnasio Mental
+  haiku: "claude-haiku-4-5", // generación de tarjetas
+};
+export const MODEL = MODELS.sonnet; // compat: default de callClaude
 const API_URL = "https://api.anthropic.com/v1/messages";
 
 export function getApiKey() {
@@ -15,7 +20,7 @@ export function getApiKey() {
 
 // Llama a la API. messages: [{role, content}] donde content puede ser string
 // o bloques (p. ej. documento PDF en base64). Devuelve el texto de la respuesta.
-export async function callClaude({ system, messages, maxTokens = 4096 }) {
+export async function callClaude({ system, messages, maxTokens = 4096, model = MODEL }) {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error(
@@ -37,7 +42,7 @@ export async function callClaude({ system, messages, maxTokens = 4096 }) {
         "anthropic-dangerous-direct-browser-access": "true",
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         max_tokens: maxTokens,
         system,
         messages,
@@ -106,8 +111,8 @@ export function extractJson(text) {
 }
 
 // Llama y parsea JSON, con un reintento pidiendo formato estricto si falla.
-export async function callClaudeJson({ system, messages, maxTokens }) {
-  const first = await callClaude({ system, messages, maxTokens });
+export async function callClaudeJson({ system, messages, maxTokens, model }) {
+  const first = await callClaude({ system, messages, maxTokens, model });
   try {
     return extractJson(first);
   } catch (e) {
@@ -123,6 +128,7 @@ export async function callClaudeJson({ system, messages, maxTokens }) {
         },
       ],
       maxTokens,
+      model,
     });
     return extractJson(retry);
   }

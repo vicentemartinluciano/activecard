@@ -39,7 +39,9 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 
 ## Decisiones de producto (NO re-litigar sin el usuario)
 - **Identificador Android** `com.marti.activecard` — irreversible una vez que hay OTA activo.
-- **IA: Claude Sonnet 5 (`claude-sonnet-5`) para TODO** (generar tarjetas + auditar conexiones). Un solo proveedor.
+- **IA**: Sonnet 5 (`claude-sonnet-5`) para auditar el Gimnasio Mental; **Haiku 4.5
+  (`claude-haiku-4-5`) para generar tarjetas** (decisión de costo: ⅓ del precio,
+  misma calidad de extracción). Un solo proveedor (Anthropic).
 - **API keys en `.env`** (gitignoreado) vía `EXPO_PUBLIC_ANTHROPIC_API_KEY` y `EXPO_PUBLIC_NOTION_TOKEN`; en EAS van como env vars del proyecto.
 - **Datos 100% locales** (SQLite). Sin sync a Notion — la base "Conexiones Creadas" en Notion se descartó explícitamente.
 - **Fuentes de tarjetas**: texto pegado / archivo por document picker (PDF va en base64 directo a Claude como bloque `document`; TXT/MD se leen local) / página de Notion con internal integration token (sin OAuth).
