@@ -13,7 +13,7 @@ import { listFolders } from "../../db/folders";
 import { getDecksDailyProgress } from "../../db/progress";
 import { searchLibrary } from "../../lib/search";
 import { toPlainText } from "../../lib/richtext";
-import { colors, radius, spacing, type } from "../../theme";
+import { colors, glow, radius, spacing, type } from "../../theme";
 
 export default function Biblioteca() {
   const router = useRouter();
@@ -322,7 +322,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   gymTile: {
-    borderColor: colors.accent,
+    borderColor: "rgba(158,110,222,0.25)",
+    ...glow.violet,
   },
   folderName: {
     ...type.body,
