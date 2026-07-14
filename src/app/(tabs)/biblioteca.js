@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import DeckListItem from "../../components/DeckListItem";
+import Skeleton from "../../components/Skeleton";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
 import { listAllCards } from "../../db/cards";
 import { listDecksWithConnections } from "../../db/connections";
@@ -24,6 +25,7 @@ export default function Biblioteca() {
   const [progressByDeck, setProgressByDeck] = useState({});
   const [gymDecks, setGymDecks] = useState([]);
   const [query, setQuery] = useState("");
+  const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
 
   const refresh = useCallback(() => {
     let alive = true;
@@ -42,6 +44,7 @@ export default function Biblioteca() {
       setAllCards(c);
       setProgressByDeck(p);
       setGymDecks(g);
+      setLoaded(true);
     });
     return () => {
       alive = false;
@@ -72,6 +75,22 @@ export default function Biblioteca() {
     : null;
   const deckNameById = {};
   for (const d of decks) deckNameById[d.id] = d.name;
+
+  if (!loaded) {
+    return (
+      <Screen>
+        <View style={styles.folderGrid}>
+          <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
+          <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
+        </View>
+        <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+          <Skeleton height={96} />
+          <Skeleton height={96} />
+          <Skeleton height={96} />
+        </View>
+      </Screen>
+    );
+  }
 
   if (searching) {
     const empty =

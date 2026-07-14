@@ -7,8 +7,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import ConfettiOverlay from "../../../components/ConfettiOverlay";
 import FlipCard from "../../../components/FlipCard";
 import ProgressBar from "../../../components/ProgressBar";
+import Skeleton from "../../../components/Skeleton";
 import SwipeCard from "../../../components/SwipeCard";
-import { Button, Pill, Screen } from "../../../components/ui";
+import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, reviewCard, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
@@ -103,18 +104,23 @@ export default function Estudiar() {
 
   if (status === "loading") {
     return (
-      <Screen style={styles.center}>
+      <Screen>
         <Stack.Screen options={{ title: "Estudiar" }} />
-        <Text style={type.small}>Cargando…</Text>
+        <Skeleton height={8} style={{ borderRadius: 999, marginBottom: spacing.md }} />
+        <Skeleton style={{ flex: 1, marginVertical: spacing.sm }} />
+        <View style={styles.actions}>
+          <Skeleton height={48} style={{ flex: 1 }} />
+          <Skeleton height={48} style={{ flex: 1 }} />
+        </View>
       </Screen>
     );
   }
 
   if (status === "empty") {
     return (
-      <Screen style={styles.center}>
+      <Screen>
         <Stack.Screen options={{ title: "Estudiar" }} />
-        <Text style={type.body}>Este mazo no tiene tarjetas.</Text>
+        <EmptyState full icon="inbox" text="Este mazo no tiene tarjetas." />
         <Button label="Volver" kind="ghost" onPress={goBack} />
       </Screen>
     );

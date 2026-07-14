@@ -7,8 +7,15 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import RichText from "./RichText";
 import { colors, radius, spacing, type } from "../theme";
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export default function FlipCard({ front, back, flipped, onFlip }) {
   const anim = useRef(new Animated.Value(flipped ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }).start();
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -36,7 +43,12 @@ export default function FlipCard({ front, back, flipped, onFlip }) {
   });
 
   return (
-    <Pressable onPress={onFlip} style={styles.wrapper}>
+    <AnimatedPressable
+      onPress={onFlip}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={[styles.wrapper, { transform: [{ scale }] }]}
+    >
       <Animated.View
         pointerEvents={flipped ? "none" : "auto"}
         style={[
@@ -72,7 +84,7 @@ export default function FlipCard({ front, back, flipped, onFlip }) {
         </View>
         <Text style={styles.hint} />
       </Animated.View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

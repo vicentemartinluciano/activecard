@@ -1,9 +1,10 @@
 // Primitivas de UI compartidas — mantienen la estética minimalista consistente.
 
 import { Feather } from "@expo/vector-icons";
-import { forwardRef, useState } from "react";
+import { forwardRef, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,6 +14,8 @@ import {
 } from "react-native";
 
 import { colors, radius, spacing, type } from "../theme";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function Screen({ children, style }) {
   return <View style={[styles.screen, style]}>{children}</View>;
@@ -56,9 +59,17 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style }) 
 }
 
 export function Button({ label, onPress, kind = "default", size = "md", disabled, style, labelStyle }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }).start();
+
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       disabled={disabled}
       style={({ pressed }) => [
         styles.button,
@@ -68,7 +79,8 @@ export function Button({ label, onPress, kind = "default", size = "md", disabled
         kind === "inverse" && styles.buttonInverse,
         size === "lg" && styles.buttonLg,
         disabled && { opacity: 0.4 },
-        pressed && { opacity: 0.7 },
+        pressed && { opacity: 0.85 },
+        { transform: [{ scale }] },
         style,
       ]}
     >
@@ -85,7 +97,7 @@ export function Button({ label, onPress, kind = "default", size = "md", disabled
       >
         {label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -122,10 +134,14 @@ export function Chip({ label, active, onPress }) {
   );
 }
 
-export function EmptyState({ text }) {
+// text: acepta \n para cortar en varias líneas. full: ocupa todo el alto
+// disponible del padre (pantallas de estudio vacías); sin full, variante
+// compacta para listas (Biblioteca).
+export function EmptyState({ text, icon, full }) {
   return (
-    <View style={styles.empty}>
-      <Text style={type.small}>{text}</Text>
+    <View style={[styles.empty, full && styles.emptyFull]}>
+      {icon ? <Feather name={icon} size={48} color={colors.textMuted} style={{ opacity: 0.3 }} /> : null}
+      <Text style={[type.small, styles.emptyText]}>{text}</Text>
     </View>
   );
 }
@@ -272,6 +288,16 @@ const styles = StyleSheet.create({
   empty: {
     paddingVertical: spacing.xl,
     alignItems: "center",
+    gap: spacing.md,
+  },
+  emptyFull: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  emptyText: {
+    textAlign: "center",
+    letterSpacing: 0.3,
+    lineHeight: 20,
   },
   inlineAdd: {
     flexDirection: "row",

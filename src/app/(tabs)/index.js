@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ProgressBar from "../../components/ProgressBar";
+import Skeleton from "../../components/Skeleton";
 import StreakFlame from "../../components/StreakFlame";
 import { Button, Card, Pill } from "../../components/ui";
 import { listDecksWithConnections } from "../../db/connections";
@@ -21,16 +22,23 @@ export default function Inicio() {
   const [streak, setStreak] = useState(null);
   const [inProgressDecks, setInProgressDecks] = useState([]);
   const [gymDecks, setGymDecks] = useState([]);
+  const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
 
   useFocusEffect(
     useCallback(() => {
       let alive = true;
 
       getDailyReviewStats()
-        .then((s) => alive && setStats(s))
+        .then((s) => {
+          if (!alive) return;
+          setStats(s);
+          setLoaded(true);
+        })
         .catch((e) => {
           console.warn("No se pudo leer la cola de repaso:", e);
-          if (alive) setStats(null);
+          if (!alive) return;
+          setStats(null);
+          setLoaded(true);
         });
 
       getStreak()
@@ -61,6 +69,19 @@ export default function Inicio() {
   const remaining = stats ? stats.remaining : null;
   const completedToday = stats && stats.total > 0 && stats.remaining === 0;
   const totalConnections = gymDecks.reduce((s, d) => s + d.connection_count, 0);
+
+  if (!loaded) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.body}>
+          <Skeleton height={200} style={{ borderRadius: radius.lg }} />
+          <Skeleton height={72} />
+          <Skeleton height={72} />
+          <Skeleton height={72} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

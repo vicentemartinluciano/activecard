@@ -8,8 +8,9 @@ import ChatAuditor from "../components/ChatAuditor";
 import ConfettiOverlay from "../components/ConfettiOverlay";
 import FlipCard from "../components/FlipCard";
 import ProgressBar from "../components/ProgressBar";
+import Skeleton from "../components/Skeleton";
 import SwipeCard from "../components/SwipeCard";
-import { Button, Pill, Screen } from "../components/ui";
+import { Button, EmptyState, Pill, Screen } from "../components/ui";
 import { reviewCard, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { toPlainText } from "../lib/richtext";
@@ -65,19 +66,27 @@ export default function Repaso() {
 
   if (queue === null) {
     return (
-      <Screen style={styles.center}>
+      <Screen>
         <Stack.Screen options={{ title: "Repaso" }} />
-        <Text style={type.small}>Cargando…</Text>
+        <Skeleton height={8} style={{ borderRadius: 999, marginBottom: spacing.md }} />
+        <Skeleton style={{ flex: 1, marginVertical: spacing.sm }} />
+        <View style={styles.actions}>
+          <Skeleton height={48} style={{ flex: 1 }} />
+          <Skeleton height={48} style={{ flex: 1 }} />
+        </View>
       </Screen>
     );
   }
 
   if (queue.length === 0) {
     return (
-      <Screen style={styles.center}>
+      <Screen>
         <Stack.Screen options={{ title: "Repaso" }} />
-        <Text style={type.body}>No hay nada para repasar hoy.</Text>
-        <Text style={type.small}>Volvé mañana, o creá tarjetas nuevas.</Text>
+        <EmptyState
+          full
+          icon="check-circle"
+          text={"No hay nada para repasar hoy.\nVolvé mañana, o creá tarjetas nuevas."}
+        />
         <Button label="Volver" kind="ghost" onPress={goHome} />
       </Screen>
     );
