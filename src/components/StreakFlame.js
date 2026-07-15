@@ -6,7 +6,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
@@ -15,6 +15,40 @@ import { colors } from "../theme";
 const USE_LOTTIE = true;
 
 const streakAnimation = require("../../assets/lottie/streak-fire.json");
+const LOOP_MS = 3036; // 91 frames @ 29.97 fps = un ciclo completo del fuego
+
+// Fix portado de FlowState (Fuego.js): el autoPlay/ValueAnimator interno de
+// Lottie se queda en el primer frame en Android (Fabric / escala de animación
+// del sistema baja). Reproducimos por `progress` con un Animated.loop — el
+// mismo motor que SÍ anima en el device — así el fuego avanza siempre.
+// El wrap con createAnimatedComponent es obligatorio: pasarle el
+// Animated.Value crudo al componente nativo crashea el puente al montar.
+const AnimatedLottieView = Animated.createAnimatedComponent(LottieView);
+
+function LottieFlame({ size }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: LOOP_MS,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [progress]);
+  return (
+    <AnimatedLottieView
+      source={streakAnimation}
+      progress={progress}
+      resizeMode="contain"
+      renderMode="HARDWARE"
+      style={{ width: size, height: size }}
+    />
+  );
+}
 
 // Plan B: llama animada en código (pulso de escala + parpadeo de opacidad
 // desfasado + glow naranja) — no depende de lottie-react-native.
@@ -55,39 +89,11 @@ function CodeFlame() {
 
 export default function StreakFlame({ days = null, active = false }) {
   const color = active ? colors.streak : colors.textMuted;
-  const size = 30;
-  const animationRef = useRef(null);
-
-  // autoPlay a veces se congela en el frame 0 en Android; forzar play() tras
-  // el montado es el fix estándar para que la animación arranque de verdad.
-  // F26 (rAF + play()) no alcanzó en el APK real → fix profundo: remount por
-  // key, play() también desde onLayout del propio LottieView, y un reintento
-  // diferido de seguridad además del rAF.
-  useEffect(() => {
-    if (!active || !USE_LOTTIE) return;
-    const raf = requestAnimationFrame(() => animationRef.current?.play());
-    const t = setTimeout(() => animationRef.current?.play(), 300);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t);
-    };
-  }, [active]);
 
   return (
     <View style={styles.row}>
       {active && USE_LOTTIE ? (
-        <LottieView
-          key={active ? "flame-on" : "flame-off"}
-          ref={animationRef}
-          source={streakAnimation}
-          autoPlay
-          loop
-          // Plan A del rediseño Neón: SOFTWARE evita el bug de composición
-          // HARDWARE con ciertos JSON en Android (AUTOMATIC quedaba congelado).
-          renderMode="SOFTWARE"
-          onLayout={() => animationRef.current?.play()}
-          style={{ width: size, height: size }}
-        />
+        <LottieFlame size={30} />
       ) : active ? (
         <CodeFlame />
       ) : (
