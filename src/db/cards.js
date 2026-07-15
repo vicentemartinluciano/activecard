@@ -104,13 +104,19 @@ export async function listAllCards() {
   return db.getAllAsync("SELECT * FROM cards");
 }
 
-// Tarjetas distintas repasadas desde un instante dado en un modo dado.
+// Tarjetas distintas repasadas desde un instante dado. mode null = cualquier
+// modo (estudiar un mazo también avanza la misma FSRS que el repaso diario).
 export async function countDistinctReviewedSince(mode, sinceIso) {
   const db = await getDb();
-  const row = await db.getFirstAsync(
-    "SELECT COUNT(DISTINCT card_id) AS n FROM review_logs WHERE mode = ? AND reviewed_at >= ?",
-    [mode, sinceIso]
-  );
+  const row = mode
+    ? await db.getFirstAsync(
+        "SELECT COUNT(DISTINCT card_id) AS n FROM review_logs WHERE mode = ? AND reviewed_at >= ?",
+        [mode, sinceIso]
+      )
+    : await db.getFirstAsync(
+        "SELECT COUNT(DISTINCT card_id) AS n FROM review_logs WHERE reviewed_at >= ?",
+        [sinceIso]
+      );
   return row ? row.n : 0;
 }
 

@@ -126,11 +126,13 @@ export default function Inicio() {
             </Text>
           )}
           {stats && stats.total > 0 ? (
+            // alignSelf stretch: el hero tiene alignItems flex-start y sin
+            // esto el track colapsa a 0 de ancho (la barra "desaparecía").
             <ProgressBar
               pct={stats.pct}
               gradient={gradients.bar}
               glowStyle={glow.cyan}
-              style={{ marginTop: spacing.sm }}
+              style={{ marginTop: spacing.sm, alignSelf: "stretch" }}
             />
           ) : null}
           <Button

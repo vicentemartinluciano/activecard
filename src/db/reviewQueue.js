@@ -17,10 +17,11 @@ export async function getDueCount(now = new Date()) {
 }
 
 // Estado del repaso diario para la barra de Inicio:
-// hechas hoy (modo daily) + pendientes = total del día.
+// hechas hoy (CUALQUIER modo: estudiar un mazo reprograma las mismas tarjetas
+// que el repaso diario, así que también cuenta) + pendientes = total del día.
 export async function getDailyReviewStats(now = new Date()) {
   const [done, remaining] = await Promise.all([
-    countDistinctReviewedSince("daily", startOfDay(now).toISOString()),
+    countDistinctReviewedSince(null, startOfDay(now).toISOString()),
     getDueCount(now),
   ]);
   const total = done + remaining;
