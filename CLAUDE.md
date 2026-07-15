@@ -65,10 +65,13 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   tarjeta con el rayo ⚡ junto a la estrella (decisión del momento, NO persiste, cada
   tarjeta arranca apagada) — al calificar esa tarjeta se abre el auditor. Decisión de
   Martín post-OTA Etapa 1; no volver al gimnasio-tras-cada-tarjeta.
-- **Fallar NO es avanzar (F64)**: las tarjetas cuya ÚLTIMA nota del día es "again"
-  siguen pendientes — re-entran a la cola diaria (`retryIds` en `buildDailyQueue`, vía
-  `listRetryTodayIds`) y NO cuentan como hechas en la barra del hero, aunque FSRS ya
-  las haya reprogramado para mañana. El día se "completa" recién cuando acertaste todo.
+- **Fallar NO es avanzar (F64 + F70)**: las tarjetas cuya ÚLTIMA nota del día es
+  "again" siguen pendientes — re-entran a la cola diaria (`retryIds` en
+  `buildDailyQueue`, vía `listRetryTodayIds`) y NO cuentan como hechas en la barra del
+  hero, aunque FSRS ya las haya reprogramado para mañana. Ídem en el MODO MAZO (F70):
+  el "Progreso de hoy" y el pool de estudio se calculan por última nota quizlet del
+  día (`DONE_TODAY_SQL` en `db/progress.js`) — la fallada re-entra al pool y el mazo
+  llega a N/N recién cuando acertaste todo.
 - **Estrellas + orden manual (migración v4)**: `cards.starred` y `cards.position`.
   Estrella en cada fila del detalle del mazo Y en la tarjeta durante estudio/repaso;
   drag & drop con `react-native-sortables` (long-press, solo nativo; web = lista
@@ -90,10 +93,10 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   oscura + glow cián + confeti EN CÓDIGO (sin Lottie) + haptic.
 - **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) y **progreso
   diario por mazo** (derivado de review_logs, se reinicia solo). Animación: flag
-  `USE_LOTTIE` en `StreakFlame.js`, quedó en **false** (llama en código, native
-  driver). El Lottie por `progress` (F61) SÍ animaba pero su loop JS a 60fps saturaba
-  el hilo en el APK (toques con segundos de retraso, Home mostrando datos viejos) —
-  no volver a true sin resolver ese costo.
+  `USE_LOTTIE` en `StreakFlame.js`, volvió a **true** a pedido de Martín (F71): Lottie
+  animado por `progress` (F61) con el loop JS gateado por `useIsFocused`. Si el repaso
+  vuelve a sentirse lento, el primer sospechoso es ese loop → flip a false (llama en
+  código, native driver, ya implementada como Plan B en el mismo archivo).
 - **Deshacer un repaso**: revierte SOLO la nota (restaura estado FSRS + borra el
   review_log vía `snapshotFsrs`/`undoReview` en `db/cards.js`). Las conexiones del
   Gimnasio y sus tarjetas híbridas NUNCA se borran al deshacer.

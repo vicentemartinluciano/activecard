@@ -164,8 +164,10 @@ anima: flag `USE_LOTTIE` al tope del archivo — true = Lottie con
 Plan B activable por OTA). Web: ícono estático en `StreakFlame.web.js`.
 En Inicio va suelta (fueguito + "1 día"/"N días"), sin recuadro.
 
-**Progreso diario por mazo** (`db/progress.js`): COUNT(DISTINCT card_id) de
-review_logs de hoy (modo quizlet) / total del mazo. Sin estado propio.
+**Progreso diario por mazo** (`db/progress.js`): tarjetas cuya ÚLTIMA nota
+quizlet de hoy es 'good' (`DONE_TODAY_SQL`) / total del mazo. Fallar no es
+avanzar (F70): la fallada no cuenta y re-entra al pool de
+`listDeckCardsNotReviewedToday` hasta que se acierte. Sin estado propio.
 
 **Rich text** (`lib/richtext.js`): marcas dentro del mismo TEXT —
 `**b**  *i*  __u__  ==hl==  [[color:texto]]` (claves de theme.textColors) y
