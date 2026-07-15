@@ -4,6 +4,7 @@
 // plataforma, así el bundle web nunca intenta cargar lottie-react-native).
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useIsFocused } from "expo-router";
 import LottieView from "lottie-react-native";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
@@ -27,7 +28,12 @@ const AnimatedLottieView = Animated.createAnimatedComponent(LottieView);
 
 function LottieFlame({ size }) {
   const progress = useRef(new Animated.Value(0)).current;
+  // El loop corre por JS (useNativeDriver false, como en FlowState): frenarlo
+  // cuando la pantalla pierde el foco — la Home queda montada debajo del
+  // repaso (tabs) y el loop de fondo congestionaba el hilo JS (flips lentos).
+  const focused = useIsFocused();
   useEffect(() => {
+    if (!focused) return undefined;
     const loop = Animated.loop(
       Animated.timing(progress, {
         toValue: 1,
@@ -38,7 +44,7 @@ function LottieFlame({ size }) {
     );
     loop.start();
     return () => loop.stop();
-  }, [progress]);
+  }, [progress, focused]);
   return (
     <AnimatedLottieView
       source={streakAnimation}
