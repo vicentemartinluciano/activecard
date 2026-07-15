@@ -72,12 +72,15 @@ export const gradients = {
 };
 
 // Resplandores neón (boxShadow es cross-platform en RN >= 0.76 new-arch y en web).
+// Radios chicos a propósito: en Android el shadow se recorta contra los bordes
+// del ScrollView/padre y un blur grande se ve "cortado de golpe" — el halo
+// tiene que desvanecerse ANTES de llegar al límite (márgenes ≥ blur máximo).
 export const glow = {
-  accent: { boxShadow: "0 0 14px rgba(77,124,255,0.45), 0 0 40px rgba(62,99,221,0.28)" },
-  accentSoft: { boxShadow: "0 0 10px rgba(77,124,255,0.12)" },
-  cyan: { boxShadow: "0 0 16px rgba(0,242,254,0.22), 0 0 44px rgba(62,99,221,0.25)" },
-  green: { boxShadow: "0 0 8px rgba(91,231,173,0.5), 0 0 16px rgba(48,164,108,0.3)" },
-  violet: { boxShadow: "0 0 12px rgba(158,110,222,0.18)" },
+  accent: { boxShadow: "0 0 10px rgba(77,124,255,0.38), 0 0 22px rgba(62,99,221,0.18)" },
+  accentSoft: { boxShadow: "0 0 8px rgba(77,124,255,0.10)" },
+  cyan: { boxShadow: "0 0 10px rgba(0,242,254,0.18), 0 0 24px rgba(62,99,221,0.15)" },
+  green: { boxShadow: "0 0 5px rgba(91,231,173,0.35), 0 0 10px rgba(48,164,108,0.2)" },
+  violet: { boxShadow: "0 0 10px rgba(158,110,222,0.15)" },
 };
 
 export const type = {

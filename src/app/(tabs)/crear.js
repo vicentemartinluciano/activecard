@@ -38,9 +38,10 @@ export default function Crear() {
   };
 
   return (
-    <Screen>
-      <Text style={type.label}>ESTUDIO INTELIGENTE</Text>
-      <Text style={[type.title, { marginBottom: spacing.lg }]}>¿Qué querés crear hoy?</Text>
+    <Screen safeTop>
+      <Text style={[type.title, { marginTop: spacing.sm, marginBottom: spacing.lg }]}>
+        ¿Qué querés crear hoy?
+      </Text>
 
       <View style={{ gap: spacing.md }}>
         {/* Excepción al patrón Card: Pressable directo porque la card IA
@@ -64,9 +65,9 @@ export default function Crear() {
               style={styles.rowInner}
             >
               <View style={styles.emojiBox}>
-                <Text style={{ fontSize: 22 }}>{opt.emoji}</Text>
+                <Text style={{ fontSize: 26 }}>{opt.emoji}</Text>
               </View>
-              <Text style={[type.body, { fontWeight: "800" }]}>{opt.title}</Text>
+              <Text style={[type.body, { fontWeight: "800", fontSize: 18 }]}>{opt.title}</Text>
             </LinearGradient>
           </Pressable>
         ))}
@@ -100,18 +101,18 @@ const styles = StyleSheet.create({
     ...glow.accent,
   },
   rowIaHot: {
-    boxShadow: "0 0 20px rgba(77,124,255,0.65), 0 0 52px rgba(62,99,221,0.42)",
+    boxShadow: "0 0 14px rgba(77,124,255,0.55), 0 0 26px rgba(62,99,221,0.3)",
   },
   rowInner: {
-    minHeight: 76,
+    minHeight: 104,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.md + 4,
   },
   emojiBox: {
-    width: 44,
-    height: 44,
+    width: 54,
+    height: 54,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceHigh,
     alignItems: "center",
