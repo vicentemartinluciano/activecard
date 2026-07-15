@@ -90,8 +90,10 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   oscura + glow cián + confeti EN CÓDIGO (sin Lottie) + haptic.
 - **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) y **progreso
   diario por mazo** (derivado de review_logs, se reinicia solo). Animación: flag
-  `USE_LOTTIE` en `StreakFlame.js` — true = Lottie `renderMode="SOFTWARE"` (Plan A);
-  si en el device sigue congelada → false (Plan B: llama en código) + OTA.
+  `USE_LOTTIE` en `StreakFlame.js`, quedó en **false** (llama en código, native
+  driver). El Lottie por `progress` (F61) SÍ animaba pero su loop JS a 60fps saturaba
+  el hilo en el APK (toques con segundos de retraso, Home mostrando datos viejos) —
+  no volver a true sin resolver ese costo.
 - **Deshacer un repaso**: revierte SOLO la nota (restaura estado FSRS + borra el
   review_log vía `snapshotFsrs`/`undoReview` en `db/cards.js`). Las conexiones del
   Gimnasio y sus tarjetas híbridas NUNCA se borran al deshacer.
@@ -218,6 +220,13 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   ("La sabía"/"No la sabía", absolutos con zIndex 10) tapaban la estrella/rayo de la
   tarjeta hasta que se les puso `pointerEvents="none"`. Todo overlay decorativo
   absoluto lleva pointerEvents none.
+- **PanResponder en useRef captura los closures del PRIMER render** — el swipe del
+  SwipeCard llamaba a un grade() viejo (con gymArmed=false: el rayo ⚡ armado se
+  ignoraba al deslizar). Los handlers deben leer los callbacks desde un ref que se
+  actualiza en cada render (`latest.current`), nunca capturarlos directo.
+- **El glow de las barras de progreso va en el FILL, no en el track** (si no, el neón
+  se ve donde el progreso todavía no llegó) — y el track NO lleva overflow hidden
+  (recortaría el boxShadow del fill; el fill se redondea con su propio borderRadius).
 - **El autoPlay de Lottie se clava en el primer frame en Android/Fabric** (también con
   la escala de animaciones del sistema baja). Fix probado (portado de FlowState):
   manejar la prop `progress` desde afuera con un `Animated.loop` (useNativeDriver
