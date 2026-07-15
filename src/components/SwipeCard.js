@@ -72,10 +72,18 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, cardKey
         { transform: [{ translateX: pan.x }, { translateY: pan.y }, { rotate }] },
       ]}
     >
-      <Animated.View style={[styles.badge, styles.badgeRight, { opacity: knewOpacity }]}>
+      {/* pointerEvents none: aun con opacity 0 los badges capturan toques y
+          tapaban la estrella/rayo de la esquina de la tarjeta. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.badge, styles.badgeRight, { opacity: knewOpacity }]}
+      >
         <Text style={[styles.badgeText, { color: colors.success }]}>La sabía</Text>
       </Animated.View>
-      <Animated.View style={[styles.badge, styles.badgeLeft, { opacity: forgotOpacity }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.badge, styles.badgeLeft, { opacity: forgotOpacity }]}
+      >
         <Text style={[styles.badgeText, { color: colors.danger }]}>No la sabía</Text>
       </Animated.View>
       {children}

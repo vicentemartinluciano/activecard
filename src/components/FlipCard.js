@@ -26,14 +26,21 @@ export default function FlipCard({
   const scaleX = useRef(new Animated.Value(1)).current;
   const [showBack, setShowBack] = useState(flipped);
 
+  // showBack en las deps es clave: si tocás de nuevo DURANTE la animación,
+  // flipped puede volver a su valor original antes de que termine el collapse
+  // y showBack queda desincronizado — con [flipped] solo, el efecto no
+  // re-disparaba y la tarjeta quedaba "sorda". Así siempre converge.
   useEffect(() => {
     if (showBack === flipped) return;
-    Animated.timing(scaleX, { toValue: 0, duration: 110, useNativeDriver: true }).start(() => {
-      setShowBack(flipped);
-      Animated.timing(scaleX, { toValue: 1, duration: 110, useNativeDriver: true }).start();
-    });
+    Animated.timing(scaleX, { toValue: 0, duration: 110, useNativeDriver: true }).start(
+      ({ finished }) => {
+        if (!finished) return;
+        setShowBack(flipped);
+        Animated.timing(scaleX, { toValue: 1, duration: 110, useNativeDriver: true }).start();
+      }
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flipped]);
+  }, [flipped, showBack]);
 
   return (
     <Pressable onPress={onFlip} style={styles.wrapper}>
