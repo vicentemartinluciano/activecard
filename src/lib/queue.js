@@ -20,6 +20,9 @@ export function startOfDay(date = new Date()) {
 // Cola del repaso diario.
 // - cards: todas las tarjetas (con deck_id y due).
 // - deckPriorities: { [deckId]: 0..100 }. Sin entrada → 100 (por las dudas).
+// - retryIds: tarjetas FALLADAS hoy (última nota del día = again) — FSRS ya
+//   las reprogramó para mañana, pero siguen pendientes del día hasta que las
+//   aciertes (fallar no es avanzar).
 //
 // Algoritmo: se descartan los mazos al 0%, se toman las debidas hasta el fin
 // de hoy, y se intercalan por "stride scheduling" determinístico: cada mazo
@@ -27,8 +30,9 @@ export function startOfDay(date = new Date()) {
 // (la tarjeta más vencida de) el mazo con menor recorrido acumulado. Un mazo
 // al 100% aparece el doble de seguido que uno al 50%, con ritmo parejo desde
 // la primera tarjeta.
-export function buildDailyQueue(cards, { deckPriorities = {}, now = new Date() } = {}) {
+export function buildDailyQueue(cards, { deckPriorities = {}, now = new Date(), retryIds = [] } = {}) {
   const limit = endOfDay(now).getTime();
+  const retry = new Set(retryIds);
 
   const priorityOf = (deckId) => {
     const p = deckPriorities[deckId];
@@ -39,7 +43,7 @@ export function buildDailyQueue(cards, { deckPriorities = {}, now = new Date() }
   const byDeck = new Map();
   for (const card of cards) {
     if (priorityOf(card.deck_id) <= 0) continue; // mazo pausado
-    if (new Date(card.due).getTime() > limit) continue; // no debida aún
+    if (new Date(card.due).getTime() > limit && !retry.has(card.id)) continue; // no debida aún
     if (!byDeck.has(card.deck_id)) byDeck.set(card.deck_id, []);
     byDeck.get(card.deck_id).push(card);
   }

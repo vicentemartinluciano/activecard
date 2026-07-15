@@ -120,6 +120,19 @@ export async function countDistinctReviewedSince(mode, sinceIso) {
   return row ? row.n : 0;
 }
 
+// Tarjetas cuya ÚLTIMA calificación desde `sinceIso` fue "again" (cualquier
+// modo): falladas del día que siguen pendientes hasta que se acierten.
+export async function listRetryTodayIds(sinceIso) {
+  const db = await getDb();
+  const rows = await db.getAllAsync(
+    `SELECT card_id FROM review_logs rl
+     WHERE rl.reviewed_at >= ? AND rl.rating = 'again'
+       AND rl.id = (SELECT MAX(id) FROM review_logs WHERE card_id = rl.card_id AND reviewed_at >= ?)`,
+    [sinceIso, sinceIso]
+  );
+  return rows.map((r) => r.card_id);
+}
+
 export async function countDueCards(limitIso) {
   const db = await getDb();
   const row = await db.getFirstAsync("SELECT COUNT(*) AS n FROM cards WHERE due <= ?", [
