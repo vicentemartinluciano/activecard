@@ -78,7 +78,7 @@ export default function Biblioteca() {
 
   if (!loaded) {
     return (
-      <Screen>
+      <Screen safeTop>
         <View style={styles.folderGrid}>
           <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
           <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
@@ -96,7 +96,7 @@ export default function Biblioteca() {
     const empty =
       results.folders.length === 0 && results.decks.length === 0 && results.cards.length === 0;
     return (
-      <Screen>
+      <Screen safeTop>
         <View style={styles.searchRow}>
           <Feather name="search" size={18} color={colors.textMuted} />
           <Field
@@ -178,7 +178,7 @@ export default function Biblioteca() {
   }
 
   return (
-    <Screen>
+    <Screen safeTop>
       <View style={styles.searchRow}>
         <Feather name="search" size={18} color={colors.textMuted} />
         <Field

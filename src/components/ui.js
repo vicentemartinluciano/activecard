@@ -13,11 +13,22 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { colors, layout, radius, spacing, type } from "../theme";
 
 // El contenedor externo pinta el fondo a todo el ancho y centra el contenido;
 // el interno lo capa a layout.maxWidth (columna tipo móvil en web de escritorio).
-export function Screen({ children, style }) {
+// safeTop: para pantallas SIN header de navegación (tabs Crear/Biblioteca) —
+// respeta el status bar sin sumar padding doble en las que sí tienen header.
+export function Screen({ children, style, safeTop }) {
+  if (safeTop) {
+    return (
+      <SafeAreaView edges={["top"]} style={styles.screenOuter}>
+        <View style={[styles.screen, style]}>{children}</View>
+      </SafeAreaView>
+    );
+  }
   return (
     <View style={styles.screenOuter}>
       <View style={[styles.screen, style]}>{children}</View>

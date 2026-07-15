@@ -33,7 +33,7 @@ export default function TabsLayout() {
         name="crear"
         options={{
           title: "Crear",
-          headerTitle: "Crear",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Feather name="plus-square" color={color} size={size} />
           ),
@@ -43,7 +43,7 @@ export default function TabsLayout() {
         name="biblioteca"
         options={{
           title: "Biblioteca",
-          headerTitle: "Biblioteca",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Feather name="book-open" color={color} size={size} />
           ),

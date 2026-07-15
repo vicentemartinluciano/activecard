@@ -89,7 +89,6 @@ export default function Inicio() {
             <Text style={styles.avatarInitial}>M</Text>
           </View>
           <View>
-            <Text style={type.label}>ESTUDIO ACTIVO</Text>
             <Text style={styles.greeting}>¡Hola, Martín!</Text>
           </View>
         </Pressable>
