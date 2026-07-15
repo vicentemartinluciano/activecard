@@ -8,9 +8,21 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import RichText from "./RichText";
-import { colors, gradients, radius, spacing, type } from "../theme";
+import { colors, gradients, radius, spacing, textColors, type } from "../theme";
 
-export default function FlipCard({ front, back, flipped, onFlip, starred, onToggleStar }) {
+// gymArmed/onToggleGym: rayo ⚡ opcional (repaso diario) — al armarlo, DESPUÉS
+// de calificar esta tarjeta se abre el Gimnasio Mental. Decisión del momento:
+// no persiste, cada tarjeta arranca apagada.
+export default function FlipCard({
+  front,
+  back,
+  flipped,
+  onFlip,
+  starred,
+  onToggleStar,
+  gymArmed,
+  onToggleGym,
+}) {
   const scaleX = useRef(new Animated.Value(1)).current;
   const [showBack, setShowBack] = useState(flipped);
 
@@ -39,6 +51,16 @@ export default function FlipCard({ front, back, flipped, onFlip, starred, onTogg
               ) : (
                 <Feather name="star" size={20} color={colors.textMuted} style={{ opacity: 0.35 }} />
               )}
+            </Pressable>
+          ) : null}
+          {onToggleGym ? (
+            <Pressable onPress={onToggleGym} hitSlop={10} style={styles.gym}>
+              <Feather
+                name="zap"
+                size={20}
+                color={gymArmed ? textColors.violeta : colors.textMuted}
+                style={gymArmed ? null : { opacity: 0.35 }}
+              />
             </Pressable>
           ) : null}
           <Text style={styles.hint}>{showBack ? "Respuesta" : "Pregunta"}</Text>
@@ -72,6 +94,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: spacing.md,
     right: spacing.md,
+    zIndex: 2,
+  },
+  gym: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md + 36,
     zIndex: 2,
   },
   textBox: {
