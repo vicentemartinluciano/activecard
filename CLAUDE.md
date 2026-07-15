@@ -57,12 +57,14 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Buscador de Biblioteca** (`lib/search.js`, en memoria con `toPlainText` — NO SQL
   LIKE): filtra carpetas por nombre, mazos por nombre/etiqueta y tarjetas por texto
   plano, insensible a tildes/mayúsculas.
-- **2 modos de estudio**: repaso diario (cola FSRS + Gimnasio Mental) y mazo específico
-  estilo Quizlet (swipe, alimenta FSRS, SIN Gimnasio; la sesión excluye lo ya estudiado
-  hoy y al final ofrece ronda extra de falladas, que también califica en FSRS).
-  **Swipe unificado**: el repaso diario usa el MISMO SwipeCard que el modo mazo
-  (derecha=Good, izquierda=Again, sin gate de flip). **Calificar = círculos ✕/✓**
-  estilo Quizlet (sin texto), en ambos modos.
+- **2 modos de estudio con el MISMO sistema** (F56): repaso diario (cola FSRS por stride)
+  y mazo específico estilo Quizlet. En ambos: calificás → siguiente tarjeta, swipe
+  unificado (derecha=Good, izquierda=Again, sin gate de flip), círculos ✕/✓ sin texto,
+  ronda extra de falladas al final (también califica en FSRS), resumen con confeti.
+  **El Gimnasio Mental ya NO interrumpe cada tarjeta del repaso diario**: es opt-in por
+  tarjeta con el rayo ⚡ junto a la estrella (decisión del momento, NO persiste, cada
+  tarjeta arranca apagada) — al calificar esa tarjeta se abre el auditor. Decisión de
+  Martín post-OTA Etapa 1; no volver al gimnasio-tras-cada-tarjeta.
 - **Estrellas + orden manual (migración v4)**: `cards.starred` y `cards.position`.
   Estrella en cada fila del detalle del mazo Y en la tarjeta durante estudio/repaso;
   drag & drop con `react-native-sortables` (long-press, solo nativo; web = lista
@@ -168,9 +170,15 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   USE_LOTTIE (SOFTWARE / llama en código), fix de teclado (ActionSheet + editor),
   estrellas + orden manual (migración v4, react-native-sortables) + sheet de estudio,
   Biblioteca con glow violeta y degradé en cards.
+- **F56-F57 completas (feedback del primer OTA de Etapa 1)**: repaso diario con el mismo
+  sistema que los mazos (directo tarjeta a tarjeta + ronda de falladas; Gimnasio opt-in
+  con el rayo ⚡ de la tarjeta, one-shot), fix de la barra del hero de Inicio (colapsaba
+  a ancho 0 por el `alignItems: flex-start` del hero — bug preexistente del Premium) y
+  `getDailyReviewStats` ahora cuenta repasos de CUALQUIER modo (estudiar un mazo también
+  llena la barra del día).
 - **Pendiente inmediato**: Martín dispara `comandos/ACTUALIZAR-APP.bat` (OTA al APK
-  1.2.0) y hace el smoke test de la Etapa 1 en el teléfono (checklist en el plan). Si la
-  racha sigue congelada → flip `USE_LOTTIE=false` + commit + OTA de nuevo.
+  1.2.0) y re-testea en el teléfono (checklist en el plan + flujo nuevo del repaso). Si
+  la racha sigue congelada → flip `USE_LOTTIE=false` + commit + OTA de nuevo.
 - **Etapa 2 (F54-F55) NO arrancada**: editor estilo Notion (WebView + TipTap v3 propio,
   conversión marcas↔HTML en `lib/richhtml.js` con tests) → `react-native-webview`
   (nativo) + bump 1.2.0→1.3.0 + APK nuevo. Recién cuando Martín confirme la Etapa 1.

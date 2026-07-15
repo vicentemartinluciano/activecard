@@ -125,10 +125,15 @@ mazos con prioridad > 0, intercaladas por **stride scheduling** determinístico
 recorrido, empate → menor deckId). 100% aparece el doble de seguido que 50%.
 Dentro de cada mazo, la más vencida primero.
 
-**Repaso diario**: mismo swipe que el modo mazo (SwipeCard: derecha = Good,
-izquierda = Again, en cualquier momento, sin exigir voltear; botones
-equivalentes siempre visibles) → `reviewCard` mode 'daily' → Gimnasio Mental
-(ChatAuditor, salteable, tras CADA tarjeta) → siguiente.
+**Repaso diario** (F56): mismo sistema que el modo mazo — swipe (derecha =
+Good, izquierda = Again) o círculos ✕/✓ → `reviewCard` mode 'daily' →
+SIGUIENTE tarjeta directo; al final, ronda extra opcional de falladas (igual
+que el modo mazo, mode 'daily'). El Gimnasio Mental es OPT-IN por tarjeta: el
+rayo ⚡ junto a la estrella de la FlipCard (estado local one-shot, no persiste)
+hace que, al calificar ESA tarjeta, se abra el ChatAuditor y recién después
+avance. `getDailyReviewStats` (barra del hero de Inicio) cuenta tarjetas
+distintas repasadas hoy en CUALQUIER modo (estudiar un mazo reprograma la
+misma FSRS, así que también llena la barra del día).
 
 **Modo mazo (Quizlet)**: pool = tarjetas del mazo NO repasadas hoy en modo
 'quizlet' (`progress.listDeckCardsNotReviewedToday`) → swipe/botones →
