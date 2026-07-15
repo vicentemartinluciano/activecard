@@ -11,12 +11,12 @@ import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
-// false = llama en código (Plan B). El Lottie por `progress` (F61) SÍ anima,
-// pero su loop corre por JS a 60fps (useNativeDriver false) y en el APK
-// new-arch saturaba el hilo JS: toques con segundos de retraso, tarjetas que
-// tardaban en aparecer y la Home mostrando datos viejos al volver. No volver
-// a true sin resolver ese costo.
-const USE_LOTTIE = false;
+// true = Lottie animado por `progress` (F61). Su loop corre por JS
+// (useNativeDriver false) pero está gateado por useIsFocused: solo anima con
+// Inicio en primer plano. Martín pidió volver al Lottie (2026-07-15); si el
+// repaso vuelve a sentirse lento, el primer sospechoso sigue siendo este loop
+// → flip a false (llama en código, native driver).
+const USE_LOTTIE = true;
 
 const streakAnimation = require("../../assets/lottie/streak-fire.json");
 const LOOP_MS = 3036; // 91 frames @ 29.97 fps = un ciclo completo del fuego
