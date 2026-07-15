@@ -11,9 +11,12 @@ import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme";
 
-// ← si el fueguito sigue congelado en el device, poner false y mandar OTA
-//   (activa la llama en código de abajo, sin Lottie).
-const USE_LOTTIE = true;
+// false = llama en código (Plan B). El Lottie por `progress` (F61) SÍ anima,
+// pero su loop corre por JS a 60fps (useNativeDriver false) y en el APK
+// new-arch saturaba el hilo JS: toques con segundos de retraso, tarjetas que
+// tardaban en aparecer y la Home mostrando datos viejos al volver. No volver
+// a true sin resolver ese costo.
+const USE_LOTTIE = false;
 
 const streakAnimation = require("../../assets/lottie/streak-fire.json");
 const LOOP_MS = 3036; // 91 frames @ 29.97 fps = un ciclo completo del fuego
