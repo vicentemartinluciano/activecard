@@ -65,6 +65,10 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   tarjeta con el rayo ⚡ junto a la estrella (decisión del momento, NO persiste, cada
   tarjeta arranca apagada) — al calificar esa tarjeta se abre el auditor. Decisión de
   Martín post-OTA Etapa 1; no volver al gimnasio-tras-cada-tarjeta.
+- **Fallar NO es avanzar (F64)**: las tarjetas cuya ÚLTIMA nota del día es "again"
+  siguen pendientes — re-entran a la cola diaria (`retryIds` en `buildDailyQueue`, vía
+  `listRetryTodayIds`) y NO cuentan como hechas en la barra del hero, aunque FSRS ya
+  las haya reprogramado para mañana. El día se "completa" recién cuando acertaste todo.
 - **Estrellas + orden manual (migración v4)**: `cards.starred` y `cards.position`.
   Estrella en cada fila del detalle del mazo Y en la tarjeta durante estudio/repaso;
   drag & drop con `react-native-sortables` (long-press, solo nativo; web = lista
@@ -210,3 +214,13 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Dos caras `absoluteFill` con rotateY/opacity interpolada se rompen en Android
   new-arch** (tarjeta de ~90px, texto invisible) — FlipCard usa UNA cara con scaleX
   ("aplastar y voltear"); no volver al enfoque 3D.
+- **Una View con `opacity: 0` SIGUE capturando toques** — los badges del SwipeCard
+  ("La sabía"/"No la sabía", absolutos con zIndex 10) tapaban la estrella/rayo de la
+  tarjeta hasta que se les puso `pointerEvents="none"`. Todo overlay decorativo
+  absoluto lleva pointerEvents none.
+- **El autoPlay de Lottie se clava en el primer frame en Android/Fabric** (también con
+  la escala de animaciones del sistema baja). Fix probado (portado de FlowState):
+  manejar la prop `progress` desde afuera con un `Animated.loop` (useNativeDriver
+  false). Y como ese loop corre por JS: frenarlo con `useIsFocused` cuando la pantalla
+  queda tapada (las tabs no se desmontan) — si no, congestiona el hilo JS y el resto
+  de la app se pone lenta.

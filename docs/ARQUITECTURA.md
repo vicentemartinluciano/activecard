@@ -133,7 +133,10 @@ rayo ⚡ junto a la estrella de la FlipCard (estado local one-shot, no persiste)
 hace que, al calificar ESA tarjeta, se abra el ChatAuditor y recién después
 avance. `getDailyReviewStats` (barra del hero de Inicio) cuenta tarjetas
 distintas repasadas hoy en CUALQUIER modo (estudiar un mazo reprograma la
-misma FSRS, así que también llena la barra del día).
+misma FSRS, así que también llena la barra del día). **Fallar no es avanzar**:
+las tarjetas cuya última nota del día es "again" (`listRetryTodayIds`)
+re-entran a la cola diaria aunque FSRS las haya mandado a mañana, y se restan
+de las "hechas" — la barra llega al 100% recién cuando acertaste todo.
 
 **Modo mazo (Quizlet)**: pool = tarjetas del mazo NO repasadas hoy en modo
 'quizlet' (`progress.listDeckCardsNotReviewedToday`) → swipe/botones →
