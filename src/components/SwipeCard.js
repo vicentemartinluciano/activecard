@@ -13,15 +13,23 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, cardKey
   const { width } = useWindowDimensions();
   const pan = useRef(new Animated.ValueXY()).current;
 
+  // El PanResponder se crea UNA sola vez por montaje y captura el flyOut del
+  // primer render. Sin estos refs, el swipe llamaba a callbacks VIEJOS: si
+  // armabas el rayo ⚡ y calificabas deslizando, corría un grade() con
+  // gymArmed=false y el Gimnasio nunca se abría. Los refs siempre apuntan a
+  // los props/valores del último render.
+  const latest = useRef({ onSwipeLeft, onSwipeRight, width });
+  latest.current = { onSwipeLeft, onSwipeRight, width };
+
   const flyOut = (direction) => {
     Animated.timing(pan, {
-      toValue: { x: direction * width * 1.2, y: 0 },
+      toValue: { x: direction * latest.current.width * 1.2, y: 0 },
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
       pan.setValue({ x: 0, y: 0 });
-      if (direction > 0) onSwipeRight();
-      else onSwipeLeft();
+      if (direction > 0) latest.current.onSwipeRight();
+      else latest.current.onSwipeLeft();
     });
   };
 
