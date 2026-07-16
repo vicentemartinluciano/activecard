@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 
-import RichField from "../../../components/RichField";
+import NotionField from "../../../components/NotionField";
 import { Button, confirmAsync, Screen } from "../../../components/ui";
 import { createCard, deleteCard, getCard, updateCardText } from "../../../db/cards";
 import { spacing, type } from "../../../theme";
@@ -71,7 +71,7 @@ export default function EditorTarjeta() {
       >
         <View style={{ gap: spacing.sm }}>
           <Text style={type.small}>Frente (pregunta)</Text>
-          <RichField
+          <NotionField
             value={front}
             onChangeText={setFront}
             placeholder="¿Cuáles son las 5 fuerzas de Porter?"
@@ -79,7 +79,7 @@ export default function EditorTarjeta() {
         </View>
         <View style={{ gap: spacing.sm }}>
           <Text style={type.small}>Dorso (respuesta)</Text>
-          <RichField
+          <NotionField
             value={back}
             onChangeText={setBack}
             placeholder="Competidores del sector, potenciales, sustitutos…"

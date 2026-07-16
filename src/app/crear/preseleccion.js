@@ -2,7 +2,7 @@ import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import RichField from "../../components/RichField";
+import NotionField from "../../components/NotionField";
 import { Button, Card, Chip, InlineAdd, Screen } from "../../components/ui";
 import { createCard } from "../../db/cards";
 import { createDeck, listDecks } from "../../db/decks";
@@ -104,15 +104,19 @@ export default function Preseleccion() {
           <Card level="high" style={[styles.card, !item.kept && styles.cardDiscarded]}>
             {editingKey === item.key ? (
               <View style={{ gap: spacing.sm }}>
-                <RichField
+                {/* Solo la tarjeta en edición monta el editor → como máximo
+                    2 WebViews vivos, nunca uno por tarjeta de la lista. */}
+                <NotionField
                   value={item.front}
                   onChangeText={(v) => editCard(item.key, "front", v)}
                   placeholder="Frente (pregunta)"
+                  minHeight={90}
                 />
-                <RichField
+                <NotionField
                   value={item.back}
                   onChangeText={(v) => editCard(item.key, "back", v)}
                   placeholder="Dorso (respuesta)"
+                  minHeight={90}
                 />
                 <Button label="Listo" kind="primary" onPress={() => setEditingKey(null)} />
               </View>

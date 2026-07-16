@@ -1,0 +1,167 @@
+// Entry del bundle que corre DENTRO del WebView (nativo). esbuild lo compila
+// a un IIFE que se embebe en assets/editor/editorHtml.js (generado y
+// commiteado → viaja por OTA, funciona sin conexión).
+//
+// Contrato con React Native (NotionField.js):
+//   RN → web:  window.__editor.setContent(html) / setPlaceholder(t) / setMinHeight(px)
+//   web → RN:  postMessage {type:"ready"} | {type:"change", html} | {type:"height", height}
+
+import { Editor } from "@tiptap/core";
+import { BubbleMenuPlugin } from "@tiptap/extension-bubble-menu";
+
+import { EDITOR_BODY_CSS, EDITOR_CSS } from "../src/lib/editorCss";
+import {
+  activeStates,
+  applyColor,
+  buildExtensions,
+  BUBBLE_BUTTONS,
+  COLOR_BUTTON,
+  COLOR_KEYS,
+  EDITOR_TEXT_COLORS,
+  runBubbleAction,
+} from "../src/lib/editorSetup";
+
+const post = (msg) => window.ReactNativeWebView?.postMessage(JSON.stringify(msg));
+
+// --- estilos ---------------------------------------------------------------
+const style = document.createElement("style");
+style.textContent = EDITOR_BODY_CSS + EDITOR_CSS;
+document.head.appendChild(style);
+
+// --- DOM -------------------------------------------------------------------
+const host = document.createElement("div");
+host.className = "nf-root";
+document.body.appendChild(host);
+
+const bubble = document.createElement("div");
+bubble.className = "nf-bubble";
+bubble.style.visibility = "hidden";
+document.body.appendChild(bubble);
+
+const row = document.createElement("div");
+row.className = "nf-row";
+bubble.appendChild(row);
+
+const swatches = document.createElement("div");
+swatches.className = "nf-row nf-swatches";
+bubble.appendChild(swatches);
+
+const buttons = {};
+for (const def of [...BUBBLE_BUTTONS, COLOR_BUTTON]) {
+  if (def.key === "color") {
+    const sep = document.createElement("div");
+    sep.className = "nf-sep";
+    row.appendChild(sep);
+  }
+  const btn = document.createElement("button");
+  btn.className = "nf-btn";
+  btn.type = "button";
+  btn.title = def.label;
+  btn.setAttribute("aria-label", def.label);
+  btn.innerHTML = def.html;
+  // pointerdown + preventDefault: si no, el botón le roba el foco al editor
+  // y se pierde la selección justo antes de aplicar la marca.
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (def.key === "color") swatches.classList.toggle("open");
+    else {
+      runBubbleAction(editor, def.key);
+      swatches.classList.remove("open");
+    }
+  });
+  row.appendChild(btn);
+  buttons[def.key] = btn;
+}
+
+const swatchEls = {};
+for (const key of COLOR_KEYS) {
+  const sw = document.createElement("button");
+  sw.className = "nf-swatch";
+  sw.type = "button";
+  sw.title = key;
+  sw.setAttribute("aria-label", key);
+  sw.style.background = EDITOR_TEXT_COLORS[key];
+  sw.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    applyColor(editor, key, activeStates(editor).colorKey);
+  });
+  swatches.appendChild(sw);
+  swatchEls[key] = sw;
+}
+
+// --- editor ----------------------------------------------------------------
+let lastHtml = "";
+
+const editor = new Editor({
+  element: host,
+  extensions: buildExtensions({ placeholder: "" }),
+  content: "",
+  autofocus: false,
+  onUpdate: ({ editor: ed }) => {
+    lastHtml = ed.getHTML();
+    post({ type: "change", html: lastHtml });
+  },
+  onTransaction: () => {
+    const state = activeStates(editor);
+    for (const def of BUBBLE_BUTTONS) {
+      buttons[def.key].classList.toggle("is-active", !!state[def.key]);
+    }
+    buttons.color.classList.toggle("is-active", !!state.colorKey);
+    for (const key of COLOR_KEYS) {
+      swatchEls[key].classList.toggle("is-active", state.colorKey === key);
+    }
+  },
+});
+
+editor.registerPlugin(
+  BubbleMenuPlugin({
+    editor,
+    element: bubble,
+    pluginKey: "nfBubble",
+    options: { placement: "top", offset: 8 },
+    shouldShow: ({ editor: ed, from, to }) => {
+      const visible = from !== to && !ed.state.selection.empty;
+      if (!visible) swatches.classList.remove("open");
+      return visible;
+    },
+  })
+);
+
+// --- alto dinámico ---------------------------------------------------------
+let lastHeight = 0;
+const reportHeight = () => {
+  const height = Math.ceil(host.getBoundingClientRect().height);
+  if (height && height !== lastHeight) {
+    lastHeight = height;
+    post({ type: "height", height });
+  }
+};
+new ResizeObserver(() => requestAnimationFrame(reportHeight)).observe(host);
+
+// --- API para React Native -------------------------------------------------
+window.__editor = {
+  setContent(html) {
+    lastHtml = html;
+    editor.commands.setContent(html, { emitUpdate: false });
+    requestAnimationFrame(reportHeight);
+  },
+  setPlaceholder(text) {
+    const ext = editor.extensionManager.extensions.find((e) => e.name === "placeholder");
+    if (ext) {
+      ext.options.placeholder = text;
+      // Transacción vacía: fuerza recalcular las decoraciones del placeholder.
+      editor.view.dispatch(editor.state.tr);
+    }
+  },
+  setMinHeight(px) {
+    host.style.minHeight = `${px}px`;
+    requestAnimationFrame(reportHeight);
+  },
+  focus() {
+    editor.commands.focus("end");
+  },
+};
+
+post({ type: "ready" });
