@@ -182,11 +182,22 @@ prompt generador → JSON {cards} → preselección → FSRS. Extracción:
 `conceptos_clave` | `completo` | `personalizado` (instrucción libre del
 usuario, concatenada en el mensaje user vía `buildGeneratorMessage({..,
 custom})`/`buildGeneratorPdfPrompt(mode, custom)` — el system prompt queda fijo
-y cacheable). Modelo: **Haiku 4.5** (`MODELS.haiku` en `lib/claude.js`, ⅓ del
-costo de Sonnet, misma calidad de extracción); el auditor del Gimnasio Mental
-sigue en Sonnet 5 (`MODELS.sonnet`, default de `callClaude`/`callClaudeJson`
-cuando no se pasa `model`). Import de Quizlet eliminado (F23): las fuentes son
-texto, archivo y Notion.
+y cacheable). Modelo: **Haiku 4.5** (`MODELS.haiku` en `lib/claude.js`, ~¼ del
+costo de Sonnet); el auditor del Gimnasio Mental sigue en Sonnet 5
+(`MODELS.sonnet`, default de `callClaude`/`callClaudeJson` cuando no se pasa
+`model`). Import de Quizlet eliminado (F23): las fuentes son texto, archivo y
+Notion.
+
+`GENERATOR_SYSTEM` está calibrado contra las tarjetas que Martín arma a mano en
+Quizlet (F73) — ver las reglas y su porqué en `CLAUDE.md` (Decisiones de
+producto). Un A/B con un apunte de facultad denso mostró que Haiku NO iguala a
+Sonnet: sigue peor las instrucciones condicionales (con "partí SOLO si…" metía
+6 sub-conceptos en una tarjeta; con "SIEMPRE/NUNCA" + un ejemplo obligatorio
+calcado al caso real, genera las 7 correctas). De ahí que el prompt use lenguaje
+directivo y ejemplos concretos en vez de criterios a sopesar — no "suavizarlo"
+sin re-testear. Lo que el prompt NO logra que Haiku respete (usar color, no
+duplicar tarjetas) queda a revisión manual: es una decisión de Martín, no un
+pendiente.
 
 **Deshacer un repaso** (`db/cards.js`): `reviewCard` devuelve el `logId` del
 `review_logs` insertado. `snapshotFsrs(card)` captura el estado FSRS ANTES de

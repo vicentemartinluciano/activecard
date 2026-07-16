@@ -40,8 +40,14 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 ## Decisiones de producto (NO re-litigar sin el usuario)
 - **Identificador Android** `com.marti.activecard` — irreversible una vez que hay OTA activo.
 - **IA**: Sonnet 5 (`claude-sonnet-5`) para auditar el Gimnasio Mental; **Haiku 4.5
-  (`claude-haiku-4-5`) para generar tarjetas** (decisión de costo: ⅓ del precio,
-  misma calidad de extracción). Un solo proveedor (Anthropic).
+  (`claude-haiku-4-5`) para generar tarjetas** (decisión de costo: ~¼ del precio de
+  Sonnet). Reconfirmado con A/B real (F73, apunte de facultad denso): Haiku NO iguala
+  a Sonnet — sigue peor las instrucciones condicionales del prompt. Decisión de Martín:
+  se queda Haiku igual (la diferencia de precio pesa más en una app de uso personal) +
+  **revisión manual de cada generación**. Se evaluó **Gemini Flash** como alternativa
+  más barata y se DESCARTÓ: bajo volumen, y romper el proveedor único cuesta más
+  (2da API key, 2do SDK, manejo de PDF distinto) que lo que ahorra. Un solo proveedor
+  (Anthropic).
 - **API keys en `.env`** (gitignoreado) vía `EXPO_PUBLIC_ANTHROPIC_API_KEY` y `EXPO_PUBLIC_NOTION_TOKEN`; en EAS van como env vars del proyecto.
 - **Datos 100% locales** (SQLite). Sin sync a Notion — la base "Conexiones Creadas" en Notion se descartó explícitamente.
 - **Fuentes de tarjetas**: texto pegado / archivo por document picker (PDF va en base64 directo a Claude como bloque `document`; TXT/MD se leen local) / página de Notion con internal integration token (sin OAuth).
@@ -110,6 +116,23 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   usuario, concatenada al mensaje enviado a Claude). Import de Quizlet ELIMINADO (F23):
   se descartó por inestable — no re-litigar sin el usuario. Preservar mnemotecnias del
   usuario textualmente.
+- **`GENERATOR_SYSTEM` (`lib/prompts.js`) está calibrado contra las tarjetas que Martín
+  arma a mano en Quizlet** (F73). Reglas derivadas de ESE criterio real, no inventadas —
+  no aflojarlas sin él: (a) **frente = pregunta por defecto**, nombre pelado solo si
+  forzar la pregunta suena artificial ("Matriz FODA"); (b) frente autocontenido (incluir
+  el tema padre si el concepto es genérico); (c) **conceptos compuestos**: si CADA
+  sub-ítem tiene mnemónico propio → 1 tarjeta general + 1 por sub-ítem (ej. las 6
+  competencias gerenciales = 7 tarjetas); si son ítems paralelos simples (5 Fuerzas de
+  Porter) → 1 sola tarjeta; (d) **mnemónico del usuario al INICIO del dorso**, como ancla,
+  antes del desglose; (e) tarjetas extensas están BIEN; (f) formato visual generoso
+  (viñetas, flecha "→" entre término y significado, negrita por ítem), NO minimalista;
+  (g) `conceptos_clave` = mínimo 5 sin techo y SIN fechas/autores/tablas cronológicas;
+  `completo` = cobertura total e incluye esas tablas. **Color y tarjetas duplicadas
+  quedan a revisión manual de Martín** — se intentó resolverlos por prompt y Haiku los
+  ignora; no volver a intentarlo sin él.
+- **NO combinar negrita+cursiva en el mismo tramo** (`***texto***`): limitación real de la
+  gramática de `richtext.js` (documentada en el plan de la Etapa 2) — se pierde la cursiva
+  al guardar. El prompt ya se lo prohíbe a la IA.
 - **Rich text en tarjetas**: marcas livianas en el TEXT (`**negrita**`, `*cursiva*`,
   `__subrayado__`, `==resaltado==`, `[[color:texto]]`, listas "- "); editor con barrita
   al seleccionar (RichField), render con RichText, `toPlainText()` para previews/IA.
@@ -185,9 +208,14 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   a ancho 0 por el `alignItems: flex-start` del hero — bug preexistente del Premium) y
   `getDailyReviewStats` ahora cuenta repasos de CUALQUIER modo (estudiar un mazo también
   llena la barra del día).
-- **Pendiente inmediato**: Martín dispara `comandos/ACTUALIZAR-APP.bat` (OTA al APK
-  1.2.0) y re-testea en el teléfono (checklist en el plan + flujo nuevo del repaso). Si
-  la racha sigue congelada → flip `USE_LOTTIE=false` + commit + OTA de nuevo.
+- **F73 completa (calibración del prompt generador)**: `GENERATOR_SYSTEM` reescrito contra
+  las tarjetas reales de Quizlet de Martín (ver Decisiones de producto). Se descartó migrar
+  a Gemini Flash y se confirmó Haiku 4.5 + revisión manual. Solo cambió el string del
+  prompt: sin cambios de lógica, tests de `prompts.js` en verde (solo verifican la
+  estructura del mensaje, no el texto del system).
+- **Pendiente inmediato**: Martín prueba el prompt nuevo generando tarjetas desde la app
+  (queda sin verificar contra Haiku: los dos últimos ajustes — pregunta por defecto en el
+  frente, y `completo` incluyendo tablas cronológicas — no se re-testearon por API).
 - **Etapa 2 (F54-F55) NO arrancada**: editor estilo Notion (WebView + TipTap v3 propio,
   conversión marcas↔HTML en `lib/richhtml.js` con tests) → `react-native-webview`
   (nativo) + bump 1.2.0→1.3.0 + APK nuevo. Recién cuando Martín confirme la Etapa 1.
