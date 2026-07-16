@@ -64,49 +64,46 @@ function stripSpanChars(spans, n) {
 
 const OL_RE = /^(\d{1,4})\. /;
 
+// Forma de un bloque de parseRich, con los bloques NUEVOS del formato ya
+// interpretados: "---" = divisor, "N. " = ítem de lista numerada. Es la única
+// definición de esto en la app — la usan marksToHtml y el render (RichText).
+export function describeBlock(block) {
+  if (block.type === "li") return { kind: "li", spans: block.spans };
+  const plain = block.spans.map((s) => s.text).join("");
+  if (plain.trim() === "---") return { kind: "hr", spans: [] };
+  const m = OL_RE.exec(plain);
+  if (m) {
+    return { kind: "ol", number: Number(m[1]), spans: stripSpanChars(block.spans, m[0].length) };
+  }
+  return { kind: "p", spans: block.spans };
+}
+
 export function marksToHtml(marcas) {
-  const blocks = parseRich(marcas == null ? "" : marcas);
+  const blocks = parseRich(marcas == null ? "" : marcas).map(describeBlock);
   const out = [];
   let i = 0;
   while (i < blocks.length) {
     const block = blocks[i];
 
-    // Corridas de "- " consecutivas → un solo <ul> (TipTap anida <p> en <li>).
-    if (block.type === "li") {
-      const items = [];
-      while (i < blocks.length && blocks[i].type === "li") {
-        items.push(blocks[i].spans);
-        i++;
-      }
-      out.push(`<ul>${items.map((sp) => `<li><p>${spansToHtml(sp)}</p></li>`).join("")}</ul>`);
-      continue;
-    }
-
-    const plain = block.spans.map((s) => s.text).join("");
-
-    // Divisor.
-    if (plain.trim() === "---") {
+    if (block.kind === "hr") {
       out.push("<hr>");
       i++;
       continue;
     }
 
-    // Corridas de "N. " consecutivas → <ol> (numeración regenerada al volver).
-    const om = OL_RE.exec(plain);
-    if (om) {
-      const start = Number(om[1]);
+    // Corridas consecutivas de viñetas o numeradas → una sola lista
+    // (TipTap anida <p> dentro de cada <li>).
+    if (block.kind === "li" || block.kind === "ol") {
+      const tag = block.kind === "li" ? "ul" : "ol";
+      const start = block.kind === "ol" ? block.number : 1;
       const items = [];
-      while (i < blocks.length && blocks[i].type === "p") {
-        const p = blocks[i].spans.map((s) => s.text).join("");
-        const m = OL_RE.exec(p);
-        if (!m) break;
-        items.push(stripSpanChars(blocks[i].spans, m[0].length));
+      while (i < blocks.length && blocks[i].kind === block.kind) {
+        items.push(blocks[i].spans);
         i++;
       }
+      const attr = tag === "ol" && start !== 1 ? ` start="${start}"` : "";
       out.push(
-        `<ol${start !== 1 ? ` start="${start}"` : ""}>${items
-          .map((sp) => `<li><p>${spansToHtml(sp)}</p></li>`)
-          .join("")}</ol>`
+        `<${tag}${attr}>${items.map((sp) => `<li><p>${spansToHtml(sp)}</p></li>`).join("")}</${tag}>`
       );
       continue;
     }
