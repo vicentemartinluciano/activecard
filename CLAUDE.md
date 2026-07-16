@@ -246,6 +246,9 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - Web pública: https://vicentemartinluciano.github.io/activecard/
 
 ## Trampas conocidas (no re-descubrir)
+- **`npm run lint` NO es lo que corre el CI**: el CI usa `npx eslint . --max-warnings 0`,
+  que es MÁS estricto (incluye `scripts/`, `assets/`, y trata los warnings como error).
+  Antes de pushear, correr el comando del CI, no `expo lint`.
 - **Metro + OneDrive**: el file-watching es poco confiable — si el preview no refleja
   un cambio, reiniciar el server de preview (no debuggear bundle viejo).
 - **SQLite web**: SOLO la API async de expo-sqlite (la sync se cuelga). Al recargar,
