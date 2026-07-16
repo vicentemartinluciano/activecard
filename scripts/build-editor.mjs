@@ -8,6 +8,7 @@
 // tiptapTColor.js o editorCss.js.
 
 import { build } from "esbuild";
+import { Buffer } from "node:buffer";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,8 +50,8 @@ const escaped = html
   .replace(/\$\{/g, "\\${")
   .replace(/<\/script/gi, "<\\/script");
 
-const module = `/* eslint-disable */
-// ARCHIVO GENERADO por scripts/build-editor.mjs — NO editar a mano.
+// (eslint ignora assets/editor/* — ver eslint.config.js)
+const module = `// ARCHIVO GENERADO por scripts/build-editor.mjs — NO editar a mano.
 // Regenerar con: npm run editor:build
 export default \`${escaped}\`;
 `;

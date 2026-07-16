@@ -6,7 +6,8 @@ const expoConfig = require("eslint-config-expo/flat");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*", ".expo/*"],
+    // assets/editor: bundle del editor GENERADO por scripts/build-editor.mjs.
+    ignores: ["dist/*", ".expo/*", "assets/editor/*"],
   },
   {
     rules: {
@@ -22,8 +23,8 @@ module.exports = defineConfig([
     },
   },
   {
-    // Scripts de Node puros (lanzadores).
-    files: ["scripts/**/*.js", "*.config.js"],
+    // Scripts de Node puros (lanzadores y builds).
+    files: ["scripts/**/*.js", "scripts/**/*.mjs", "*.config.js"],
     languageOptions: {
       globals: {
         __dirname: "readonly",
