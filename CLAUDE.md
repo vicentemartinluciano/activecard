@@ -130,12 +130,23 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   `completo` = cobertura total e incluye esas tablas. **Color y tarjetas duplicadas
   quedan a revisión manual de Martín** — se intentó resolverlos por prompt y Haiku los
   ignora; no volver a intentarlo sin él.
-- **NO combinar negrita+cursiva en el mismo tramo** (`***texto***`): limitación real de la
-  gramática de `richtext.js` (documentada en el plan de la Etapa 2) — se pierde la cursiva
-  al guardar. El prompt ya se lo prohíbe a la IA.
+- **NO combinar negrita+cursiva SOLAS en el mismo tramo** (`***texto***`): limitación real
+  de la gramática de `richtext.js` — se pierde la cursiva al guardar. El prompt ya se lo
+  prohíbe a la IA, y `richhtml.js` la descarta de forma determinística (bold gana). CON
+  otra marca en el medio sí se puede (`**__*a*__**`) y el editor lo resuelve solo.
 - **Rich text en tarjetas**: marcas livianas en el TEXT (`**negrita**`, `*cursiva*`,
-  `__subrayado__`, `==resaltado==`, `[[color:texto]]`, listas "- "); editor con barrita
-  al seleccionar (RichField), render con RichText, `toPlainText()` para previews/IA.
+  `__subrayado__`, `==resaltado==`, `[[color:texto]]`, viñetas "- ", **listas numeradas
+  "N. "** y **divisor "---"**); render con RichText, `toPlainText()` para previews/IA.
+- **Editor estilo Notion (F75-F77, Etapa 2)**: `NotionField` reemplazó a RichField —
+  WYSIWYG real, sin marcas a la vista. Nativo = TipTap v3 dentro de un WebView con el
+  bundle embebido (`assets/editor/editorHtml.js`, GENERADO y commiteado; regenerar con
+  `npm run editor:build` tras tocar `editor-web/`, `editorSetup.js`, `tiptapTColor.js`
+  o `editorCss.js`); web = TipTap sobre react-dom (`NotionField.web.js`). El formato de
+  almacenamiento NO cambió: `value`/`onChangeText` hablan MARCAS y `lib/richhtml.js`
+  convierte en el borde (41 tests). **Atajos de tipeo** (no hay botones para esto):
+  `---` = divisor, `->` = →, `- ` = viñeta, `1. ` = numerada. **Barrita flotante = solo
+  lo esencial** (negrita, cursiva, subrayado, resaltado con ícono de resaltador, color
+  de texto + 6 swatches) — decisión de Martín, no agregar botones.
 - **Respaldo manual** (Ajustes): exporta/importa un JSON con todos los datos (sin
   settings/claves). Es el puente celu ↔ web (sin sync automático). Versión 2
   (incluye folders); los respaldos v1 siguen siendo restaurables.
@@ -216,9 +227,16 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Pendiente inmediato**: Martín prueba el prompt nuevo generando tarjetas desde la app
   (queda sin verificar contra Haiku: los dos últimos ajustes — pregunta por defecto en el
   frente, y `completo` incluyendo tablas cronológicas — no se re-testearon por API).
-- **Etapa 2 (F54-F55) NO arrancada**: editor estilo Notion (WebView + TipTap v3 propio,
-  conversión marcas↔HTML en `lib/richhtml.js` con tests) → `react-native-webview`
-  (nativo) + bump 1.2.0→1.3.0 + APK nuevo. Recién cuando Martín confirme la Etapa 1.
+- **Etapa 2 COMPLETA (F75-F77)**: `lib/richhtml.js` (conversión marcas↔HTML, 41 tests) +
+  RichText renderiza divisor y numeradas + editor Notion (TipTap v3: WebView en nativo,
+  react-dom en web) con los atajos y la barrita esencial. `react-native-webview` es
+  NATIVO → `app.json` version quedó en **1.3.0** en el mismo commit.
+- **Pendiente inmediato**: **Martín dispara `comandos/CONSTRUIR-APP-ANDROID.bat`**
+  (APK 1.3.0, consume créditos EAS — siempre él) y hace el QA del editor en el teléfono.
+  Verificado en preview web: los 4 atajos, la barrita con sus 5 botones, negrita desde
+  el bubble, y `expo export --platform web` sin romperse. NO verificado todavía: el
+  guardado end-to-end (el navegador embebido del preview no abría la DB por los locks
+  de OPFS — trampa conocida) y todo el comportamiento nativo del WebView.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).

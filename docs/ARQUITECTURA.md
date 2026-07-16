@@ -170,11 +170,27 @@ avanzar (F70): la fallada no cuenta y re-entra al pool de
 `listDeckCardsNotReviewedToday` hasta que se acierte. Sin estado propio.
 
 **Rich text** (`lib/richtext.js`): marcas dentro del mismo TEXT —
-`**b**  *i*  __u__  ==hl==  [[color:texto]]` (claves de theme.textColors) y
-líneas "- " como viñetas. `parseRich` → bloques/spans anidables; marca sin
-cierre = literal. `toPlainText` para previews e IA. El editor (RichField)
-muestra la barrita al seleccionar y aplica `wrapSelection`/`wrapColor`/
-`toggleListLines` sobre el rango.
+`**b**  *i*  __u__  ==hl==  [[color:texto]]` (claves de theme.textColors),
+líneas "- " como viñetas, "N. " como lista numerada y "---" como divisor.
+`parseRich` → bloques/spans anidables; marca sin cierre = literal.
+`toPlainText` para previews e IA. `describeBlock` (`lib/richhtml.js`) es la
+ÚNICA definición de qué es divisor / numerada / viñeta: la usan el render
+(RichText) y el editor, así lo que se ve al estudiar es lo que se ve al editar.
+
+**Editor Notion** (`components/NotionField.js` + `.web.js`, F77): WYSIWYG con
+TipTap v3. `value`/`onChangeText` SIEMPRE hablan marcas; `lib/richhtml.js`
+convierte en el borde (`marksToHtml` / `htmlToMarks`, 41 tests, sin DOM: un
+solo code path para jest/nativo/web). Nativo: WebView + bundle propio
+(`editor-web/index.js` → esbuild → `assets/editor/editorHtml.js`, generado y
+COMMITEADO ~410 KB → offline-first y viaja por OTA; `npm run editor:build`).
+Web: TipTap sobre react-dom, sin WebView (split por extensión de plataforma).
+Extensiones, atajos e íconos salen de `lib/editorSetup.js` (compartido) para
+que ambas plataformas se comporten igual. Bridge nativo: `postMessage`
+ready/change/height y `window.__editor.setContent/setPlaceholder/setMinHeight`;
+el alto lo reporta un ResizeObserver. Al empujar `value` se compara contra el
+último eco emitido (`lastEmitted`) para no re-inyectar y perder el cursor.
+Atajos: `---` divisor, `->` →, `- ` viñeta, `1. ` numerada. Barrita flotante:
+solo negrita, cursiva, subrayado, resaltado y color (+6 swatches).
 
 **Generación IA** (`app/crear/ia.js`, alcanzable desde el hub `(tabs)/crear.js`):
 texto | TXT/MD local | PDF→base64 como bloque `document` | página de Notion →
@@ -333,9 +349,10 @@ por el teclado. La Etapa 1 es 100% JS (va por OTA al runtime 1.2.0):
 - **Teclado**: ActionSheet con listeners de Keyboard (Modal Android no se
   ajusta solo) + `statusBarTranslucent`; tarjeta.js con KeyboardAvoidingView.
 - **Estrellas + orden manual + sheet de estudio**: migración v4, ver arriba.
-- **Etapa 2 pendiente**: editor estilo Notion (WebView + TipTap v3 vendoreado,
-  split .web.js) → exige `react-native-webview` (nativo) + bump 1.3.0 + APK.
-  Antes de arrancarla, Martín debe confirmar la Etapa 1 en el teléfono.
+- **Etapa 2 completa (F75-F77)**: ver "Editor Notion" arriba. `react-native-webview`
+  es nativo → `app.json.version` pasó a **1.3.0** en el mismo commit (misma
+  regla que con expo-linear-gradient en 1.1.0): los OTA posteriores quedan
+  aislados al APK 1.3.0 y no rompen el 1.2.0 instalado.
 
 ## Limitaciones conocidas
 - `@jamsch/expo-speech-recognition` no funciona en Expo Go ni web → micrófono
