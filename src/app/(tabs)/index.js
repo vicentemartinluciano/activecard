@@ -157,14 +157,14 @@ export default function Inicio() {
                 onPress={() => router.push(`/mazos/${d.id}/estudiar`)}
                 style={styles.deckRow}
               >
-                <Feather name={d.icon || "book"} size={18} color={colors.accentText} />
+                <Feather name={d.icon || "book"} size={22} color={colors.accentText} />
                 <View style={{ flex: 1 }}>
-                  <Text style={type.body}>{d.name}</Text>
+                  <Text style={styles.deckName}>{d.name}</Text>
                   <ProgressBar
                     pct={d.progress.pct}
                     gradient={gradients.progress}
                     glowStyle={glow.green}
-                    style={{ marginTop: 6 }}
+                    style={{ marginTop: 8, height: 12 }}
                   />
                 </View>
                 <Text style={styles.deckPct}>{Math.round(d.progress.pct)}%</Text>
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     color: colors.successBright,
   },
   section: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -281,13 +281,19 @@ const styles = StyleSheet.create({
   deckRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
     borderRadius: radius.md,
     ...glow.accentSoft,
+  },
+  deckName: {
+    fontSize: 19,
+    fontWeight: "600",
+    color: colors.text,
   },
   deckPct: {
     color: colors.accentText,
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 15,
   },
 });
