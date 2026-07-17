@@ -9,7 +9,7 @@ import { colors, radius } from "../theme";
 
 const SWIPE_THRESHOLD = 90;
 
-export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, cardKey }) {
+export default function SwipeCard({ children, onSwipeLeft, onSwipeRight }) {
   const { width } = useWindowDimensions();
   const pan = useRef(new Animated.ValueXY()).current;
 
@@ -21,11 +21,14 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, cardKey
   const latest = useRef({ onSwipeLeft, onSwipeRight, width });
   latest.current = { onSwipeLeft, onSwipeRight, width };
 
+  // useNativeDriver false a propósito: onPanResponderMove maneja el MISMO `pan`
+  // con driver JS, y mezclar ambos drivers sobre un mismo nodo animado deja el
+  // gesto en estado inconsistente en Android new-arch.
   const flyOut = (direction) => {
     Animated.timing(pan, {
       toValue: { x: direction * latest.current.width * 1.2, y: 0 },
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start(() => {
       pan.setValue({ x: 0, y: 0 });
       if (direction > 0) latest.current.onSwipeRight();
@@ -48,7 +51,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, cardKey
         else {
           Animated.spring(pan, {
             toValue: { x: 0, y: 0 },
-            useNativeDriver: true,
+            useNativeDriver: false,
             friction: 6,
           }).start();
         }
@@ -73,7 +76,6 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, cardKey
 
   return (
     <Animated.View
-      key={cardKey}
       {...responder.panHandlers}
       style={[
         styles.container,

@@ -233,11 +233,11 @@ export default function Estudiar() {
 
       <View style={{ flex: 1, marginVertical: spacing.sm }}>
         <SwipeCard
-          cardKey={card.id}
           onSwipeLeft={() => grade("again")}
           onSwipeRight={() => grade("good")}
         >
           <FlipCard
+            cardId={card.id}
             front={card.front}
             back={card.back}
             flipped={flipped}
