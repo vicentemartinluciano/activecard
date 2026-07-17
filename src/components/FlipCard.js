@@ -5,7 +5,7 @@
 import { Feather, FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import RichText from "./RichText";
 import { colors, gradients, radius, spacing, textColors, type } from "../theme";
@@ -14,6 +14,7 @@ import { colors, gradients, radius, spacing, textColors, type } from "../theme";
 // de calificar esta tarjeta se abre el Gimnasio Mental. Decisión del momento:
 // no persiste, cada tarjeta arranca apagada.
 export default function FlipCard({
+  cardId,
   front,
   back,
   flipped,
@@ -25,22 +26,37 @@ export default function FlipCard({
 }) {
   const scaleX = useRef(new Animated.Value(1)).current;
   const [showBack, setShowBack] = useState(flipped);
+  const [expanded, setExpanded] = useState(false); // modal "Ver completo"
+  const scrollRef = useRef(null);
+  const prevCardId = useRef(cardId);
 
-  // showBack en las deps es clave: si tocás de nuevo DURANTE la animación,
-  // flipped puede volver a su valor original antes de que termine el collapse
-  // y showBack queda desincronizado — con [flipped] solo, el efecto no
-  // re-disparaba y la tarjeta quedaba "sorda". Así siempre converge.
+  // Un solo efecto para evitar carreras entre "cambió la tarjeta" y "giro".
+  // - Nueva tarjeta (sin `key`, este componente ya NO se remonta): resetear al
+  //   frente AL INSTANTE, sin animar, y volver el scroll arriba.
+  // - Misma tarjeta: animar el giro (colapsar/expandir scaleX). showBack en las
+  //   deps es clave: si tocás de nuevo durante la animación, el efecto vuelve a
+  //   disparar hasta converger y la tarjeta nunca queda "sorda".
   useEffect(() => {
+    if (prevCardId.current !== cardId) {
+      prevCardId.current = cardId;
+      scaleX.setValue(1);
+      setShowBack(flipped);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return;
+    }
     if (showBack === flipped) return;
     Animated.timing(scaleX, { toValue: 0, duration: 110, useNativeDriver: true }).start(
       ({ finished }) => {
         if (!finished) return;
         setShowBack(flipped);
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
         Animated.timing(scaleX, { toValue: 1, duration: 110, useNativeDriver: true }).start();
       }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flipped, showBack]);
+  }, [cardId, flipped, showBack]);
+
+  const faceText = showBack ? back : front;
 
   return (
     <Pressable onPress={onFlip} style={styles.wrapper}>
@@ -71,12 +87,56 @@ export default function FlipCard({
             </Pressable>
           ) : null}
           <Text style={styles.hint}>{showBack ? "Respuesta" : "Pregunta"}</Text>
-          <View style={styles.textBox}>
-            <RichText text={showBack ? back : front} style={styles.text} />
-          </View>
-          <Text style={styles.hint}>{showBack ? " " : "tocá para dar vuelta"}</Text>
+          {/* ScrollView: el dorso (o el frente) largo se puede leer scrolleando
+              en vertical. El swipe horizontal lo sigue tomando el PanResponder
+              del SwipeCard (exige dx>dy). El tap para girar va en un Pressable
+              PROPIO adentro del scroll: un ScrollView se queda con el toque y no
+              deja que suba al Pressable de afuera, así que sin esto tocar el
+              texto no giraba la tarjeta. contentContainerStyle centra el texto
+              corto y deja crecer el largo. */}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.textBox}
+            contentContainerStyle={styles.textContent}
+            showsVerticalScrollIndicator
+          >
+            <Pressable onPress={onFlip}>
+              <RichText text={faceText} style={styles.text} />
+            </Pressable>
+          </ScrollView>
+          <Pressable onPress={() => setExpanded(true)} hitSlop={8} style={styles.expandBtn}>
+            <Feather name="maximize-2" size={13} color={colors.textMuted} />
+            <Text style={styles.hint}>Ver completo</Text>
+          </Pressable>
         </LinearGradient>
       </Animated.View>
+
+      {/* "Ver completo": la cara actual a pantalla casi completa, scrolleable. */}
+      <Modal
+        transparent
+        visible={expanded}
+        animationType="fade"
+        onRequestClose={() => setExpanded(false)}
+        statusBarTranslucent
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setExpanded(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.hint}>{showBack ? "Respuesta" : "Pregunta"}</Text>
+              <Pressable onPress={() => setExpanded(false)} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalContent}
+              showsVerticalScrollIndicator
+            >
+              <RichText text={faceText} style={styles.modalText} />
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Pressable>
   );
 }
@@ -111,6 +171,10 @@ const styles = StyleSheet.create({
   },
   textBox: {
     flex: 1,
+    alignSelf: "stretch",
+  },
+  textContent: {
+    flexGrow: 1,
     justifyContent: "center",
   },
   text: {
@@ -119,8 +183,48 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     textAlign: "center",
   },
+  expandBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    minHeight: 16,
+  },
   hint: {
     ...type.small,
     minHeight: 16,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "#000000B3",
+    justifyContent: "center",
+    padding: spacing.md,
+  },
+  modalCard: {
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.lg,
+    width: "100%",
+    maxWidth: 480,
+    maxHeight: "85%",
+    alignSelf: "center",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  modalScroll: {
+    alignSelf: "stretch",
+  },
+  modalContent: {
+    paddingBottom: spacing.sm,
+  },
+  modalText: {
+    ...type.body,
+    fontSize: 19,
+    lineHeight: 29,
   },
 });
