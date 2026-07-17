@@ -16,6 +16,15 @@ const MARKERS = [
   { open: "*", close: "*", prop: "italic" },
 ];
 
+// Alineación por bloque: un sentinel invisible (Unicode de uso privado, que el
+// usuario no puede tipear) al inicio de la línea marca centro/derecha.
+// Izquierda = sin sentinel (el default). parseRich lo ve como texto plano; lo
+// quitan describeBlock (richhtml.js) al renderizar/convertir y toPlainText acá.
+// Nunca se muestra crudo, así que no colisiona con contenido real.
+export const ALIGN_SENTINELS = { center: "\uE000", right: "\uE001" };
+export const ALIGN_BY_CHAR = { "\uE000": "center", "\uE001": "right" };
+const ALIGN_STRIP_RE = /^[\uE000\uE001]/;
+
 const COLOR_RE = /^\[\[([a-zA-Z]+):/;
 
 // Parsea una línea a una lista de spans, aplicando los estilos heredados
@@ -95,7 +104,7 @@ export function parseRich(text) {
 // que se le manda a la IA, y para comparar contenido "de verdad".
 export function toPlainText(text) {
   return parseRich(text)
-    .map((block) => block.spans.map((s) => s.text).join(""))
+    .map((block) => block.spans.map((s) => s.text).join("").replace(ALIGN_STRIP_RE, ""))
     .join("\n");
 }
 

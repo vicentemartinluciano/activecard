@@ -30,7 +30,10 @@ export default function RichText({ text, style, containerStyle }) {
         }
 
         const line = (
-          <Text style={style} key={i}>
+          <Text
+            style={[style, block.align && block.align !== "left" && { textAlign: block.align }]}
+            key={i}
+          >
             {block.spans.map((span, j) => (
               <Text key={j} style={spanStyle(span)}>
                 {span.text}

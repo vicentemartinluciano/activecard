@@ -16,7 +16,7 @@
 //   - texto literal con secuencias de marcador (ej. "2**3") se reinterpreta
 //     al recargar — el formato no tiene escape, igual que hoy.
 
-import { parseRich } from "./richtext";
+import { ALIGN_BY_CHAR, ALIGN_SENTINELS, parseRich } from "./richtext";
 import { textColors } from "../theme";
 
 // ---------------------------------------------------------------------------
@@ -68,14 +68,32 @@ const OL_RE = /^(\d{1,4})\. /;
 // interpretados: "---" = divisor, "N. " = ítem de lista numerada. Es la única
 // definición de esto en la app — la usan marksToHtml y el render (RichText).
 export function describeBlock(block) {
-  if (block.type === "li") return { kind: "li", spans: block.spans };
-  const plain = block.spans.map((s) => s.text).join("");
-  if (plain.trim() === "---") return { kind: "hr", spans: [] };
+  // Las listas nunca llevan alineación (siempre a la izquierda).
+  if (block.type === "li") return { kind: "li", spans: block.spans, align: "left" };
+
+  // Sentinel de alineación al inicio de la línea (invisible): se saca acá y el
+  // resto se interpreta como siempre.
+  let spans = block.spans;
+  let align = "left";
+  const firstChar = spans.length ? spans[0].text[0] : undefined;
+  if (firstChar && ALIGN_BY_CHAR[firstChar]) {
+    align = ALIGN_BY_CHAR[firstChar];
+    spans = stripSpanChars(spans, 1);
+  }
+
+  const plain = spans.map((s) => s.text).join("");
+  if (plain.trim() === "---") return { kind: "hr", spans: [], align };
   const m = OL_RE.exec(plain);
   if (m) {
-    return { kind: "ol", number: Number(m[1]), spans: stripSpanChars(block.spans, m[0].length) };
+    // La numeración es un bloque de lista → izquierda.
+    return { kind: "ol", number: Number(m[1]), spans: stripSpanChars(spans, m[0].length), align: "left" };
   }
-  return { kind: "p", spans: block.spans };
+  return { kind: "p", spans, align };
+}
+
+// style="text-align:..." para un bloque (vacío en izquierda, el default).
+function alignStyle(align) {
+  return align && align !== "left" ? ` style="text-align: ${align}"` : "";
 }
 
 export function marksToHtml(marcas) {
@@ -108,7 +126,7 @@ export function marksToHtml(marcas) {
       continue;
     }
 
-    out.push(`<p>${spansToHtml(block.spans)}</p>`);
+    out.push(`<p${alignStyle(block.align)}>${spansToHtml(block.spans)}</p>`);
     i++;
   }
   return out.join("");
@@ -151,6 +169,15 @@ function colorFromAttrs(attrs) {
 const MARK_TAGS = { strong: "bold", b: "bold", em: "italic", i: "italic", u: "underline", mark: "highlight" };
 const BLOCK_TAGS = new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "tr"]);
 
+// Alineación de un block tag desde style="text-align:..." o data-align.
+// Solo center/right nos importan (left = default).
+function alignFromAttrs(attrs) {
+  const sm = /text-align\s*:\s*(center|right)/i.exec(attrs);
+  if (sm) return sm[1].toLowerCase();
+  const dm = /data-align\s*=\s*["']?(center|right)["']?/i.exec(attrs);
+  return dm ? dm[1].toLowerCase() : "left";
+}
+
 export function htmlToMarks(html) {
   const src = (html == null ? "" : String(html))
     .replace(/<!--[\s\S]*?-->/g, "")
@@ -164,8 +191,8 @@ export function htmlToMarks(html) {
   let liJustOpened = false;
 
   const curStyle = () => (stack.length ? stack[stack.length - 1].style : {});
-  const openBlock = (prefix = "") => {
-    cur = { prefix, spans: [] };
+  const openBlock = (prefix = "", align = "left") => {
+    cur = { prefix, spans: [], align };
     blocks.push(cur);
   };
   const closeBlock = () => {
@@ -220,7 +247,7 @@ export function htmlToMarks(html) {
         // <li><p>: el <p> reusa el bloque recién abierto por el <li>.
         if (wasLiJustOpened && cur && cur.spans.length === 0) continue;
         closeBlock();
-        openBlock();
+        openBlock("", alignFromAttrs(attrs));
         continue;
       }
       // Tags inline: los de marca aplican estilo; los desconocidos solo se
@@ -365,7 +392,10 @@ function blocksToMarks(blocks) {
   const lines = blocks.map((b) => {
     if (b.prefix === "hr") return "---";
     const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));
-    return `${b.prefix || ""}${serializeSpans(items, [])}`;
+    // Sentinel de alineación solo en párrafos (las listas van sin prefijo de
+    // alineación → siempre a la izquierda).
+    const sentinel = !b.prefix && b.align && b.align !== "left" ? ALIGN_SENTINELS[b.align] : "";
+    return `${sentinel}${b.prefix || ""}${serializeSpans(items, [])}`;
   });
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
   return lines.join("\n");

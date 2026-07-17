@@ -8,6 +8,7 @@ import { Placeholder } from "@tiptap/extensions";
 import { StarterKit } from "@tiptap/starter-kit";
 
 import { EDITOR_TEXT_COLORS, TColor } from "./tiptapTColor";
+import { ALIGNMENTS, TextAlign } from "./tiptapTextAlign";
 
 // Atajos de tipeo propios. "->" se transforma en la flecha → (el conector de
 // las tarjetas). Los otros ya vienen de StarterKit: "---" = divisor,
@@ -36,6 +37,7 @@ export function buildExtensions({ placeholder = "" } = {}) {
     }),
     Highlight,
     TColor,
+    TextAlign.configure({ types: ["paragraph"] }),
     Placeholder.configure({ placeholder }),
     Shortcuts,
   ];
@@ -47,12 +49,15 @@ export { EDITOR_TEXT_COLORS };
 // Barrita flotante: SOLO lo esencial (decisión de producto). Listas, divisor
 // y flecha se hacen por atajo de tipeo, no por botón.
 const HIGHLIGHTER_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>`;
+// Ícono de alineación (un botón que cicla izquierda → centro → derecha).
+const ALIGN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/></svg>`;
 
 export const BUBBLE_BUTTONS = [
   { key: "bold", label: "Negrita", html: '<b style="font-size:15px">B</b>' },
   { key: "italic", label: "Cursiva", html: '<i style="font-family:Georgia,serif;font-size:15px">I</i>' },
   { key: "underline", label: "Subrayado", html: '<u style="font-size:15px">U</u>' },
   { key: "highlight", label: "Resaltado", html: HIGHLIGHTER_SVG },
+  { key: "align", label: "Alineación", html: ALIGN_SVG },
 ];
 
 // El botón de color abre la fila de swatches (no aplica nada por sí mismo).
@@ -66,7 +71,10 @@ export const COLOR_BUTTON = {
 export function activeStates(editor) {
   const state = {};
   for (const b of BUBBLE_BUTTONS) state[b.key] = editor.isActive(b.key);
-  state.colorKey = null;
+  // "align" no es una marca: se ilumina cuando el bloque está centrado o a la
+  // derecha (izquierda = default, sin resaltar).
+  state.align =
+    editor.isActive({ textAlign: "center" }) || editor.isActive({ textAlign: "right" });
   for (const key of COLOR_KEYS) {
     if (editor.isActive("tcolor", { color: key })) {
       state.colorKey = key;
@@ -83,6 +91,12 @@ export function runBubbleAction(editor, key) {
   else if (key === "italic") chain.toggleItalic();
   else if (key === "underline") chain.toggleUnderline();
   else if (key === "highlight") chain.toggleHighlight();
+  else if (key === "align") {
+    // Cicla izquierda → centro → derecha → izquierda.
+    const cur = ALIGNMENTS.find((a) => editor.isActive({ textAlign: a })) || "left";
+    const next = ALIGNMENTS[(ALIGNMENTS.indexOf(cur) + 1) % ALIGNMENTS.length];
+    chain.setTextAlign(next);
+  }
   chain.run();
 }
 

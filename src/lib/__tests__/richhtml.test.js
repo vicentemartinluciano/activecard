@@ -1,5 +1,5 @@
-import { htmlToMarks, marksToHtml } from "../richhtml";
-import { parseRich } from "../richtext";
+import { describeBlock, htmlToMarks, marksToHtml } from "../richhtml";
+import { ALIGN_SENTINELS, parseRich, toPlainText } from "../richtext";
 
 // Criterio de equivalencia: dos textos de marcas son equivalentes si
 // parseRich los ve igual (mismos bloques, mismos spans con los mismos
@@ -121,6 +121,60 @@ describe("divisor (---) y lista numerada", () => {
 
   test("un número suelto en medio de una oración NO se vuelve lista", () => {
     expect(roundTrip("Fue en 1994. Un buen año")).toBe("Fue en 1994. Un buen año");
+  });
+});
+
+describe("alineación por bloque", () => {
+  const C = ALIGN_SENTINELS.center;
+  const R = ALIGN_SENTINELS.right;
+
+  test("izquierda es el default: sin sentinel ni style", () => {
+    expect(marksToHtml("hola")).toBe("<p>hola</p>");
+    expect(describeBlock(parseRich("hola")[0]).align).toBe("left");
+  });
+
+  test("centro va a text-align y vuelve con el sentinel", () => {
+    expect(marksToHtml(`${C}hola`)).toBe('<p style="text-align: center">hola</p>');
+    expect(htmlToMarks('<p style="text-align: center">hola</p>')).toBe(`${C}hola`);
+  });
+
+  test("derecha va y vuelve", () => {
+    expect(marksToHtml(`${R}hola`)).toBe('<p style="text-align: right">hola</p>');
+    expect(htmlToMarks('<p style="text-align: right">hola</p>')).toBe(`${R}hola`);
+  });
+
+  test("describeBlock reconoce el sentinel y lo saca de los spans", () => {
+    const b = describeBlock(parseRich(`${C}hola`)[0]);
+    expect(b.align).toBe("center");
+    expect(b.spans.map((s) => s.text).join("")).toBe("hola");
+  });
+
+  test("round-trip de centro/derecha (incluye izquierda de vuelta)", () => {
+    expect(roundTrip(`${C}centrado`)).toBe(`${C}centrado`);
+    expect(roundTrip(`${R}derecha`)).toBe(`${R}derecha`);
+    expect(roundTrip(`izq\n${C}centro\n${R}der`)).toBe(`izq\n${C}centro\n${R}der`);
+  });
+
+  test("la alineación convive con formato inline", () => {
+    expect(roundTrip(`${C}**negrita** y [[rojo:color]]`)).toBe(`${C}**negrita** y [[rojo:color]]`);
+    expect(marksToHtml(`${C}**a**`)).toBe('<p style="text-align: center"><strong>a</strong></p>');
+  });
+
+  test("las listas ignoran la alineación (siempre izquierda)", () => {
+    // Aunque TipTap ponga text-align en el <p> interno del <li>, se descarta.
+    expect(htmlToMarks('<ul><li><p style="text-align: center">a</p></li></ul>')).toBe("- a");
+  });
+
+  test("toPlainText ignora el sentinel de alineación", () => {
+    expect(toPlainText(`${C}hola`)).toBe("hola");
+    expect(toPlainText(`izq\n${R}der`)).toBe("izq\nder");
+  });
+
+  test("una tarjeta con líneas alineadas sobrevive intacta", () => {
+    const tarjeta = [`${C}**Título centrado**`, "cuerpo a la izquierda", `${R}pie a la derecha`].join(
+      "\n"
+    );
+    expect(roundTrip(tarjeta)).toBe(tarjeta);
   });
 });
 

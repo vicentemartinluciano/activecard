@@ -181,7 +181,8 @@ const styles = StyleSheet.create({
     ...type.body,
     fontSize: 20,
     lineHeight: 30,
-    textAlign: "center",
+    // Sin textAlign: la alineación la decide cada bloque (RichText la aplica
+    // según cómo se creó la tarjeta). Default = izquierda.
   },
   expandBtn: {
     flexDirection: "row",
@@ -218,6 +219,10 @@ const styles = StyleSheet.create({
   },
   modalScroll: {
     alignSelf: "stretch",
+    // flexShrink: sin esto el ScrollView crece con su contenido y empuja la
+    // card más allá del maxHeight en vez de scrollear. Con flexShrink queda
+    // acotado por el maxHeight de la card y arrastra cuando el texto no entra.
+    flexShrink: 1,
   },
   modalContent: {
     paddingBottom: spacing.sm,
