@@ -164,7 +164,7 @@ export default function Inicio() {
                     pct={d.progress.pct}
                     gradient={gradients.progress}
                     glowStyle={glow.green}
-                    style={{ marginTop: 8, height: 12 }}
+                    style={{ marginTop: 8 }}
                   />
                 </View>
                 <Text style={styles.deckPct}>{Math.round(d.progress.pct)}%</Text>
