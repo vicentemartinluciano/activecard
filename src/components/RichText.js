@@ -20,7 +20,10 @@ function spanStyle(span) {
   ];
 }
 
-export default function RichText({ text, style, containerStyle }) {
+// defaultAlign: alineación de los bloques SIN alineación explícita (el default
+// por cara — el dorso arranca centrado). Las listas nunca heredan el default
+// (siempre a la izquierda).
+export default function RichText({ text, style, containerStyle, defaultAlign = "left" }) {
   const blocks = parseRich(text).map(describeBlock);
   return (
     <View style={[styles.container, containerStyle]}>
@@ -29,11 +32,12 @@ export default function RichText({ text, style, containerStyle }) {
           return <View key={i} style={styles.divider} />;
         }
 
+        const isList = block.kind === "li" || block.kind === "ol";
+        const align =
+          block.align && block.align !== "left" ? block.align : isList ? "left" : defaultAlign;
+
         const line = (
-          <Text
-            style={[style, block.align && block.align !== "left" && { textAlign: block.align }]}
-            key={i}
-          >
+          <Text style={[style, align !== "left" && { textAlign: align }]} key={i}>
             {block.spans.map((span, j) => (
               <Text key={j} style={spanStyle(span)}>
                 {span.text}
