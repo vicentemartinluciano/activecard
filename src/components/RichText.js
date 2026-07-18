@@ -4,11 +4,40 @@
 // (richhtml.js), la misma que usa el editor — así lo que se ve al estudiar
 // es exactamente lo que se ve al editar.
 
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import { describeBlock } from "../lib/richhtml";
 import { parseRich } from "../lib/richtext";
-import { colors, spacing, textColors } from "../theme";
+import { colors, radius, spacing, textColors } from "../theme";
+
+// Imagen inline (data URI). Toma el aspect ratio real de la imagen para no
+// deformarla; hasta que lo sabe usa una altura provisoria.
+function ImageBlock({ src }) {
+  const [ratio, setRatio] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    Image.getSize(
+      src,
+      (w, h) => {
+        if (alive && h) setRatio(w / h);
+      },
+      () => {}
+    );
+    return () => {
+      alive = false;
+    };
+  }, [src]);
+  return (
+    <View style={styles.imageWrap}>
+      <Image
+        source={{ uri: src }}
+        style={[styles.image, ratio ? { aspectRatio: ratio } : { height: 180 }]}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
 
 function spanStyle(span) {
   return [
@@ -30,6 +59,10 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
       {blocks.map((block, i) => {
         if (block.kind === "hr") {
           return <View key={i} style={styles.divider} />;
+        }
+
+        if (block.kind === "img") {
+          return <ImageBlock key={i} src={block.src} />;
         }
 
         const isList = block.kind === "li" || block.kind === "ol";
@@ -84,5 +117,14 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     backgroundColor: colors.border,
     marginVertical: spacing.sm,
+  },
+  imageWrap: {
+    width: "100%",
+    marginVertical: spacing.sm,
+  },
+  image: {
+    width: "100%",
+    maxHeight: 320,
+    borderRadius: radius.sm,
   },
 });

@@ -18,6 +18,9 @@ import {
   COLOR_BUTTON,
   COLOR_KEYS,
   EDITOR_TEXT_COLORS,
+  handleImagePaste,
+  IMAGE_BTN_SVG,
+  insertImageFile,
   runBubbleAction,
 } from "../src/lib/editorSetup";
 
@@ -32,6 +35,28 @@ document.head.appendChild(style);
 const host = document.createElement("div");
 host.className = "nf-root";
 document.body.appendChild(host);
+
+// Botón + input para insertar imágenes desde el archivo (compresión por canvas
+// adentro de la propia página del WebView, sin librería nativa).
+const imgInput = document.createElement("input");
+imgInput.type = "file";
+imgInput.accept = "image/*";
+imgInput.style.display = "none";
+document.body.appendChild(imgInput);
+imgInput.addEventListener("change", () => {
+  const file = imgInput.files && imgInput.files[0];
+  if (file) insertImageFile(editor, file);
+  imgInput.value = "";
+});
+
+const imgBtn = document.createElement("button");
+imgBtn.className = "nf-imgbtn";
+imgBtn.type = "button";
+imgBtn.title = "Insertar imagen";
+imgBtn.setAttribute("aria-label", "Insertar imagen");
+imgBtn.innerHTML = IMAGE_BTN_SVG;
+imgBtn.addEventListener("click", () => imgInput.click());
+host.appendChild(imgBtn);
 
 const bubble = document.createElement("div");
 bubble.className = "nf-bubble";
@@ -128,6 +153,9 @@ editor.registerPlugin(
     },
   })
 );
+
+// Pegar imágenes desde el portapapeles (además del botón de archivo).
+editor.view.dom.addEventListener("paste", (e) => handleImagePaste(editor, e));
 
 // --- alto dinámico ---------------------------------------------------------
 let lastHeight = 0;

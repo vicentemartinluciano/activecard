@@ -7,6 +7,8 @@ import { Highlight } from "@tiptap/extension-highlight";
 import { Placeholder } from "@tiptap/extensions";
 import { StarterKit } from "@tiptap/starter-kit";
 
+import { compressFile } from "./imageCompress";
+import { Image } from "./tiptapImage";
 import { EDITOR_TEXT_COLORS, TColor } from "./tiptapTColor";
 import { ALIGNMENTS, TextAlign } from "./tiptapTextAlign";
 
@@ -38,9 +40,39 @@ export function buildExtensions({ placeholder = "" } = {}) {
     Highlight,
     TColor,
     TextAlign.configure({ types: ["paragraph"] }),
+    Image,
     Placeholder.configure({ placeholder }),
     Shortcuts,
   ];
+}
+
+// --- Imágenes --------------------------------------------------------------
+// Ícono del botón para insertar imagen (abre el selector de archivos).
+export const IMAGE_BTN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-4.5-4.5L5 21"/></svg>`;
+
+// Comprime el archivo elegido (canvas) e inserta la imagen como bloque.
+export async function insertImageFile(editor, file) {
+  if (!file || !file.type || !file.type.startsWith("image/")) return;
+  const src = await compressFile(file);
+  editor.chain().focus().setImage({ src }).run();
+}
+
+// Pegar una imagen desde el portapapeles: la detecta, la comprime e inserta.
+// Devuelve true si consumió el evento (para no pegar además como texto/HTML).
+export function handleImagePaste(editor, event) {
+  const items = event.clipboardData && event.clipboardData.items;
+  if (!items) return false;
+  for (const item of items) {
+    if (item.type && item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) {
+        event.preventDefault();
+        insertImageFile(editor, file);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 export const COLOR_KEYS = Object.keys(EDITOR_TEXT_COLORS);

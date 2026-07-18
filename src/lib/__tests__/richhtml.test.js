@@ -1,5 +1,5 @@
 import { describeBlock, htmlToMarks, marksToHtml } from "../richhtml";
-import { ALIGN_SENTINELS, parseRich, toPlainText } from "../richtext";
+import { ALIGN_SENTINELS, IMG_SENTINEL, parseRich, toPlainText } from "../richtext";
 
 // Criterio de equivalencia: dos textos de marcas son equivalentes si
 // parseRich los ve igual (mismos bloques, mismos spans con los mismos
@@ -175,6 +175,46 @@ describe("alineación por bloque", () => {
       "\n"
     );
     expect(roundTrip(tarjeta)).toBe(tarjeta);
+  });
+});
+
+describe("bloque imagen (data URI inline)", () => {
+  // 1x1 png real — termina en "==" (padding base64), el caso límite que podría
+  // colisionar con la marca de resaltado.
+  const DATA_URI =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const img = `${IMG_SENTINEL}${DATA_URI}`;
+
+  test("marcas → HTML emite <img src>", () => {
+    expect(marksToHtml(img)).toBe(`<img src="${DATA_URI}">`);
+  });
+
+  test("HTML → marcas lee el <img>", () => {
+    expect(htmlToMarks(`<img src="${DATA_URI}">`)).toBe(img);
+  });
+
+  test("round-trip conserva el data URI EXACTO (incluido el == final)", () => {
+    expect(roundTrip(img)).toBe(img);
+  });
+
+  test("describeBlock devuelve kind img con el src", () => {
+    const b = describeBlock(parseRich(img)[0]);
+    expect(b.kind).toBe("img");
+    expect(b.src).toBe(DATA_URI);
+  });
+
+  test("imagen intercalada entre texto sobrevive", () => {
+    const card = `Antes de la imagen\n${img}\nDespués de la imagen`;
+    expect(roundTrip(card)).toBe(card);
+  });
+
+  test("toPlainText omite la imagen (no vuelca el base64)", () => {
+    expect(toPlainText(img)).toBe("");
+    expect(toPlainText(`hola\n${img}\nchau`)).toBe("hola\n\nchau");
+  });
+
+  test("<img> de TipTap con atributos extra igual se lee", () => {
+    expect(htmlToMarks(`<img src="${DATA_URI}" class="x" draggable="true">`)).toBe(img);
   });
 });
 

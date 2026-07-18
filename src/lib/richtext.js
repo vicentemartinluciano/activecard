@@ -25,6 +25,13 @@ export const ALIGN_SENTINELS = { center: "\uE000", right: "\uE001" };
 export const ALIGN_BY_CHAR = { "\uE000": "center", "\uE001": "right" };
 const ALIGN_STRIP_RE = /^[\uE000\uE001]/;
 
+// Bloque imagen: una l\u00EDnea entera que empieza con este sentinel invisible, con
+// el data URI (base64 comprimido) a continuaci\u00F3n. Va inline en el TEXT de la
+// tarjeta (entra al respaldo). parseRich lo ve como texto plano; describeBlock
+// (richhtml.js) lo interpreta y RichText lo renderiza como <Image>. toPlainText
+// lo omite (as\u00ED no ensucia previews / b\u00FAsqueda / contexto de IA).
+export const IMG_SENTINEL = "\uE010";
+
 const COLOR_RE = /^\[\[([a-zA-Z]+):/;
 
 // Parsea una línea a una lista de spans, aplicando los estilos heredados
@@ -104,7 +111,12 @@ export function parseRich(text) {
 // que se le manda a la IA, y para comparar contenido "de verdad".
 export function toPlainText(text) {
   return parseRich(text)
-    .map((block) => block.spans.map((s) => s.text).join("").replace(ALIGN_STRIP_RE, ""))
+    .map((block) => {
+      const plain = block.spans.map((s) => s.text).join("").replace(ALIGN_STRIP_RE, "");
+      // Los bloques imagen no aportan texto (evita volcar el data URI base64 en
+      // previews / búsqueda / contexto de IA).
+      return plain.startsWith(IMG_SENTINEL) ? "" : plain;
+    })
     .join("\n");
 }
 

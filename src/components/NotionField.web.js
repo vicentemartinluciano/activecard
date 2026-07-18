@@ -16,6 +16,9 @@ import {
   COLOR_BUTTON,
   COLOR_KEYS,
   EDITOR_TEXT_COLORS,
+  handleImagePaste,
+  IMAGE_BTN_SVG,
+  insertImageFile,
   runBubbleAction,
 } from "../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
@@ -53,6 +56,17 @@ export default function NotionField({ value, onChangeText, placeholder, minHeigh
     if (value === lastEmitted.current) return;
     editor.commands.setContent(marksToHtml(value), { emitUpdate: false });
   }, [value, editor]);
+
+  // Pegar imágenes desde el portapapeles (además del botón de archivo).
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const onPaste = (e) => handleImagePaste(editor, e);
+    dom.addEventListener("paste", onPaste);
+    return () => dom.removeEventListener("paste", onPaste);
+  }, [editor]);
+
+  const fileInputRef = useRef(null);
 
   if (!editor) return null;
   const state = activeStates(editor);
@@ -124,6 +138,26 @@ export default function NotionField({ value, onChangeText, placeholder, minHeigh
         </div>
       </BubbleMenu>
       <EditorContent editor={editor} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file) insertImageFile(editor, file);
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        className="nf-imgbtn"
+        title="Insertar imagen"
+        aria-label="Insertar imagen"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => fileInputRef.current?.click()}
+        dangerouslySetInnerHTML={{ __html: IMAGE_BTN_SVG }}
+      />
     </div>
   );
 }

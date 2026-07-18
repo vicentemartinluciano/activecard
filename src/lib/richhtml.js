@@ -16,7 +16,7 @@
 //   - texto literal con secuencias de marcador (ej. "2**3") se reinterpreta
 //     al recargar — el formato no tiene escape, igual que hoy.
 
-import { ALIGN_BY_CHAR, ALIGN_SENTINELS, parseRich } from "./richtext";
+import { ALIGN_BY_CHAR, ALIGN_SENTINELS, IMG_SENTINEL, parseRich } from "./richtext";
 import { textColors } from "../theme";
 
 // ---------------------------------------------------------------------------
@@ -82,6 +82,10 @@ export function describeBlock(block) {
   }
 
   const plain = spans.map((s) => s.text).join("");
+  // Imagen: la línea es el sentinel + el data URI (base64 inline).
+  if (plain.startsWith(IMG_SENTINEL)) {
+    return { kind: "img", src: plain.slice(IMG_SENTINEL.length), spans: [], align };
+  }
   if (plain.trim() === "---") return { kind: "hr", spans: [], align };
   const m = OL_RE.exec(plain);
   if (m) {
@@ -105,6 +109,12 @@ export function marksToHtml(marcas) {
 
     if (block.kind === "hr") {
       out.push("<hr>");
+      i++;
+      continue;
+    }
+
+    if (block.kind === "img") {
+      out.push(`<img src="${escapeHtml(block.src)}">`);
       i++;
       continue;
     }
@@ -169,6 +179,13 @@ function colorFromAttrs(attrs) {
 const MARK_TAGS = { strong: "bold", b: "bold", em: "italic", i: "italic", u: "underline", mark: "highlight" };
 const BLOCK_TAGS = new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "tr"]);
 
+// src de un <img> (data URI). Soporta comillas dobles o simples.
+function srcFromAttrs(attrs) {
+  const m = /src\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(attrs);
+  if (!m) return "";
+  return decodeEntities(m[1] != null ? m[1] : m[2]);
+}
+
 // Alineación de un block tag desde style="text-align:..." o data-align.
 // Solo center/right nos importan (left = default).
 function alignFromAttrs(attrs) {
@@ -224,6 +241,12 @@ export function htmlToMarks(html) {
         if (tag === "hr") {
           blocks.push({ prefix: "hr", spans: [] });
         }
+        continue;
+      }
+      if (tag === "img") {
+        closeBlock();
+        const src = srcFromAttrs(attrs);
+        if (src) blocks.push({ prefix: "img", src, spans: [] });
         continue;
       }
       if (tag === "ul" || tag === "ol") {
@@ -391,6 +414,7 @@ function serializeSpans(items, applied) {
 function blocksToMarks(blocks) {
   const lines = blocks.map((b) => {
     if (b.prefix === "hr") return "---";
+    if (b.prefix === "img") return `${IMG_SENTINEL}${b.src}`;
     const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));
     // Sentinel de alineación solo en párrafos (las listas van sin prefijo de
     // alineación → siempre a la izquierda).

@@ -8,6 +8,7 @@
 
 export const EDITOR_CSS = `
 .nf-root {
+  position: relative;
   background: #121216;
   color: #E9E9EF;
   font-family: -apple-system, Roboto, "Segoe UI", sans-serif;
@@ -15,6 +16,34 @@ export const EDITOR_CSS = `
   line-height: 1.45;
   -webkit-tap-highlight-color: transparent;
 }
+.nf-root .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.nf-root .ProseMirror img.ProseMirror-selectednode { outline: 2px solid #3E63DD; }
+/* Botón para insertar imagen: fijo abajo a la derecha del campo. */
+.nf-imgbtn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: #1C1C22;
+  color: #B7B7C2;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  z-index: 5;
+}
+.nf-imgbtn:hover { background: #24242C; color: #E9E9EF; }
+.nf-imgbtn svg { width: 16px; height: 16px; display: block; }
 .nf-root .ProseMirror {
   padding: 10px 12px;
   outline: none;
