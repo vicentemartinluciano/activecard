@@ -11,9 +11,13 @@ import { describeBlock } from "../lib/richhtml";
 import { parseRich } from "../lib/richtext";
 import { colors, radius, spacing, textColors } from "../theme";
 
-// Imagen inline (data URI). Toma el aspect ratio real para no deformarla.
-// width = % del ancho (100 = a todo lo ancho); se centra. Tocarla la abre a
-// pantalla completa.
+// Imagen inline (data URI). Toma el aspect ratio real para no deformarla y
+// respetar el ancho elegido. width = % del ancho (100 = a todo lo ancho); se
+// centra. Tocarla la abre a pantalla completa.
+// La proporción se saca del evento onLoad de la <Image> (funciona con data URIs
+// base64 en Android, donde Image.getSize FALLA); getSize queda como camino extra
+// para la web. Sin proporción, si cayera a una altura fija, el ancho no se
+// notaría — por eso onLoad es clave en el celu.
 function ImageBlock({ src, width = 100 }) {
   const [ratio, setRatio] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -35,7 +39,11 @@ function ImageBlock({ src, width = 100 }) {
       <Pressable onPress={() => setExpanded(true)} style={{ width: `${width}%` }}>
         <Image
           source={{ uri: src }}
-          style={[styles.image, ratio ? { aspectRatio: ratio } : { height: 160 }]}
+          onLoad={(e) => {
+            const s = e?.nativeEvent?.source;
+            if (s && s.height) setRatio(s.width / s.height);
+          }}
+          style={[styles.image, { aspectRatio: ratio || 1 }]}
           resizeMode="contain"
         />
       </Pressable>
