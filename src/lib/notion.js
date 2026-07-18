@@ -3,6 +3,7 @@
 
 import { Platform } from "react-native";
 
+import { base64FromArrayBuffer } from "./files";
 import { getNotionToken as getNotionTokenFromKeys } from "./keys";
 
 const NOTION_API = "https://api.notion.com/v1";
@@ -74,13 +75,34 @@ function richText(block) {
   return rt.map((t) => t.plain_text).join("");
 }
 
+// URL de un bloque imagen de Notion (external = pública; file = firmada de S3,
+// expira ~1h → hay que descargarla pronto).
+function imageUrl(b) {
+  const img = b.image;
+  if (!img) return null;
+  if (img.type === "external") return img.external && img.external.url;
+  if (img.type === "file") return img.file && img.file.url;
+  return null;
+}
+
 // Convierte una lista de bloques de Notion (con children ya anidados en
-// block.__children) a texto plano legible para la IA.
-export function blocksToText(blocks, depth = 0) {
+// block.__children) a texto plano legible para la IA. Las imágenes se emiten
+// como marcadores [IMG:n] y se acumulan en `images` ({ n, url }) para que la
+// IA pueda referenciarlas y luego las resolvamos a la imagen real.
+export function blocksToText(blocks, images = [], depth = 0) {
   const indent = "  ".repeat(depth);
   const lines = [];
   for (const b of blocks) {
     const text = richText(b);
+    if (b.type === "image") {
+      const url = imageUrl(b);
+      if (url) {
+        const n = images.length + 1;
+        images.push({ n, url });
+        lines.push(`[IMG:${n}]`);
+      }
+      continue;
+    }
     switch (b.type) {
       case "heading_1":
         lines.push(`\n# ${text}`);
@@ -121,10 +143,34 @@ export function blocksToText(blocks, depth = 0) {
         if (text) lines.push(`${indent}${text}`);
     }
     if (b.__children && b.__children.length > 0) {
-      lines.push(blocksToText(b.__children, depth + 1));
+      lines.push(blocksToText(b.__children, images, depth + 1));
     }
   }
   return lines.join("\n");
+}
+
+// Descarga las imágenes de Notion a data URIs (base64 inline). Corre en el celu
+// (fetch nativo, sin CORS). Best-effort: si una falla o pesa de más, se saltea
+// y su [IMG:n] se quitará al resolver. Sin compresión (no hay canvas fuera del
+// editor) → se acota por tamaño para no inflar la tarjeta ni el respaldo.
+const MAX_IMG_B64 = 1_500_000; // ~1.1MB de imagen real
+
+export async function fetchNotionImages(images) {
+  const map = {};
+  for (const { n, url } of images) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const mime = (res.headers.get("content-type") || "image/png").split(";")[0].trim();
+      if (!mime.startsWith("image/")) continue;
+      const b64 = base64FromArrayBuffer(await res.arrayBuffer());
+      if (b64.length > MAX_IMG_B64) continue;
+      map[n] = `data:${mime};base64,${b64}`;
+    } catch {
+      // imagen que no se pudo bajar → se saltea
+    }
+  }
+  return map;
 }
 
 // Baja recursivamente todos los bloques de un bloque/página (con paginación).
@@ -146,7 +192,8 @@ async function fetchBlockChildren(blockId) {
   return blocks;
 }
 
-// Devuelve { title, text } de una página de Notion a partir de URL o ID.
+// Devuelve { title, text, images } de una página de Notion a partir de URL o ID.
+// `text` lleva marcadores [IMG:n] donde había imágenes; `images` = [{ n, url }].
 export async function fetchNotionPage(urlOrId) {
   const pageId = parsePageId(urlOrId);
   const page = await notionFetch(`/pages/${pageId}`);
@@ -161,9 +208,10 @@ export async function fetchNotionPage(urlOrId) {
   }
 
   const blocks = await fetchBlockChildren(pageId);
-  const text = blocksToText(blocks).trim();
+  const images = [];
+  const text = blocksToText(blocks, images).trim();
   if (!text) {
     throw new Error("La página de Notion está vacía o no tiene texto legible.");
   }
-  return { title, text };
+  return { title, text, images };
 }

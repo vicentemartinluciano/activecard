@@ -29,6 +29,10 @@ REGLAS DE ORO:
    Combiná varios recursos en una misma tarjeta cuando el contenido lo permita (ej. mnemónico en negrita + cada letra en lista con flecha + una excepción resaltada). Una tarjeta con una sola idea muy corta no necesita ninguna marca — pero si hay estructura para mostrar, mostrala.
    No combines negrita y cursiva en el mismo tramo de texto sin otra marca en el medio (evitá algo como ***texto***) — el formato no lo soporta bien y se pierde la cursiva al guardar. Si necesitás resaltar y matizar a la vez, usá negrita + color, o meté subrayado/resaltado entre las dos.
 
+IMÁGENES DEL MATERIAL (marcadores [IMG:n]):
+- Si el material trae marcadores como [IMG:1], [IMG:2]… son IMÁGENES REALES de la fuente. Conservá en el DORSO las que ayuden a entender el concepto de esa tarjeta, cada una en su PROPIA línea. Copiá el marcador EXACTO, sin cambiar el número. La app lo reemplaza por la imagen real, así que NO la describas ni agregues texto sobre ella.
+- Poné cada [IMG:n] SOLO en la tarjeta a la que pertenece (por la sección/tema donde aparece en el material). Si una imagen no aporta a ninguna tarjeta, omitila. NUNCA inventes un [IMG:n] que no esté en el material. Esto complementa la regla 7: si la imagen es un gráfico, igual va la tarjeta con la relación/conclusión, y además el [IMG:n] si ayuda a fijarla.
+
 MODOS:
 - "conceptos_clave": mínimo 5 tarjetas, sin techo — tantas como el material amerite genuinamente como conceptos nucleares. Fechas, autores individuales y tablas cronológicas quedan SIEMPRE afuera, sin excepción — esto no cambia aunque el material dé para muchas tarjetas.
 - "completo": cobertura exhaustiva de TODOS los conceptos con nombre propio del material, sin inventar los que no están — en este modo SÍ incluí tablas cronológicas y listados de autores con sus años (ej. "evolución del pensamiento de la RSE"), porque acá buscamos cobertura completa, no una selección curada.

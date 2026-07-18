@@ -67,4 +67,27 @@ describe("blocksToText", () => {
     const blocks = [{ type: "paragraph", paragraph: { rich_text: [] } }];
     expect(blocksToText(blocks)).toBe("");
   });
+
+  test("imágenes → marcadores [IMG:n] y se acumulan en images", () => {
+    const images = [];
+    const blocks = [
+      { type: "paragraph", paragraph: rt("Antes") },
+      { type: "image", image: { type: "file", file: { url: "https://s3/img1.png" } } },
+      { type: "image", image: { type: "external", external: { url: "https://ext/img2.jpg" } } },
+      { type: "paragraph", paragraph: rt("Después") },
+    ];
+    const text = blocksToText(blocks, images);
+    expect(text).toContain("[IMG:1]");
+    expect(text).toContain("[IMG:2]");
+    expect(images).toEqual([
+      { n: 1, url: "https://s3/img1.png" },
+      { n: 2, url: "https://ext/img2.jpg" },
+    ]);
+  });
+
+  test("imagen sin URL utilizable no cuenta", () => {
+    const images = [];
+    blocksToText([{ type: "image", image: { type: "file" } }], images);
+    expect(images).toEqual([]);
+  });
 });

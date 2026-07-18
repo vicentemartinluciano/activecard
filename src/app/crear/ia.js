@@ -6,8 +6,12 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { Button, Card, Chip, Field, Screen } from "../../components/ui";
 import { setDraft } from "../../lib/draftStore";
 import { pickStudyFile } from "../../lib/files";
-import { generateCardsFromPdf, generateCardsFromText } from "../../lib/generator";
-import { fetchNotionPage } from "../../lib/notion";
+import {
+  generateCardsFromPdf,
+  generateCardsFromText,
+  resolveImageMarkers,
+} from "../../lib/generator";
+import { fetchNotionImages, fetchNotionPage } from "../../lib/notion";
 import { colors, radius, spacing, type } from "../../theme";
 
 const SOURCES = [
@@ -71,9 +75,14 @@ export default function CrearConIA() {
       if (!notionUrl.trim() || !customReady) return;
       setBusy("Leyendo la página de Notion…");
       const page = await fetchNotionPage(notionUrl);
+      let imageMap = {};
+      if (page.images && page.images.length) {
+        setBusy(`Descargando ${page.images.length} imagen(es)…`);
+        imageMap = await fetchNotionImages(page.images);
+      }
       setBusy(`Claude está leyendo "${page.title}"…`);
       const cards = await generateCardsFromText(page.text, mode, customInstruction);
-      goPreselect(cards, page.title);
+      goPreselect(resolveImageMarkers(cards, imageMap), page.title);
     });
 
   if (busy) {

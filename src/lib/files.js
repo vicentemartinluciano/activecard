@@ -5,7 +5,7 @@
 import * as DocumentPicker from "expo-document-picker";
 import { Platform } from "react-native";
 
-function base64FromArrayBuffer(buffer) {
+export function base64FromArrayBuffer(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   const chunk = 8192;

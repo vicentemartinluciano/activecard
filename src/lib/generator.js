@@ -5,6 +5,7 @@
 
 import { callClaudeJson, MODELS } from "./claude";
 import { buildGeneratorMessage, buildGeneratorPdfPrompt, GENERATOR_SYSTEM } from "./prompts";
+import { IMG_SENTINEL } from "./richtext";
 
 function validateCards(result) {
   if (!result || !Array.isArray(result.cards)) {
@@ -18,6 +19,21 @@ function validateCards(result) {
     throw new Error("La IA no encontró conceptos para crear tarjetas en este material.");
   }
   return cards;
+}
+
+// Reemplaza los marcadores [IMG:n] que la IA conservó por el bloque imagen real
+// (data URI ya descargado). Cada imagen queda en su propia línea. Un [IMG:n] sin
+// imagen en el mapa (no se pudo bajar o no existe) se elimina. Ancho por defecto
+// 100% (el usuario lo ajusta después si quiere).
+export function resolveImageMarkers(cards, imageMap = {}) {
+  const sub = (s) =>
+    s
+      .replace(/\n?[ \t]*\[IMG:(\d+)\][ \t]*\n?/g, (_, n) =>
+        imageMap[n] ? `\n${IMG_SENTINEL}100 ${imageMap[n]}\n` : "\n"
+      )
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  return cards.map((c) => ({ front: sub(c.front), back: sub(c.back) }));
 }
 
 // mode: 'conceptos_clave' | 'completo' | 'personalizado'
