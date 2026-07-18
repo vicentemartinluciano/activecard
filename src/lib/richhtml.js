@@ -68,13 +68,15 @@ const OL_RE = /^(\d{1,4})\. /;
 // interpretados: "---" = divisor, "N. " = ítem de lista numerada. Es la única
 // definición de esto en la app — la usan marksToHtml y el render (RichText).
 export function describeBlock(block) {
-  // Las listas nunca llevan alineación (siempre a la izquierda).
-  if (block.type === "li") return { kind: "li", spans: block.spans, align: "left" };
+  // Las listas nunca llevan alineación (align null → el render las deja a la
+  // izquierda, no heredan el default de la cara).
+  if (block.type === "li") return { kind: "li", spans: block.spans, align: null };
 
-  // Sentinel de alineación al inicio de la línea (invisible): se saca acá y el
-  // resto se interpreta como siempre.
+  // Sentinel de alineación al inicio de la línea (invisible): alineación
+  // EXPLÍCITA. Sin sentinel → align null ("sin tocar", el render aplica el
+  // default de la cara).
   let spans = block.spans;
-  let align = "left";
+  let align = null;
   const firstChar = spans.length ? spans[0].text[0] : undefined;
   if (firstChar && ALIGN_BY_CHAR[firstChar]) {
     align = ALIGN_BY_CHAR[firstChar];
@@ -89,15 +91,16 @@ export function describeBlock(block) {
   if (plain.trim() === "---") return { kind: "hr", spans: [], align };
   const m = OL_RE.exec(plain);
   if (m) {
-    // La numeración es un bloque de lista → izquierda.
-    return { kind: "ol", number: Number(m[1]), spans: stripSpanChars(spans, m[0].length), align: "left" };
+    // La numeración es un bloque de lista → sin alineación.
+    return { kind: "ol", number: Number(m[1]), spans: stripSpanChars(spans, m[0].length), align: null };
   }
   return { kind: "p", spans, align };
 }
 
-// style="text-align:..." para un bloque (vacío en izquierda, el default).
+// style="text-align:..." para un bloque. Se emite para cualquier alineación
+// EXPLÍCITA (incluida izquierda); align null → sin style.
 function alignStyle(align) {
-  return align && align !== "left" ? ` style="text-align: ${align}"` : "";
+  return align ? ` style="text-align: ${align}"` : "";
 }
 
 export function marksToHtml(marcas) {
@@ -187,12 +190,13 @@ function srcFromAttrs(attrs) {
 }
 
 // Alineación de un block tag desde style="text-align:..." o data-align.
-// Solo center/right nos importan (left = default).
+// Devuelve left/center/right si hay alineación EXPLÍCITA, o null si no hay
+// (el editor solo emite el style cuando difiere de su default de cara).
 function alignFromAttrs(attrs) {
-  const sm = /text-align\s*:\s*(center|right)/i.exec(attrs);
+  const sm = /text-align\s*:\s*(left|center|right)/i.exec(attrs);
   if (sm) return sm[1].toLowerCase();
-  const dm = /data-align\s*=\s*["']?(center|right)["']?/i.exec(attrs);
-  return dm ? dm[1].toLowerCase() : "left";
+  const dm = /data-align\s*=\s*["']?(left|center|right)["']?/i.exec(attrs);
+  return dm ? dm[1].toLowerCase() : null;
 }
 
 export function htmlToMarks(html) {
@@ -208,7 +212,7 @@ export function htmlToMarks(html) {
   let liJustOpened = false;
 
   const curStyle = () => (stack.length ? stack[stack.length - 1].style : {});
-  const openBlock = (prefix = "", align = "left") => {
+  const openBlock = (prefix = "", align = null) => {
     cur = { prefix, spans: [], align };
     blocks.push(cur);
   };
@@ -416,9 +420,9 @@ function blocksToMarks(blocks) {
     if (b.prefix === "hr") return "---";
     if (b.prefix === "img") return `${IMG_SENTINEL}${b.src}`;
     const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));
-    // Sentinel de alineación solo en párrafos (las listas van sin prefijo de
-    // alineación → siempre a la izquierda).
-    const sentinel = !b.prefix && b.align && b.align !== "left" ? ALIGN_SENTINELS[b.align] : "";
+    // Sentinel de alineación EXPLÍCITA solo en párrafos (las listas van sin
+    // alineación). b.align null = "sin tocar" → sin sentinel.
+    const sentinel = !b.prefix && b.align ? ALIGN_SENTINELS[b.align] || "" : "";
     return `${sentinel}${b.prefix || ""}${serializeSpans(items, [])}`;
   });
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();

@@ -22,7 +22,7 @@ const Shortcuts = Extension.create({
   },
 });
 
-export function buildExtensions({ placeholder = "" } = {}) {
+export function buildExtensions({ placeholder = "", defaultAlign = "left" } = {}) {
   return [
     StarterKit.configure({
       // Fuera lo que el formato de ActiveCard no sabe representar.
@@ -39,7 +39,7 @@ export function buildExtensions({ placeholder = "" } = {}) {
     }),
     Highlight,
     TColor,
-    TextAlign.configure({ types: ["paragraph"] }),
+    TextAlign.configure({ types: ["paragraph"], defaultAlignment: defaultAlign }),
     Image,
     Placeholder.configure({ placeholder }),
     Shortcuts,

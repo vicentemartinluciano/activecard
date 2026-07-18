@@ -125,12 +125,20 @@ describe("divisor (---) y lista numerada", () => {
 });
 
 describe("alineación por bloque", () => {
+  const L = ALIGN_SENTINELS.left;
   const C = ALIGN_SENTINELS.center;
   const R = ALIGN_SENTINELS.right;
 
-  test("izquierda es el default: sin sentinel ni style", () => {
+  test("sin tocar: sin sentinel, sin style, align null (usa el default de cara)", () => {
     expect(marksToHtml("hola")).toBe("<p>hola</p>");
-    expect(describeBlock(parseRich("hola")[0]).align).toBe("left");
+    expect(describeBlock(parseRich("hola")[0]).align).toBeNull();
+  });
+
+  test("izquierda EXPLÍCITA va a text-align y vuelve con su sentinel", () => {
+    // Necesario para forzar izquierda en el frente (que centra por defecto).
+    expect(marksToHtml(`${L}hola`)).toBe('<p style="text-align: left">hola</p>');
+    expect(htmlToMarks('<p style="text-align: left">hola</p>')).toBe(`${L}hola`);
+    expect(describeBlock(parseRich(`${L}hola`)[0]).align).toBe("left");
   });
 
   test("centro va a text-align y vuelve con el sentinel", () => {

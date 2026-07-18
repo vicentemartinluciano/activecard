@@ -35,12 +35,18 @@ function ensureCss() {
   cssInjected = true;
 }
 
-export default function NotionField({ value, onChangeText, placeholder, minHeight = 110 }) {
+export default function NotionField({
+  value,
+  onChangeText,
+  placeholder,
+  minHeight = 110,
+  defaultAlign = "left",
+}) {
   ensureCss();
   const lastEmitted = useRef(null);
 
   const editor = useEditor({
-    extensions: buildExtensions({ placeholder: placeholder || "" }),
+    extensions: buildExtensions({ placeholder: placeholder || "", defaultAlign }),
     content: marksToHtml(value),
     onUpdate: ({ editor: ed }) => {
       const marcas = htmlToMarks(ed.getHTML());
@@ -79,7 +85,7 @@ export default function NotionField({ value, onChangeText, placeholder, minHeigh
 
   return (
     <div
-      className="nf-root"
+      className={`nf-root${defaultAlign === "center" ? " nf-align-center" : ""}`}
       style={{
         background: colors.surface,
         border: `1px solid ${colors.border}`,

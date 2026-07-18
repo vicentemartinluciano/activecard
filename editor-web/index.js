@@ -33,7 +33,7 @@ document.head.appendChild(style);
 
 // --- DOM -------------------------------------------------------------------
 const host = document.createElement("div");
-host.className = "nf-root";
+host.className = window.__nfDefaultAlign === "center" ? "nf-root nf-align-center" : "nf-root";
 document.body.appendChild(host);
 
 // Botón + input para insertar imágenes desde el archivo (compresión por canvas
@@ -121,7 +121,7 @@ let lastHtml = "";
 
 const editor = new Editor({
   element: host,
-  extensions: buildExtensions({ placeholder: "" }),
+  extensions: buildExtensions({ placeholder: "", defaultAlign: window.__nfDefaultAlign || "left" }),
   content: "",
   autofocus: false,
   onUpdate: ({ editor: ed }) => {

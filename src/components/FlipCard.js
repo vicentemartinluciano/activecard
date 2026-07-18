@@ -66,8 +66,8 @@ export default function FlipCard({
               adentro del scroll: un ScrollView se queda con el toque y no deja
               que suba al Pressable de afuera. contentContainerStyle centra el
               texto corto y deja crecer el largo; el paddingTop deja libre la
-              esquina de la estrella/rayo. El dorso arranca centrado por defecto;
-              el frente, izquierda (defaultAlign). */}
+              esquina de la estrella/rayo. El frente arranca centrado por
+              defecto; el dorso, izquierda (defaultAlign). */}
           <ScrollView
             ref={scrollRef}
             style={styles.textBox}
@@ -78,7 +78,7 @@ export default function FlipCard({
               <RichText
                 text={faceText}
                 style={styles.text}
-                defaultAlign={showBack ? "center" : "left"}
+                defaultAlign={showBack ? "left" : "center"}
               />
             </Pressable>
           </ScrollView>

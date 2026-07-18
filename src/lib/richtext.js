@@ -17,13 +17,13 @@ const MARKERS = [
 ];
 
 // Alineación por bloque: un sentinel invisible (Unicode de uso privado, que el
-// usuario no puede tipear) al inicio de la línea marca centro/derecha.
-// Izquierda = sin sentinel (el default). parseRich lo ve como texto plano; lo
+// usuario no puede tipear) al inicio de la línea marca la alineación EXPLÍCITA
+// (izquierda/centro/derecha). SIN sentinel = "sin tocar" → default por cara. parseRich lo ve como texto plano; lo
 // quitan describeBlock (richhtml.js) al renderizar/convertir y toPlainText acá.
 // Nunca se muestra crudo, así que no colisiona con contenido real.
-export const ALIGN_SENTINELS = { center: "\uE000", right: "\uE001" };
-export const ALIGN_BY_CHAR = { "\uE000": "center", "\uE001": "right" };
-const ALIGN_STRIP_RE = /^[\uE000\uE001]/;
+export const ALIGN_SENTINELS = { left: "\uE002", center: "\uE000", right: "\uE001" };
+export const ALIGN_BY_CHAR = { "\uE002": "left", "\uE000": "center", "\uE001": "right" };
+const ALIGN_STRIP_RE = /^[\uE000\uE001\uE002]/;
 
 // Bloque imagen: una l\u00EDnea entera que empieza con este sentinel invisible, con
 // el data URI (base64 comprimido) a continuaci\u00F3n. Va inline en el TEXT de la

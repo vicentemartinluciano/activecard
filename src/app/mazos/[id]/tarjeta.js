@@ -75,6 +75,7 @@ export default function EditorTarjeta() {
             value={front}
             onChangeText={setFront}
             placeholder="¿Cuáles son las 5 fuerzas de Porter?"
+            defaultAlign="center"
           />
         </View>
         <View style={{ gap: spacing.sm }}>

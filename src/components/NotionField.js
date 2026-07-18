@@ -15,7 +15,13 @@ import editorHtml from "../../assets/editor/editorHtml";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
 import { colors, radius } from "../theme";
 
-export default function NotionField({ value, onChangeText, placeholder, minHeight = 110 }) {
+export default function NotionField({
+  value,
+  onChangeText,
+  placeholder,
+  minHeight = 110,
+  defaultAlign = "left",
+}) {
   const webRef = useRef(null);
   const [height, setHeight] = useState(minHeight);
   const [ready, setReady] = useState(false);
@@ -63,6 +69,12 @@ export default function NotionField({ value, onChangeText, placeholder, minHeigh
         ref={webRef}
         source={{ html: editorHtml }}
         originWhitelist={["*"]}
+        // Antes de que el bundle cree el editor: fija el default de alineación
+        // de esta cara (el frente arranca centrado). El bundle lo lee al armar
+        // las extensiones.
+        injectedJavaScriptBeforeContentLoaded={`window.__nfDefaultAlign=${JSON.stringify(
+          defaultAlign
+        )};true;`}
         onMessage={onMessage}
         scrollEnabled={false}
         overScrollMode="never"

@@ -66,8 +66,10 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
         }
 
         const isList = block.kind === "li" || block.kind === "ol";
-        const align =
-          block.align && block.align !== "left" ? block.align : isList ? "left" : defaultAlign;
+        // block.align: "left"/"center"/"right" explícito, o null ("sin tocar").
+        // Sin tocar → las listas van a la izquierda; el resto usa el default de
+        // la cara (frente = centro, dorso = izquierda).
+        const align = block.align || (isList ? "left" : defaultAlign);
 
         const line = (
           <Text style={[style, align !== "left" && { textAlign: align }]} key={i}>

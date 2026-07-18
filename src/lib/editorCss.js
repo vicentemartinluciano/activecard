@@ -52,6 +52,10 @@ export const EDITOR_CSS = `
   white-space: pre-wrap;
 }
 .nf-root .ProseMirror p { margin: 0 0 2px; }
+/* Cara con default centrado (el frente): los párrafos "sin tocar" se ven
+   centrados en el editor (WYSIWYG). Un text-align inline explícito (izq/der)
+   gana por especificidad, así se puede forzar otra alineación. */
+.nf-align-center .ProseMirror p { text-align: center; }
 .nf-root .ProseMirror ul, .nf-root .ProseMirror ol { margin: 2px 0; padding-left: 22px; }
 .nf-root .ProseMirror li > p { margin: 0; }
 .nf-root .ProseMirror hr {
