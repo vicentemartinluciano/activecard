@@ -60,6 +60,31 @@ export default function FlipCard({
     <Pressable onPress={onFlip} style={styles.wrapper}>
       <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
         <View style={styles.face}>
+          {/* ScrollView: el dorso (o el frente) largo se lee scrolleando en
+              vertical. El swipe horizontal lo sigue tomando el PanResponder del
+              SwipeCard (exige dx>dy). El tap para girar va en un Pressable PROPIO
+              adentro del scroll: un ScrollView se queda con el toque y no deja
+              que suba al Pressable de afuera. contentContainerStyle centra el
+              texto corto y deja crecer el largo; el paddingTop deja libre la
+              esquina de la estrella/rayo. El dorso arranca centrado por defecto;
+              el frente, izquierda (defaultAlign). */}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.textBox}
+            contentContainerStyle={styles.textContent}
+            showsVerticalScrollIndicator
+          >
+            <Pressable onPress={onFlip}>
+              <RichText
+                text={faceText}
+                style={styles.text}
+                defaultAlign={showBack ? "center" : "left"}
+              />
+            </Pressable>
+          </ScrollView>
+          {/* Estrella y rayo AL FINAL del JSX: así se dibujan por ENCIMA del
+              texto (en Android el orden de render gana; sin esto el ScrollView
+              los tapaba). Absolutos en la esquina superior derecha. */}
           {onToggleStar ? (
             <Pressable onPress={onToggleStar} hitSlop={10} style={styles.star}>
               {starred ? (
@@ -79,27 +104,6 @@ export default function FlipCard({
               />
             </Pressable>
           ) : null}
-          {/* ScrollView: el dorso (o el frente) largo se lee scrolleando en
-              vertical. El swipe horizontal lo sigue tomando el PanResponder del
-              SwipeCard (exige dx>dy). El tap para girar va en un Pressable PROPIO
-              adentro del scroll: un ScrollView se queda con el toque y no deja
-              que suba al Pressable de afuera. contentContainerStyle centra el
-              texto corto y deja crecer el largo. El dorso arranca centrado por
-              defecto; el frente, izquierda (defaultAlign). */}
-          <ScrollView
-            ref={scrollRef}
-            style={styles.textBox}
-            contentContainerStyle={styles.textContent}
-            showsVerticalScrollIndicator
-          >
-            <Pressable onPress={onFlip}>
-              <RichText
-                text={faceText}
-                style={styles.text}
-                defaultAlign={showBack ? "center" : "left"}
-              />
-            </Pressable>
-          </ScrollView>
         </View>
       </Animated.View>
     </Pressable>
@@ -146,6 +150,9 @@ const styles = StyleSheet.create({
   textContent: {
     flexGrow: 1,
     justifyContent: "center",
+    // Deja libre la franja superior derecha donde van la estrella y el rayo,
+    // así el texto (largo o pegado arriba) no arranca debajo de ellos.
+    paddingTop: spacing.lg,
   },
   text: {
     ...type.body,
