@@ -57,6 +57,26 @@ export async function insertImageFile(editor, file) {
   editor.chain().focus().setImage({ src }).run();
 }
 
+// Tamaños de imagen (ancho en % del contenedor). Se muestran en la barrita
+// cuando hay una imagen seleccionada.
+export const IMAGE_SIZES = [
+  { key: "img-45", label: "Pequeña", pct: 45, html: "S" },
+  { key: "img-70", label: "Mediana", pct: 70, html: "M" },
+  { key: "img-100", label: "Grande", pct: 100, html: "G" },
+];
+
+export function isImageSelected(editor) {
+  return editor.isActive("image");
+}
+
+export function currentImageWidth(editor) {
+  return editor.getAttributes("image").width || 100;
+}
+
+export function setImageWidth(editor, pct) {
+  editor.chain().focus().updateAttributes("image", { width: pct }).run();
+}
+
 // Pegar una imagen desde el portapapeles: la detecta, la comprime e inserta.
 // Devuelve true si consumió el evento (para no pegar además como texto/HTML).
 export function handleImagePaste(editor, event) {

@@ -191,7 +191,8 @@ describe("bloque imagen (data URI inline)", () => {
   // colisionar con la marca de resaltado.
   const DATA_URI =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const img = `${IMG_SENTINEL}${DATA_URI}`;
+  // Marcador canónico: sentinel + "<ancho%> " + data URI (ancho por defecto 100).
+  const img = `${IMG_SENTINEL}100 ${DATA_URI}`;
 
   test("marcas → HTML emite <img src>", () => {
     expect(marksToHtml(img)).toBe(`<img src="${DATA_URI}">`);
@@ -223,6 +224,27 @@ describe("bloque imagen (data URI inline)", () => {
 
   test("<img> de TipTap con atributos extra igual se lee", () => {
     expect(htmlToMarks(`<img src="${DATA_URI}" class="x" draggable="true">`)).toBe(img);
+  });
+
+  test("ancho: el marcador nuevo lleva el % y round-trip", () => {
+    const img70 = `${IMG_SENTINEL}70 ${DATA_URI}`;
+    expect(marksToHtml(img70)).toBe(`<img src="${DATA_URI}" style="width: 70%">`);
+    expect(htmlToMarks(`<img src="${DATA_URI}" style="width: 70%">`)).toBe(img70);
+    expect(roundTrip(img70)).toBe(img70);
+    expect(describeBlock(parseRich(img70)[0]).width).toBe(70);
+  });
+
+  test("ancho: 100% no emite style (a todo lo ancho)", () => {
+    const img100 = `${IMG_SENTINEL}100 ${DATA_URI}`;
+    expect(marksToHtml(img100)).toBe(`<img src="${DATA_URI}">`);
+    expect(describeBlock(parseRich(img100)[0]).width).toBe(100);
+  });
+
+  test("compat: marcador viejo sin ancho = 100", () => {
+    const oldImg = `${IMG_SENTINEL}${DATA_URI}`;
+    const b = describeBlock(parseRich(oldImg)[0]);
+    expect(b.width).toBe(100);
+    expect(b.src).toBe(DATA_URI);
   });
 });
 

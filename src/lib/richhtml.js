@@ -84,9 +84,14 @@ export function describeBlock(block) {
   }
 
   const plain = spans.map((s) => s.text).join("");
-  // Imagen: la línea es el sentinel + el data URI (base64 inline).
+  // Imagen: sentinel + "<ancho%> " + data URI. Sin ancho (marcador viejo que
+  // arranca directo con "data:") = 100 (a todo lo ancho).
   if (plain.startsWith(IMG_SENTINEL)) {
-    return { kind: "img", src: plain.slice(IMG_SENTINEL.length), spans: [], align };
+    const rest = plain.slice(IMG_SENTINEL.length);
+    const m = /^(\d{1,3}) (data:[\s\S]*)$/.exec(rest);
+    const width = m ? Number(m[1]) : 100;
+    const src = m ? m[2] : rest;
+    return { kind: "img", src, width, spans: [], align };
   }
   if (plain.trim() === "---") return { kind: "hr", spans: [], align };
   const m = OL_RE.exec(plain);
@@ -117,7 +122,8 @@ export function marksToHtml(marcas) {
     }
 
     if (block.kind === "img") {
-      out.push(`<img src="${escapeHtml(block.src)}">`);
+      const w = block.width && block.width !== 100 ? ` style="width: ${block.width}%"` : "";
+      out.push(`<img src="${escapeHtml(block.src)}"${w}>`);
       i++;
       continue;
     }
@@ -189,6 +195,13 @@ function srcFromAttrs(attrs) {
   return decodeEntities(m[1] != null ? m[1] : m[2]);
 }
 
+// Ancho de un <img> desde style="width: N%" (o el atributo width="N%"); 100 si
+// no está.
+function widthFromAttrs(attrs) {
+  const m = /width\s*:\s*(\d{1,3})\s*%/i.exec(attrs) || /width\s*=\s*["']?(\d{1,3})%/i.exec(attrs);
+  return m ? Number(m[1]) : 100;
+}
+
 // Alineación de un block tag desde style="text-align:..." o data-align.
 // Devuelve left/center/right si hay alineación EXPLÍCITA, o null si no hay
 // (el editor solo emite el style cuando difiere de su default de cara).
@@ -250,7 +263,7 @@ export function htmlToMarks(html) {
       if (tag === "img") {
         closeBlock();
         const src = srcFromAttrs(attrs);
-        if (src) blocks.push({ prefix: "img", src, spans: [] });
+        if (src) blocks.push({ prefix: "img", src, width: widthFromAttrs(attrs), spans: [] });
         continue;
       }
       if (tag === "ul" || tag === "ol") {
@@ -418,7 +431,7 @@ function serializeSpans(items, applied) {
 function blocksToMarks(blocks) {
   const lines = blocks.map((b) => {
     if (b.prefix === "hr") return "---";
-    if (b.prefix === "img") return `${IMG_SENTINEL}${b.src}`;
+    if (b.prefix === "img") return `${IMG_SENTINEL}${b.width || 100} ${b.src}`;
     const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));
     // Sentinel de alineación EXPLÍCITA solo en párrafos (las listas van sin
     // alineación). b.align null = "sin tocar" → sin sentinel.

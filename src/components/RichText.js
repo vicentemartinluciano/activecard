@@ -5,16 +5,18 @@
 // es exactamente lo que se ve al editar.
 
 import { useEffect, useState } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { describeBlock } from "../lib/richhtml";
 import { parseRich } from "../lib/richtext";
 import { colors, radius, spacing, textColors } from "../theme";
 
-// Imagen inline (data URI). Toma el aspect ratio real de la imagen para no
-// deformarla; hasta que lo sabe usa una altura provisoria.
-function ImageBlock({ src }) {
+// Imagen inline (data URI). Toma el aspect ratio real para no deformarla.
+// width = % del ancho (100 = a todo lo ancho); se centra. Tocarla la abre a
+// pantalla completa.
+function ImageBlock({ src, width = 100 }) {
   const [ratio, setRatio] = useState(null);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     let alive = true;
     Image.getSize(
@@ -30,11 +32,24 @@ function ImageBlock({ src }) {
   }, [src]);
   return (
     <View style={styles.imageWrap}>
-      <Image
-        source={{ uri: src }}
-        style={[styles.image, ratio ? { aspectRatio: ratio } : { height: 180 }]}
-        resizeMode="contain"
-      />
+      <Pressable onPress={() => setExpanded(true)} style={{ width: `${width}%` }}>
+        <Image
+          source={{ uri: src }}
+          style={[styles.image, ratio ? { aspectRatio: ratio } : { height: 160 }]}
+          resizeMode="contain"
+        />
+      </Pressable>
+      <Modal
+        visible={expanded}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExpanded(false)}
+        statusBarTranslucent
+      >
+        <Pressable style={styles.lightbox} onPress={() => setExpanded(false)}>
+          <Image source={{ uri: src }} style={styles.lightboxImg} resizeMode="contain" />
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -62,7 +77,7 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
         }
 
         if (block.kind === "img") {
-          return <ImageBlock key={i} src={block.src} />;
+          return <ImageBlock key={i} src={block.src} width={block.width} />;
         }
 
         const isList = block.kind === "li" || block.kind === "ol";
@@ -123,10 +138,21 @@ const styles = StyleSheet.create({
   imageWrap: {
     width: "100%",
     marginVertical: spacing.sm,
+    alignItems: "center",
   },
   image: {
     width: "100%",
-    maxHeight: 320,
     borderRadius: radius.sm,
+  },
+  lightbox: {
+    flex: 1,
+    backgroundColor: "#000000EE",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.md,
+  },
+  lightboxImg: {
+    width: "100%",
+    height: "100%",
   },
 });

@@ -17,11 +17,12 @@ export const EDITOR_CSS = `
   -webkit-tap-highlight-color: transparent;
 }
 .nf-root .ProseMirror img {
-  max-width: 100%;
+  width: 100%;
   height: auto;
   display: block;
   border-radius: 8px;
-  margin: 6px 0;
+  margin: 6px auto; /* centrada; el ancho por defecto es 100%, el style inline
+                       (width: N%) lo achica y margin auto la mantiene centrada */
 }
 .nf-root .ProseMirror img.ProseMirror-selectednode { outline: 2px solid #3E63DD; }
 /* Botón para insertar imagen: fijo abajo a la derecha del campo. */
@@ -108,6 +109,10 @@ export const EDITOR_CSS = `
 .nf-sep { width: 1px; height: 20px; background: #FFFFFF1F; margin: 0 2px; }
 .nf-swatches { display: none; }
 .nf-swatches.open { display: flex; }
+/* Con una imagen seleccionada, la barrita muestra SOLO los tamaños. */
+.nf-imgrow { display: none; }
+.nf-bubble.img-mode .nf-row:not(.nf-imgrow) { display: none; }
+.nf-bubble.img-mode .nf-imgrow { display: flex; }
 .nf-swatch {
   width: 22px;
   height: 22px;

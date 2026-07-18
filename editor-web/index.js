@@ -17,11 +17,15 @@ import {
   BUBBLE_BUTTONS,
   COLOR_BUTTON,
   COLOR_KEYS,
+  currentImageWidth,
   EDITOR_TEXT_COLORS,
   handleImagePaste,
   IMAGE_BTN_SVG,
+  IMAGE_SIZES,
   insertImageFile,
+  isImageSelected,
   runBubbleAction,
+  setImageWidth,
 } from "../src/lib/editorSetup";
 
 const post = (msg) => window.ReactNativeWebView?.postMessage(JSON.stringify(msg));
@@ -116,6 +120,27 @@ for (const key of COLOR_KEYS) {
   swatchEls[key] = sw;
 }
 
+// Fila de tamaños de imagen (visible solo con una imagen seleccionada).
+const imgRow = document.createElement("div");
+imgRow.className = "nf-row nf-imgrow";
+bubble.appendChild(imgRow);
+const sizeBtns = {};
+for (const size of IMAGE_SIZES) {
+  const b = document.createElement("button");
+  b.className = "nf-btn";
+  b.type = "button";
+  b.title = size.label;
+  b.setAttribute("aria-label", size.label);
+  b.textContent = size.html;
+  b.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImageWidth(editor, size.pct);
+  });
+  imgRow.appendChild(b);
+  sizeBtns[size.pct] = b;
+}
+
 // --- editor ----------------------------------------------------------------
 let lastHtml = "";
 
@@ -129,6 +154,15 @@ const editor = new Editor({
     post({ type: "change", html: lastHtml });
   },
   onTransaction: () => {
+    const imgSel = isImageSelected(editor);
+    bubble.classList.toggle("img-mode", imgSel);
+    if (imgSel) {
+      const w = currentImageWidth(editor);
+      for (const size of IMAGE_SIZES) {
+        sizeBtns[size.pct].classList.toggle("is-active", size.pct === w);
+      }
+      return;
+    }
     const state = activeStates(editor);
     for (const def of BUBBLE_BUTTONS) {
       buttons[def.key].classList.toggle("is-active", !!state[def.key]);

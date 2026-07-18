@@ -12,7 +12,20 @@ export const Image = Node.create({
   draggable: true,
 
   addAttributes() {
-    return { src: { default: null } };
+    return {
+      src: { default: null },
+      // Ancho en % del contenedor (null = 100, a todo lo ancho). Se serializa
+      // como style="width: N%" para que el puente marcas↔HTML lo lea.
+      width: {
+        default: null,
+        parseHTML: (el) => {
+          const m = /(\d{1,3})\s*%/.exec(el.style?.width || "");
+          return m ? Number(m[1]) : null;
+        },
+        renderHTML: (attrs) =>
+          attrs.width && attrs.width !== 100 ? { style: `width: ${attrs.width}%` } : {},
+      },
+    };
   },
 
   parseHTML() {

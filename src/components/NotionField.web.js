@@ -15,11 +15,15 @@ import {
   BUBBLE_BUTTONS,
   COLOR_BUTTON,
   COLOR_KEYS,
+  currentImageWidth,
   EDITOR_TEXT_COLORS,
   handleImagePaste,
   IMAGE_BTN_SVG,
+  IMAGE_SIZES,
   insertImageFile,
+  isImageSelected,
   runBubbleAction,
+  setImageWidth,
 } from "../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
 import { colors, radius } from "../theme";
@@ -75,7 +79,9 @@ export default function NotionField({
   const fileInputRef = useRef(null);
 
   if (!editor) return null;
-  const state = activeStates(editor);
+  const imgSelected = isImageSelected(editor);
+  const imgWidth = imgSelected ? currentImageWidth(editor) : 100;
+  const state = imgSelected ? {} : activeStates(editor);
 
   const stop = (e) => {
     // Sin esto el botón le roba el foco al editor y se pierde la selección.
@@ -94,8 +100,32 @@ export default function NotionField({
         overflow: "visible",
       }}
     >
-      <BubbleMenu editor={editor} options={{ placement: "top", offset: 8 }}>
+      <BubbleMenu
+        editor={editor}
+        options={{ placement: "top", offset: 8 }}
+        shouldShow={({ editor: ed }) => !ed.state.selection.empty || ed.isActive("image")}
+      >
         <div className="nf-bubble">
+          {imgSelected ? (
+            <div className="nf-row">
+              {IMAGE_SIZES.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  title={s.label}
+                  aria-label={s.label}
+                  className={`nf-btn${imgWidth === s.pct ? " is-active" : ""}`}
+                  onPointerDown={(e) => {
+                    stop(e);
+                    setImageWidth(editor, s.pct);
+                  }}
+                >
+                  {s.html}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
           <div className="nf-row">
             {BUBBLE_BUTTONS.map((b) => (
               <button
@@ -141,6 +171,8 @@ export default function NotionField({
               />
             ))}
           </div>
+            </>
+          )}
         </div>
       </BubbleMenu>
       <EditorContent editor={editor} />
