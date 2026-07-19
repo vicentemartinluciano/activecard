@@ -143,10 +143,15 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   `npm run editor:build` tras tocar `editor-web/`, `editorSetup.js`, `tiptapTColor.js`
   o `editorCss.js`); web = TipTap sobre react-dom (`NotionField.web.js`). El formato de
   almacenamiento NO cambió: `value`/`onChangeText` hablan MARCAS y `lib/richhtml.js`
-  convierte en el borde (41 tests). **Atajos de tipeo** (no hay botones para esto):
-  `---` = divisor, `->` = →, `- ` = viñeta, `1. ` = numerada. **Barrita flotante = solo
-  lo esencial** (negrita, cursiva, subrayado, resaltado con ícono de resaltador, color
-  de texto + 6 swatches) — decisión de Martín, no agregar botones.
+  convierte en el borde (85 tests). **Atajos de tipeo** (no hay botones para esto):
+  `---` = divisor, `->` = →, `- ` = viñeta, `1. ` = numerada. **Barrita flotante = lo
+  esencial** (negrita, cursiva, subrayado, resaltado, alineación, color + 6 swatches);
+  con una **imagen seleccionada** muestra en su lugar los tamaños S/M/G. Botón 🖼️ fijo
+  (abajo a la derecha) para insertar imagen. NO agregar más botones sin Martín.
+  **Alineación**: por bloque, 3 sentinels explícitos + default por cara (**frente centrado,
+  dorso izquierda**); no re-litigar el default sin Martín. **Imágenes**: inline base64
+  comprimido (canvas en el editor), tamaño ajustable, centradas, expandibles al estudiar;
+  se descartó la tabla `card_media` (inline es más simple y va igual al respaldo).
 - **Respaldo manual** (Ajustes): exporta/importa un JSON con todos los datos (sin
   settings/claves). Es el puente celu ↔ web (sin sync automático). Versión 2
   (incluye folders); los respaldos v1 siguen siendo restaurables.
@@ -237,6 +242,32 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   el bubble, y `expo export --platform web` sin romperse. NO verificado todavía: el
   guardado end-to-end (el navegador embebido del preview no abría la DB por los locks
   de OPFS — trampa conocida) y todo el comportamiento nativo del WebView.
+- **F78+ COMPLETAS (sesión de alineación + imágenes + IA-Notion, 100% OTA, sin bump)**:
+  - **Alineación por bloque + tarjeta de estudio limpia**: 3 sentinels invisibles de
+    alineación EXPLÍCITA (izq/centro/der, `ALIGN_SENTINELS` en `richtext.js`); sin sentinel
+    = "sin tocar" → default por cara. **El FRENTE arranca centrado por defecto, el dorso a la
+    izquierda** (`defaultAlign` en RichText + FlipCard). El editor del frente se ve centrado
+    (WYSIWYG: clase `.nf-align-center` + `defaultAlign` de `buildExtensions`; en nativo se
+    inyecta `window.__nfDefaultAlign`). Botón de alineación en la barrita (cicla izq→centro→der).
+    Tarjeta de estudio: SIN header "Pregunta/Respuesta", fondo `surfaceCard` (#151518, más
+    oscuro), SIN "Ver completo" (el scroll del dorso alcanza), estrella/rayo se dibujan por
+    ENCIMA del texto con `paddingTop`. Barra de EN PROGRESO afinada (sin `height:12`).
+  - **Imágenes en tarjetas (manual)**: bloque `img` inline en las marcas
+    (`IMG_SENTINEL + "<ancho%> " + dataURI`, base64 → entra al respaldo). Se insertan con el
+    botón 🖼️ del editor (file input) o pegando; TODO pasa DENTRO del editor (canvas), compresión
+    a JPEG (`lib/imageCompress.js`, máx 1280px), sin lib nativa. Nodo TipTap propio
+    (`lib/tiptapImage.js`) con atributo `width`. Tamaño ajustable (S/M/G = 45/70/100%) en la
+    barrita cuando hay imagen seleccionada; centradas; **tocar al estudiar = pantalla completa**
+    (lightbox Modal en `RichText.ImageBlock`). `toPlainText` omite las imágenes.
+  - **IA trae imágenes reales desde Notion (solo Notion)**: `blocksToText` emite `[IMG:n]` y
+    acumula URLs; `fetchNotionImages` las baja a data URIs en el celu; el prompt conserva los
+    `[IMG:n]`; `resolveImageMarkers` (generator.js) los cambia por el bloque imagen real. PDF
+    queda afuera (extraer el binario necesita lib pesada).
+- **Pendiente inmediato F78+**: Martín corre `ACTUALIZAR-APP.bat` (OTA) y hace el QA en el
+  celu de lo que el preview no pudo verificar por los locks de OPFS: guardado de tarjetas con
+  imagen, render al estudiar (frente centrado, imagen grande/centrada/expandible, tamaño), el
+  **pegar** imagen en el WebView de Android, y la generación IA desde una página de Notion con
+  imágenes. Ya confirmado en el celu: la imagen ahora respeta el tamaño (fix del `onLoad`).
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).
@@ -285,3 +316,17 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   false). Y como ese loop corre por JS: frenarlo con `useIsFocused` cuando la pantalla
   queda tapada (las tabs no se desmontan) — si no, congestiona el hilo JS y el resto
   de la app se pone lenta.
+- **`Image.getSize` FALLA con data URIs base64 en Android** (sí anda en web) — la imagen
+  quedaba sin proporción y caía a una altura fija chica, ignorando el ancho. La proporción
+  se saca del evento `onLoad` de la `<Image>` (`nativeEvent.source`), que sí trae las
+  dimensiones con base64; `getSize` queda solo como camino extra para la web
+  (`RichText.ImageBlock`).
+- **Alineación por bloque: izquierda EXPLÍCITA necesita su propio sentinel** — si "izquierda"
+  fuera "sin marca", no se podría distinguir de "sin tocar" (que usa el default de la cara,
+  centro en el frente). Por eso hay 3 sentinels (`ALIGN_SENTINELS.left/center/right`) y el
+  editor emite el `text-align` inline solo cuando difiere de su default de cara; una clase
+  CSS (`.nf-align-center`) centra el frente en el editor sin ensuciar las marcas.
+- **Imágenes de Notion NO se comprimen** (la compresión por canvas vive solo en el editor
+  WebView; el flujo de generación IA corre en RN, sin canvas) — se acotan por tamaño
+  (`MAX_IMG_B64` en notion.js) y se saltea la que pese de más. Las manuales SÍ se comprimen
+  (pasan por el editor).

@@ -172,14 +172,23 @@ avanzar (F70): la fallada no cuenta y re-entra al pool de
 **Rich text** (`lib/richtext.js`): marcas dentro del mismo TEXT —
 `**b**  *i*  __u__  ==hl==  [[color:texto]]` (claves de theme.textColors),
 líneas "- " como viñetas, "N. " como lista numerada y "---" como divisor.
-`parseRich` → bloques/spans anidables; marca sin cierre = literal.
-`toPlainText` para previews e IA. `describeBlock` (`lib/richhtml.js`) es la
-ÚNICA definición de qué es divisor / numerada / viñeta: la usan el render
-(RichText) y el editor, así lo que se ve al estudiar es lo que se ve al editar.
+Dos tipos de bloque más, marcados con un **sentinel invisible al inicio de la
+línea** (Unicode de uso privado, nunca tipeable ni visible): **alineación**
+explícita (`ALIGN_SENTINELS` left/center/right; sin sentinel = "sin tocar" → el
+render aplica el default de la cara, **frente centro / dorso izquierda**) e
+**imagen** inline (`IMG_SENTINEL + "<ancho%> " + dataURI` base64 comprimido, va
+al respaldo). `parseRich` → bloques/spans anidables; marca sin cierre = literal.
+`toPlainText` (para previews e IA) omite las imágenes y el sentinel de alineación.
+`describeBlock` (`lib/richhtml.js`) es la ÚNICA definición de qué es divisor /
+numerada / viñeta / imagen / alineación: la usan el render (RichText) y el editor.
+Las imágenes las inserta/comprime el editor (canvas, sin lib nativa;
+`lib/imageCompress.js` + nodo `lib/tiptapImage.js`); RichText las muestra con
+`<Image>` (proporción por `onLoad`, no `Image.getSize` — falla con base64 en
+Android), centradas, con tamaño ajustable (S/M/G) y tap = pantalla completa.
 
 **Editor Notion** (`components/NotionField.js` + `.web.js`, F77): WYSIWYG con
 TipTap v3. `value`/`onChangeText` SIEMPRE hablan marcas; `lib/richhtml.js`
-convierte en el borde (`marksToHtml` / `htmlToMarks`, 41 tests, sin DOM: un
+convierte en el borde (`marksToHtml` / `htmlToMarks`, 85 tests, sin DOM: un
 solo code path para jest/nativo/web). Nativo: WebView + bundle propio
 (`editor-web/index.js` → esbuild → `assets/editor/editorHtml.js`, generado y
 COMMITEADO ~410 KB → offline-first y viaja por OTA; `npm run editor:build`).
