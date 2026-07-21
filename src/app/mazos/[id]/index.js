@@ -9,7 +9,7 @@ import ActionSheet from "../../../components/ActionSheet";
 import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
-import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Screen } from "../../../components/ui";
+import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, setCardPositions, setCardStarred } from "../../../db/cards";
 import {
   deleteDeck,
@@ -26,7 +26,7 @@ import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
 import { getSetting, setSetting } from "../../../db/settings";
 import { toPlainText } from "../../../lib/richtext";
-import { colors, glow, gradients, radius, spacing, type } from "../../../theme";
+import { colors, glow, gradients, radius, spacing, textColors, type } from "../../../theme";
 
 // Botón destacado con la visual del hero de Inicio (degradado + glow azul).
 // Se usa arriba del mazo y como "Empezar" del sheet de estudio.
@@ -160,8 +160,10 @@ export default function DetalleMazo() {
         <Text style={styles.cardFront} numberOfLines={2}>
           {toPlainText(item.front)}
         </Text>
+        {item.source === "hybrid" ? (
+          <Pill icon="zap" label="Idea" color={textColors.violeta} style={styles.ideaPill} />
+        ) : null}
         <Text style={type.small} numberOfLines={1}>
-          {item.source === "hybrid" ? "★ conexión · " : ""}
           {toPlainText(item.back)}
         </Text>
       </View>
@@ -367,6 +369,10 @@ const styles = StyleSheet.create({
   cardFront: {
     ...type.body,
     fontWeight: "500",
+  },
+  ideaPill: {
+    borderColor: "rgba(158,110,222,0.35)",
+    backgroundColor: "rgba(158,110,222,0.10)",
   },
   heroBtn: {
     borderRadius: radius.pill,

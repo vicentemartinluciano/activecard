@@ -151,7 +151,7 @@ export default function Ajustes() {
 
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Gimnasio Mental</Text>
-          <Button label="Ver conexiones creadas" onPress={() => router.push("/conexiones")} />
+          <Button label="Ver mis ideas" onPress={() => router.push("/gimnasio")} />
         </Card>
       </ScrollView>
     </Screen>

@@ -57,7 +57,9 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   proporcional al %). Reemplazó al viejo Modo Enfoque y a las prioridades mensuales.
   **Etiquetas** sobre mazos = solo filtro/búsqueda en Biblioteca.
 - **Carpetas** (tabla `folders`, migración v3): un mazo pertenece a 0 o 1 carpeta.
-  Biblioteca = grilla de carpetas arriba + mazos sueltos abajo; pantalla
+  Biblioteca = grilla de carpetas arriba + **TODOS los mazos abajo (sueltos primero,
+  luego los que están en carpeta; los con carpeta muestran su pill de carpeta)** — las
+  carpetas quedan como atajo por practicidad, decisión de Martín; pantalla
   `carpetas/[id]` gestiona sus mazos; chips de carpeta en el detalle del mazo.
   Borrar carpeta NUNCA borra mazos (quedan sueltos). Las carpetas no llevan tags.
 - **Buscador de Biblioteca** (`lib/search.js`, en memoria con `toPlainText` — NO SQL
@@ -106,11 +108,28 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Deshacer un repaso**: revierte SOLO la nota (restaura estado FSRS + borra el
   review_log vía `snapshotFsrs`/`undoReview` en `db/cards.js`). Las conexiones del
   Gimnasio y sus tarjetas híbridas NUNCA se borran al deshacer.
-- **Gimnasio Mental**: chat de texto iterativo con auditor exigente; micrófono opcional (speech nativo Android, sin API extra); al validar → guarda conexión + crea tarjeta híbrida que entra a FSRS. Siempre salteable.
-  **Carpeta virtual "Gimnasio Mental"** en Biblioteca (tile fijo, solo si hay conexiones):
-  lista los mazos con conexiones validadas (`listDecksWithConnections`), ruta
-  `carpetas/gimnasio.js`. NO es una fila de `folders`: no se guarda, no se borra/renombra,
-  no entra al backup ni al buscador.
+- **Gimnasio Mental — SOCIO EXIGENTE** (rediseño F79): el auditor pasó de juez por turno
+  a socio que charla y construye la conexión CON el usuario. Contrato JSON por turno
+  `{modo: "charla"|"sintesis", mensaje, tarjeta}` (`AUDITOR_SYSTEM` en `lib/prompts.js`,
+  `validateAuditorTurn`/`buildAuditorMessages` en `lib/auditor.js`). Cierre por AMBOS: el
+  socio propone la síntesis cuando la ve madura, o el usuario la fuerza con "Sintetizar"
+  (inyecta `AUDITOR_SYNTH_REQUEST` como mensaje user, no se muestra). La síntesis se muestra
+  en un **preview editable con NotionField** (frente pregunta + dorso síntesis con marcas)
+  antes de guardar; desde ahí se puede "Seguir charlando" o Saltar. Al guardar → tarjeta
+  híbrida (source 'hybrid', mismo mazo) que entra a FSRS + `saveConnection` (registro
+  interno). Micrófono opcional. Máquina de estados en `ChatAuditor.js` (chat→preview→saved).
+  NO volver al flujo de veredictos (crítica/valida) ni al guardado directo sin preview.
+- **Gimnasio Mental = VISTA DERIVADA de tarjetas-idea** (rediseño F80, decisión de Martín):
+  ya NO lee de `connections`. Es una vista en vivo de las cards con `source='hybrid'`
+  (`listDecksWithIdeas`/`listIdeaCards` en `db/cards.js`). La idea vive UNA sola vez, en su
+  mazo; el Gimnasio la muestra desde otro ángulo. Rutas `gimnasio/index.js` (espejo de
+  Biblioteca: carpetas con ideas + TODOS los mazos con ideas, sueltos primero; `?folderId=N`
+  filtra) y `gimnasio/[deckId].js` (filas de ideas → tocar abre el editor REAL de la tarjeta,
+  así editar la idea = editar la tarjeta del mazo). En el detalle del mazo la híbrida lleva
+  un **pill violeta "⚡ Idea"** (reemplazó el prefijo "★ conexión · "). El tile de Biblioteca
+  aparece si `listDecksWithIdeas()` devuelve algo. La tabla `connections` queda como registro
+  interno (transcript, viaja en el backup); se ELIMINARON `conexiones.js`, `carpetas/gimnasio.js`
+  y las funciones `listConnections`/`listDecksWithConnections`. No re-litigar sin Martín.
 - **Generación con IA es opcional** (creación manual). Fuentes: texto / archivo / Notion.
   Extracción: conceptos_clave / completo / **personalizado** (instrucción libre del
   usuario, concatenada al mensaje enviado a Claude). Import de Quizlet ELIMINADO (F23):

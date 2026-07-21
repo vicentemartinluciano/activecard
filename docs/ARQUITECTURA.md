@@ -32,11 +32,10 @@ src/
 │   │                           #   personalizado; Stack.Screen title "Generar con IA"
 │   ├── (tabs)/biblioteca.js    # SOLO consulta/filtro (la creación vive en el hub Crear):
 │   │                           #   buscador glassmorphic full-width + grilla de carpetas
-│   │                           #   fluida (con tile virtual "Gimnasio Mental" si hay
-│   │                           #   conexiones) + mazos sueltos (DeckListItem) + filtro de
-│   │                           #   etiquetas GLOBAL (sobre todos los mazos, no solo sueltos;
-│   │                           #   oculta la grilla de carpetas y muestra pill de carpeta
-│   │                           #   por mazo filtrado) + skeleton hasta el primer fetch
+│   │                           #   fluida (con tile virtual "Gimnasio Mental" si hay ideas)
+│   │                           #   + TODOS los mazos (sueltos primero, luego con carpeta;
+│   │                           #   DeckListItem con pill de carpeta en los que la tienen) +
+│   │                           #   filtro de etiquetas GLOBAL + skeleton hasta el primer fetch
 │   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado,
 │   │                           #   círculos ✕/✓ para calificar, estrella en la tarjeta,
 │   │                           #   deshacer (icono junto al contador + botón en el resumen),
@@ -56,10 +55,13 @@ src/
 │   ├── mazos/[id]/tarjeta.js   # editor manual (RichField frente/dorso) con
 │   │                           #   KeyboardAvoidingView + keyboardShouldPersistTaps
 │   ├── carpetas/[id]/index.js  # carpeta real: sus mazos, agregar/quitar, renombrar, borrar
-│   ├── carpetas/gimnasio.js    # carpeta VIRTUAL: mazos con conexiones (derivada, no es fila
-│   │                           #   de `folders`; ruta estática, no colisiona con [id])
-│   ├── ajustes.js              # prioridades %, Respaldo, Claves (solo web), conexiones
-│   └── conexiones.js           # conexiones validadas del Gimnasio (?deckId= filtra por mazo)
+│   ├── gimnasio/index.js       # Gimnasio Mental: vista derivada de cards source='hybrid'
+│   │                           #   (listDecksWithIdeas). Espejo de Biblioteca: carpetas con
+│   │                           #   ideas + TODOS los mazos con ideas (sueltos primero).
+│   │                           #   ?folderId=N filtra a esa carpeta
+│   ├── gimnasio/[deckId].js    # ideas de un mazo (listIdeaCards): filas frente+dorso+fecha;
+│   │                           #   tocar → editor real (/mazos/[id]/tarjeta?cardId=N)
+│   ├── ajustes.js              # prioridades %, Respaldo, Claves (solo web), "Ver mis ideas"
 ├── db/                         # SQLite async: client (retry OPFS), schema (migraciones),
 │   │                           #   decks, folders, cards (+ snapshotFsrs/undoReview para
 │   │                           #   deshacer un repaso), settings, connections, reviewQueue,
@@ -242,27 +244,36 @@ en código (translateY + rotate escalonados por índice, one-shot,
 `useNativeDriver`), un solo archivo que funciona en nativo Y web — reemplazó
 al Lottie, que se congelaba en el APK new-arch.
 
-**Gimnasio Mental**: chat multi-turno con el Auditor (JSON
-{veredicto, feedback, hybrid_card}). Al validar: inserta en `connections` +
-tarjeta híbrida (source 'hybrid', mismo mazo) que entra a FSRS.
+**Gimnasio Mental**: chat multi-turno con el Socio Exigente (JSON por turno
+{modo: charla|sintesis, mensaje, tarjeta}). Charla libre hasta que la conexión
+está madura; el socio propone la síntesis o el usuario la fuerza con
+"Sintetizar" → preview editable con NotionField → al guardar inserta en
+`connections` (registro interno) + tarjeta híbrida (source 'hybrid', mismo mazo)
+que entra a FSRS.
 
 **Carpetas** (`db/folders.js`): nivel de organización sobre los mazos.
 Biblioteca = grilla de carpetas fluida (`flexGrow`/`flexBasis`, tiles con
-nombre + cantidad) arriba y mazos sueltos abajo; pantalla `carpetas/[id]`
+nombre + cantidad) arriba y TODOS los mazos abajo (sueltos primero, luego los
+que están en carpeta; los con carpeta muestran su pill de carpeta) — las
+carpetas quedan como atajo por practicidad; pantalla `carpetas/[id]`
 gestiona sus mazos; el detalle del mazo tiene chips de carpeta con toggle.
 Las etiquetas siguen siendo solo filtro/búsqueda (las carpetas no llevan
 tags). Se crean desde el hub `(tabs)/crear.js` ("Crear Nueva Carpeta" →
 `ActionSheet`+`InlineAdd`, navega a Biblioteca al terminar); se renombran
 desde `carpetas/[id]`. Biblioteca ya NO tiene botón de creación propio.
 
-**Gimnasio Mental (carpeta virtual)**: tile fijo en la grilla de carpetas,
-visible solo si `listDecksWithConnections()` (`db/connections.js`) devuelve
-algo — mazos con ≥1 conexión validada, agrupados/ordenados por última
-conexión. NO es una fila de `folders`: no tiene id propio, no se puede
-borrar/renombrar, no entra en `searchLibrary` ni en el backup. Ruta
-`carpetas/gimnasio.js` (estática; expo-router la prioriza sobre `[id]`) lista
-esos mazos → cada uno navega a `conexiones?deckId=N` (`listConnections`
-acepta `deckId` opcional para filtrar).
+**Gimnasio Mental (vista derivada, no carpeta virtual)**: ya NO lee de
+`connections` — es una vista en vivo de las tarjetas-idea reales (cards con
+`source='hybrid'`). Tile fijo en la grilla de carpetas de Biblioteca, visible
+solo si `listDecksWithIdeas()` (`db/cards.js`) devuelve algo. La idea vive UNA
+sola vez, en su mazo; el Gimnasio solo la muestra desde otro ángulo. Ruta
+`gimnasio/index.js` = espejo de Biblioteca (carpetas con ideas arriba, TODOS
+los mazos con ideas abajo — sueltos primero; `?folderId=N` filtra a una
+carpeta) → `gimnasio/[deckId].js` lista las ideas del mazo (`listIdeaCards`) →
+tocar una abre el editor REAL (`/mazos/[id]/tarjeta?cardId=N`): editar ahí
+edita la tarjeta del mazo. En el detalle del mazo la híbrida lleva un pill
+violeta "⚡ Idea". La tabla `connections` queda como registro interno de las
+charlas (transcript); sigue viajando en el backup. No entra en `searchLibrary`.
 
 **ActionSheet** (`components/ActionSheet.js`): bottom sheet reutilizable
 (`Modal transparent`, funciona en web y nativo) para menús contextuales.

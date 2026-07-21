@@ -1,4 +1,7 @@
-// Repositorio de conexiones del Gimnasio Mental (async).
+// Registro interno de las charlas del Gimnasio Mental (transcript + síntesis
+// final). La UI ya NO lee de acá: las ideas se derivan en vivo de las tarjetas
+// con source='hybrid' (ver listDecksWithIdeas/listIdeaCards en db/cards.js).
+// Esta tabla queda como bitácora y viaja en el respaldo.
 
 import { getDb } from "./client";
 
@@ -16,39 +19,4 @@ export async function saveConnection({ cardId, finalText, transcript, hybridCard
     ]
   );
   return res.lastInsertRowId;
-}
-
-export async function listConnections(deckId = null) {
-  const db = await getDb();
-  if (deckId != null) {
-    return db.getAllAsync(
-      `SELECT co.*, c.front AS card_front, c.deck_id
-       FROM connections co JOIN cards c ON c.id = co.card_id
-       WHERE c.deck_id = ?
-       ORDER BY co.created_at DESC`,
-      [deckId]
-    );
-  }
-  return db.getAllAsync(
-    `SELECT co.*, c.front AS card_front, c.deck_id
-     FROM connections co JOIN cards c ON c.id = co.card_id
-     ORDER BY co.created_at DESC`
-  );
-}
-
-// Mazos que tienen al menos una conexión validada del Gimnasio Mental,
-// ordenados por la conexión más reciente. Base de la carpeta virtual
-// "Gimnasio Mental" en la Biblioteca.
-export async function listDecksWithConnections() {
-  const db = await getDb();
-  return db.getAllAsync(
-    `SELECT d.id, d.name, d.icon,
-            COUNT(co.id) AS connection_count,
-            MAX(co.created_at) AS last_connection_at
-     FROM connections co
-     JOIN cards c ON c.id = co.card_id
-     JOIN decks d ON d.id = c.deck_id
-     GROUP BY d.id
-     ORDER BY last_connection_at DESC`
-  );
 }

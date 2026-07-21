@@ -6,8 +6,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import DeckListItem from "../../components/DeckListItem";
 import Skeleton from "../../components/Skeleton";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
-import { listAllCards } from "../../db/cards";
-import { listDecksWithConnections } from "../../db/connections";
+import { listAllCards, listDecksWithIdeas } from "../../db/cards";
 import { listDecks, listTags } from "../../db/decks";
 import { listFolders } from "../../db/folders";
 import { getDecksDailyProgress } from "../../db/progress";
@@ -35,7 +34,7 @@ export default function Biblioteca() {
       listTags(),
       listAllCards(),
       getDecksDailyProgress(),
-      listDecksWithConnections(),
+      listDecksWithIdeas(),
     ]).then(([d, f, t, c, p, g]) => {
       if (!alive) return;
       setDecks(d);
@@ -59,14 +58,16 @@ export default function Biblioteca() {
     );
   };
 
-  // La lista principal muestra solo los mazos sueltos; los que tienen carpeta
-  // viven dentro de su carpeta (grilla de arriba). Filtrar por etiqueta pasa a
-  // ser global: busca sobre TODOS los mazos, no solo los sueltos.
+  // La lista principal muestra TODOS los mazos: sueltos primero y después los
+  // que están en carpeta (alfabético dentro de cada grupo — listDecks ya ordena
+  // por nombre). Las carpetas de la grilla quedan como atajo. Filtrar por
+  // etiqueta busca sobre TODOS los mazos.
   const looseDecks = decks.filter((d) => !d.folder_id);
+  const folderedDecks = decks.filter((d) => d.folder_id);
   const tagFiltering = activeTagIds.length > 0;
   const visibleDecks = tagFiltering
     ? decks.filter((d) => d.tags.some((t) => activeTagIds.includes(t.id)))
-    : looseDecks;
+    : [...looseDecks, ...folderedDecks];
   const folderNameById = Object.fromEntries(folders.map((f) => [f.id, f.name]));
 
   const searching = query.trim().length > 0;
@@ -220,7 +221,7 @@ export default function Biblioteca() {
                   <View style={styles.folderGrid}>
                     {gymDecks.length > 0 ? (
                       <Card
-                        onPress={() => router.push("/carpetas/gimnasio")}
+                        onPress={() => router.push("/gimnasio")}
                         style={[styles.folderTile, styles.gymTile]}
                       >
                         <Feather name="zap" size={22} color={colors.streak} />
@@ -260,11 +261,7 @@ export default function Biblioteca() {
             text={
               tagFiltering
                 ? "Ningún mazo tiene esas etiquetas."
-                : decks.length === 0
-                  ? "Todavía no hay mazos. Creá el primero en la pestaña Crear."
-                  : looseDecks.length === 0
-                    ? "Todos los mazos están dentro de carpetas."
-                    : "Ningún mazo suelto tiene esas etiquetas."
+                : "Todavía no hay mazos. Creá el primero en la pestaña Crear."
             }
             icon="search"
           />
@@ -273,7 +270,7 @@ export default function Biblioteca() {
           <DeckListItem
             deck={item}
             progress={progressByDeck[item.id]}
-            folderName={tagFiltering ? folderNameById[item.folder_id] : undefined}
+            folderName={folderNameById[item.folder_id]}
             onPress={() => router.push(`/mazos/${item.id}`)}
           />
         )}

@@ -74,6 +74,33 @@ export async function listCardsByDeck(deckId) {
   ]);
 }
 
+// Mazos con al menos una tarjeta-idea (source='hybrid'), con su carpeta,
+// cantidad y fecha de la última idea. Base del Gimnasio Mental: se deriva
+// en vivo de cards — la idea vive UNA sola vez, en su mazo.
+// Orden: sueltos primero, después con carpeta; alfabético dentro de cada grupo.
+export async function listDecksWithIdeas() {
+  const db = await getDb();
+  return db.getAllAsync(
+    `SELECT d.id, d.name, d.icon, d.folder_id,
+            COUNT(c.id) AS idea_count,
+            MAX(c.created_at) AS last_idea_at
+     FROM cards c JOIN decks d ON d.id = c.deck_id
+     WHERE c.source = 'hybrid'
+     GROUP BY d.id
+     ORDER BY (d.folder_id IS NOT NULL), d.name COLLATE NOCASE`
+  );
+}
+
+// Tarjetas-idea de un mazo, la más reciente primero.
+export async function listIdeaCards(deckId) {
+  const db = await getDb();
+  return db.getAllAsync(
+    `SELECT * FROM cards WHERE deck_id = ? AND source = 'hybrid'
+     ORDER BY created_at DESC, id DESC`,
+    [deckId]
+  );
+}
+
 // Marca/desmarca la estrella (starred: 0 | 1).
 export async function setCardStarred(id, starred) {
   const db = await getDb();
