@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import ChatAuditor from "../components/ChatAuditor";
@@ -11,7 +11,7 @@ import ProgressBar from "../components/ProgressBar";
 import Skeleton from "../components/Skeleton";
 import SwipeCard from "../components/SwipeCard";
 import { Button, EmptyState, Pill, Screen } from "../components/ui";
-import { reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../db/cards";
+import { getCard, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
 import { buildFailedRound } from "../lib/studySession";
 import { toPlainText } from "../lib/richtext";
@@ -45,6 +45,8 @@ export default function Repaso() {
   const [counts, setCounts] = useState({ good: 0, again: 0, connections: 0 });
   const [failedIds, setFailedIds] = useState([]);
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
+  // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
+  const pendingEditIdRef = useRef(null);
 
   const startRound = useCallback((cards) => {
     setRound(cards);
@@ -112,6 +114,38 @@ export default function Repaso() {
     }
     next();
   };
+
+  // Editar la tarjeta actual sin salir del repaso. La cola diaria mezcla mazos,
+  // así que el editor se abre con el deck de la propia tarjeta.
+  const editCard = (card) => {
+    pendingEditIdRef.current = card.id;
+    router.push(`/mazos/${card.deck_id}/tarjeta?cardId=${card.id}`);
+  };
+
+  // Al volver del editor, releemos SOLO la tarjeta editada y mergeamos su texto
+  // en la ronda en memoria (front/back nada más, para no pisar el estado FSRS).
+  useFocusEffect(
+    useCallback(() => {
+      const editedId = pendingEditIdRef.current;
+      if (editedId == null) return;
+      pendingEditIdRef.current = null;
+      let alive = true;
+      getCard(editedId).then((fresh) => {
+        if (!alive) return;
+        if (!fresh) {
+          setRound((r) => r.filter((c) => c.id !== editedId));
+          setFlipped(false);
+        } else {
+          setRound((r) =>
+            r.map((c) => (c.id === editedId ? { ...c, front: fresh.front, back: fresh.back } : c))
+          );
+        }
+      });
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
 
   const reviewFailed = () => {
     startRound(buildFailedRound(round, failedIds));
@@ -239,6 +273,7 @@ export default function Repaso() {
             }}
             gymArmed={gymArmed}
             onToggleGym={() => setGymArmed((g) => !g)}
+            onEdit={() => editCard(card)}
           />
         </SwipeCard>
       </View>

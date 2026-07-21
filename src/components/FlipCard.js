@@ -22,6 +22,7 @@ export default function FlipCard({
   onToggleStar,
   gymArmed,
   onToggleGym,
+  onEdit,
 }) {
   const scaleX = useRef(new Animated.Value(1)).current;
   const [showBack, setShowBack] = useState(flipped);
@@ -104,6 +105,14 @@ export default function FlipCard({
               />
             </Pressable>
           ) : null}
+          {/* Lápiz de edición: esquina superior IZQUIERDA (la estrella y el rayo
+              van a la derecha). Abre el editor de la tarjeta sin salir del
+              estudio. Mismo patrón absoluto: el tap no dispara flip ni swipe. */}
+          {onEdit ? (
+            <Pressable onPress={onEdit} hitSlop={10} style={styles.edit}>
+              <Feather name="edit-2" size={20} color={colors.textMuted} style={{ opacity: 0.35 }} />
+            </Pressable>
+          ) : null}
         </View>
       </Animated.View>
     </Pressable>
@@ -141,6 +150,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: spacing.md,
     right: spacing.md + 36,
+    zIndex: 2,
+  },
+  edit: {
+    position: "absolute",
+    top: spacing.md,
+    left: spacing.md,
     zIndex: 2,
   },
   textBox: {

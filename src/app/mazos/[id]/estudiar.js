@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import ConfettiOverlay from "../../../components/ConfettiOverlay";
@@ -10,7 +10,7 @@ import ProgressBar from "../../../components/ProgressBar";
 import Skeleton from "../../../components/Skeleton";
 import SwipeCard from "../../../components/SwipeCard";
 import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
-import { listCardsByDeck, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../../../db/cards";
+import { getCard, listCardsByDeck, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import { colors, glow, gradients, radius, spacing, type } from "../../../theme";
@@ -48,6 +48,8 @@ export default function Estudiar() {
   const [counts, setCounts] = useState({ good: 0, again: 0 });
   const [failedIds, setFailedIds] = useState([]);
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
+  // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
+  const pendingEditIdRef = useRef(null);
 
   // keepOrder: respeta el orden manual (position) en vez de barajar.
   const startRound = useCallback((cards, keepOrder = false) => {
@@ -131,6 +133,40 @@ export default function Estudiar() {
     await setCardStarred(card.id, v);
     setRound((r) => r.map((c) => (c.id === card.id ? { ...c, starred: v } : c)));
   };
+
+  // Editar la tarjeta actual sin salir del estudio: abre el editor existente y
+  // marca el id para refrescarlo al volver (ver el useFocusEffect de abajo).
+  const editCard = (card) => {
+    pendingEditIdRef.current = card.id;
+    router.push(`/mazos/${deckId}/tarjeta?cardId=${card.id}`);
+  };
+
+  // Al volver del editor, releemos SOLO la tarjeta editada y mergeamos su texto
+  // en la ronda en memoria (front/back nada más, para no pisar el estado FSRS).
+  // El ref evita cualquier lectura en focos normales.
+  useFocusEffect(
+    useCallback(() => {
+      const editedId = pendingEditIdRef.current;
+      if (editedId == null) return;
+      pendingEditIdRef.current = null;
+      let alive = true;
+      getCard(editedId).then((fresh) => {
+        if (!alive) return;
+        if (!fresh) {
+          // La borró desde el editor: sale de la ronda (index cae en la siguiente).
+          setRound((r) => r.filter((c) => c.id !== editedId));
+          setFlipped(false);
+        } else {
+          setRound((r) =>
+            r.map((c) => (c.id === editedId ? { ...c, front: fresh.front, back: fresh.back } : c))
+          );
+        }
+      });
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
 
   if (status === "loading") {
     return (
@@ -244,6 +280,7 @@ export default function Estudiar() {
             onFlip={() => setFlipped((f) => !f)}
             starred={!!card.starred}
             onToggleStar={() => toggleStar(card)}
+            onEdit={() => editCard(card)}
           />
         </SwipeCard>
       </View>
