@@ -1,7 +1,8 @@
-// Gimnasio Mental: conversación iterativa con el Auditor Exigente.
-// El usuario propone una conexión (texto o dictado), Claude la audita.
-// Si la critica → puede replantearla acá mismo, las veces que quiera.
-// Si la valida → se guarda la conexión y nace una tarjeta híbrida.
+// Gimnasio Mental: charla iterativa con el Socio Exigente.
+// El usuario construye una conexión CON el socio (texto o dictado). Cuando la
+// conexión está madura, el socio propone una síntesis (o el usuario la fuerza
+// con "Sintetizar") → se muestra la tarjeta en un preview editable → al guardar
+// se crea la conexión y nace la tarjeta híbrida (una tarjeta más, entra a FSRS).
 
 import { useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -9,54 +10,82 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 import { createCard } from "../db/cards";
 import { saveConnection } from "../db/connections";
 import { auditConnection } from "../lib/auditor";
+import { toPlainText } from "../lib/richtext";
 import { colors, radius, spacing, type } from "../theme";
 import MicButton from "./MicButton";
+import NotionField from "./NotionField";
 import { Button, Field } from "./ui";
 
 export default function ChatAuditor({ card, onDone }) {
-  const [transcript, setTranscript] = useState([]); // [{role: 'user'|'auditor', text}]
+  // stage: 'chat' (charla) | 'preview' (tarjeta editable) | 'saved' (guardada)
+  const [stage, setStage] = useState("chat");
+  const [transcript, setTranscript] = useState([]); // [{role:'user'|'auditor', text, card?}]
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [validated, setValidated] = useState(null); // {hybridCardId} al validar
+  const [draft, setDraft] = useState({ front: "", back: "" }); // tarjeta en preview
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(null); // {hybridCardId, front} tras guardar
   const scrollRef = useRef(null);
   const baseInputRef = useRef(""); // texto previo al dictado en curso
 
-  const send = async () => {
+  // Un turno de charla. forceSynthesis lo dispara el botón "Sintetizar": puede
+  // ir sin texto nuevo (solo pide cerrar con lo que ya hay).
+  const send = async ({ forceSynthesis = false } = {}) => {
     const text = input.trim();
-    if (!text || busy) return;
-    const nextTranscript = [...transcript, { role: "user", text }];
+    if (busy) return;
+    if (!text && !forceSynthesis) return;
+    const nextTranscript = text ? [...transcript, { role: "user", text }] : transcript;
     setTranscript(nextTranscript);
     setInput("");
     baseInputRef.current = "";
     setBusy(true);
     setError(null);
     try {
-      const result = await auditConnection(card, nextTranscript);
-      setTranscript([...nextTranscript, { role: "auditor", text: result.feedback }]);
-      if (result.validated) {
-        const hybridCardId = await createCard({
-          deckId: card.deck_id,
-          front: result.hybrid.front,
-          back: result.hybrid.back,
-          source: "hybrid",
-          originCardId: card.id,
-        });
-        await saveConnection({
-          cardId: card.id,
-          finalText: text,
-          transcript: [...nextTranscript, { role: "auditor", text: result.feedback }],
-          hybridCardId,
-        });
-        setValidated({ hybridCardId, front: result.hybrid.front });
+      const turn = await auditConnection(card, nextTranscript, { forceSynthesis });
+      const auditorMsg = turn.card
+        ? { role: "auditor", text: turn.message, card: turn.card }
+        : { role: "auditor", text: turn.message };
+      setTranscript([...nextTranscript, auditorMsg]);
+      if (turn.mode === "sintesis") {
+        setDraft({ ...turn.card });
+        setStage("preview");
       }
     } catch (e) {
       setError(e.message || String(e));
-      // Devolver el texto al input para no perder lo escrito.
+      // Restaurar el estado previo para no perder lo escrito.
       setTranscript(transcript);
       setInput(text);
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Guardar la tarjeta editada: crea la híbrida y registra la conexión.
+  const confirmSave = async () => {
+    if (!draft.front.trim() || !draft.back.trim() || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const hybridCardId = await createCard({
+        deckId: card.deck_id,
+        front: draft.front,
+        back: draft.back,
+        source: "hybrid",
+        originCardId: card.id,
+      });
+      await saveConnection({
+        cardId: card.id,
+        finalText: toPlainText(draft.back),
+        transcript,
+        hybridCardId,
+      });
+      setSaved({ hybridCardId, front: draft.front });
+      setStage("saved");
+    } catch (e) {
+      setError(e.message || String(e)); // queda en preview, se puede reintentar
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -68,11 +97,62 @@ export default function ChatAuditor({ card, onDone }) {
     }
   };
 
+  // --- Preview: la tarjeta propuesta, editable como cualquier otra ---
+  if (stage === "preview") {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Tarjeta propuesta</Text>
+        <Text style={type.small}>Ajustala como quieras antes de guardarla.</Text>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.sm }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ gap: spacing.sm }}>
+            <Text style={type.small}>Frente (pregunta)</Text>
+            <NotionField
+              value={draft.front}
+              onChangeText={(v) => setDraft((d) => ({ ...d, front: v }))}
+              defaultAlign="center"
+            />
+          </View>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={type.small}>Dorso (síntesis)</Text>
+            <NotionField
+              value={draft.back}
+              onChangeText={(v) => setDraft((d) => ({ ...d, back: v }))}
+            />
+          </View>
+        </ScrollView>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Button
+          label={saving ? "Guardando…" : "Guardar tarjeta"}
+          kind="primary"
+          onPress={confirmSave}
+          disabled={!draft.front.trim() || !draft.back.trim() || saving}
+        />
+        <View style={styles.actions}>
+          <Button
+            label="Seguir charlando"
+            kind="ghost"
+            style={{ flex: 1 }}
+            onPress={() => {
+              setError(null);
+              setStage("chat");
+            }}
+          />
+          <Button label="Saltar" kind="ghost" onPress={() => onDone({ skipped: true })} />
+        </View>
+      </View>
+    );
+  }
+
+  // --- Charla ---
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Gimnasio Mental</Text>
       <Text style={type.small}>
-        ¿Con qué otra idea, libro, materia o vivencia conectás este concepto?
+        Charlá con tu socio: ¿con qué otra idea, libro, materia o vivencia conectás este concepto?
       </Text>
 
       <ScrollView
@@ -98,10 +178,10 @@ export default function ChatAuditor({ card, onDone }) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {validated ? (
+      {saved ? (
         <View style={styles.validatedBox}>
           <Text style={styles.validatedTitle}>Conexión validada</Text>
-          <Text style={type.small}>Nueva tarjeta híbrida: “{validated.front}”</Text>
+          <Text style={type.small}>Nueva tarjeta híbrida: “{saved.front}”</Text>
           <Button label="Continuar" kind="primary" onPress={() => onDone({ validated: true })} />
         </View>
       ) : (
@@ -122,10 +202,15 @@ export default function ChatAuditor({ card, onDone }) {
           <View style={styles.actions}>
             <Button label="Saltar" kind="ghost" onPress={() => onDone({ skipped: true })} />
             <Button
-              label={transcript.length > 0 ? "Replantear" : "Enviar al auditor"}
+              label="Sintetizar"
+              onPress={() => send({ forceSynthesis: true })}
+              disabled={busy || !transcript.some((m) => m.role === "user")}
+            />
+            <Button
+              label="Enviar"
               kind="primary"
               style={{ flex: 1 }}
-              onPress={send}
+              onPress={() => send()}
               disabled={!input.trim() || busy}
             />
           </View>

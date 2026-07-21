@@ -1,4 +1,9 @@
-import { buildGeneratorMessage, buildGeneratorPdfPrompt } from "../prompts";
+import {
+  AUDITOR_SYNTH_REQUEST,
+  AUDITOR_SYSTEM,
+  buildGeneratorMessage,
+  buildGeneratorPdfPrompt,
+} from "../prompts";
 
 describe("buildGeneratorMessage", () => {
   test("sin instrucción personalizada no incluye el bloque adicional", () => {
@@ -39,5 +44,21 @@ describe("buildGeneratorPdfPrompt", () => {
     expect(msg).toContain("INSTRUCCIONES ADICIONALES DEL USUARIO");
     expect(msg).toContain("solo definiciones con nombre de autor");
     expect(msg).toContain("PDF adjunto");
+  });
+});
+
+describe("AUDITOR_SYSTEM", () => {
+  test("fija el contrato de dos modos con tarjeta", () => {
+    expect(AUDITOR_SYSTEM).toContain('"modo"');
+    expect(AUDITOR_SYSTEM).toContain('"sintesis"');
+    expect(AUDITOR_SYSTEM).toContain('"tarjeta"');
+  });
+
+  test("conserva el bloque de marcas de rich text", () => {
+    expect(AUDITOR_SYSTEM).toContain("[[color:");
+  });
+
+  test("el pedido de síntesis menciona el botón Sintetizar", () => {
+    expect(AUDITOR_SYNTH_REQUEST).toContain("Sintetizar");
   });
 });
