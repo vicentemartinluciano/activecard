@@ -36,7 +36,7 @@ src/
 │   │                           #   si hay ideas) + TODOS los mazos (sueltos primero, luego con
 │   │                           #   carpeta) con DeckListItem minimalista. Envuelta en SectionSwipe
 │   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado,
-│   │                           #   círculos ✕/✓ para calificar, estrella en la tarjeta,
+│   │                           #   círculos ✕/~/✓ (3 niveles) para calificar, estrella en la tarjeta,
 │   │                           #   deshacer (icono junto al contador + botón en el resumen),
 │   │                           #   resumen oscuro con glow cián + confeti propio, skeleton
 │   ├── crear/preseleccion.js   # revisar/editar (RichField) antes de guardar
@@ -129,7 +129,8 @@ recorrido, empate → menor deckId). 100% aparece el doble de seguido que 50%.
 Dentro de cada mazo, la más vencida primero.
 
 **Repaso diario** (F56): mismo sistema que el modo mazo — swipe (derecha =
-Good, izquierda = Again) o círculos ✕/✓ → `reviewCard` mode 'daily' →
+Good, izquierda = Again, arriba = Hard "Más o menos") o círculos ✕/~/✓ →
+`reviewCard` mode 'daily' →
 SIGUIENTE tarjeta directo; al final, ronda extra opcional de falladas (igual
 que el modo mazo, mode 'daily'). El Gimnasio Mental es OPT-IN por tarjeta: el
 rayo ⚡ junto a la estrella de la FlipCard (estado local one-shot, no persiste)
@@ -364,8 +365,10 @@ por el teclado. La Etapa 1 es 100% JS (va por OTA al runtime 1.2.0):
 - **FlipCard**: las dos caras `absoluteFill` con rotateY/opacity se rompían en
   el device → UNA cara con layout natural que se "aplasta" (scaleX 1→0→1) y
   cambia de contenido. Sin bordes, fondo `gradients.card`, estrella opcional.
-- **Calificación**: círculos ✕ (rojo) / ✓ (verde) estilo Quizlet reemplazan a
-  los dos botones anchos en repaso y modo mazo (el swipe sigue igual).
+- **Calificación (3 niveles, F82)**: círculos ✕ (rojo, Again) / ~ (azul, Hard
+  "Más o menos") / ✓ (verde, Good) estilo Quizlet; swipe izq/arriba/der al mismo
+  mapeo. "Más o menos" avanza (cuenta como hecha, `DONE_TODAY_SQL` = `rating != 'again'`)
+  pero FSRS la reprograma más cerca que Good.
 - **Confeti sin Lottie / racha con flag**: ver "Cierre de sesión" y "Racha".
 - **Teclado**: ActionSheet con listeners de Keyboard (Modal Android no se
   ajusta solo) + `statusBarTranslucent`; tarjeta.js con KeyboardAvoidingView.

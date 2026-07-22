@@ -33,6 +33,15 @@ describe("scheduler (FSRS binario)", () => {
     expect(new Date(again.due).getTime()).toBeLessThan(new Date(good.due).getTime());
   });
 
+  test("'hard' ('Más o menos') programa entre 'again' y 'good'", () => {
+    const base = newCardState();
+    const again = rate(base, "again");
+    const hard = rate(base, "hard");
+    const good = rate(base, "good");
+    expect(new Date(again.due).getTime()).toBeLessThan(new Date(hard.due).getTime());
+    expect(new Date(hard.due).getTime()).toBeLessThan(new Date(good.due).getTime());
+  });
+
   test("olvidar una tarjeta ya aprendida suma un lapse y acerca el due", () => {
     const learned = rate(newCardState(), "good");
     const later = new Date("2026-07-13T12:00:00Z");
@@ -50,6 +59,6 @@ describe("scheduler (FSRS binario)", () => {
   });
 
   test("una calificación desconocida lanza error", () => {
-    expect(() => rate(newCardState(), "hard")).toThrow(/Calificación desconocida/);
+    expect(() => rate(newCardState(), "easy")).toThrow(/Calificación desconocida/);
   });
 });

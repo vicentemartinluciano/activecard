@@ -45,7 +45,7 @@ export default function Estudiar() {
   const [round, setRound] = useState([]); // tarjetas de la ronda actual
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [counts, setCounts] = useState({ good: 0, again: 0 });
+  const [counts, setCounts] = useState({ good: 0, hard: 0, again: 0 });
   const [failedIds, setFailedIds] = useState([]);
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
   // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
@@ -60,7 +60,7 @@ export default function Estudiar() {
     );
     setIndex(0);
     setFlipped(false);
-    setCounts({ good: 0, again: 0 });
+    setCounts({ good: 0, hard: 0, again: 0 });
     setFailedIds([]);
     setHistory([]);
     setStatus("studying");
@@ -215,7 +215,7 @@ export default function Estudiar() {
   }
 
   if (index >= round.length) {
-    const hasReviews = counts.good + counts.again > 0;
+    const hasReviews = counts.good + counts.hard + counts.again > 0;
     return (
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Estudiar" }} />
@@ -223,6 +223,7 @@ export default function Estudiar() {
           <Text style={styles.summaryTitle}>Ronda completa</Text>
           <View style={styles.summaryPills}>
             <Pill color="#5BE7AD" label={`Sabías: ${counts.good}`} />
+            <Pill color={colors.accentText} label={`Más o menos: ${counts.hard}`} />
             <Pill color={colors.danger} label={`No sabías: ${counts.again}`} />
           </View>
           {failedIds.length > 0 ? (
@@ -271,6 +272,7 @@ export default function Estudiar() {
         <SwipeCard
           onSwipeLeft={() => grade("again")}
           onSwipeRight={() => grade("good")}
+          onSwipeUp={() => grade("hard")}
         >
           <FlipCard
             cardId={card.id}
@@ -293,13 +295,18 @@ export default function Estudiar() {
           <Feather name="x" size={26} color={colors.danger} />
         </Pressable>
         <Pressable
+          onPress={() => grade("hard")}
+          style={({ pressed }) => [styles.circle, styles.circleMid, pressed && { opacity: 0.7 }]}
+        >
+          <Feather name="minus" size={26} color={colors.accentText} />
+        </Pressable>
+        <Pressable
           onPress={() => grade("good")}
           style={({ pressed }) => [styles.circle, styles.circleYes, pressed && { opacity: 0.7 }]}
         >
           <Feather name="check" size={26} color="#5BE7AD" />
         </Pressable>
       </View>
-      <Text style={[type.small, styles.hint]}>Deslizá la tarjeta o usá los botones.</Text>
     </Screen>
   );
 }
@@ -329,7 +336,7 @@ const styles = StyleSheet.create({
   grade: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 44,
+    gap: 28,
     marginTop: spacing.lg,
   },
   circle: {
@@ -344,12 +351,11 @@ const styles = StyleSheet.create({
   circleNo: {
     borderColor: "rgba(229,72,77,0.45)",
   },
+  circleMid: {
+    borderColor: "rgba(143,166,243,0.45)",
+  },
   circleYes: {
     borderColor: "rgba(91,231,173,0.45)",
-  },
-  hint: {
-    textAlign: "center",
-    marginTop: spacing.sm,
   },
   summaryNeon: {
     alignSelf: "stretch",

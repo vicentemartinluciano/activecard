@@ -2,17 +2,18 @@
 // Derivado de review_logs: no hay estado propio, se reinicia solo al
 // cambiar el día porque "hoy" se recalcula en cada consulta.
 // Fallar NO es avanzar (F70): una tarjeta cuenta como "hecha hoy" solo si su
-// ÚLTIMA nota quizlet del día es 'good' — las falladas siguen pendientes y
-// re-entran al pool de estudio hasta que se aciertan.
+// ÚLTIMA nota quizlet del día NO es 'again' — o sea 'good' o 'hard' ("Más o
+// menos", que avanza). Las falladas siguen pendientes y re-entran al pool de
+// estudio hasta que se aciertan (con 'good' o 'hard').
 
 import { startOfDay } from "../lib/queue";
 import { getDb } from "./client";
 
-// Subquery reutilizada: tarjetas cuya última calificación quizlet de hoy fue
-// 'good' (las "hechas" del día). Toma DOS parámetros iguales (sinceIso x2).
+// Subquery reutilizada: tarjetas cuya última calificación quizlet de hoy NO fue
+// 'again' (las "hechas" del día). Toma DOS parámetros iguales (sinceIso x2).
 const DONE_TODAY_SQL = `
   SELECT rl.card_id FROM review_logs rl
-  WHERE rl.mode = 'quizlet' AND rl.reviewed_at >= ? AND rl.rating = 'good'
+  WHERE rl.mode = 'quizlet' AND rl.reviewed_at >= ? AND rl.rating != 'again'
     AND rl.id = (SELECT MAX(id) FROM review_logs
                  WHERE card_id = rl.card_id AND mode = 'quizlet' AND reviewed_at >= ?)
 `;

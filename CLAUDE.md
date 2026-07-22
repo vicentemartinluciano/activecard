@@ -51,7 +51,10 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **API keys en `.env`** (gitignoreado) vía `EXPO_PUBLIC_ANTHROPIC_API_KEY` y `EXPO_PUBLIC_NOTION_TOKEN`; en EAS van como env vars del proyecto.
 - **Datos 100% locales** (SQLite). Sin sync a Notion — la base "Conexiones Creadas" en Notion se descartó explícitamente.
 - **Fuentes de tarjetas**: texto pegado / archivo por document picker (PDF va en base64 directo a Claude como bloque `document`; TXT/MD se leen local) / página de Notion con internal integration token (sin OAuth).
-- **FSRS** (`ts-fsrs`), calificación binaria: "Lo recordaba"=Good, "No lo recordaba"=Again.
+- **FSRS** (`ts-fsrs`), calificación de 3 niveles (F82): "La sabía"=Good, **"Más o menos"=Hard**
+  (swipe hacia arriba, azul — nota intermedia que AVANZA: cuenta como hecha y sale del día, pero
+  FSRS la reprograma más cerca que Good), "No la sabía"=Again. `Hard` ya existía en `ts-fsrs`, solo
+  estaba sin mapear. "Más o menos" NO entra a la ronda de falladas ni al retry diario. Easy no se usa.
 - **Mazos** (cada tarjeta pertenece a 1) con **ícono Feather** y **prioridad 0-100%**
   (slider, pasos de 5; 0% = pausado; la cola diaria intercala por stride scheduling
   proporcional al %). Reemplazó al viejo Modo Enfoque y a las prioridades mensuales.
@@ -83,7 +86,9 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   plano, insensible a tildes/mayúsculas.
 - **2 modos de estudio con el MISMO sistema** (F56): repaso diario (cola FSRS por stride)
   y mazo específico estilo Quizlet. En ambos: calificás → siguiente tarjeta, swipe
-  unificado (derecha=Good, izquierda=Again, sin gate de flip), círculos ✕/✓ sin texto,
+  unificado (derecha=Good, izquierda=Again, **arriba=Hard "Más o menos"**, sin gate de flip),
+  tres círculos ✕/~/✓ sin texto (rojo/azul/verde), badge azul al deslizar hacia arriba (el
+  ScrollView del dorso largo gana el gesto vertical → en esas tarjetas el botón azul es el camino),
   ronda extra de falladas al final (también califica en FSRS), resumen con confeti.
   **El Gimnasio Mental ya NO interrumpe cada tarjeta del repaso diario**: es opt-in por
   tarjeta con el rayo ⚡ junto a la estrella (decisión del momento, NO persiste, cada
@@ -303,6 +308,16 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   imagen, render al estudiar (frente centrado, imagen grande/centrada/expandible, tamaño), el
   **pegar** imagen en el WebView de Android, y la generación IA desde una página de Notion con
   imágenes. Ya confirmado en el celu: la imagen ahora respeta el tamaño (fix del `onLoad`).
+- **F82 COMPLETA (tercera nota "Más o menos" / Hard, 100% OTA, sin bump)**: se destrabó el rating
+  `Hard` de `ts-fsrs` (`hard` en `RATINGS`, `scheduler.js`) como nota intermedia — swipe hacia
+  ARRIBA, botón azul `~` entre ✕ y ✓, badge azul "Más o menos". AVANZA (cuenta como hecha y sale
+  del día; `DONE_TODAY_SQL` en `progress.js` pasó a `rating != 'again'`), NO entra a falladas ni
+  retry. `SwipeCard` sumó `onSwipeUp`/`flyUp` + detección de arrastre vertical-arriba (en dorsos
+  largos el ScrollView gana el gesto → botón azul confiable). Confirmado por Martín en el celu.
+  Post-QA: **se sacó el texto-hint de deslizar** de ambas pantallas (en repaso queda solo el aviso
+  del rayo ⚡ cuando está armado) y se **arregló el corte de texto a la derecha en listas**
+  (`RichText.liRow`: el `<Text>` del contenido no envolvía por falta de `flex` en la row →
+  `styles.liContent = { flex: 1 }`). Tests: `scheduler.test.js` con `hard` entre `again` y `good`.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).
@@ -342,6 +357,11 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   SwipeCard llamaba a un grade() viejo (con gymArmed=false: el rayo ⚡ armado se
   ignoraba al deslizar). Los handlers deben leer los callbacks desde un ref que se
   actualiza en cada render (`latest.current`), nunca capturarlos directo.
+- **Un `<Text>` dentro de una row (`flexDirection: row`) NO envuelve: se desborda y se
+  RECORTA a la derecha** — pasó con las listas numeradas/viñetas de `RichText` (marcador +
+  contenido en una fila). El Text del contenido necesita `flex: 1` (`styles.liContent`) para
+  ocupar el ancho restante y envolver. Cualquier texto largo al lado de un marcador en row
+  lleva flex.
 - **El glow de las barras de progreso va en el FILL, no en el track** (si no, el neón
   se ve donde el progreso todavía no llegó) — y el track NO lleva overflow hidden
   (recortaría el boxShadow del fill; el fill se redondea con su propio borderRadius).

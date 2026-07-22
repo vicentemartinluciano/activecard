@@ -11,8 +11,12 @@ import { createEmptyCard, fsrs, generatorParameters, Rating } from "ts-fsrs";
 // modelo mental de la app (una pasada diaria, sin repeticiones intra-sesión).
 const engine = fsrs(generatorParameters({ enable_short_term: false }));
 
+// Calificación de 3 niveles: "No la sabía" → Again, "Más o menos" → Hard
+// (intervalo intermedio: la recordaste con esfuerzo), "La sabía" → Good.
+// FSRS soporta también Easy, pero la app no lo usa.
 export const RATINGS = {
   good: Rating.Good,
+  hard: Rating.Hard,
   again: Rating.Again,
 };
 

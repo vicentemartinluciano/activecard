@@ -95,7 +95,10 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
         const align = block.align || (isList ? "left" : defaultAlign);
 
         const line = (
-          <Text style={[style, align !== "left" && { textAlign: align }]} key={i}>
+          <Text
+            style={[style, align !== "left" && { textAlign: align }, isList && styles.liContent]}
+            key={i}
+          >
             {block.spans.map((span, j) => (
               <Text key={j} style={spanStyle(span)}>
                 {span.text}
@@ -133,6 +136,11 @@ const styles = StyleSheet.create({
   liRow: {
     flexDirection: "row",
     gap: spacing.xs,
+  },
+  // El contenido de la lista ocupa el ancho restante de la fila y ENVUELVE
+  // (sin flex, un Text en una row se desborda y se recorta a la derecha).
+  liContent: {
+    flex: 1,
   },
   bullet: {
     marginTop: 1,
