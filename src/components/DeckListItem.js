@@ -1,6 +1,6 @@
-// Fila de mazo estilo Quizlet: ícono, nombre, píldoras (tarjetas, tags,
-// prioridad) y barra de progreso diario. Compartida entre la Biblioteca y la
-// pantalla de carpeta.
+// Fila de mazo minimalista: ícono, nombre y dos píldoras arriba a la derecha
+// (N° de tarjetas + prioridad %, mismo color neutro), más la barra de progreso
+// diario. Compartida entre la Biblioteca y la pantalla de carpeta.
 
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,7 +10,7 @@ import ProgressBar from "./ProgressBar";
 import { Card, Pill } from "./ui";
 import { colors, glow, gradients, radius, spacing, type } from "../theme";
 
-export default function DeckListItem({ deck, progress, onPress, folderName }) {
+export default function DeckListItem({ deck, progress, onPress }) {
   return (
     <Card onPress={onPress} style={styles.cardOuter}>
       <LinearGradient
@@ -26,22 +26,12 @@ export default function DeckListItem({ deck, progress, onPress, folderName }) {
           <Text style={styles.name} numberOfLines={2}>
             {deck.name}
           </Text>
-        </View>
-        <View style={styles.pills}>
-          <Pill
-            icon="layers"
-            label={`${deck.card_count} ${deck.card_count === 1 ? "tarjeta" : "tarjetas"}`}
-          />
-          {folderName ? <Pill icon="folder" label={folderName} /> : null}
-          {(deck.tags || []).map((t) => (
-            <Pill key={t.id} label={t.name} />
-          ))}
-          {deck.priority < 100 ? (
-            <Pill
-              color={colors.accentText}
-              label={deck.priority === 0 ? "Pausado" : `${deck.priority}%`}
-            />
-          ) : null}
+          <View style={styles.metaPills}>
+            <Pill icon="layers" label={`${deck.card_count}`} />
+            {deck.priority < 100 ? (
+              <Pill label={deck.priority === 0 ? "Pausado" : `${deck.priority}%`} />
+            ) : null}
+          </View>
         </View>
         {progress && progress.pct > 0 ? (
           <ProgressBar
@@ -66,11 +56,18 @@ const styles = StyleSheet.create({
   cardInner: {
     padding: spacing.md,
     borderRadius: radius.lg,
+    minHeight: 76,
+    justifyContent: "center",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+  },
+  metaPills: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    alignItems: "center",
   },
   icon: {
     width: 40,
@@ -84,11 +81,5 @@ const styles = StyleSheet.create({
     ...type.body,
     fontWeight: "600",
     flex: 1,
-  },
-  pills: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs + 2,
-    marginTop: spacing.sm,
   },
 });

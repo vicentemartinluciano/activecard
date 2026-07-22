@@ -376,9 +376,6 @@ const styles = StyleSheet.create({
   },
   heroBtn: {
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.neonBorder,
-    ...glow.accent,
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",

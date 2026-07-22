@@ -67,7 +67,7 @@ export const radius = {
 export const gradients = {
   progress: ["#30A46C", "#5BE7AD"], // barras de progreso (verde) — todas salvo la del hero
   bar: ["#2563EB", "#00F2FE"], // barra del hero de Inicio (cobalto → cián neón)
-  hero: ["#0F1E36", "#112443", "#1E3A8A"], // tablero "Repaso de hoy" y botones destacados
+  hero: ["#0A1424", "#0C1A33", "#16295E"], // tablero "Repaso de hoy" y botones destacados — más oscuro
   card: ["#1B1B22", "#131317"], // degradé suave de fondo de cards
 };
 

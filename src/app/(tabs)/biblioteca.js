@@ -1,9 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import DeckListItem from "../../components/DeckListItem";
+import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
 import { listAllCards, listDecksWithIdeas } from "../../db/cards";
@@ -24,6 +25,7 @@ export default function Biblioteca() {
   const [progressByDeck, setProgressByDeck] = useState({});
   const [gymDecks, setGymDecks] = useState([]);
   const [query, setQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false); // etiquetas solo al enfocar
   const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
 
   const refresh = useCallback(() => {
@@ -68,7 +70,6 @@ export default function Biblioteca() {
   const visibleDecks = tagFiltering
     ? decks.filter((d) => d.tags.some((t) => activeTagIds.includes(t.id)))
     : [...looseDecks, ...folderedDecks];
-  const folderNameById = Object.fromEntries(folders.map((f) => [f.id, f.name]));
 
   const searching = query.trim().length > 0;
   const results = searching
@@ -79,17 +80,19 @@ export default function Biblioteca() {
 
   if (!loaded) {
     return (
-      <Screen safeTop>
-        <View style={styles.folderGrid}>
-          <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
-          <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
-        </View>
-        <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-          <Skeleton height={96} />
-          <Skeleton height={96} />
-          <Skeleton height={96} />
-        </View>
-      </Screen>
+      <SectionSwipe index={2}>
+        <Screen safeTop>
+          <View style={styles.folderGrid}>
+            <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
+            <Skeleton height={110} style={{ flexGrow: 1, flexBasis: "45%" }} />
+          </View>
+          <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+            <Skeleton height={96} />
+            <Skeleton height={96} />
+            <Skeleton height={96} />
+          </View>
+        </Screen>
+      </SectionSwipe>
     );
   }
 
@@ -97,6 +100,7 @@ export default function Biblioteca() {
     const empty =
       results.folders.length === 0 && results.decks.length === 0 && results.cards.length === 0;
     return (
+      <SectionSwipe index={2}>
       <Screen safeTop>
         <View style={styles.searchRow}>
           <Feather name="search" size={18} color={colors.textMuted} />
@@ -175,10 +179,12 @@ export default function Biblioteca() {
           }
         />
       </Screen>
+      </SectionSwipe>
     );
   }
 
   return (
+    <SectionSwipe index={2}>
     <Screen safeTop>
       <View style={styles.searchRow}>
         <Feather name="search" size={18} color={colors.textMuted} />
@@ -187,6 +193,8 @@ export default function Biblioteca() {
           onChangeText={setQuery}
           placeholder="Buscar carpetas, mazos o tarjetas…"
           style={styles.searchField}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setTimeout(() => setSearchFocused(false), 120)}
         />
         {query.length > 0 ? (
           <Pressable onPress={() => setQuery("")} hitSlop={8}>
@@ -195,7 +203,7 @@ export default function Biblioteca() {
         ) : null}
       </View>
 
-      {tags.length > 0 ? (
+      {tags.length > 0 && (searchFocused || activeTagIds.length > 0) ? (
         <View style={styles.tagRow}>
           {tags.map((t) => (
             <Chip
@@ -218,7 +226,11 @@ export default function Biblioteca() {
               {folders.length > 0 || gymDecks.length > 0 ? (
                 <View style={{ gap: spacing.sm }}>
                   <Text style={type.label}>Carpetas</Text>
-                  <View style={styles.folderGrid}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.folderRow}
+                  >
                     {gymDecks.length > 0 ? (
                       <Card
                         onPress={() => router.push("/gimnasio")}
@@ -247,7 +259,7 @@ export default function Biblioteca() {
                         <Pill label={`${f.deck_count} ${f.deck_count === 1 ? "mazo" : "mazos"}`} />
                       </Card>
                     ))}
-                  </View>
+                  </ScrollView>
                 </View>
               ) : null}
               <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
@@ -270,12 +282,12 @@ export default function Biblioteca() {
           <DeckListItem
             deck={item}
             progress={progressByDeck[item.id]}
-            folderName={folderNameById[item.folder_id]}
             onPress={() => router.push(`/mazos/${item.id}`)}
           />
         )}
       />
     </Screen>
+    </SectionSwipe>
   );
 }
 
@@ -313,9 +325,12 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  folderRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.md,
+  },
   folderTile: {
-    flexGrow: 1,
-    flexBasis: "45%",
+    width: 150,
     gap: spacing.sm,
   },
   gymTile: {

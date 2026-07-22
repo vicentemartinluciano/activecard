@@ -6,7 +6,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card, EmptyState, Pill, Screen } from "../../components/ui";
 import { listDecksWithIdeas } from "../../db/cards";
@@ -58,7 +58,11 @@ export default function GimnasioMental() {
           showFolderGrid ? (
             <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
               <Text style={type.label}>Carpetas</Text>
-              <View style={styles.folderGrid}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.folderRow}
+              >
                 {ideaFolders.map((f) => (
                   <Card
                     key={f.id}
@@ -75,7 +79,7 @@ export default function GimnasioMental() {
                     />
                   </Card>
                 ))}
-              </View>
+              </ScrollView>
               <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
             </View>
           ) : null
@@ -106,14 +110,12 @@ export default function GimnasioMental() {
 }
 
 const styles = StyleSheet.create({
-  folderGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  folderRow: {
     gap: spacing.sm,
+    paddingRight: spacing.md,
   },
   folderTile: {
-    flexGrow: 1,
-    flexBasis: "45%",
+    width: 150,
     gap: spacing.sm,
   },
   gymTile: {

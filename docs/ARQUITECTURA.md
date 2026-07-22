@@ -31,11 +31,10 @@ src/
 │   │                           #   archivo | Notion; extracción conceptos_clave | completo |
 │   │                           #   personalizado; Stack.Screen title "Generar con IA"
 │   ├── (tabs)/biblioteca.js    # SOLO consulta/filtro (la creación vive en el hub Crear):
-│   │                           #   buscador glassmorphic full-width + grilla de carpetas
-│   │                           #   fluida (con tile virtual "Gimnasio Mental" si hay ideas)
-│   │                           #   + TODOS los mazos (sueltos primero, luego con carpeta;
-│   │                           #   DeckListItem con pill de carpeta en los que la tienen) +
-│   │                           #   filtro de etiquetas GLOBAL + skeleton hasta el primer fetch
+│   │                           #   buscador full-width (chips de etiquetas SOLO al enfocarlo)
+│   │                           #   + carrusel horizontal de carpetas (una fila; tile Gimnasio
+│   │                           #   si hay ideas) + TODOS los mazos (sueltos primero, luego con
+│   │                           #   carpeta) con DeckListItem minimalista. Envuelta en SectionSwipe
 │   ├── repaso.js               # repaso diario (FSRS + Gimnasio Mental), swipe unificado,
 │   │                           #   círculos ✕/✓ para calificar, estrella en la tarjeta,
 │   │                           #   deshacer (icono junto al contador + botón en el resumen),
@@ -78,7 +77,9 @@ src/
 │   │                           #   listeners de teclado: sube con marginBottom=kbHeight),
 │   │                           #   FlipCard (UNA cara con scaleX "aplastar y voltear", sin
 │   │                           #   bordes, fondo gradients.card, estrella opcional),
-│   │                           #   SwipeCard, DeckListItem (fondo gradients.card),
+│   │                           #   SwipeCard, DeckListItem (minimalista: nombre + N° tarjetas
+│   │                           #   y prioridad arriba a la derecha, mismo color), SectionSwipe
+│   │                           #   (swipe horizontal entre tabs por gesture-handler),
 │   │                           #   MicButton, ChatAuditor, ProgressBar(+gradient+glowStyle),
 │   │                           #   StreakFlame(.web) (flag USE_LOTTIE: Lottie SOFTWARE o
 │   │                           #   CodeFlame en código), ConfettiOverlay (confeti en código,

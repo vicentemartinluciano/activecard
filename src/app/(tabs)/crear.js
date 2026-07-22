@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
+import SectionSwipe from "../../components/SectionSwipe";
 import { InlineAdd, Screen } from "../../components/ui";
 import { createDeck } from "../../db/decks";
 import { createFolder } from "../../db/folders";
@@ -38,8 +39,10 @@ export default function Crear() {
   };
 
   return (
+    <SectionSwipe index={1}>
     <Screen safeTop>
-      <Text style={[type.title, { marginTop: spacing.sm, marginBottom: spacing.lg }]}>
+      <View style={{ flex: 1, justifyContent: "center" }}>
+      <Text style={[type.title, { textAlign: "center", marginBottom: spacing.lg }]}>
         ¿Qué querés crear hoy?
       </Text>
 
@@ -72,6 +75,7 @@ export default function Crear() {
           </Pressable>
         ))}
       </View>
+      </View>
 
       <ActionSheet
         visible={createStep !== null}
@@ -86,6 +90,7 @@ export default function Crear() {
         ) : null}
       </ActionSheet>
     </Screen>
+    </SectionSwipe>
   );
 }
 

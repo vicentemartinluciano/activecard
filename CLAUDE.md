@@ -57,11 +57,27 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   proporcional al %). Reemplazó al viejo Modo Enfoque y a las prioridades mensuales.
   **Etiquetas** sobre mazos = solo filtro/búsqueda en Biblioteca.
 - **Carpetas** (tabla `folders`, migración v3): un mazo pertenece a 0 o 1 carpeta.
-  Biblioteca = grilla de carpetas arriba + **TODOS los mazos abajo (sueltos primero,
-  luego los que están en carpeta; los con carpeta muestran su pill de carpeta)** — las
-  carpetas quedan como atajo por practicidad, decisión de Martín; pantalla
-  `carpetas/[id]` gestiona sus mazos; chips de carpeta en el detalle del mazo.
-  Borrar carpeta NUNCA borra mazos (quedan sueltos). Las carpetas no llevan tags.
+  Biblioteca = **carrusel horizontal de carpetas** (una sola fila, `ScrollView horizontal`,
+  tiles `width:150`; ídem en el Gimnasio) arriba + **TODOS los mazos abajo (sueltos primero,
+  luego los que están en carpeta)** — las carpetas quedan como atajo por practicidad,
+  decisión de Martín; pantalla `carpetas/[id]` gestiona sus mazos; chips de carpeta en el
+  detalle del mazo. Borrar carpeta NUNCA borra mazos (quedan sueltos). Las carpetas no llevan tags.
+- **Fila de mazo minimalista (F81)**: `DeckListItem` muestra SOLO ícono + nombre + dos pills
+  arriba a la derecha — N° de tarjetas (número pelado, sin la palabra "tarjetas") y prioridad %
+  ("Pausado" en 0%), ambos del MISMO color neutro (no azul) — más la barra de progreso diario.
+  Sin tags ni carpeta en la fila. Decisión de Martín; no volver a mostrar los detalles.
+- **Swipe horizontal entre secciones (F81)**: `components/SectionSwipe.js` envuelve las 3 tabs
+  (Inicio/Crear/Biblioteca) con un `Gesture.Pan` (gesture-handler, ya presente → OTA, NO
+  pager-view nativo): al soltar con desplazamiento+velocidad salta a la sección vecina
+  (`activeOffsetX`/`failOffsetY` para no robar el scroll de las listas ni del carrusel de carpetas).
+- **Etiquetas on-focus (F81)**: los chips de etiquetas de Biblioteca solo se muestran al enfocar
+  el buscador (o si hay una etiqueta activa); el `onBlur` oculta con delay para no tragarse el tap.
+- **Heros más oscuros y sin bordes (F81)**: `gradients.hero` se oscureció y el tablero "Repaso de
+  hoy" (Inicio) y el botón "ESTUDIAR AHORA" (detalle de mazo) perdieron `borderWidth`/`neonBorder`/
+  `glow.accent`. El botón "REPASAR AHORA" quedó centrado (`alignSelf:center`).
+- **Fueguito Lottie inactivo (F81)**: `StreakFlame` muestra el MISMO Lottie cuando la racha NO está
+  activa, pero estático (`progress` fijo en 0.5, sin loop) y atenuado (`opacity:0.4`) — ya no cae al
+  ícono `MaterialCommunityIcons` plano. Web sigue con ícono estático (no hay Lottie en web).
 - **Buscador de Biblioteca** (`lib/search.js`, en memoria con `toPlainText` — NO SQL
   LIKE): filtra carpetas por nombre, mazos por nombre/etiqueta y tarjetas por texto
   plano, insensible a tildes/mayúsculas.

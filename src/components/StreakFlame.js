@@ -29,13 +29,20 @@ const LOOP_MS = 3036; // 91 frames @ 29.97 fps = un ciclo completo del fuego
 // Animated.Value crudo al componente nativo crashea el puente al montar.
 const AnimatedLottieView = Animated.createAnimatedComponent(LottieView);
 
-function LottieFlame({ size }) {
+// animate=false (racha NO activa hoy): mostramos el MISMO Lottie pero quieto en
+// un frame lindo y atenuado — así se ve el fuego (no un ícono plano) y a la vez
+// queda claro que la racha no está encendida.
+function LottieFlame({ size, animate = true }) {
   const progress = useRef(new Animated.Value(0)).current;
   // El loop corre por JS (useNativeDriver false, como en FlowState): frenarlo
   // cuando la pantalla pierde el foco — la Home queda montada debajo del
   // repaso (tabs) y el loop de fondo congestionaba el hilo JS (flips lentos).
   const focused = useIsFocused();
   useEffect(() => {
+    if (!animate) {
+      progress.setValue(0.5); // frame estático del fuego, sin loop
+      return undefined;
+    }
     if (!focused) return undefined;
     const loop = Animated.loop(
       Animated.timing(progress, {
@@ -47,14 +54,14 @@ function LottieFlame({ size }) {
     );
     loop.start();
     return () => loop.stop();
-  }, [progress, focused]);
+  }, [progress, focused, animate]);
   return (
     <AnimatedLottieView
       source={streakAnimation}
       progress={progress}
       resizeMode="contain"
       renderMode="HARDWARE"
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, opacity: animate ? 1 : 0.4 }}
     />
   );
 }
@@ -101,8 +108,8 @@ export default function StreakFlame({ days = null, active = false }) {
 
   return (
     <View style={styles.row}>
-      {active && USE_LOTTIE ? (
-        <LottieFlame size={30} />
+      {USE_LOTTIE ? (
+        <LottieFlame size={30} animate={active} />
       ) : active ? (
         <CodeFlame />
       ) : (

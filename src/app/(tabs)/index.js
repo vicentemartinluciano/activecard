@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ProgressBar from "../../components/ProgressBar";
+import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import StreakFlame from "../../components/StreakFlame";
 import { Button, Card, Pill } from "../../components/ui";
@@ -65,6 +66,7 @@ export default function Inicio() {
 
   if (!loaded) {
     return (
+      <SectionSwipe index={0}>
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={[styles.inner, styles.body]}>
           <Skeleton height={200} style={{ borderRadius: radius.lg }} />
@@ -73,10 +75,12 @@ export default function Inicio() {
           <Skeleton height={72} />
         </View>
       </SafeAreaView>
+      </SectionSwipe>
     );
   }
 
   return (
+    <SectionSwipe index={0}>
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.inner}>
       <View style={styles.topRow}>
@@ -138,7 +142,7 @@ export default function Inicio() {
             label={completedToday ? "REPASAR DE NUEVO" : "REPASAR AHORA"}
             kind="inverse"
             onPress={() => router.push("/repaso")}
-            style={{ marginTop: spacing.md }}
+            style={{ marginTop: spacing.md, alignSelf: "center" }}
           />
         </LinearGradient>
 
@@ -175,6 +179,7 @@ export default function Inicio() {
       </ScrollView>
       </View>
     </SafeAreaView>
+    </SectionSwipe>
   );
 }
 
@@ -239,9 +244,6 @@ const styles = StyleSheet.create({
   hero: {
     marginTop: spacing.lg,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.neonBorder,
-    ...glow.accent,
     padding: spacing.lg,
     overflow: "hidden",
     gap: spacing.sm,
