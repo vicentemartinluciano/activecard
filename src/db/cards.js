@@ -131,6 +131,24 @@ export async function listAllCards() {
   return db.getAllAsync("SELECT * FROM cards");
 }
 
+// Versión liviana para el buscador de la Biblioteca, que solo necesita texto.
+// listAllCards() trae las tarjetas ENTERAS, y desde que el editor permite
+// imágenes inline en base64 cada tarjeta con foto pesa cientos de KB: cargarlas
+// todas en memoria en cada focus de la pestaña escala pésimo. Acá se traen solo
+// las columnas que el buscador usa y se recortan los bloques de imagen en SQL,
+// que es donde sale más barato.
+export async function listAllCardsForSearch() {
+  const db = await getDb();
+  return db.getAllAsync(
+    `SELECT id, deck_id,
+            CASE WHEN instr(front, char(57360)) > 0
+                 THEN substr(front, 1, instr(front, char(57360)) - 1) ELSE front END AS front,
+            CASE WHEN instr(back, char(57360)) > 0
+                 THEN substr(back, 1, instr(back, char(57360)) - 1) ELSE back END AS back
+     FROM cards`
+  );
+}
+
 // Tarjetas distintas repasadas desde un instante dado. mode null = cualquier
 // modo (estudiar un mazo también avanza la misma FSRS que el repaso diario).
 export async function countDistinctReviewedSince(mode, sinceIso) {

@@ -11,6 +11,7 @@ import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import Stagger from "../../components/Stagger";
 import StreakFlame from "../../components/StreakFlame";
+import Toast from "../../components/Toast";
 import { Button, Card, Pill } from "../../components/ui";
 import { listDecks } from "../../db/decks";
 import { getDecksDailyProgress } from "../../db/progress";
@@ -33,7 +34,25 @@ export default function Inicio() {
   const [streak, setStreak] = useState(null);
   const [inProgressDecks, setInProgressDecks] = useState([]);
   const [userName, setUserName] = useState("");
+  const [error, setError] = useState(null);
   const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
+
+  // Aparte del resto para poder reintentarla desde el aviso de error.
+  const fetchStats = useCallback(async () => {
+    try {
+      const s = await getDailyReviewStats();
+      setStats(s);
+      setError(null);
+    } catch (e) {
+      console.warn("No se pudo leer la cola de repaso:", e);
+      setStats(null);
+      // Antes esto quedaba en silencio y la pantalla aparecía vacía sin decir
+      // por qué. Ahora al menos se avisa y se puede reintentar.
+      setError("No se pudo leer el repaso de hoy.");
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -43,18 +62,7 @@ export default function Inicio() {
         .then((n) => alive && setUserName(n))
         .catch(() => alive && setUserName("Martín"));
 
-      getDailyReviewStats()
-        .then((s) => {
-          if (!alive) return;
-          setStats(s);
-          setLoaded(true);
-        })
-        .catch((e) => {
-          console.warn("No se pudo leer la cola de repaso:", e);
-          if (!alive) return;
-          setStats(null);
-          setLoaded(true);
-        });
+      fetchStats();
 
       getStreak()
         .then((s) => alive && setStreak(s))
@@ -74,7 +82,7 @@ export default function Inicio() {
       return () => {
         alive = false;
       };
-    }, [])
+    }, [fetchStats])
   );
 
   const remaining = stats ? stats.remaining : null;
@@ -218,6 +226,13 @@ export default function Inicio() {
         </Stagger>
       </ScrollView>
       </View>
+      <Toast
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchStats();
+        }}
+      />
     </SafeAreaView>
     </SectionSwipe>
   );

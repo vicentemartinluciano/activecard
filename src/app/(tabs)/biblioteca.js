@@ -9,7 +9,7 @@ import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import { StaggerRow } from "../../components/Stagger";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
-import { listAllCards, listDecksWithIdeas } from "../../db/cards";
+import { listAllCardsForSearch, listDecksWithIdeas } from "../../db/cards";
 import { listDecks, listTags } from "../../db/decks";
 import { listFolders } from "../../db/folders";
 import { getDecksDailyProgress } from "../../db/progress";
@@ -36,7 +36,8 @@ export default function Biblioteca() {
       listDecks(),
       listFolders(),
       listTags(),
-      listAllCards(),
+      // Solo texto: las imágenes en base64 no se traen (ver la función).
+      listAllCardsForSearch(),
       getDecksDailyProgress(),
       listDecksWithIdeas(),
     ]).then(([d, f, t, c, p, g]) => {

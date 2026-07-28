@@ -79,3 +79,33 @@ export async function restoreParsedBackup(parsed) {
   const db = await getDb();
   return restoreBackup(db, parsed);
 }
+
+const AUTO_BACKUP_KEY = "lastAutoBackup";
+const AUTO_BACKUP_FILE = "activecard-auto.json";
+const UNA_SEMANA = 7 * 24 * 60 * 60 * 1000;
+
+// Respaldo automático semanal, en silencio.
+//
+// NO reusa exportBackup a propósito: en nativo ese abre el diálogo de
+// compartir, y un diálogo que aparece solo cada siete días sería insoportable.
+// Acá el archivo se escribe en el directorio de la app y listo. Cubre el caso
+// de borrar algo sin querer dentro de la app; para el respaldo que sobrevive al
+// teléfono sigue estando el export manual, que es el que Martín se lleva.
+//
+// En web no hace nada: no se puede escribir a disco sin gatillar una descarga.
+export async function autoBackupIfDue(now = new Date()) {
+  if (Platform.OS === "web") return null;
+  const { getSetting, setSetting } = await import("../db/settings");
+  const last = await getSetting(AUTO_BACKUP_KEY, null);
+  if (last && now.getTime() - new Date(last).getTime() < UNA_SEMANA) return null;
+
+  const db = await getDb();
+  const backup = await buildBackup(db, now);
+  const FileSystem = await import("expo-file-system/legacy");
+  const uri = FileSystem.documentDirectory + AUTO_BACKUP_FILE;
+  await FileSystem.writeAsStringAsync(uri, JSON.stringify(backup), {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
+  await setSetting(AUTO_BACKUP_KEY, now.toISOString());
+  return uri;
+}

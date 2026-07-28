@@ -21,6 +21,8 @@ const db = {
 jest.mock("../client", () => ({ getDb: jest.fn() }));
 
 // eslint-disable-next-line import/first
+import { listAllCardsForSearch } from "../cards";
+// eslint-disable-next-line import/first
 import { getDb } from "../client";
 // eslint-disable-next-line import/first
 import {
@@ -172,5 +174,19 @@ describe("getDeckRetention", () => {
   test("redondea el porcentaje del mazo", async () => {
     firstRow = { total: 9, buenas: 7 };
     expect(await getDeckRetention(7, NOW)).toBe(78);
+  });
+});
+
+describe("listAllCardsForSearch", () => {
+  test("recorta los bloques de imagen: el buscador necesita el texto, no las fotos", async () => {
+    allRows = [];
+    await listAllCardsForSearch();
+    const { sql } = calls[calls.length - 1];
+    // char(57360) es IMG_SENTINEL (\uE010): todo lo que va desde ahí es base64.
+    expect(sql).toContain("char(57360)");
+    expect(sql).toContain("substr(front");
+    expect(sql).toContain("substr(back");
+    // Y NO trae la tarjeta entera.
+    expect(sql).not.toContain("SELECT *");
   });
 });

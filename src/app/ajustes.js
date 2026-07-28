@@ -24,11 +24,13 @@ export default function Ajustes() {
   const [backupBusy, setBackupBusy] = useState(false);
   const [userName, setUserName] = useState("");
   const [nameStatus, setNameStatus] = useState(null);
+  const [lastAuto, setLastAuto] = useState(null);
 
   const load = useCallback(async () => {
     setDecks(await listDecks());
     setLimits(await getDailyLimits());
     setUserName(await getSetting("userName", "Martín"));
+    setLastAuto(await getSetting("lastAutoBackup", null));
     if (Platform.OS === "web") {
       setAnthropicKeyInput(getAnthropicKey() || "");
       setNotionTokenInput(getNotionToken() || "");
@@ -172,6 +174,13 @@ export default function Ajustes() {
             Exportá un archivo con todos tus mazos, tarjetas y conexiones. Sirve como backup y
             para pasar datos entre el celular y la versión web (no se sincronizan solos).
           </Text>
+          {Platform.OS !== "web" ? (
+            <Text style={type.small}>
+              {lastAuto
+                ? `Copia automática en el teléfono: ${new Date(lastAuto).toLocaleDateString("es-AR")}.`
+                : "Se guarda una copia automática en el teléfono cada semana."}
+            </Text>
+          ) : null}
           <Button
             label={backupBusy ? "Un momento…" : "Exportar datos"}
             onPress={doExport}

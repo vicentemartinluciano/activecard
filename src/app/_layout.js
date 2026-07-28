@@ -10,6 +10,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import ErrorBoundary from "../components/ErrorBoundary";
+import { autoBackupIfDue } from "../lib/backupIO";
 import { initKeys } from "../lib/keys";
 import { colors, font } from "../theme";
 
@@ -26,6 +28,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     initKeys().catch((e) => console.warn("No se pudieron leer las claves guardadas:", e));
+    // Respaldo automático semanal, en silencio (solo nativo). Si falla no se le
+    // dice nada al usuario: el respaldo que importa es el manual de Ajustes.
+    autoBackupIfDue().catch((e) => console.warn("No se pudo hacer el respaldo automático:", e));
   }, []);
 
   if (!fontsLoaded) return null;
@@ -33,6 +38,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style="light" />
+      <ErrorBoundary>
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.bg },
@@ -44,6 +50,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
