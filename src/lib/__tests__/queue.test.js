@@ -116,3 +116,75 @@ describe("cola de repaso diaria (prioridad porcentual)", () => {
     expect(queue).toEqual([]);
   });
 });
+
+describe("topes diarios", () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
+  // state 0 = tarjeta nueva en FSRS; cualquier otro valor ya fue repasada.
+  const vencidas = (n, state = 2) =>
+    Array.from({ length: n }, (_, i) => ({
+      ...card(i + 1, 1, "2026-07-09T08:00:00Z"),
+      state,
+    }));
+
+  test("sin limits la cola sale completa (comportamiento histórico)", () => {
+    expect(buildDailyQueue(vencidas(30), { now: NOW })).toHaveLength(30);
+    expect(buildDailyQueue(vencidas(30), { now: NOW, limits: null })).toHaveLength(30);
+  });
+
+  test("maxReviews recorta el total del día", () => {
+    const queue = buildDailyQueue(vencidas(30), {
+      now: NOW,
+      limits: { maxReviews: 10, maxNew: 100 },
+    });
+    expect(queue).toHaveLength(10);
+  });
+
+  test("maxNew limita las nuevas pero deja pasar los repasos", () => {
+    const cards = [
+      ...vencidas(5, 0).map((c) => ({ ...c, id: c.id })), // 5 nuevas: ids 1..5
+      ...vencidas(5, 2).map((c) => ({ ...c, id: c.id + 100 })), // 5 repasos: ids 101..105
+    ];
+    const queue = buildDailyQueue(cards, {
+      now: NOW,
+      limits: { maxReviews: 100, maxNew: 2 },
+    });
+    const nuevas = queue.filter((c) => c.state === 0);
+    const repasos = queue.filter((c) => c.state !== 0);
+    expect(nuevas).toHaveLength(2);
+    expect(repasos).toHaveLength(5); // los repasos NO los toca el tope de nuevas
+  });
+
+  test("maxNew en 0 deja el día solo con repasos", () => {
+    const cards = [...vencidas(3, 0), ...vencidas(2, 2).map((c) => ({ ...c, id: c.id + 100 }))];
+    const queue = buildDailyQueue(cards, {
+      now: NOW,
+      limits: { maxReviews: 100, maxNew: 0 },
+    });
+    expect(queue.every((c) => c.state !== 0)).toBe(true);
+    expect(queue).toHaveLength(2);
+  });
+
+  test("el recorte respeta el orden por prioridad: lo que queda afuera es lo de menor %", () => {
+    // Mazo 1 al 100%, mazo 2 al 20%: con un tope chico casi todo debe ser del 1.
+    const cards = [
+      ...Array.from({ length: 10 }, (_, i) => ({ ...card(i + 1, 1, "2026-07-09T08:00:00Z"), state: 2 })),
+      ...Array.from({ length: 10 }, (_, i) => ({ ...card(i + 101, 2, "2026-07-09T08:00:00Z"), state: 2 })),
+    ];
+    const queue = buildDailyQueue(cards, {
+      deckPriorities: { 1: 100, 2: 20 },
+      now: NOW,
+      limits: { maxReviews: 6, maxNew: 100 },
+    });
+    const delMazo1 = queue.filter((c) => c.deck_id === 1).length;
+    expect(queue).toHaveLength(6);
+    expect(delMazo1).toBeGreaterThan(queue.length - delMazo1);
+  });
+});

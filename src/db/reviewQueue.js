@@ -9,16 +9,26 @@ import {
   listRetryTodayIds,
 } from "./cards";
 import { getDeckPriorities } from "./decks";
+import { getSetting } from "./settings";
+
+// Topes por defecto: valores de arranque, ajustables desde Ajustes.
+export const DEFAULT_LIMITS = { maxReviews: 40, maxNew: 15 };
+
+export function getDailyLimits() {
+  return getSetting("dailyLimits", DEFAULT_LIMITS);
+}
 
 // La cola del día incluye las FALLADAS de hoy (última nota = again): FSRS las
 // reprograma para mañana, pero siguen pendientes hasta que las aciertes.
+// Al final se recorta a los topes diarios: lo que sobra pasa a mañana.
 export async function getDailyQueue(now = new Date()) {
-  const [cards, deckPriorities, retryIds] = await Promise.all([
+  const [cards, deckPriorities, retryIds, limits] = await Promise.all([
     listAllCards(),
     getDeckPriorities(),
     listRetryTodayIds(startOfDay(now).toISOString()),
+    getDailyLimits(),
   ]);
-  return buildDailyQueue(cards, { deckPriorities, now, retryIds });
+  return buildDailyQueue(cards, { deckPriorities, now, retryIds, limits });
 }
 
 // Cantidad de tarjetas pendientes hoy en mazos activos (debidas + falladas).

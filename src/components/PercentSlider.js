@@ -1,22 +1,36 @@
-// Slider de porcentaje 0-100 en pasos de 5, custom (sin dependencias nativas).
-// Track + relleno + arrastre/tap con Pan de react-native-gesture-handler
-// (funciona en Android y web).
+// Slider custom (sin dependencias nativas). Track + relleno + arrastre/tap con
+// Pan de react-native-gesture-handler (funciona en Android y web).
+//
+// Nació como slider de prioridad 0-100 en pasos de 5, y por eso esos son los
+// defaults: los llamados viejos siguen andando sin tocar nada. Con min/max/step
+// y formatLabel sirve también para los topes diarios, que tienen otro rango y
+// no muestran "Pausado".
 
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
-import { colors, font, spacing } from "../theme";
+import { colors, font, spacing, tabular } from "../theme";
 
-export default function PercentSlider({ value, onChange }) {
+const defaultLabel = (v) => (v === 0 ? "Pausado" : `${v}%`);
+
+export default function PercentSlider({
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 5,
+  formatLabel = defaultLabel,
+}) {
   const [width, setWidth] = useState(0);
   const [dragPct, setDragPct] = useState(null); // preview mientras se arrastra
   const pct = dragPct != null ? dragPct : value;
+  const ratio = max > min ? (pct - min) / (max - min) : 0;
 
   const pctFromX = (x) => {
     if (!width) return value;
-    const raw = Math.max(0, Math.min(1, x / width)) * 100;
-    return Math.round(raw / 5) * 5;
+    const raw = min + Math.max(0, Math.min(1, x / width)) * (max - min);
+    return Math.max(min, Math.min(max, Math.round(raw / step) * step));
   };
 
   const pan = Gesture.Pan()
@@ -38,16 +52,16 @@ export default function PercentSlider({ value, onChange }) {
             <View
               style={[
                 styles.fill,
-                { width: `${pct}%` },
+                { width: `${ratio * 100}%` },
                 pct === 0 && { backgroundColor: colors.textMuted },
               ]}
             />
           </View>
-          <View style={[styles.thumb, { left: `${pct}%` }]} />
+          <View style={[styles.thumb, { left: `${ratio * 100}%` }]} />
         </View>
       </GestureDetector>
       <Text style={[styles.label, pct === 0 && { color: colors.textMuted }]}>
-        {pct === 0 ? "Pausado" : `${pct}%`}
+        {formatLabel(pct)}
       </Text>
     </View>
   );
@@ -88,6 +102,7 @@ const styles = StyleSheet.create({
     color: colors.accentText,
     fontSize: 14,
     ...font(700),
+    ...tabular,
     width: 64,
     textAlign: "right",
   },

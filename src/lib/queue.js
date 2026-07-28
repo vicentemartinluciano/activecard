@@ -30,7 +30,14 @@ export function startOfDay(date = new Date()) {
 // (la tarjeta más vencida de) el mazo con menor recorrido acumulado. Un mazo
 // al 100% aparece el doble de seguido que uno al 50%, con ritmo parejo desde
 // la primera tarjeta.
-export function buildDailyQueue(cards, { deckPriorities = {}, now = new Date(), retryIds = [] } = {}) {
+// limits: { maxReviews, maxNew } — topes diarios elegidos por el usuario. Se
+// aplican AL FINAL, sobre la cola ya intercalada por stride: así lo que queda
+// afuera es siempre lo de MENOR prioridad, y vuelve mañana primero. Sin
+// limits, la cola sale completa (comportamiento histórico).
+export function buildDailyQueue(
+  cards,
+  { deckPriorities = {}, now = new Date(), retryIds = [], limits = null } = {}
+) {
   const limit = endOfDay(now).getTime();
   const retry = new Set(retryIds);
 
@@ -75,5 +82,28 @@ export function buildDailyQueue(cards, { deckPriorities = {}, now = new Date(), 
     }
   }
 
-  return queue;
+  return applyLimits(queue, limits);
+}
+
+// Recorta la cola a los topes del día. Una tarjeta es "nueva" cuando FSRS
+// todavía no la vio (state 0). El tope de nuevas protege las SEMANAS que
+// vienen: cada tarjeta nueva que aceptás hoy vuelve mañana, en cuatro días y
+// en dos semanas — sin ese freno, un mazo generado con IA te hipoteca el mes.
+function applyLimits(queue, limits) {
+  if (!limits) return queue;
+  const maxReviews = limits.maxReviews > 0 ? limits.maxReviews : Infinity;
+  const maxNew = limits.maxNew >= 0 ? limits.maxNew : Infinity;
+
+  const out = [];
+  let nuevas = 0;
+  for (const card of queue) {
+    if (out.length >= maxReviews) break;
+    const esNueva = card.state === 0;
+    if (esNueva) {
+      if (nuevas >= maxNew) continue; // se saltea, pero siguen entrando repasos
+      nuevas++;
+    }
+    out.push(card);
+  }
+  return out;
 }
