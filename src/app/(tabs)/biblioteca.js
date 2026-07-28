@@ -2,12 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
 
 import DeckListItem from "../../components/DeckListItem";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
+import { StaggerRow } from "../../components/Stagger";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
 import { listAllCards, listDecksWithIdeas } from "../../db/cards";
 import { listDecks, listTags } from "../../db/decks";
@@ -284,15 +284,13 @@ export default function Biblioteca() {
         renderItem={({ item, index }) => (
           // Entrada escalonada solo en las primeras filas: con un mazo de 80
           // tarjetas, animarlas todas dejaría la última entrando segundos tarde.
-          <Animated.View
-            entering={index < 8 ? FadeInDown.delay(index * 45).duration(260) : undefined}
-          >
+          <StaggerRow index={index}>
             <DeckListItem
               deck={item}
               progress={progressByDeck[item.id]}
               onPress={() => router.push(`/mazos/${item.id}`)}
             />
-          </Animated.View>
+          </StaggerRow>
         )}
       />
     </Screen>

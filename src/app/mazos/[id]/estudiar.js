@@ -12,6 +12,7 @@ import SwipeCard from "../../../components/SwipeCard";
 import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
 import { getCard, listCardsByDeck, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
+import { listWeakCards } from "../../../db/stats";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import { colors, glow, gradients, radius, spacing, type } from "../../../theme";
 
@@ -33,12 +34,17 @@ function SummaryHaptic() {
 // ofrece una ronda extra opcional con lo que salió mal.
 export default function Estudiar() {
   const { id, stars, ordered } = useLocalSearchParams();
+  // "debiles" es un mazo VIRTUAL: las tarjetas con más lapses, de cualquier
+  // mazo. Reusa este mismo motor (mismo swipe, mismas notas, misma ronda de
+  // falladas) — solo cambia de dónde sale el pool.
+  const esDebiles = id === "debiles";
   const deckId = Number(id);
   // Preferencias del sheet "¿Cómo estudiamos?": solo estrelladas / en mi orden.
   const starsOnly = stars === "1";
   const inMyOrder = ordered === "1";
   const router = useRouter();
-  const goBack = () => (router.canGoBack() ? router.back() : router.replace(`/mazos/${deckId}`));
+  const goBack = () =>
+    router.canGoBack() ? router.back() : router.replace(esDebiles ? "/progreso" : `/mazos/${deckId}`);
 
   // status: 'loading' | 'done-today' | 'empty' | 'empty-stars' | 'studying'
   const [status, setStatus] = useState("loading");
@@ -69,6 +75,16 @@ export default function Estudiar() {
   useEffect(() => {
     let alive = true;
     (async () => {
+      // Puntos débiles: el pool son las tarjetas que más fallaste, sin filtro
+      // de "ya lo hice hoy" — la gracia es poder machacarlas.
+      if (esDebiles) {
+        const weak = await listWeakCards(50);
+        if (!alive) return;
+        if (weak.length === 0) setStatus("empty");
+        else startRound(weak, false);
+        return;
+      }
+
       const [all, pool] = await Promise.all([
         listCardsByDeck(deckId),
         listDeckCardsNotReviewedToday(deckId),
@@ -88,7 +104,7 @@ export default function Estudiar() {
     return () => {
       alive = false;
     };
-  }, [deckId, startRound, starsOnly, inMyOrder]);
+  }, [deckId, startRound, starsOnly, inMyOrder, esDebiles]);
 
   const grade = async (rating) => {
     const card = round[index];
@@ -118,6 +134,10 @@ export default function Estudiar() {
   };
 
   const studyAgain = async () => {
+    if (esDebiles) {
+      startRound(await listWeakCards(50), false);
+      return;
+    }
     const all = await listCardsByDeck(deckId);
     const filtered = all.filter((c) => !starsOnly || c.starred);
     startRound(filtered.length > 0 ? filtered : all, inMyOrder);
@@ -138,7 +158,9 @@ export default function Estudiar() {
   // marca el id para refrescarlo al volver (ver el useFocusEffect de abajo).
   const editCard = (card) => {
     pendingEditIdRef.current = card.id;
-    router.push(`/mazos/${deckId}/tarjeta?cardId=${card.id}`);
+    // Se abre con el mazo de la PROPIA tarjeta: en puntos débiles la ronda
+    // mezcla mazos, así que deckId no sirve como referencia.
+    router.push(`/mazos/${card.deck_id}/tarjeta?cardId=${card.id}`);
   };
 
   // Al volver del editor, releemos SOLO la tarjeta editada y mergeamos su texto

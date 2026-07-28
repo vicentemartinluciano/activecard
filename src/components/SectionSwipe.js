@@ -9,7 +9,7 @@ import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
-const ORDER = ["/", "/crear", "/biblioteca"]; // Inicio, Crear, Biblioteca
+const ORDER = ["/", "/crear", "/biblioteca", "/progreso"]; // el orden de las tabs
 
 export default function SectionSwipe({ index, children }) {
   const router = useRouter();

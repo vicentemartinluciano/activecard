@@ -40,16 +40,24 @@ export function Screen({ children, style, safeTop }) {
 // app sale de acá para no duplicar estilos por pantalla.
 // level: "base" (surfaceCard, contenedores principales) | "high" (surfaceHigh,
 // sub-superficies dentro de otra card).
-export function Card({ children, onPress, level = "base", style }) {
+export function Card({ children, onPress, level = "base", style, onLayout }) {
   const base = [styles.card, level === "high" && styles.cardHigh, style];
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [...base, pressed && { opacity: 0.7 }]}>
+      <Pressable
+        onPress={onPress}
+        onLayout={onLayout}
+        style={({ pressed }) => [...base, pressed && { opacity: 0.7 }]}
+      >
         {children}
       </Pressable>
     );
   }
-  return <View style={base}>{children}</View>;
+  return (
+    <View style={base} onLayout={onLayout}>
+      {children}
+    </View>
+  );
 }
 
 // Píldora semi-transparente para tags, contadores y badges.

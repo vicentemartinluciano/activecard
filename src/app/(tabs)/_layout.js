@@ -49,6 +49,16 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="progreso"
+        options={{
+          title: "Progreso",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="trending-up" color={color} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
