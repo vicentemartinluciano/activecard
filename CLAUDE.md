@@ -108,18 +108,48 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   "¿Cómo estudiamos?" (Todas/Solo ⭐ + Barajado/Mi orden; recuerda en settings
   `studyPrefs`; falladas siempre barajadas). Fila punteada "+" al final de la lista
   reemplaza al botón "+ NUEVA TARJETA". El repaso diario NO cambia.
-- **UI Neón (F43-F52)**: glow por `boxShadow` (tokens `theme.glow`) — MARCADO en el
-  hero de Inicio (borde `neonBorder` + `glow.accent`) y en la card IA de Crear (se
-  intensifica en hover/pressed); SUTIL en filas EN PROGRESO (`accentSoft`) y tile
-  Gimnasio de Biblioteca (violeta); cián en la card de cierre de sesión. Barras de
-  progreso siguen VERDES + `glow.green`, SALVO la del hero: `gradients.bar`
-  (cobalto→cián) + `glow.cyan`. Botones = píldora (primario sólido, secundarios
+- **HALO ÚNICO, SOLO AL TOCAR (F83)** — reemplaza al glow permanente de F43-F52:
+  un solo resplandor **cobalto** (`glow.halo`, mismo tono que `colors.accent`; el cián se
+  leía "de otro color") que aparece **únicamente** en pressed/hover, vía `GlowPressable` o la
+  prop `halo` de `Button`. NADA de halos permanentes ni bordes neón (`colors.neonBorder`
+  eliminado). Blur máximo 18px y `HALO_PADDING` de aire en todo carril con scroll: en Android
+  el shadow se recorta contra el borde del padre. Violeta (`glow.haloViolet`) solo para el
+  Gimnasio. Única excepción permanente: la card de cierre de sesión (`glow.cyan`), que es
+  parte del flujo de estudio y NO se toca. **Los emojis 🤖✏️📁 de Crear SE QUEDAN**: se
+  propuso pasarlos a Feather y Martín lo rechazó. Las 3 cards de Crear reaccionan igual —
+  ninguna es "la destacada".
+- **UI Neón (F43-F52, lo que sigue vigente)**: barras de progreso VERDES + `glow.green`,
+  salvo la del hero: `gradients.bar` (cobalto→cián), ahora sin glow propio.
+  Botones = píldora (primario sólido, secundarios
   translúcidos, spring). Cards con degradé suave `gradients.card`. Tarjeta de estudio
   SIN bordes, flip "aplastar y voltear" (scaleX) — NADA de rotateY 3D. Home: racha
-  suelta (sin recuadro, "1 día"/"N días" correcto), SIN fila Gimnasio (queda solo la
-  carpeta virtual en Biblioteca), EN PROGRESO con % y sin chevron. Crear minimalista
-  (emoji 🤖✏️📁 en cuadradito + título, sin descripciones). Cierre de sesión: card
-  oscura + glow cián + confeti EN CÓDIGO (sin Lottie) + haptic.
+  suelta (sin recuadro), SIN fila Gimnasio (queda solo la carpeta virtual en
+  Biblioteca), EN PROGRESO con % y sin chevron — **los mazos conservan sus colores**
+  (ícono y % en `accentText`), no pasan a gris. Crear minimalista (emoji en cuadradito +
+  título, sin descripciones). Cierre de sesión: card oscura + glow cián + confeti EN
+  CÓDIGO (sin Lottie) + haptic.
+- **Hero de Inicio (F83)**: sin pill "ACTIVE RECALL". La frase larga se reemplazó por
+  **tres pills SIN borde marcado** (fondo `accentSoft`, borde transparente): pendientes,
+  completadas y %. La barra va sola a lo ancho y el botón toma un ancho intermedio (74%).
+  Saludo según la hora + nombre desde `settings.userName` (ya no hardcodeado).
+- **Topes diarios (F83)**: `settings.dailyLimits` = `{maxReviews: 40, maxNew: 15}`. Se
+  aplican AL FINAL de `buildDailyQueue`, sobre la cola ya intercalada por stride, así lo
+  que queda afuera es lo de MENOR prioridad y vuelve mañana primero. El tope de nuevas
+  protege las semanas siguientes. En Ajustes son secciones **plegables** (`Collapsible`),
+  igual que "Prioridad de los mazos" — que **se queda**, no se elimina.
+- **Pantalla Progreso (F83)**: 4ª pestaña, TODO derivado de `review_logs` y `cards`
+  (`db/stats.js`), sin migración. Orden fijado por Martín: **retención primero** (con
+  gráfico de 12 semanas), **constancia al deslizar** la misma card (heatmap de 84 días,
+  12 columnas × 7 filas), **"Lo que viene"** como lista de días con la rayita del tope
+  (se descartó la variante de barras verticales), y **puntos débiles** desde
+  `cards.lapses`. "Estudiar mis puntos débiles" reusa el motor de estudio con el mazo
+  virtual `debiles` — NO duplicar el motor.
+- **Modo edición del mazo (F83)**: menú "..." → "Editar tarjetas". Todas abiertas a la vez,
+  se toca una y se escribe. **Solo la tarjeta enfocada monta `NotionField`** (es un WebView
+  por instancia: montar veinte cuelga el teléfono); el resto muestra `RichText` en una caja
+  con pinta de input. Guarda al cambiar de fila y al salir. Sin `Sortable` en modo edición.
+- **Escalerita (F83)**: `components/Stagger.js` anima la entrada de cada sección. Usa
+  `Animated` de RN, NO `entering` de reanimated (ver Trampas).
 - **Racha** (≥1 tarjeta/día en cualquier modo; derivada de review_logs) y **progreso
   diario por mazo** (derivado de review_logs, se reinicia solo). Animación: flag
   `USE_LOTTIE` en `StreakFlame.js`, volvió a **true** a pedido de Martín (F71): Lottie
@@ -199,12 +229,19 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   baseUrl /activecard). El build corre sin .env → las claves NO van embebidas en la
   web: se pegan en Ajustes (solo visible en web) y viven en settings del navegador.
   En el APK las claves sí van embebidas por env vars de EAS.
-- **Sin notificaciones** (app pasiva). **UI "Obsidian Cobalt" sobre fondo #09090B**
+- **Notificaciones: PENDIENTE, no descartadas** (F83). Martín reabrió la decisión y quiere un
+  recordatorio diario que se dispare **solo si quedan tarjetas pendientes** (si llega los días
+  que ya estudiaste se vuelve ruido y lo silencia). Se dejó SIN implementar a pedido suyo
+  porque `expo-notifications` es nativo y obligaría a un APK: **no gastar créditos de EAS solo
+  por eso**. Cuando haya otro motivo para construir un APK, entra ahí (bumpear `version` en el
+  mismo commit).
+- **UI "Obsidian Cobalt" sobre fondo #09090B**
   (cards #151518 con borde translúcido `cardBorder`), acento azul #3E63DD + degradado
   verde (`theme.gradients.progress`, TODAS las barras de progreso) y azul profundo
   (`gradients.hero`, hero de Inicio) vía `expo-linear-gradient` + paleta de apoyo (racha
-  naranja, textColors), bottom tabs (Inicio/Crear/Biblioteca). En Inicio, el avatar+saludo
-  (arriba a la izquierda) navega a Ajustes — sin engranaje. Todo en español.
+  naranja, textColors), bottom tabs (Inicio/Crear/Biblioteca/**Progreso**). Tipografía
+  **Plus Jakarta Sans**. En Inicio, el avatar+saludo (arriba a la izquierda) navega a
+  Ajustes — sin engranaje. Todo en español.
 - **Creación centralizada**: toda creación de contenido (mazo con IA, mazo manual,
   carpeta) vive en el HUB de la pestaña Crear (`(tabs)/crear.js`); Biblioteca es solo
   consulta/filtro, sin botón de creación propio.
@@ -319,6 +356,30 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   (`RichText.liRow`: el `<Text>` del contenido no envolvía por falta de `flex` en la row →
   `styles.liContent = { flex: 1 }`). Tests: `scheduler.test.js` con `hard` entre `again` y `good`.
 
+- **F83 COMPLETA (rediseño + Progreso + topes, 100% OTA, sin bump)**. Seis commits:
+  1. **Tipografía Plus Jakarta Sans** con **una familia por peso** (`fontFamilies`/`font(N)` en
+     theme): en RN `fontFamily` y `fontWeight` NO se combinan, así que toda la app usa
+     `...font(N)` en vez de `fontWeight`. Salió por OTA porque `expo-font` estaba en el
+     binario desde el scaffolding.
+  2. **Halo cobalto único** (`glow.halo`/`glow.haloViolet` + `HALO_PADDING`), encendido SOLO
+     al tocar/hover vía `components/GlowPressable.js` y la prop `halo` de `Button`. Se fueron
+     `glow.accent/accentSoft/violet` y `colors.neonBorder`. Aplicado a: hero de Inicio, botón
+     REPASAR AHORA, las 3 cards de Crear, tile del Gimnasio (violeta) y ESTUDIAR AHORA.
+  3. **Hero de Inicio**: sin pill ACTIVE RECALL; la frase larga pasó a **3 pills sin borde**
+     (pendientes / completadas / %), barra sola a lo ancho, botón al 74%. Saludo por hora y
+     nombre desde `settings.userName`.
+  4. **Escalerita** (`components/Stagger.js`): entrada escalonada al abrir cada sección.
+  5. **Topes diarios** (`settings.dailyLimits`, default 40 repasos / 15 nuevas) aplicados al
+     final de `buildDailyQueue`; Ajustes con secciones plegables (`components/Collapsible.js`).
+  6. **Pantalla Progreso** (4ª tab) + **modo edición del mazo** + robustez (Toast,
+     ErrorBoundary, auto-respaldo, buscador liviano).
+- **Pendiente inmediato F83**: Martín corre `ACTUALIZAR-APP.bat` (OTA) y hace el QA en el celu.
+  Verificado en preview web: tipografía cargada, halo que se enciende/apaga, hero con las 3
+  pills, Ajustes con los plegables y Progreso completa (con la DB vacía). **NO verificado**
+  (la DB del preview está vacía y el navegador embebido no permite clicks): el modo edición
+  del mazo con tarjetas reales, el pill de Retención, el gráfico de retención con datos, y
+  "Estudiar mis puntos débiles".
+
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).
 - Notion: integración interna "ActiveCard" creada y validada (token en `.env`).
@@ -327,6 +388,22 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - Web pública: https://vicentemartinluciano.github.io/activecard/
 
 ## Trampas conocidas (no re-descubrir)
+- **`entering` de reanimated deja el contenido INVISIBLE si la animación no arranca.** Las
+  layout animations ponen el elemento en `visibility: hidden` hasta que la animación corre; si
+  no corre (pantalla montada sin layout todavía), queda oculto para siempre. Pasó con Progreso:
+  las tres cards estaban en el DOM, con su tamaño correcto, y no se veían. `Stagger` usa
+  `Animated` de RN por eso — el peor caso es que aparezca sin animar, nunca que no aparezca.
+- **En RN `fontFamily` + `fontWeight` NO se combinan**: hay que cargar un archivo por peso y
+  elegir la familia a mano (`font(N)` del theme). Poner `fontWeight: "700"` con una familia
+  custom muestra la regular en Android.
+- **`react-native-svg` NO está instalado** y es un módulo nativo: agregarlo obliga a un APK.
+  Por eso el gráfico de retención se dibuja con Views + `expo-linear-gradient` (columnas para
+  el área, segmentos rotados con `transformOrigin` para la línea).
+- **`reviewed_at` y `due` se guardan en UTC** (`toISOString()`) pero la app razona en hora
+  local: agrupar por día con `substr(reviewed_at, 1, 10)` en SQL manda los repasos de la noche
+  al día siguiente. En `db/stats.js` el agrupado por día/semana se hace en JS.
+- **El auto-respaldo no puede reusar `exportBackup`**: en nativo ese abre el diálogo de
+  compartir. `autoBackupIfDue` escribe directo al `documentDirectory`.
 - **`npm run lint` NO es lo que corre el CI**: el CI usa `npx eslint . --max-warnings 0`,
   que es MÁS estricto (incluye `scripts/`, `assets/`, y trata los warnings como error).
   Antes de pushear, correr el comando del CI, no `expo lint`.

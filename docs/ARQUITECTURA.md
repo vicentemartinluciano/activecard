@@ -11,22 +11,25 @@ puente entre dispositivos.
 ```
 src/
 ├── app/                        # rutas (expo-router)
-│   ├── _layout.js              # Stack raíz (initKeys al montar) + (tabs)
-│   ├── (tabs)/_layout.js       # Bottom tabs: Inicio / Crear / Biblioteca (íconos Feather)
-│   ├── (tabs)/index.js         # Inicio neón: avatar+saludo tocable (→ Ajustes, sin
-│   │                           #   engranaje) + racha SUELTA (fueguito + "1 día"/"N días",
-│   │                           #   sin recuadro); hero "Repaso de hoy" con borde neón +
-│   │                           #   glow.accent y barra cián (gradients.bar + glow.cyan);
-│   │                           #   botón blanco "REPASAR AHORA" (sin flecha); sección
-│   │                           #   "EN PROGRESO" (sin chevron, con % a la derecha,
-│   │                           #   glow.accentSoft). SIN fila Gimnasio Mental (solo queda
-│   │                           #   la carpeta virtual en Biblioteca). Skeleton inicial.
-│   ├── (tabs)/crear.js         # HUB de creación minimalista: 3 cards idénticas (emoji en
-│   │                           #   cuadradito 44×44 + título, sin descripciones ni pill,
-│   │                           #   fondo gradients.card); card IA con glow neón permanente
-│   │                           #   que se intensifica en hover/pressed (Pressable directo,
-│   │                           #   excepción comentada al patrón Card). Mazo manual y
-│   │                           #   carpeta vía ActionSheet+InlineAdd
+│   ├── _layout.js              # Stack raíz: carga las fuentes (useFonts), initKeys,
+│   │                           #   autoBackupIfDue y ErrorBoundary alrededor de todo
+│   ├── (tabs)/_layout.js       # Bottom tabs: Inicio / Crear / Biblioteca / Progreso (Feather)
+│   ├── (tabs)/index.js         # Inicio: avatar+saludo POR HORA tocable (→ Ajustes) con el
+│   │                           #   nombre de settings.userName + racha suelta (solo número);
+│   │                           #   hero "Repaso de hoy" SIN borde, con 3 pills sin borde
+│   │                           #   (pendientes/completadas/%), barra a lo ancho y botón al
+│   │                           #   74%; halo cobalto solo al tocar (hero y botón). Sección
+│   │                           #   "EN PROGRESO" sin halo permanente pero con los colores
+│   │                           #   de siempre. Stagger al entrar. Toast si falla la carga.
+│   ├── (tabs)/progreso.js      # Progreso: card con carrusel retención ⇄ constancia (dots),
+│   │                           #   "Lo que viene" (7 días con la rayita del tope) y
+│   │                           #   "Puntos débiles" (lapses) con botón para estudiarlos
+│   ├── (tabs)/crear.js         # HUB de creación minimalista: 3 cards IDÉNTICAS (emoji en
+│   │                           #   cuadradito + título, sin descripciones ni pill, fondo
+│   │                           #   gradients.card). Las tres encienden el halo cobalto al
+│   │                           #   tocarlas (GlowPressable) — ninguna es "la destacada" y
+│   │                           #   los emojis se quedan. Mazo manual y carpeta vía
+│   │                           #   ActionSheet+InlineAdd
 │   ├── crear/ia.js             # flujo IA (ex contenido de (tabs)/crear.js): fuentes texto |
 │   │                           #   archivo | Notion; extracción conceptos_clave | completo |
 │   │                           #   personalizado; Stack.Screen title "Generar con IA"
@@ -60,11 +63,16 @@ src/
 │   │                           #   ?folderId=N filtra a esa carpeta
 │   ├── gimnasio/[deckId].js    # ideas de un mazo (listIdeaCards): filas frente+dorso+fecha;
 │   │                           #   tocar → editor real (/mazos/[id]/tarjeta?cardId=N)
-│   ├── ajustes.js              # prioridades %, Respaldo, Claves (solo web), "Ver mis ideas"
+│   ├── ajustes.js              # Carga diaria y Prioridad de mazos (ambas plegables), Tu
+│   │                           #   nombre, Respaldo (+ fecha de la copia automática),
+│   │                           #   Claves (solo web), "Ver mis ideas"
 ├── db/                         # SQLite async: client (retry OPFS), schema (migraciones),
 │   │                           #   decks, folders, cards (+ snapshotFsrs/undoReview para
-│   │                           #   deshacer un repaso), settings, connections, reviewQueue,
-│   │                           #   streak, progress
+│   │                           #   deshacer un repaso; listAllCardsForSearch = versión
+│   │                           #   liviana para el buscador, sin las imágenes base64),
+│   │                           #   settings, connections, reviewQueue (+ dailyLimits),
+│   │                           #   streak, progress, stats (retención/actividad/forecast/
+│   │                           #   puntos débiles — todo derivado, sin tablas nuevas)
 ├── lib/                        # claude (MODELS.sonnet/haiku), prompts (+ instrucción
 │   │                           #   personalizada), generator (Haiku 4.5), auditor (Sonnet 5),
 │   │                           #   notion, files, scheduler (ts-fsrs), queue (stride),
@@ -84,14 +92,19 @@ src/
 │   │                           #   StreakFlame(.web) (flag USE_LOTTIE: Lottie SOFTWARE o
 │   │                           #   CodeFlame en código), ConfettiOverlay (confeti en código,
 │   │                           #   un solo archivo nativo+web, sin Lottie), Skeleton,
-│   │                           #   PercentSlider, IconPicker, RichText, RichField
+│   │                           #   PercentSlider (min/max/step/formatLabel), IconPicker,
+│   │                           #   RichText, RichField, GlowPressable (halo SOLO al tocar),
+│   │                           #   Stagger (entrada escalonada con Animated, NO reanimated),
+│   │                           #   Collapsible, Toast, ErrorBoundary, EditableCardRow,
+│   │                           #   RetentionChart / ActivityHeatmap / ForecastList (sin SVG)
 └── theme/                      # colors (Obsidian Cobalt: bg #09090B, cards #151518,
                                 #   cardBorder translúcido, azul #3E63DD + paleta,
-                                #   neonBorder/cyanBorder rgba), gradients (progress verde →
-                                #   barras de progreso SALVO la del hero; bar cobalto→cian →
-                                #   barra del hero de Inicio; hero; card → degradé suave de
-                                #   fondo de cards), glow (boxShadow neón: accent/accentSoft/
-                                #   cyan/green/violet — cross-platform en RN 0.76+ new-arch),
+                                #   cyanBorder rgba), font(N)/fontFamilies (Plus Jakarta
+                                #   Sans, UNA FAMILIA POR PESO), tabular, gradients (progress
+                                #   verde → barras de progreso SALVO la del hero; bar
+                                #   cobalto→cian → barra del hero de Inicio; hero; card →
+                                #   degradé suave de fondo de cards), glow (halo cobalto /
+                                #   haloViolet / green / cyan) + HALO_PADDING,
                                 #   textColors, spacing, radius (sm10/md16/lg20/pill),
                                 #   type (+heading/label), layout (maxWidth 480:
                                 #   columna centrada en web de escritorio; en el
@@ -378,7 +391,42 @@ por el teclado. La Etapa 1 es 100% JS (va por OTA al runtime 1.2.0):
   regla que con expo-linear-gradient en 1.1.0): los OTA posteriores quedan
   aislados al APK 1.3.0 y no rompen el 1.2.0 instalado.
 
+## Rediseño F83: halo único, Progreso y topes diarios
+
+**Tipografía.** Plus Jakarta Sans con **una familia por peso**: en RN `fontFamily` y
+`fontWeight` no se combinan, así que el theme expone `font(N)` y toda la app lo usa en
+lugar de `fontWeight`. Va por OTA porque `expo-font` ya estaba en el binario.
+
+**Halo.** Un solo resplandor cobalto (`glow.halo`), encendido SOLO en pressed/hover vía
+`GlowPressable` o la prop `halo` de `Button`. Blur máximo 18px y `HALO_PADDING` de aire en
+los carriles con scroll: en Android el shadow se recorta contra el borde del padre.
+
+**`db/stats.js`.** Todo derivado de `review_logs` y `cards`:
+- `getRetentionSummary` / `getRetentionSeries` — % de notas que NO fueron `again`, sobre
+  TODOS los modos, en ventana móvil de 30 días (y por semana para el gráfico).
+- `getActivityMap` — repasos por día, para el heatmap de constancia.
+- `getForecast` — cuántas vencen cada uno de los próximos días, excluyendo mazos pausados;
+  lo atrasado se acumula en "hoy".
+- `listWeakCards` / `countWeakCards` — las de más `lapses`.
+- `getDeckRetention` — la misma cuenta acotada a un mazo (pill del detalle).
+
+El agrupado por día/semana se hace **en JS**, nunca con `substr()` en SQL: `reviewed_at` y
+`due` están en UTC y la app razona en hora local, así que un repaso de las 22:00 caería en
+el día siguiente.
+
+**Gráficos sin SVG.** `react-native-svg` no está instalado y es nativo, así que
+`RetentionChart` dibuja el área con columnas (`LinearGradient`) y la línea con segmentos
+rotados (`transformOrigin: "left center"`).
+
+**Topes diarios.** `settings.dailyLimits` se aplica al final de `buildDailyQueue`, sobre la
+cola ya intercalada por stride: lo que queda afuera es lo de menor prioridad.
+
+**Modo edición del mazo.** Solo la fila enfocada monta `NotionField` (un WebView por
+instancia); el resto muestra `RichText` en una caja con pinta de input.
+
 ## Limitaciones conocidas
+- **`entering` de reanimated deja el contenido invisible si la animación no arranca**
+  (`visibility: hidden` permanente). Por eso `Stagger` usa `Animated` de RN.
 - `@jamsch/expo-speech-recognition` no funciona en Expo Go ni web → micrófono
   solo verificable en el APK. En web se oculta el MicButton.
 - `lottie-react-native` no funciona en web → StreakFlame.web.js por extensión
