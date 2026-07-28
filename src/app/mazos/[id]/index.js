@@ -6,12 +6,13 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import Sortable from "react-native-sortables";
 
 import ActionSheet from "../../../components/ActionSheet";
+import EditableCardRow from "../../../components/EditableCardRow";
 import GlowPressable from "../../../components/GlowPressable";
 import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
 import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
-import { listCardsByDeck, setCardPositions, setCardStarred } from "../../../db/cards";
+import { listCardsByDeck, setCardPositions, setCardStarred, updateCardText } from "../../../db/cards";
 import {
   deleteDeck,
   ensureTag,
@@ -25,6 +26,7 @@ import {
 } from "../../../db/decks";
 import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
+import { getDeckRetention } from "../../../db/stats";
 import { getSetting, setSetting } from "../../../db/settings";
 import { toPlainText } from "../../../lib/richtext";
 import { colors, font, glow, gradients, radius, spacing, textColors, type } from "../../../theme";
@@ -77,6 +79,12 @@ export default function DetalleMazo() {
   const [studySheet, setStudySheet] = useState(false);
   const [starsOnly, setStarsOnly] = useState(false);
   const [ordered, setOrdered] = useState(false);
+  const [retention, setRetention] = useState(null);
+  // Modo edición: todas las tarjetas abiertas, se editan sin entrar a cada una.
+  // activeId es la única que monta editores de verdad (ver EditableCardRow).
+  const [editMode, setEditMode] = useState(false);
+  const [activeId, setActiveId] = useState(null);
+  const [draft, setDraft] = useState({ front: "", back: "" });
 
   const load = useCallback(async () => {
     const d = await getDeck(deckId);
@@ -87,6 +95,7 @@ export default function DetalleMazo() {
       setAllTags(await listTags());
       setFolders(await listFolders());
       setProgress(await getDeckDailyProgress(deckId));
+      setRetention(await getDeckRetention(deckId));
     }
   }, [deckId]);
 
@@ -145,6 +154,35 @@ export default function DetalleMazo() {
     setCards((cs) => cs.map((c) => (c.id === item.id ? { ...c, starred: item.starred ? 0 : 1 } : c)));
   };
 
+  // Guarda la tarjeta que estaba abierta, si cambió algo. Se llama al pasar a
+  // otra fila y al salir del modo edición: no hay botón "guardar" por tarjeta.
+  const commitDraft = async () => {
+    if (activeId == null) return;
+    const original = cards.find((c) => c.id === activeId);
+    if (!original) return;
+    const front = draft.front.trim();
+    const back = draft.back.trim();
+    // Vacío = no se guarda: dejaría una tarjeta inservible sin avisar.
+    if (!front || !back) return;
+    if (front === original.front && back === original.back) return;
+    await updateCardText(activeId, front, back);
+    setCards((cs) => cs.map((c) => (c.id === activeId ? { ...c, front, back } : c)));
+  };
+
+  const activateRow = async (card) => {
+    if (card.id === activeId) return;
+    await commitDraft();
+    setActiveId(card.id);
+    setDraft({ front: card.front, back: card.back });
+  };
+
+  const exitEditMode = async () => {
+    await commitDraft();
+    setActiveId(null);
+    setEditMode(false);
+    load();
+  };
+
   const startStudy = async () => {
     const stars = starsOnly && starredCount > 0;
     await setSetting("studyPrefs", { starsOnly: stars, ordered });
@@ -177,12 +215,17 @@ export default function DetalleMazo() {
     <Screen>
       <Stack.Screen
         options={{
-          title: deck.name,
-          headerRight: () => (
-            <Pressable onPress={() => setMenuOpen(true)} hitSlop={10}>
-              <Feather name="more-horizontal" size={22} color={colors.text} />
-            </Pressable>
-          ),
+          title: editMode ? `Editando · ${deck.name}` : deck.name,
+          headerRight: () =>
+            editMode ? (
+              <Pressable onPress={exitEditMode} hitSlop={10}>
+                <Text style={styles.doneLabel}>Listo</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => setMenuOpen(true)} hitSlop={10}>
+                <Feather name="more-horizontal" size={22} color={colors.text} />
+              </Pressable>
+            ),
         }}
       />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
@@ -202,7 +245,12 @@ export default function DetalleMazo() {
 
           {progress && progress.total > 0 ? (
             <Card style={{ gap: spacing.sm }}>
-              <Text style={type.label}>Progreso de hoy</Text>
+              <View style={styles.progressHead}>
+                <Text style={type.label}>Progreso de hoy</Text>
+                {retention != null ? (
+                  <Pill label={`Retención ${retention}%`} color={colors.successBright} />
+                ) : null}
+              </View>
               <Text style={type.small}>
                 {progress.reviewedToday}/{progress.total} tarjetas repasadas
               </Text>
@@ -283,6 +331,24 @@ export default function DetalleMazo() {
 
           {cards.length === 0 ? (
             <EmptyState text="Este mazo no tiene tarjetas todavía." />
+          ) : editMode ? (
+            // En modo edición la lista va plana: el drag & drop y los editores
+            // no pueden convivir (uno necesita long-press, el otro el foco).
+            <View style={{ gap: spacing.sm }}>
+              {cards.map((item, i) => (
+                <EditableCardRow
+                  key={item.id}
+                  card={item}
+                  index={i}
+                  total={cards.length}
+                  active={activeId === item.id}
+                  draft={draft}
+                  onActivate={() => activateRow(item)}
+                  onChangeDraft={setDraft}
+                  onToggleStar={() => toggleStar(item)}
+                />
+              ))}
+            </View>
           ) : Platform.OS === "web" ? (
             // El drag & drop es para el teléfono; en web la lista es estática.
             <View style={{ gap: spacing.sm }}>{cards.map((item) => <View key={item.id}>{cardRow(item)}</View>)}</View>
@@ -314,6 +380,14 @@ export default function DetalleMazo() {
         onClose={() => setMenuOpen(false)}
         title={deck.name}
         options={[
+          {
+            icon: "edit-3",
+            label: "Editar tarjetas",
+            onPress: () => {
+              setEditMode(true);
+              setActiveId(null);
+            },
+          },
           { icon: "edit-2", label: "Renombrar", onPress: () => setEditingName(true) },
           {
             icon: "sliders",
@@ -356,6 +430,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+  },
+  progressHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  doneLabel: {
+    ...type.body,
+    fontSize: 16,
+    ...font(700),
+    color: colors.accentText,
   },
   iconRow: {
     flexDirection: "row",
