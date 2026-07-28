@@ -9,7 +9,7 @@ import LottieView from "lottie-react-native";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
-import { colors } from "../theme";
+import { colors, font } from "../theme";
 
 // true = Lottie animado por `progress` (F61). Su loop corre por JS
 // (useNativeDriver false) pero está gateado por useIsFocused: solo anima con
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   },
   days: {
     fontSize: 17,
-    fontWeight: "700",
+    ...font(700),
   },
   flameBox: {
     width: 30,

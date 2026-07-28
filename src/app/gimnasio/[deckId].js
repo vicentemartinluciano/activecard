@@ -10,7 +10,7 @@ import { Card, EmptyState, Screen } from "../../components/ui";
 import { listIdeaCards } from "../../db/cards";
 import { getDeck } from "../../db/decks";
 import { toPlainText } from "../../lib/richtext";
-import { radius, spacing, type } from "../../theme";
+import { font, radius, spacing, type } from "../../theme";
 
 export default function IdeasDelMazo() {
   const { deckId } = useLocalSearchParams();
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   },
   front: {
     ...type.body,
-    fontWeight: "500",
+    ...font(500),
   },
   date: {
     ...type.small,

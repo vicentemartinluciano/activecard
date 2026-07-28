@@ -5,7 +5,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors } from "../theme";
+import { colors, font } from "../theme";
 
 export default function StreakFlame({ days = null, active = false }) {
   const color = active ? colors.streak : colors.textMuted;
@@ -25,6 +25,6 @@ const styles = StyleSheet.create({
   },
   days: {
     fontSize: 17,
-    fontWeight: "700",
+    ...font(700),
   },
 });

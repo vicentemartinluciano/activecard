@@ -2,8 +2,10 @@ import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import DeckListItem from "../../components/DeckListItem";
+import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
@@ -13,7 +15,7 @@ import { listFolders } from "../../db/folders";
 import { getDecksDailyProgress } from "../../db/progress";
 import { searchLibrary } from "../../lib/search";
 import { toPlainText } from "../../lib/richtext";
-import { colors, glow, radius, spacing, type } from "../../theme";
+import { colors, font, glow, HALO_PADDING, radius, spacing, type } from "../../theme";
 
 export default function Biblioteca() {
   const router = useRouter();
@@ -232,9 +234,10 @@ export default function Biblioteca() {
                     contentContainerStyle={styles.folderRow}
                   >
                     {gymDecks.length > 0 ? (
-                      <Card
+                      <GlowPressable
                         onPress={() => router.push("/gimnasio")}
-                        style={[styles.folderTile, styles.gymTile]}
+                        halo={glow.haloViolet}
+                        style={[styles.tileSurface, styles.folderTile, styles.gymTile]}
                       >
                         <Feather name="zap" size={22} color={colors.streak} />
                         <Text style={styles.folderName} numberOfLines={1}>
@@ -244,7 +247,7 @@ export default function Biblioteca() {
                           color={colors.accentText}
                           label={`${gymDecks.length} ${gymDecks.length === 1 ? "mazo" : "mazos"}`}
                         />
-                      </Card>
+                      </GlowPressable>
                     ) : null}
                     {folders.map((f) => (
                       <Card
@@ -278,12 +281,18 @@ export default function Biblioteca() {
             icon="search"
           />
         }
-        renderItem={({ item }) => (
-          <DeckListItem
-            deck={item}
-            progress={progressByDeck[item.id]}
-            onPress={() => router.push(`/mazos/${item.id}`)}
-          />
+        renderItem={({ item, index }) => (
+          // Entrada escalonada solo en las primeras filas: con un mazo de 80
+          // tarjetas, animarlas todas dejaría la última entrando segundos tarde.
+          <Animated.View
+            entering={index < 8 ? FadeInDown.delay(index * 45).duration(260) : undefined}
+          >
+            <DeckListItem
+              deck={item}
+              progress={progressByDeck[item.id]}
+              onPress={() => router.push(`/mazos/${item.id}`)}
+            />
+          </Animated.View>
         )}
       />
     </Screen>
@@ -327,18 +336,31 @@ const styles = StyleSheet.create({
   },
   folderRow: {
     gap: spacing.sm,
-    paddingRight: spacing.md,
+    // El halo del tile del Gimnasio mide 18px de blur: sin este aire el
+    // ScrollView lo recorta y se ve cortado de golpe (pasa en Android). El
+    // margen negativo lo devuelve al layout para que nada se corra de lugar.
+    padding: HALO_PADDING,
+    margin: -HALO_PADDING,
+    paddingRight: HALO_PADDING + spacing.md,
   },
   folderTile: {
     width: 150,
     gap: spacing.sm,
   },
+  // El tile del Gimnasio no puede ser Card (necesita los estados pressed/hovered
+  // del GlowPressable), así que repone acá la superficie que Card le daba.
+  tileSurface: {
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.md,
+  },
   gymTile: {
     borderColor: "rgba(158,110,222,0.25)",
-    ...glow.violet,
   },
   folderName: {
     ...type.body,
-    fontWeight: "600",
+    ...font(600),
   },
 });

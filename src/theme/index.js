@@ -24,7 +24,6 @@ export const colors = {
   highlight: "#4A3A12", // fondo de resaltado rich text (ámbar oscuro)
   pillBg: "#FFFFFF14", // fondo semi-transparente de píldoras/tags
   pillBorder: "#FFFFFF1F", // borde sutil de píldoras
-  neonBorder: "rgba(77,124,255,0.65)", // borde azul eléctrico de elementos con glow
   cyanBorder: "rgba(0,242,254,0.35)", // borde cián de la card de cierre de sesión
 };
 
@@ -71,27 +70,62 @@ export const gradients = {
   card: ["#1B1B22", "#131317"], // degradé suave de fondo de cards
 };
 
-// Resplandores neón (boxShadow es cross-platform en RN >= 0.76 new-arch y en web).
-// Radios chicos a propósito: en Android el shadow se recorta contra los bordes
-// del ScrollView/padre y un blur grande se ve "cortado de golpe" — el halo
-// tiene que desvanecerse ANTES de llegar al límite (márgenes ≥ blur máximo).
+// Resplandores (boxShadow es cross-platform en RN >= 0.76 new-arch y en web).
+//
+// HALO ÚNICO: `halo` es cobalto, el MISMO tono que colors.accent. El cián de
+// antes se leía como "otro color" contra el azul de la app (decisión de Martín).
+// Se enciende SOLO al tocar/hover — nunca permanente: para eso está
+// components/GlowPressable.js.
+//
+// Blur máximo 18px A PROPÓSITO: en Android el shadow se recorta contra los
+// bordes del ScrollView/padre y un blur grande se ve "cortado de golpe". El
+// halo tiene que desvanecerse ANTES de llegar al límite, y todo contenedor con
+// scroll que aloje algo con halo necesita HALO_PADDING de aire.
 export const glow = {
-  accent: { boxShadow: "0 0 10px rgba(77,124,255,0.38), 0 0 22px rgba(62,99,221,0.18)" },
-  accentSoft: { boxShadow: "0 0 8px rgba(77,124,255,0.10)" },
-  cyan: { boxShadow: "0 0 10px rgba(0,242,254,0.18), 0 0 24px rgba(62,99,221,0.15)" },
+  halo: { boxShadow: "0 0 8px rgba(62,99,221,0.36), 0 0 18px rgba(62,99,221,0.18)" },
+  haloViolet: { boxShadow: "0 0 8px rgba(158,110,222,0.34), 0 0 18px rgba(158,110,222,0.17)" },
   green: { boxShadow: "0 0 5px rgba(91,231,173,0.35), 0 0 10px rgba(48,164,108,0.2)" },
-  violet: { boxShadow: "0 0 10px rgba(158,110,222,0.15)" },
+  // Único resplandor permanente que queda: la card de cierre de sesión, que es
+  // parte del flujo de estudio y Martín pidió no tocar.
+  cyan: { boxShadow: "0 0 10px rgba(0,242,254,0.18), 0 0 24px rgba(62,99,221,0.15)" },
 };
 
+// Aire mínimo alrededor de cualquier elemento con halo dentro de un scroll,
+// para que el resplandor no se recorte contra el borde del contenedor.
+export const HALO_PADDING = 18;
+
+// Tipografía: Plus Jakarta Sans.
+// En React Native `fontFamily` + `fontWeight` NO se combinan: si se usa una sola
+// familia y se pide fontWeight 700, Android muestra la regular (o la sintetiza
+// mal). Por eso se carga UN ARCHIVO POR PESO y se elige la familia a mano con
+// font(). Regla: en toda la app va `...font(N)` en lugar de `fontWeight: "N"`.
+// El peso 500 se mapea a SemiBold a propósito (no hay Medium cargado: un asset
+// menos en el bundle y la diferencia no se nota a los tamaños que usamos).
+export const fontFamilies = {
+  400: "PlusJakartaSans_400Regular",
+  500: "PlusJakartaSans_600SemiBold",
+  600: "PlusJakartaSans_600SemiBold",
+  700: "PlusJakartaSans_700Bold",
+  800: "PlusJakartaSans_800ExtraBold",
+};
+
+export function font(weight = 400) {
+  return { fontFamily: fontFamilies[weight] || fontFamilies[400] };
+}
+
+// Números que se actualizan en su lugar (contadores, porcentajes, fechas): sin
+// esto las cifras tienen anchos distintos y las columnas "bailan" al refrescar.
+export const tabular = { fontVariant: ["tabular-nums"] };
+
 export const type = {
-  title: { fontSize: 28, fontWeight: "700", color: colors.text },
-  subtitle: { fontSize: 15, color: colors.textMuted },
-  body: { fontSize: 17, color: colors.text, lineHeight: 24 },
-  small: { fontSize: 13, color: colors.textMuted },
-  heading: { fontSize: 20, fontWeight: "700", color: colors.text },
+  title: { fontSize: 28, ...font(700), color: colors.text },
+  subtitle: { fontSize: 15, ...font(400), color: colors.textMuted },
+  body: { fontSize: 17, ...font(400), color: colors.text, lineHeight: 24 },
+  small: { fontSize: 13, ...font(400), color: colors.textMuted },
+  heading: { fontSize: 20, ...font(700), color: colors.text },
   label: {
     fontSize: 12,
-    fontWeight: "600",
+    ...font(600),
     color: colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 1,

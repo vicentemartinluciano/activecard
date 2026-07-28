@@ -6,6 +6,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import Sortable from "react-native-sortables";
 
 import ActionSheet from "../../../components/ActionSheet";
+import GlowPressable from "../../../components/GlowPressable";
 import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
@@ -26,13 +27,14 @@ import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
 import { getSetting, setSetting } from "../../../db/settings";
 import { toPlainText } from "../../../lib/richtext";
-import { colors, glow, gradients, radius, spacing, textColors, type } from "../../../theme";
+import { colors, font, glow, gradients, radius, spacing, textColors, type } from "../../../theme";
 
-// Botón destacado con la visual del hero de Inicio (degradado + glow azul).
-// Se usa arriba del mazo y como "Empezar" del sheet de estudio.
+// Botón destacado con la visual del hero de Inicio (degradado azul).
+// Se usa arriba del mazo y como "Empezar" del sheet de estudio. El halo cobalto
+// aparece SOLO al tocarlo (o con el mouse encima en la web).
 export function HeroButton({ label, onPress, style }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [pressed && { opacity: 0.85 }, style]}>
+    <GlowPressable onPress={onPress} style={[styles.heroBtnOuter, style]}>
       <LinearGradient
         colors={gradients.hero}
         start={{ x: 0, y: 0 }}
@@ -41,7 +43,7 @@ export function HeroButton({ label, onPress, style }) {
       >
         <Text style={styles.heroBtnLabel}>{label}</Text>
       </LinearGradient>
-    </Pressable>
+    </GlowPressable>
   );
 }
 
@@ -368,11 +370,16 @@ const styles = StyleSheet.create({
   },
   cardFront: {
     ...type.body,
-    fontWeight: "500",
+    ...font(500),
   },
   ideaPill: {
     borderColor: "rgba(158,110,222,0.35)",
     backgroundColor: "rgba(158,110,222,0.10)",
+  },
+  // El contenedor externo lleva el halo y NO recorta; el degradé interno se
+  // redondea solo (si el externo tuviera overflow hidden, se comería el halo).
+  heroBtnOuter: {
+    borderRadius: radius.pill,
   },
   heroBtn: {
     borderRadius: radius.pill,
@@ -383,7 +390,7 @@ const styles = StyleSheet.create({
   },
   heroBtnLabel: {
     color: "#FFFFFF",
-    fontWeight: "700",
+    ...font(700),
     fontSize: 16,
     letterSpacing: 1,
   },

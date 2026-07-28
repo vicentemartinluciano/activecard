@@ -1,4 +1,14 @@
-import { colors, glow, gradients, radius, spacing, textColors, type } from "../index";
+import {
+  colors,
+  font,
+  glow,
+  gradients,
+  HALO_PADDING,
+  radius,
+  spacing,
+  textColors,
+  type,
+} from "../index";
 
 describe("tokens de tema", () => {
   test("los colores son hex válidos (6 dígitos, alpha opcional) o rgba()", () => {
@@ -67,12 +77,33 @@ describe("tokens de tema", () => {
     }
   });
 
-  test("los glows neón son boxShadow strings no vacíos", () => {
-    for (const token of ["accent", "accentSoft", "cyan", "green", "violet"]) {
+  test("los glows son boxShadow strings no vacíos", () => {
+    for (const token of ["halo", "haloViolet", "green", "cyan"]) {
       expect(typeof glow[token].boxShadow).toBe("string");
       expect(glow[token].boxShadow.length).toBeGreaterThan(0);
     }
     // glow vive aparte: no debe colarse dentro de gradients (sus valores son arrays de hex).
     expect(gradients.glow).toBeUndefined();
+  });
+
+  test("el halo es cobalto (mismo tono que el acento), no cián", () => {
+    expect(glow.halo.boxShadow).toContain("62,99,221");
+    expect(glow.halo.boxShadow).not.toContain("0,242,254");
+  });
+
+  test("el blur del halo no supera el aire que le damos al contenedor", () => {
+    // Si el blur fuera mayor que HALO_PADDING, Android lo recortaría contra el
+    // borde del ScrollView y se vería cortado de golpe.
+    const blurs = [...glow.halo.boxShadow.matchAll(/0 0 (\d+)px/g)].map((m) => Number(m[1]));
+    expect(Math.max(...blurs)).toBeLessThanOrEqual(HALO_PADDING);
+  });
+
+  test("la tipografía mapea cada peso a una familia propia", () => {
+    // RN no combina fontFamily + fontWeight: cada peso necesita su archivo.
+    for (const weight of [400, 500, 600, 700, 800]) {
+      expect(font(weight).fontFamily).toMatch(/^PlusJakartaSans_/);
+    }
+    expect(font(700).fontFamily).not.toBe(font(400).fontFamily);
+    expect(type.title.fontFamily).toBeDefined();
   });
 });

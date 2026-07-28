@@ -12,7 +12,7 @@ import {
   resolveImageMarkers,
 } from "../../lib/generator";
 import { fetchNotionImages, fetchNotionPage } from "../../lib/notion";
-import { colors, radius, spacing, type } from "../../theme";
+import { colors, font, radius, spacing, type } from "../../theme";
 
 const SOURCES = [
   { key: "texto", label: "Texto", icon: "type" },
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   },
   sourceLabel: {
     fontSize: 13,
-    fontWeight: "600",
+    ...font(600),
     color: colors.textMuted,
   },
   error: {

@@ -11,7 +11,7 @@ import { createCard } from "../db/cards";
 import { saveConnection } from "../db/connections";
 import { auditConnection } from "../lib/auditor";
 import { toPlainText } from "../lib/richtext";
-import { colors, radius, spacing, type } from "../theme";
+import { colors, font, radius, spacing, type } from "../theme";
 import MicButton from "./MicButton";
 import NotionField from "./NotionField";
 import { Button, Field } from "./ui";
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...type.body,
-    fontWeight: "700",
+    ...font(700),
     color: colors.accent,
   },
   chat: {
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   validatedTitle: {
     ...type.body,
-    fontWeight: "700",
+    ...font(700),
     color: colors.successBright,
   },
 });

@@ -9,7 +9,7 @@ import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { describeBlock } from "../lib/richhtml";
 import { parseRich } from "../lib/richtext";
-import { colors, radius, spacing, textColors } from "../theme";
+import { colors, font, radius, spacing, textColors } from "../theme";
 
 // Imagen inline (data URI). Toma el aspect ratio real para no deformarla y
 // respetar el ancho elegido. width = % del ancho (100 = a todo lo ancho); se
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
   },
-  bold: { fontWeight: "700" },
+  bold: { ...font(700) },
   italic: { fontStyle: "italic" },
   underline: { textDecorationLine: "underline" },
   highlight: {

@@ -8,7 +8,7 @@ import { createCard } from "../../db/cards";
 import { createDeck, listDecks } from "../../db/decks";
 import { clearDraft, getDraft } from "../../lib/draftStore";
 import { toPlainText } from "../../lib/richtext";
-import { colors, radius, spacing, type } from "../../theme";
+import { colors, font, radius, spacing, type } from "../../theme";
 
 // Preselección: revisar lo que propuso la IA antes de que toque el mazo.
 // Cada tarjeta se puede descartar, editar con tus palabras, o agregar nuevas.
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   },
   front: {
     ...type.body,
-    fontWeight: "600",
+    ...font(600),
     marginBottom: 4,
   },
   textDiscarded: {

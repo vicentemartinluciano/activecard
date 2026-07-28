@@ -6,7 +6,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
-import { colors, spacing } from "../theme";
+import { colors, font, spacing } from "../theme";
 
 export default function PercentSlider({ value, onChange }) {
   const [width, setWidth] = useState(0);
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   label: {
     color: colors.accentText,
     fontSize: 14,
-    fontWeight: "700",
+    ...font(700),
     width: 64,
     textAlign: "right",
   },

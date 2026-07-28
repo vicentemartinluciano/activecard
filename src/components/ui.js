@@ -15,7 +15,7 @@ import {
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors, layout, radius, spacing, type } from "../theme";
+import { colors, font, layout, radius, spacing, type } from "../theme";
 
 // El contenedor externo pinta el fondo a todo el ancho y centra el contenido;
 // el interno lo capa a layout.maxWidth (columna tipo móvil en web de escritorio).
@@ -76,7 +76,19 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style }) 
 // Animated.View externo (scale + style del caller) con Pressable interno:
 // Animated.createAnimatedComponent(Pressable) con style-función pierde los
 // fondos en Android new-arch — patrón prohibido en esta app.
-export function Button({ label, onPress, kind = "default", size = "md", disabled, style, labelStyle }) {
+//
+// `halo`: resplandor que aparece SOLO mientras se toca (o con el mouse encima).
+// Va en el Pressable interno, que no es Animated y sí admite style-función.
+export function Button({
+  label,
+  onPress,
+  kind = "default",
+  size = "md",
+  disabled,
+  style,
+  labelStyle,
+  halo,
+}) {
   const scale = useRef(new Animated.Value(1)).current;
   const pressIn = () =>
     Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
@@ -90,7 +102,7 @@ export function Button({ label, onPress, kind = "default", size = "md", disabled
         onPressIn={pressIn}
         onPressOut={pressOut}
         disabled={disabled}
-        style={({ pressed }) => [
+        style={({ pressed, hovered }) => [
           styles.button,
           kind === "primary" && styles.buttonPrimary,
           kind === "danger" && styles.buttonDanger,
@@ -99,6 +111,7 @@ export function Button({ label, onPress, kind = "default", size = "md", disabled
           size === "lg" && styles.buttonLg,
           disabled && { opacity: 0.4 },
           pressed && { opacity: 0.85 },
+          halo && (pressed || hovered) && !disabled && halo,
         ]}
       >
         <Text
@@ -244,17 +257,17 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     fontSize: 15,
-    fontWeight: "600",
+    ...font(600),
     color: colors.text,
   },
   buttonInverseLabel: {
     color: colors.bg,
-    fontWeight: "700",
+    ...font(700),
     letterSpacing: 0.5,
   },
   buttonLgLabel: {
     fontSize: 17,
-    fontWeight: "700",
+    ...font(700),
     letterSpacing: 0.5,
   },
   field: {
@@ -295,7 +308,7 @@ const styles = StyleSheet.create({
   },
   pillLabel: {
     fontSize: 12,
-    fontWeight: "600",
+    ...font(600),
   },
   chip: {
     borderRadius: radius.pill,

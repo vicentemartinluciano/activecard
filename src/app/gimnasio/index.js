@@ -8,10 +8,11 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { useCallback, useState } from "react";
 import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import GlowPressable from "../../components/GlowPressable";
 import { Card, EmptyState, Pill, Screen } from "../../components/ui";
 import { listDecksWithIdeas } from "../../db/cards";
 import { listFolders } from "../../db/folders";
-import { colors, glow, spacing, textColors, type } from "../../theme";
+import { colors, font, glow, HALO_PADDING, radius, spacing, textColors, type } from "../../theme";
 
 export default function GimnasioMental() {
   const router = useRouter();
@@ -64,10 +65,11 @@ export default function GimnasioMental() {
                 contentContainerStyle={styles.folderRow}
               >
                 {ideaFolders.map((f) => (
-                  <Card
+                  <GlowPressable
                     key={f.id}
                     onPress={() => router.push(`/gimnasio?folderId=${f.id}`)}
-                    style={[styles.folderTile, styles.gymTile]}
+                    halo={glow.haloViolet}
+                    style={[styles.tileSurface, styles.folderTile, styles.gymTile]}
                   >
                     <Feather name="folder" size={22} color={textColors.violeta} />
                     <Text style={styles.folderName} numberOfLines={1}>
@@ -77,7 +79,7 @@ export default function GimnasioMental() {
                       color={textColors.violeta}
                       label={`${deckCountByFolder[f.id]} ${deckCountByFolder[f.id] === 1 ? "mazo" : "mazos"}`}
                     />
-                  </Card>
+                  </GlowPressable>
                 ))}
               </ScrollView>
               <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
@@ -112,19 +114,29 @@ export default function GimnasioMental() {
 const styles = StyleSheet.create({
   folderRow: {
     gap: spacing.sm,
-    paddingRight: spacing.md,
+    // Aire para que el halo del tile no se recorte contra el borde del carril
+    // (ver HALO_PADDING en el theme). El margen negativo lo devuelve al layout.
+    padding: HALO_PADDING,
+    margin: -HALO_PADDING,
+    paddingRight: HALO_PADDING + spacing.md,
   },
   folderTile: {
     width: 150,
     gap: spacing.sm,
   },
+  tileSurface: {
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.md,
+  },
   gymTile: {
     borderColor: "rgba(158,110,222,0.25)",
-    ...glow.violet,
   },
   folderName: {
     ...type.body,
-    fontWeight: "600",
+    ...font(600),
   },
   row: {
     flexDirection: "row",

@@ -1,17 +1,21 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
+import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
+import Stagger from "../../components/Stagger";
 import { InlineAdd, Screen } from "../../components/ui";
 import { createDeck } from "../../db/decks";
 import { createFolder } from "../../db/folders";
-import { colors, glow, gradients, radius, spacing, type } from "../../theme";
+import { colors, font, gradients, radius, spacing, type } from "../../theme";
 
+// Los emojis se quedan: decisión de Martín (se propuso pasarlos a Feather y lo
+// rechazó). Las tres opciones reaccionan IGUAL — ninguna es "la destacada".
 const OPTIONS = [
-  { key: "ia", emoji: "🤖", title: "Generar Mazo con IA", highlight: true },
+  { key: "ia", emoji: "🤖", title: "Generar Mazo con IA" },
   { key: "mazo", emoji: "✏️", title: "Nuevo Mazo Manual" },
   { key: "carpeta", emoji: "📁", title: "Crear Nueva Carpeta" },
 ];
@@ -47,19 +51,15 @@ export default function Crear() {
       </Text>
 
       <View style={{ gap: spacing.md }}>
-        {/* Excepción al patrón Card: Pressable directo porque la card IA
-            intensifica su glow con hovered (web) / pressed (nativo), y Card
-            no expone esos estados. El resto de la app sigue usando Card. */}
+        {/* Excepción al patrón Card: GlowPressable directo, porque las cards
+            encienden el halo con hovered (web) / pressed (nativo) y Card no
+            expone esos estados. El resto de la app sigue usando Card. */}
+        <Stagger>
         {OPTIONS.map((opt) => (
-          <Pressable
+          <GlowPressable
             key={opt.key}
             onPress={() => handlePress(opt.key)}
-            style={({ pressed, hovered }) => [
-              styles.row,
-              opt.highlight && styles.rowIa,
-              opt.highlight && (pressed || hovered) && styles.rowIaHot,
-              !opt.highlight && pressed && { opacity: 0.7 },
-            ]}
+            style={styles.row}
           >
             <LinearGradient
               colors={gradients.card}
@@ -70,10 +70,11 @@ export default function Crear() {
               <View style={styles.emojiBox}>
                 <Text style={{ fontSize: 26 }}>{opt.emoji}</Text>
               </View>
-              <Text style={[type.body, { fontWeight: "800", fontSize: 18 }]}>{opt.title}</Text>
+              <Text style={[type.body, { ...font(800), fontSize: 18 }]}>{opt.title}</Text>
             </LinearGradient>
-          </Pressable>
+          </GlowPressable>
         ))}
+        </Stagger>
       </View>
       </View>
 
@@ -99,16 +100,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    overflow: "hidden",
-  },
-  rowIa: {
-    borderColor: colors.neonBorder,
-    ...glow.accent,
-  },
-  rowIaHot: {
-    boxShadow: "0 0 14px rgba(77,124,255,0.55), 0 0 26px rgba(62,99,221,0.3)",
+    // Sin overflow hidden: recortaría el halo del GlowPressable. El degradé
+    // interno ya se redondea con su propio borderRadius.
+    borderCurve: "continuous",
   },
   rowInner: {
+    borderRadius: radius.lg,
     minHeight: 104,
     flexDirection: "row",
     alignItems: "center",

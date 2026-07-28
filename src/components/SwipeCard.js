@@ -5,7 +5,7 @@
 import { useRef } from "react";
 import { Animated, PanResponder, StyleSheet, Text, useWindowDimensions } from "react-native";
 
-import { colors, radius } from "../theme";
+import { colors, font, radius } from "../theme";
 
 const SWIPE_THRESHOLD = 90;
 
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accentText,
   },
   badgeText: {
-    fontWeight: "700",
+    ...font(700),
     fontSize: 15,
   },
 });

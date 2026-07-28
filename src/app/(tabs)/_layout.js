@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 
-import { colors } from "../../theme";
+import { colors, font } from "../../theme";
 
 export default function TabsLayout() {
   return (
@@ -10,7 +10,7 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        headerTitleStyle: { fontWeight: "600" },
+        headerTitleStyle: { ...font(600) },
         sceneStyle: { backgroundColor: colors.bg },
         tabBarStyle: {
           backgroundColor: colors.surface,
@@ -18,7 +18,7 @@ export default function TabsLayout() {
         },
         tabBarActiveTintColor: colors.accentText,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 11, ...font(600) },
       }}
     >
       <Tabs.Screen

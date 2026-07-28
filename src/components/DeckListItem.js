@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import ProgressBar from "./ProgressBar";
 import { Card, Pill } from "./ui";
-import { colors, glow, gradients, radius, spacing, type } from "../theme";
+import { colors, font, glow, gradients, radius, spacing, type } from "../theme";
 
 export default function DeckListItem({ deck, progress, onPress }) {
   return (
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   name: {
     ...type.body,
-    fontWeight: "600",
+    ...font(600),
     flex: 1,
   },
 });
