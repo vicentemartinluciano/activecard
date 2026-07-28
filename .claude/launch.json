@@ -5,7 +5,8 @@
       "name": "activecard-web",
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/preview-web.js"],
-      "port": 8081
+      "port": 8081,
+      "autoPort": true
     }
   ]
 }
