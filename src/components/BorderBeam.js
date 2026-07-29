@@ -24,9 +24,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet } from "react-native";
 
-const VUELTA = 3200; // ms que tarda la luz en dar una vuelta a UNA tarjeta
-const LARGO = 38; // largo del segmento, en % del lado que recorre
+const VUELTA = 5200; // ms que tarda la luz en dar una vuelta a UNA tarjeta
+const LARGO = 62; // largo del segmento, en % del lado que recorre
 const GROSOR = 2;
+
+// El segmento es un TRAMO DEL DEGRADÉ DE LA APP (gradients.bar, cobalto→cián),
+// no un color plano: así la luz se lee como parte del mismo lenguaje visual que
+// las barras de progreso y el hero, en vez de un azul cualquiera.
+const COLA = "transparent";
+const CUERPO = "rgba(37,99,235,0.75)"; // #2563EB
+const PUNTA = "rgba(0,242,254,0.95)"; // #00F2FE
 
 // El Animated.Value compartido. `total` = cuántas tarjetas se pasan la luz.
 // OJO: acá NO se consulta AccessibilityInfo.isReduceMotionEnabled(). En el
@@ -43,10 +50,14 @@ export function useBeam(total = 1, { duration = VUELTA, disabled = false } = {})
       return undefined;
     }
     progress.setValue(0);
+    // El +salida deja que la cola del último tramo termine de salir antes de
+    // reiniciar; si no, la luz se corta al cerrar la vuelta.
+    const salida = LARGO / 100;
+    const vueltaCompleta = total * 4 + salida;
     const loop = Animated.loop(
       Animated.timing(progress, {
-        toValue: total * 4,
-        duration: duration * total,
+        toValue: vueltaCompleta,
+        duration: (duration / 4) * vueltaCompleta,
         easing: Easing.linear,
         // Las posiciones son porcentajes (left/top), que el native driver no
         // sabe animar. Es una animación de decoración: no vale la pena.
@@ -61,19 +72,26 @@ export function useBeam(total = 1, { duration = VUELTA, disabled = false } = {})
 }
 
 // Un lado del recorrido. `k` es el tramo (0 arriba, 1 derecha, 2 abajo, 3 izq).
-function Tramo({ progress, base, k, color, thickness, largo }) {
+//
+// LA CLAVE DE LA CONTINUIDAD: el tramo no se apaga cuando la PUNTA llega al
+// final del lado, sino cuando la COLA termina de salir. Eso hace que dos lados
+// estén encendidos a la vez mientras la luz dobla la esquina — antes cada lado
+// se apagaba entero antes de que se encendiera el siguiente y la luz SALTABA en
+// vez de doblar. El mismo solapamiento encadena una tarjeta con la siguiente en
+// Crear: la cola todavía sale de una cuando la punta ya entró en la otra.
+function Tramo({ progress, base, k, thickness, largo }) {
+  const salida = largo / 100; // lo que tarda la cola en terminar de salir
   const desde = base + k;
-  const hasta = desde + 1;
+  const hasta = desde + 1 + salida;
 
-  // Solo visible durante su tramo. El epsilon evita que quede encendido fuera.
   const opacity = progress.interpolate({
     inputRange: [desde - 0.001, desde, hasta, hasta + 0.001],
     outputRange: [0, 1, 1, 0],
     extrapolate: "clamp",
   });
 
-  // Entra por fuera del lado y sale por el otro extremo: el overflow del padre
-  // lo recorta, así aparece y desaparece en las esquinas sin saltos.
+  // La punta entra en `desde` y la cola termina de salir en `hasta`, a
+  // velocidad constante. El overflow del padre recorta lo que sobra.
   const corre = (from, to) =>
     progress.interpolate({ inputRange: [desde, hasta], outputRange: [from, to], extrapolate: "clamp" });
 
@@ -82,15 +100,18 @@ function Tramo({ progress, base, k, color, thickness, largo }) {
     ? { width: `${largo}%`, height: thickness }
     : { width: thickness, height: `${largo}%` };
 
-  // La punta brillante va adelante según hacia dónde viaja.
+  // Un tramo del degradé de la app: la punta cián adelante, el cuerpo cobalto
+  // atrás y la cola desvaneciéndose.
+  const haciaAdelante = [COLA, CUERPO, PUNTA];
+  const haciaAtras = [PUNTA, CUERPO, COLA];
   const gradiente =
     k === 0
-      ? { colors: ["transparent", color], start: { x: 0, y: 0.5 }, end: { x: 1, y: 0.5 } }
+      ? { colors: haciaAdelante, start: { x: 0, y: 0.5 }, end: { x: 1, y: 0.5 } }
       : k === 1
-        ? { colors: ["transparent", color], start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } }
+        ? { colors: haciaAdelante, start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } }
         : k === 2
-          ? { colors: [color, "transparent"], start: { x: 0, y: 0.5 }, end: { x: 1, y: 0.5 } }
-          : { colors: [color, "transparent"], start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } };
+          ? { colors: haciaAtras, start: { x: 0, y: 0.5 }, end: { x: 1, y: 0.5 } }
+          : { colors: haciaAtras, start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } };
 
   const posicion =
     k === 0
@@ -118,7 +139,6 @@ function Tramo({ progress, base, k, color, thickness, largo }) {
 export default function BorderBeam({
   progress,
   index = 0,
-  color = "rgba(126,164,255,0.95)",
   thickness = GROSOR,
   largo = LARGO,
   radius = 0,
@@ -128,15 +148,7 @@ export default function BorderBeam({
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: "hidden" }]}>
       {[0, 1, 2, 3].map((k) => (
-        <Tramo
-          key={k}
-          progress={progress}
-          base={base}
-          k={k}
-          color={color}
-          thickness={thickness}
-          largo={largo}
-        />
+        <Tramo key={k} progress={progress} base={base} k={k} thickness={thickness} largo={largo} />
       ))}
     </Animated.View>
   );

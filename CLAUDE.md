@@ -131,6 +131,11 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
     tarjeta y salta a la siguiente (`useBeam(3)` + `index`). Son 4 tramos (arriba →
     derecha → abajo → izquierda) dibujados ENCIMA del contenido, con posiciones en
     PORCENTAJE para no depender de `onLayout`. El padre necesita `overflow: hidden`.
+    El segmento es un TRAMO DEL DEGRADÉ de la app (cobalto→cián de `gradients.bar`),
+    no un color plano. **Cada lado sigue encendido hasta que sale la COLA, no hasta que
+    la punta llega al final**: por eso está visible en `[k, k+1+largo/100]` y dos lados se
+    solapan. Sin ese solapamiento la luz SALTA de un lado al otro en vez de doblar la
+    esquina, y en Crear se corta entre una tarjeta y la siguiente.
     **Descartado**: girar un degradé por detrás y dejar asomar una franja — da un barrido
     difuso sin forma y el contenedor que lo aloja deja ver el fondo como un borde negro.
   - `components/Stagger.js`: la escalerita se **rearma en cada foco** (`useStaggerKey`).
