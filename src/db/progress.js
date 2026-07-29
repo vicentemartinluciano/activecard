@@ -22,10 +22,13 @@ export async function getDeckDailyProgress(deckId, now = new Date()) {
   const db = await getDb();
   const sinceIso = startOfDay(now).toISOString();
   const [totalRow, doneRow] = await Promise.all([
-    db.getFirstAsync("SELECT COUNT(*) AS n FROM cards WHERE deck_id = ?", [deckId]),
+    db.getFirstAsync(
+      "SELECT COUNT(*) AS n FROM cards WHERE deck_id = ? AND suspended = 0",
+      [deckId]
+    ),
     db.getFirstAsync(
       `SELECT COUNT(*) AS n FROM (${DONE_TODAY_SQL})
-       WHERE card_id IN (SELECT id FROM cards WHERE deck_id = ?)`,
+       WHERE card_id IN (SELECT id FROM cards WHERE deck_id = ? AND suspended = 0)`,
       [sinceIso, sinceIso, deckId]
     ),
   ]);
@@ -43,10 +46,13 @@ export async function getDecksDailyProgress(now = new Date()) {
   const db = await getDb();
   const sinceIso = startOfDay(now).toISOString();
   const [totals, doneRows] = await Promise.all([
-    db.getAllAsync("SELECT deck_id, COUNT(*) AS n FROM cards GROUP BY deck_id"),
+    db.getAllAsync(
+      "SELECT deck_id, COUNT(*) AS n FROM cards WHERE suspended = 0 GROUP BY deck_id"
+    ),
     db.getAllAsync(
       `SELECT c.deck_id AS deck_id, COUNT(*) AS n
        FROM (${DONE_TODAY_SQL}) done JOIN cards c ON c.id = done.card_id
+       WHERE c.suspended = 0
        GROUP BY c.deck_id`,
       [sinceIso, sinceIso]
     ),
@@ -72,7 +78,8 @@ export async function listDeckCardsNotReviewedToday(deckId, now = new Date()) {
   const db = await getDb();
   const sinceIso = startOfDay(now).toISOString();
   return db.getAllAsync(
-    `SELECT * FROM cards WHERE deck_id = ? AND id NOT IN (${DONE_TODAY_SQL})`,
+    `SELECT * FROM cards
+     WHERE deck_id = ? AND suspended = 0 AND id NOT IN (${DONE_TODAY_SQL})`,
     [deckId, sinceIso, sinceIso]
   );
 }

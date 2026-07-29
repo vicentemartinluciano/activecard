@@ -74,6 +74,12 @@ describe("migraciones de esquema", () => {
     expect(MIGRATIONS[3]).toContain("CREATE INDEX IF NOT EXISTS idx_cards_deck_pos");
   });
 
+  test("la migración v5 agrega suspended con default compatible con respaldos viejos", () => {
+    expect(MIGRATIONS[4]).toContain(
+      "ALTER TABLE cards ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0"
+    );
+  });
+
   test("el esquema inicial define todas las tablas del plan", () => {
     for (const table of [
       "decks",

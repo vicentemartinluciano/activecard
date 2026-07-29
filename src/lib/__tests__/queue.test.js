@@ -44,6 +44,15 @@ describe("cola de repaso diaria (prioridad porcentual)", () => {
     expect(queue.map((c) => c.id)).toEqual([2]);
   });
 
+  test("una tarjeta suspendida queda fuera aunque esté vencida o sea un reintento", () => {
+    const cards = [
+      { ...card(1, 1, "2026-07-01T08:00:00Z"), suspended: 1 },
+      { ...card(2, 1, "2026-07-01T08:00:00Z"), suspended: 0 },
+    ];
+    const queue = buildDailyQueue(cards, { now: NOW, retryIds: [1] });
+    expect(queue.map((c) => c.id)).toEqual([2]);
+  });
+
   test("100% vs 50%: intercala 2 a 1", () => {
     const cards = [];
     for (let i = 0; i < 6; i++) cards.push(card(10 + i, 1, `2026-07-0${i + 1}T08:00:00Z`));

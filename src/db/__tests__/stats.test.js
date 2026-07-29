@@ -145,6 +145,7 @@ describe("getForecast", () => {
     allRows = [];
     await getForecast(7, NOW);
     expect(calls[0].sql).toContain("d.priority > 0");
+    expect(calls[0].sql).toContain("c.suspended = 0");
   });
 });
 
@@ -153,6 +154,7 @@ describe("puntos débiles", () => {
     allRows = [];
     await listWeakCards(5);
     expect(calls[0].sql).toContain("c.lapses > 0");
+    expect(calls[0].sql).toContain("c.suspended = 0");
     expect(calls[0].sql).toContain("ORDER BY c.lapses DESC");
     expect(calls[0].params).toEqual([5]);
   });
@@ -161,6 +163,7 @@ describe("puntos débiles", () => {
     firstRow = { n: 12 };
     expect(await countWeakCards()).toBe(12);
     expect(calls[0].sql).toContain("lapses > 0");
+    expect(calls[0].sql).toContain("suspended = 0");
   });
 });
 

@@ -118,7 +118,7 @@ export async function getForecast(days = 7, now = new Date()) {
   const rows = await db.getAllAsync(
     `SELECT c.due AS due FROM cards c
      JOIN decks d ON d.id = c.deck_id
-     WHERE d.priority > 0`
+     WHERE d.priority > 0 AND c.suspended = 0`
   );
 
   const hoy = startOfDay(now);
@@ -143,7 +143,7 @@ export async function listWeakCards(limit = 20) {
   return db.getAllAsync(
     `SELECT c.*, d.name AS deck_name FROM cards c
      JOIN decks d ON d.id = c.deck_id
-     WHERE c.lapses > 0
+     WHERE c.lapses > 0 AND c.suspended = 0
      ORDER BY c.lapses DESC, c.id ASC
      LIMIT ?`,
     [limit]
@@ -152,7 +152,9 @@ export async function listWeakCards(limit = 20) {
 
 export async function countWeakCards() {
   const db = await getDb();
-  const row = await db.getFirstAsync("SELECT COUNT(*) AS n FROM cards WHERE lapses > 0");
+  const row = await db.getFirstAsync(
+    "SELECT COUNT(*) AS n FROM cards WHERE lapses > 0 AND suspended = 0"
+  );
   return row ? row.n : 0;
 }
 

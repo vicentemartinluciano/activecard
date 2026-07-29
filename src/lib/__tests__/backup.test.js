@@ -97,6 +97,13 @@ describe("restoreBackup", () => {
     expect(db.tables.decks).toEqual(validBackup.decks);
   });
 
+  test("un respaldo v2 anterior a suspended sigue insertando sus tarjetas", async () => {
+    const db = fakeDb();
+    await restoreBackup(db, validBackup);
+    expect(db.tables.cards).toEqual(validBackup.cards);
+    expect(db.tables.cards[0]).not.toHaveProperty("suspended");
+  });
+
   test("roundtrip v2 con carpetas: exportar y reimportar conserva todo", async () => {
     const source = fakeDb({
       folders: [{ id: 1, name: "Facultad", created_at: "x" }],

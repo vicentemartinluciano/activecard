@@ -1,4 +1,10 @@
-import { createCard, listCardsByDeck, setCardPositions, setCardStarred } from "../cards";
+import {
+  createCard,
+  listCardsByDeck,
+  setCardPositions,
+  setCardStarred,
+  setCardSuspended,
+} from "../cards";
 
 // Doble mínimo de una conexión expo-sqlite async (patrón de undo.test.js),
 // con soporte para la subquery de position del INSERT y el orden manual.
@@ -24,6 +30,7 @@ function fakeDb() {
           front: params[1],
           back: params[2],
           starred: 0,
+          suspended: 0,
           position: Math.max(0, ...positions) + 1,
         };
         cards.set(id, row);
@@ -31,6 +38,10 @@ function fakeDb() {
       }
       if (sql.startsWith("UPDATE cards SET starred")) {
         cards.get(params[1]).starred = params[0];
+        return {};
+      }
+      if (sql.startsWith("UPDATE cards SET suspended")) {
+        cards.get(params[1]).suspended = params[0];
         return {};
       }
       if (sql.startsWith("UPDATE cards SET position")) {
@@ -80,5 +91,10 @@ describe("orden manual y estrellas de tarjetas", () => {
     expect(db.cards.get(b).starred).toBe(1);
     await setCardStarred(b, 0);
     expect(db.cards.get(b).starred).toBe(0);
+
+    await setCardSuspended(c, 1);
+    expect(db.cards.get(c).suspended).toBe(1);
+    await setCardSuspended(c, 0);
+    expect(db.cards.get(c).suspended).toBe(0);
   });
 });

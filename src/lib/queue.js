@@ -49,6 +49,7 @@ export function buildDailyQueue(
   // Colas por mazo, cada una con las debidas ordenadas por más vencida primero.
   const byDeck = new Map();
   for (const card of cards) {
+    if (card.suspended) continue;
     if (priorityOf(card.deck_id) <= 0) continue; // mazo pausado
     if (new Date(card.due).getTime() > limit && !retry.has(card.id)) continue; // no debida aún
     if (!byDeck.has(card.deck_id)) byDeck.set(card.deck_id, []);

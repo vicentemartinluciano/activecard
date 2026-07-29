@@ -110,6 +110,12 @@ export const MIGRATIONS = [
   UPDATE cards SET position = id;
   CREATE INDEX IF NOT EXISTS idx_cards_deck_pos ON cards(deck_id, position);
   `,
+
+  // v5 — tarjetas suspendidas (leeches o contenido que necesita corrección).
+  // Siguen visibles y respaldables, pero quedan fuera de cualquier cola.
+  `
+  ALTER TABLE cards ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

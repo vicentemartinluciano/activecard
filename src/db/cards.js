@@ -107,6 +107,11 @@ export async function setCardStarred(id, starred) {
   await db.runAsync("UPDATE cards SET starred = ? WHERE id = ?", [starred, id]);
 }
 
+export async function setCardSuspended(id, suspended) {
+  const db = await getDb();
+  await db.runAsync("UPDATE cards SET suspended = ? WHERE id = ?", [suspended, id]);
+}
+
 // Persiste el orden manual: position = índice + 1 según orderedIds.
 export async function setCardPositions(deckId, orderedIds) {
   const db = await getDb();
@@ -135,7 +140,7 @@ export async function listAllCards() {
 // frente/dorso porque pueden contener imágenes base64 de cientos de KB.
 export async function listCardsForQueue() {
   const db = await getDb();
-  return db.getAllAsync("SELECT id, deck_id, due, state FROM cards");
+  return db.getAllAsync("SELECT id, deck_id, due, state, suspended FROM cards");
 }
 
 // Versión liviana para el buscador de la Biblioteca, que solo necesita texto.
@@ -202,9 +207,10 @@ export async function listRetryTodayIds(sinceIso) {
 
 export async function countDueCards(limitIso) {
   const db = await getDb();
-  const row = await db.getFirstAsync("SELECT COUNT(*) AS n FROM cards WHERE due <= ?", [
-    limitIso,
-  ]);
+  const row = await db.getFirstAsync(
+    "SELECT COUNT(*) AS n FROM cards WHERE due <= ? AND suspended = 0",
+    [limitIso]
+  );
   return row ? row.n : 0;
 }
 
