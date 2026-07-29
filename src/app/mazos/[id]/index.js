@@ -345,6 +345,13 @@ export default function DetalleMazo() {
         <Text style={type.small} numberOfLines={1}>
           {toPlainText(item.back)}
         </Text>
+        <Pressable
+          onPress={() => router.push(`/gimnasio/nueva?cardId=${item.id}`)}
+          style={({ pressed }) => [styles.thinkAction, pressed && { opacity: 0.65 }]}
+        >
+          <Feather name="message-circle" size={13} color={colors.accentText} />
+          <Text style={styles.thinkActionText}>Pensar esto con el socio</Text>
+        </Pressable>
       </View>
       <SuspendToggle
         suspended={!!item.suspended}
@@ -594,6 +601,15 @@ export default function DetalleMazo() {
             label: showDetails ? "Ocultar detalles" : "Editar detalles",
             onPress: () => setShowDetails((s) => !s),
           },
+          ...(cards.length > 0
+            ? [
+                {
+                  icon: "message-circle",
+                  label: "Pensar una tarjeta",
+                  onPress: () => router.push(`/gimnasio/nueva?deckId=${deckId}`),
+                },
+              ]
+            : []),
           { icon: "trash-2", label: "Borrar mazo", destructive: true, onPress: onDelete },
         ]}
       />
@@ -686,6 +702,18 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderWidth: 0,
     paddingHorizontal: 0,
+  },
+  thinkAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  thinkActionText: {
+    ...type.small,
+    ...font(600),
+    color: colors.accentText,
   },
   ideaPill: {
     borderColor: "rgba(158,110,222,0.35)",

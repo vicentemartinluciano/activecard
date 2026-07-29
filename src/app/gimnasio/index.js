@@ -11,7 +11,7 @@ import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
 import GlowPressable from "../../components/GlowPressable";
 import { StaggerRow, useStaggerKey } from "../../components/Stagger";
 import Toast from "../../components/Toast";
-import { Card, EmptyState, Pill, Screen } from "../../components/ui";
+import { Button, Card, EmptyState, Pill, Screen } from "../../components/ui";
 import { listDecksWithIdeas } from "../../db/cards";
 import { listFolders } from "../../db/folders";
 import { colors, font, glow, HALO_PADDING, radius, spacing, textColors, type } from "../../theme";
@@ -67,35 +67,42 @@ export default function GimnasioMental() {
         keyExtractor={(d) => String(d.id)}
         contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
         ListHeaderComponent={
-          showFolderGrid ? (
-            <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
-              <Text style={type.label}>Carpetas</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.folderRow}
-              >
-                {ideaFolders.map((f) => (
-                  <GlowPressable
-                    key={f.id}
-                    onPress={() => router.push(`/gimnasio?folderId=${f.id}`)}
-                    halo={glow.haloViolet}
-                    style={[styles.tileSurface, styles.folderTile, styles.gymTile]}
-                  >
-                    <Feather name="folder" size={22} color={textColors.violeta} />
-                    <Text style={styles.folderName} numberOfLines={1}>
-                      {f.name}
-                    </Text>
-                    <Pill
-                      color={textColors.violeta}
-                      label={`${deckCountByFolder[f.id]} ${deckCountByFolder[f.id] === 1 ? "mazo" : "mazos"}`}
-                    />
-                  </GlowPressable>
-                ))}
-              </ScrollView>
-              <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
-            </View>
-          ) : null
+          <View style={{ gap: spacing.md, marginBottom: spacing.sm }}>
+            <Button
+              label="Nueva conexión"
+              kind="primary"
+              onPress={() => router.push("/gimnasio/nueva")}
+            />
+            {showFolderGrid ? (
+              <View style={{ gap: spacing.sm }}>
+                <Text style={type.label}>Carpetas</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.folderRow}
+                >
+                  {ideaFolders.map((f) => (
+                    <GlowPressable
+                      key={f.id}
+                      onPress={() => router.push(`/gimnasio?folderId=${f.id}`)}
+                      halo={glow.haloViolet}
+                      style={[styles.tileSurface, styles.folderTile, styles.gymTile]}
+                    >
+                      <Feather name="folder" size={22} color={textColors.violeta} />
+                      <Text style={styles.folderName} numberOfLines={1}>
+                        {f.name}
+                      </Text>
+                      <Pill
+                        color={textColors.violeta}
+                        label={`${deckCountByFolder[f.id]} ${deckCountByFolder[f.id] === 1 ? "mazo" : "mazos"}`}
+                      />
+                    </GlowPressable>
+                  ))}
+                </ScrollView>
+                <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
+              </View>
+            ) : null}
+          </View>
         }
         ListEmptyComponent={
           <EmptyState text="Todavía no hay ideas guardadas. Se crean desde el rayo ⚡ al repasar." />
