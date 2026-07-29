@@ -1,7 +1,7 @@
 import { Feather, FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Sortable from "react-native-sortables";
 
@@ -12,6 +12,7 @@ import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
 import Stagger from "../../../components/Stagger";
+import Toast from "../../../components/Toast";
 import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, setCardPositions, setCardStarred, updateCardText } from "../../../db/cards";
 import {
@@ -66,6 +67,7 @@ export default function DetalleMazo() {
   const { id } = useLocalSearchParams();
   const deckId = Number(id);
   const router = useRouter();
+  const navigation = useNavigation();
 
   const [deck, setDeck] = useState(null);
   const [cards, setCards] = useState([]);
@@ -86,6 +88,9 @@ export default function DetalleMazo() {
   const [editMode, setEditMode] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [draft, setDraft] = useState({ front: "", back: "" });
+  const [editError, setEditError] = useState("");
+  const allowNavigationRef = useRef(false);
+  const savingDraftRef = useRef(false);
 
   const load = useCallback(async () => {
     const d = await getDeck(deckId);
@@ -113,6 +118,50 @@ export default function DetalleMazo() {
       setOrdered(!!p.ordered);
     });
   }, []);
+
+  const commitDraft = useCallback(async () => {
+    if (activeId == null) return true;
+    const original = cards.find((c) => c.id === activeId);
+    if (!original) return true;
+    const front = draft.front.trim();
+    const back = draft.back.trim();
+    if (!front || !back) {
+      setEditError("Completá el frente y el dorso antes de salir.");
+      return false;
+    }
+    if (front === original.front && back === original.back) {
+      setEditError("");
+      return true;
+    }
+    try {
+      await updateCardText(activeId, front, back);
+      setCards((cs) => cs.map((c) => (c.id === activeId ? { ...c, front, back } : c)));
+      setEditError("");
+      return true;
+    } catch {
+      setEditError("No pudimos guardar esta tarjeta. Volvé a intentar.");
+      return false;
+    }
+  }, [activeId, cards, draft]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (event) => {
+      if (!editMode || activeId == null || allowNavigationRef.current) return;
+      event.preventDefault();
+      if (savingDraftRef.current) return;
+      savingDraftRef.current = true;
+      commitDraft()
+        .then((saved) => {
+          if (!saved) return;
+          allowNavigationRef.current = true;
+          navigation.dispatch(event.data.action);
+        })
+        .finally(() => {
+          savingDraftRef.current = false;
+        });
+    });
+    return unsubscribe;
+  }, [activeId, commitDraft, editMode, navigation]);
 
   if (!deck) return <Screen />;
 
@@ -155,30 +204,17 @@ export default function DetalleMazo() {
     setCards((cs) => cs.map((c) => (c.id === item.id ? { ...c, starred: item.starred ? 0 : 1 } : c)));
   };
 
-  // Guarda la tarjeta que estaba abierta, si cambió algo. Se llama al pasar a
-  // otra fila y al salir del modo edición: no hay botón "guardar" por tarjeta.
-  const commitDraft = async () => {
-    if (activeId == null) return;
-    const original = cards.find((c) => c.id === activeId);
-    if (!original) return;
-    const front = draft.front.trim();
-    const back = draft.back.trim();
-    // Vacío = no se guarda: dejaría una tarjeta inservible sin avisar.
-    if (!front || !back) return;
-    if (front === original.front && back === original.back) return;
-    await updateCardText(activeId, front, back);
-    setCards((cs) => cs.map((c) => (c.id === activeId ? { ...c, front, back } : c)));
-  };
-
   const activateRow = async (card) => {
     if (card.id === activeId) return;
-    await commitDraft();
+    const saved = await commitDraft();
+    if (!saved) return;
     setActiveId(card.id);
     setDraft({ front: card.front, back: card.back });
   };
 
   const exitEditMode = async () => {
-    await commitDraft();
+    const saved = await commitDraft();
+    if (!saved) return;
     setActiveId(null);
     setEditMode(false);
     load();
@@ -387,6 +423,8 @@ export default function DetalleMazo() {
             icon: "edit-3",
             label: "Editar tarjetas",
             onPress: () => {
+              allowNavigationRef.current = false;
+              setEditError("");
               setEditMode(true);
               setActiveId(null);
             },
@@ -424,6 +462,8 @@ export default function DetalleMazo() {
         </View>
         <HeroButton label="Empezar" onPress={startStudy} style={{ marginTop: spacing.md }} />
       </ActionSheet>
+
+      <Toast message={editError} onDismiss={() => setEditError("")} />
     </Screen>
   );
 }
