@@ -118,14 +118,21 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   parte del flujo de estudio y NO se toca. **Los emojis 🤖✏️📁 de Crear SE QUEDAN**: se
   propuso pasarlos a Feather y Martín lo rechazó. Las 3 cards de Crear reaccionan igual —
   ninguna es "la destacada".
+- **NO consultar `AccessibilityInfo.isReduceMotionEnabled()` para los efectos decorativos.**
+  En el teléfono de Martín la escala de animaciones del sistema está baja, así que esa
+  consulta devuelve **true** y apagaba los efectos solos. Fue la causa de que la escalerita
+  se viera SOLO en Biblioteca (esa pantalla usa `StaggerRow`, la única variante que nunca la
+  consultó) y de que la luz del borde no apareciera nunca. Es una app personal y los efectos
+  se pidieron explícitamente: corren siempre. Mismo motivo por el que el Lottie se clava —
+  ver la trampa del `autoPlay` más abajo.
 - **Movimiento ambiental (F84)** — encima del halo reactivo, tres efectos con vida propia:
-  - `components/BorderLight.js`: una luz **gira por el borde** del hero de Inicio, tipo
-    indicador de carga. Como en RN no hay conic-gradient, debajo del contenido gira un
-    degradé lineal con insets negativos y el contenido opaco tapa todo salvo una franja
-    de 1.5px. **No mide la tarjeta a propósito** (medir con `onLayout` resultó frágil).
-  - `components/SequentialGlow.js`: en Crear el brillo **recorre las 3 cards** de arriba
-    abajo y vuelve. `boxShadow` no se puede interpolar → cada card lleva una capa absoluta
-    con el halo y se anima su **opacidad**, con `pointerEvents="none"`.
+  - `components/BorderBeam.js`: un **segmento de luz con cola de cometa recorre el
+    contorno** — el hero de Inicio y, en Crear, UNA SOLA luz que da la vuelta a una
+    tarjeta y salta a la siguiente (`useBeam(3)` + `index`). Son 4 tramos (arriba →
+    derecha → abajo → izquierda) dibujados ENCIMA del contenido, con posiciones en
+    PORCENTAJE para no depender de `onLayout`. El padre necesita `overflow: hidden`.
+    **Descartado**: girar un degradé por detrás y dejar asomar una franja — da un barrido
+    difuso sin forma y el contenedor que lo aloja deja ver el fondo como un borde negro.
   - `components/Stagger.js`: la escalerita se **rearma en cada foco** (`useStaggerKey`).
     Las pantallas de tabs no se desmontan, así que sin eso corría una sola vez en la vida
     de la app. Está en las 4 tabs + Ajustes + detalle de mazo + Gimnasio.

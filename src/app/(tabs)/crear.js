@@ -4,14 +4,14 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
+import BorderBeam, { useBeam } from "../../components/BorderBeam";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
-import { GlowLayer, useSequentialGlow } from "../../components/SequentialGlow";
 import Stagger from "../../components/Stagger";
 import { InlineAdd, Screen } from "../../components/ui";
 import { createDeck } from "../../db/decks";
 import { createFolder } from "../../db/folders";
-import { colors, font, glow, gradients, radius, spacing, type } from "../../theme";
+import { colors, font, gradients, radius, spacing, type } from "../../theme";
 
 // Los emojis se quedan: decisión de Martín (se propuso pasarlos a Feather y lo
 // rechazó). Las tres opciones reaccionan IGUAL — ninguna es "la destacada".
@@ -25,8 +25,8 @@ const OPTIONS = [
 export default function Crear() {
   const router = useRouter();
   const [createStep, setCreateStep] = useState(null); // null | "mazo" | "carpeta"
-  // Un brillo recorre las tres tarjetas, de arriba abajo y de vuelta.
-  const glowSteps = useSequentialGlow(OPTIONS.length);
+  // Una sola luz recorre el borde de las tres, una tras otra, en loop.
+  const beam = useBeam(OPTIONS.length);
 
   const onCreateDeck = async (name) => {
     const id = await createDeck(name);
@@ -64,16 +64,15 @@ export default function Crear() {
             onPress={() => handlePress(opt.key)}
             style={styles.row}
           >
-            {/* El brillo va saltando de una tarjeta a la otra en loop; la capa
-                es absoluta y no captura toques (una View con opacity 0 igual
-                se come los taps: trampa vieja de este proyecto). */}
-            <GlowLayer style={glowSteps[i]} halo={glow.halo} radius={radius.lg} />
             <LinearGradient
               colors={gradients.card}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.rowInner}
             >
+              {/* UNA sola luz para las tres: da la vuelta al borde de esta
+                  tarjeta durante su turno y después salta a la siguiente. */}
+              <BorderBeam progress={beam} index={i} radius={radius.lg} />
               <View style={styles.emojiBox}>
                 <Text style={{ fontSize: 26 }}>{opt.emoji}</Text>
               </View>
@@ -113,6 +112,9 @@ const styles = StyleSheet.create({
   },
   rowInner: {
     borderRadius: radius.lg,
+    // Recorta la luz del borde contra las esquinas redondeadas. Va acá, en el
+    // degradé interno, y NO en `row`: ahí se comería el halo del press.
+    overflow: "hidden",
     minHeight: 104,
     flexDirection: "row",
     alignItems: "center",

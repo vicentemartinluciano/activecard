@@ -163,7 +163,7 @@ export default function Progreso() {
                         </Text>
                         <Text style={type.small}>últimos 30 días</Text>
                       </View>
-                      <RetentionChart series={serie} />
+                      <RetentionChart series={serie} anchoBase={anchoCard} />
                       <Text style={type.small}>
                         {sinDatos
                           ? "Cuando repases unas cuantas tarjetas vas a ver acá si el sistema te está funcionando."
@@ -286,7 +286,8 @@ const styles = StyleSheet.create({
   bigUnit: {
     fontSize: 17,
     ...font(700),
-    color: colors.textMuted,
+    // Verde igual que el número: el "%" es parte de la cifra, no una acotación.
+    color: colors.successBright,
   },
   dots: {
     flexDirection: "row",

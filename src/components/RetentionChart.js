@@ -15,6 +15,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { colors, font, tabular, type } from "../theme";
 
+const MARGEN_X = 7; // aire a cada lado: el punto final mide 8px de diámetro
 const PLOT_H = 88; // alto del área de dibujo
 const AXIS_H = 18; // franja de las etiquetas de meses
 const MIN_PCT = 50; // piso de la escala: abajo de 50% no hace falta detalle
@@ -30,8 +31,12 @@ function yOf(pct) {
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-export default function RetentionChart({ series }) {
-  const [width, setWidth] = useState(0);
+// `anchoBase`: ancho de arranque calculado por la pantalla. onLayout después lo
+// corrige, pero sin esto el gráfico depende de que la medición llegue — y si no
+// llega, no se dibuja nada (ver la trampa del preview en CLAUDE.md).
+export default function RetentionChart({ series, anchoBase = 0 }) {
+  const [medido, setMedido] = useState(0);
+  const width = medido > 0 ? medido : Math.max(0, anchoBase - 24);
 
   // Solo las semanas con repasos: una semana sin datos no es 0% de retención,
   // es "no estudiaste" — dibujarla como cero sería mentir.
@@ -39,9 +44,12 @@ export default function RetentionChart({ series }) {
     .map((s, i) => ({ ...s, i }))
     .filter((s) => s.pct != null);
 
+  // Margen a los costados para que el punto del extremo (y su etiqueta) entren
+  // enteros: dibujado justo sobre el borde, se veía cortado por la mitad.
   const n = series ? series.length : 0;
-  const step = n > 1 && width > 0 ? width / (n - 1) : 0;
-  const xOf = (i) => i * step;
+  const util = Math.max(0, width - MARGEN_X * 2);
+  const step = n > 1 && util > 0 ? util / (n - 1) : 0;
+  const xOf = (i) => MARGEN_X + i * step;
 
   const promedio =
     puntos.length > 0
@@ -72,7 +80,7 @@ export default function RetentionChart({ series }) {
           ))}
         </View>
 
-        <View style={styles.plot} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        <View style={styles.plot} onLayout={(e) => { const w = e.nativeEvent.layout.width; if (w > 0) setMedido(w); }}>
           {/* Grilla */}
           {[MAX_PCT, 75, MIN_PCT].map((v) => (
             <View

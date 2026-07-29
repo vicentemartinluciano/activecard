@@ -11,7 +11,7 @@
 
 import { useFocusEffect } from "expo-router";
 import { Children, useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Platform } from "react-native";
+import { Animated, Platform } from "react-native";
 
 // react-native-web no tiene native driver: pedirlo deja la animacion quieta.
 const NATIVE_DRIVER = Platform.OS !== "web";
@@ -86,25 +86,16 @@ export function useStaggerKey() {
   return focusKey;
 }
 
+// OJO: acá NO se consulta AccessibilityInfo.isReduceMotionEnabled().
+// Se consultaba, y era la razón por la que la escalerita se veía SOLO en
+// Biblioteca: esa pantalla usa StaggerRow, que nunca lo consultó. En el
+// teléfono de Martín la escala de animaciones del sistema está baja, así que
+// esa consulta devolvía true y apagaba el efecto en todas las demás pantallas
+// (el mismo motivo por el que el Lottie de la racha se clavaba, ver CLAUDE.md).
+// Es una app personal y los efectos se pidieron explícitamente: corren siempre.
 export default function Stagger({ children, step = STEP, style, disabled = false }) {
-  const [reduceMotion, setReduceMotion] = useState(false);
   const focusKey = useStaggerKey();
-
-  useEffect(() => {
-    let alive = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((v) => alive && setReduceMotion(!!v))
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", (v) =>
-      setReduceMotion(!!v)
-    );
-    return () => {
-      alive = false;
-      sub?.remove?.();
-    };
-  }, []);
-
-  const off = disabled || reduceMotion;
+  const off = disabled;
 
   return Children.map(Children.toArray(children), (child, i) => (
     <StaggerItem
