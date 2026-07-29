@@ -81,8 +81,18 @@ export async function restoreParsedBackup(parsed) {
 }
 
 const AUTO_BACKUP_KEY = "lastAutoBackup";
-const AUTO_BACKUP_FILE = "activecard-auto.json";
+const AUTO_BACKUP_SLOT_KEY = "lastAutoBackupSlot";
+const AUTO_BACKUP_FILES = [
+  "activecard-auto-1.json",
+  "activecard-auto-2.json",
+  "activecard-auto-3.json",
+];
 const UNA_SEMANA = 7 * 24 * 60 * 60 * 1000;
+
+export function nextAutoBackupSlot(lastSlot) {
+  const slot = Number(lastSlot);
+  return Number.isInteger(slot) && slot >= 1 && slot < AUTO_BACKUP_FILES.length ? slot + 1 : 1;
+}
 
 // Respaldo automático semanal, en silencio.
 //
@@ -102,10 +112,15 @@ export async function autoBackupIfDue(now = new Date()) {
   const db = await getDb();
   const backup = await buildBackup(db, now);
   const FileSystem = await import("expo-file-system/legacy");
-  const uri = FileSystem.documentDirectory + AUTO_BACKUP_FILE;
+  const lastSlot = await getSetting(AUTO_BACKUP_SLOT_KEY, 0);
+  const slot = nextAutoBackupSlot(lastSlot);
+  const uri = FileSystem.documentDirectory + AUTO_BACKUP_FILES[slot - 1];
   await FileSystem.writeAsStringAsync(uri, JSON.stringify(backup), {
     encoding: FileSystem.EncodingType.UTF8,
   });
-  await setSetting(AUTO_BACKUP_KEY, now.toISOString());
+  await Promise.all([
+    setSetting(AUTO_BACKUP_KEY, now.toISOString()),
+    setSetting(AUTO_BACKUP_SLOT_KEY, slot),
+  ]);
   return uri;
 }

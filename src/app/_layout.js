@@ -8,6 +8,7 @@ import {
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { InteractionManager } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -28,9 +29,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     initKeys().catch((e) => console.warn("No se pudieron leer las claves guardadas:", e));
-    // Respaldo automático semanal, en silencio (solo nativo). Si falla no se le
-    // dice nada al usuario: el respaldo que importa es el manual de Ajustes.
-    autoBackupIfDue().catch((e) => console.warn("No se pudo hacer el respaldo automático:", e));
+    // El respaldo recorre toda la base. Lo arrancamos recién cuando terminó la
+    // navegación inicial para que nunca compita con el primer render.
+    const backupTask = InteractionManager.runAfterInteractions(() => {
+      autoBackupIfDue().catch((e) => console.warn("No se pudo hacer el respaldo automático:", e));
+    });
+    return () => backupTask.cancel();
   }, []);
 
   useEffect(() => {
