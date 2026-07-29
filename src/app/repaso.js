@@ -83,6 +83,14 @@ export default function Repaso() {
     const card = round[index];
     const prev = snapshotFsrs(card);
     const updated = await reviewCard(card, rating, "daily");
+    // El estado FSRS nuevo tiene que volver a la ronda: la ronda de falladas se
+    // arma DESDE `round` (buildFailedRound), y si ahí quedan los objetos de antes
+    // del repaso, al acertar en la ronda extra FSRS recalcula desde el estado
+    // pre-fallo y el UPDATE pisa `lapses` con el valor viejo. Resultado: la
+    // tarjeta que acabás de olvidar se va a semanas y no aparece en "Puntos
+    // débiles", que lee cards.lapses. `prev` ya se tomó arriba, así que el
+    // deshacer sigue restaurando el estado correcto.
+    setRound((r) => r.map((c) => (c.id === card.id ? { ...c, ...updated } : c)));
     setHistory((h) => [...h, { index, cardId: card.id, prev, logId: updated.logId, rating }]);
     setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
     if (rating === "again") setFailedIds((f) => [...f, card.id]);

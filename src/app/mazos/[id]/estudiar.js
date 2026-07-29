@@ -110,6 +110,10 @@ export default function Estudiar() {
     const card = round[index];
     const prev = snapshotFsrs(card);
     const updated = await reviewCard(card, rating, "quizlet");
+    // Mismo motivo que en el repaso diario: la ronda de falladas se arma desde
+    // `round`, así que el estado FSRS nuevo tiene que volver acá o al acertar en
+    // la ronda extra se recalcula desde el estado pre-fallo y se pisa `lapses`.
+    setRound((r) => r.map((c) => (c.id === card.id ? { ...c, ...updated } : c)));
     setHistory((h) => [...h, { index, cardId: card.id, prev, logId: updated.logId, rating }]);
     setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
     if (rating === "again") setFailedIds((f) => [...f, card.id]);
