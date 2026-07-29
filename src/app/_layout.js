@@ -16,10 +16,10 @@ import { initKeys } from "../lib/keys";
 import { colors, font } from "../theme";
 
 export default function RootLayout() {
-  // Un archivo por peso (ver fontFamilies en theme). Hasta que carguen no se
-  // renderiza nada: si no, el primer frame sale con la fuente del sistema y
-  // después salta.
-  const [fontsLoaded] = useFonts({
+  // Un archivo por peso (ver fontFamilies en theme). Esperamos la carga para
+  // evitar el salto del primer frame, salvo que falle: ahí la app continúa con
+  // la fuente del sistema.
+  const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
@@ -33,7 +33,15 @@ export default function RootLayout() {
     autoBackupIfDue().catch((e) => console.warn("No se pudo hacer el respaldo automático:", e));
   }, []);
 
-  if (!fontsLoaded) return null;
+  useEffect(() => {
+    if (fontError) {
+      console.warn("Plus Jakarta Sans no pudo cargarse; se usará la fuente del sistema:", fontError);
+    }
+  }, [fontError]);
+
+  // Un fallo de fuente no puede dejar la app en una pantalla negra. React
+  // Native reemplaza la familia ausente por la del sistema al renderizar.
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
