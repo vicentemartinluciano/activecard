@@ -10,6 +10,7 @@ import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import GlowPressable from "../../components/GlowPressable";
 import { StaggerRow, useStaggerKey } from "../../components/Stagger";
+import Toast from "../../components/Toast";
 import { Card, EmptyState, Pill, Screen } from "../../components/ui";
 import { listDecksWithIdeas } from "../../db/cards";
 import { listFolders } from "../../db/folders";
@@ -21,22 +22,29 @@ export default function GimnasioMental() {
   const folderFilter = folderId != null ? Number(folderId) : null;
   const [decks, setDecks] = useState([]);
   const [folders, setFolders] = useState([]);
+  const [loadError, setLoadError] = useState("");
   // Re-dispara la entrada escalonada cada vez que se vuelve a esta pantalla.
   const staggerKey = useStaggerKey();
 
-  useFocusEffect(
-    useCallback(() => {
-      let alive = true;
-      Promise.all([listDecksWithIdeas(), listFolders()]).then(([d, f]) => {
+  const refresh = useCallback(() => {
+    let alive = true;
+    Promise.all([listDecksWithIdeas(), listFolders()])
+      .then(([d, f]) => {
         if (!alive) return;
         setDecks(d);
         setFolders(f);
+        setLoadError("");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setLoadError("No pudimos cargar el Gimnasio Mental.");
       });
-      return () => {
-        alive = false;
-      };
-    }, [])
-  );
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useFocusEffect(refresh);
 
   // Carpetas que contienen al menos un mazo con ideas.
   const ideaFolderIds = new Set(decks.filter((d) => d.folder_id).map((d) => d.folder_id));
@@ -111,6 +119,13 @@ export default function GimnasioMental() {
             </Card>
           </StaggerRow>
         )}
+      />
+      <Toast
+        message={loadError}
+        onRetry={() => {
+          setLoadError("");
+          refresh();
+        }}
       />
     </Screen>
   );

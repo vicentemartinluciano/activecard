@@ -6,6 +6,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { useCallback, useState } from "react";
 import { FlatList, StyleSheet, Text } from "react-native";
 
+import Toast from "../../components/Toast";
 import { Card, EmptyState, Screen } from "../../components/ui";
 import { listIdeaCards } from "../../db/cards";
 import { getDeck } from "../../db/decks";
@@ -18,20 +19,27 @@ export default function IdeasDelMazo() {
   const router = useRouter();
   const [deck, setDeck] = useState(null);
   const [ideas, setIdeas] = useState([]);
+  const [loadError, setLoadError] = useState("");
 
-  useFocusEffect(
-    useCallback(() => {
-      let alive = true;
-      Promise.all([getDeck(id), listIdeaCards(id)]).then(([d, i]) => {
+  const refresh = useCallback(() => {
+    let alive = true;
+    Promise.all([getDeck(id), listIdeaCards(id)])
+      .then(([d, i]) => {
         if (!alive) return;
         setDeck(d);
         setIdeas(i);
+        setLoadError("");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setLoadError("No pudimos cargar las ideas de este mazo.");
       });
-      return () => {
-        alive = false;
-      };
-    }, [id])
-  );
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  useFocusEffect(refresh);
 
   return (
     <Screen>
@@ -58,6 +66,13 @@ export default function IdeasDelMazo() {
             </Text>
           </Card>
         )}
+      />
+      <Toast
+        message={loadError}
+        onRetry={() => {
+          setLoadError("");
+          refresh();
+        }}
       />
     </Screen>
   );

@@ -8,6 +8,7 @@ import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import { StaggerRow, useStaggerKey } from "../../components/Stagger";
+import Toast from "../../components/Toast";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
 import { listAllCardsForSearch, listDecksWithIdeas } from "../../db/cards";
 import { listDecks, listTags } from "../../db/decks";
@@ -29,6 +30,7 @@ export default function Biblioteca() {
   const [query, setQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false); // etiquetas solo al enfocar
   const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
+  const [loadError, setLoadError] = useState("");
   // Re-dispara la entrada escalonada cada vez que se vuelve a esta pantalla.
   const staggerKey = useStaggerKey();
 
@@ -51,6 +53,10 @@ export default function Biblioteca() {
       setProgressByDeck(p);
       setGymDecks(g);
       setLoaded(true);
+      setLoadError("");
+    }).catch(() => {
+      if (!alive) return;
+      setLoadError("No pudimos cargar la Biblioteca.");
     });
     return () => {
       alive = false;
@@ -96,6 +102,13 @@ export default function Biblioteca() {
             <Skeleton height={96} />
             <Skeleton height={96} />
           </View>
+          <Toast
+            message={loadError}
+            onRetry={() => {
+              setLoadError("");
+              refresh();
+            }}
+          />
         </Screen>
       </SectionSwipe>
     );
@@ -182,6 +195,13 @@ export default function Biblioteca() {
               ) : null}
             </View>
           }
+        />
+        <Toast
+          message={loadError}
+          onRetry={() => {
+            setLoadError("");
+            refresh();
+          }}
         />
       </Screen>
       </SectionSwipe>
@@ -295,6 +315,13 @@ export default function Biblioteca() {
             />
           </StaggerRow>
         )}
+      />
+      <Toast
+        message={loadError}
+        onRetry={() => {
+          setLoadError("");
+          refresh();
+        }}
       />
     </Screen>
     </SectionSwipe>

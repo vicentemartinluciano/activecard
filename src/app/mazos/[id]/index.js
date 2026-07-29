@@ -89,19 +89,25 @@ export default function DetalleMazo() {
   const [activeId, setActiveId] = useState(null);
   const [draft, setDraft] = useState({ front: "", back: "" });
   const [editError, setEditError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const allowNavigationRef = useRef(false);
   const savingDraftRef = useRef(false);
 
   const load = useCallback(async () => {
-    const d = await getDeck(deckId);
-    setDeck(d);
-    if (d) {
-      setName(d.name);
-      setCards(await listCardsByDeck(deckId));
-      setAllTags(await listTags());
-      setFolders(await listFolders());
-      setProgress(await getDeckDailyProgress(deckId));
-      setRetention(await getDeckRetention(deckId));
+    try {
+      const d = await getDeck(deckId);
+      setDeck(d);
+      if (d) {
+        setName(d.name);
+        setCards(await listCardsByDeck(deckId));
+        setAllTags(await listTags());
+        setFolders(await listFolders());
+        setProgress(await getDeckDailyProgress(deckId));
+        setRetention(await getDeckRetention(deckId));
+      }
+      setLoadError("");
+    } catch {
+      setLoadError("No pudimos cargar este mazo.");
     }
   }, [deckId]);
 
@@ -163,7 +169,13 @@ export default function DetalleMazo() {
     return unsubscribe;
   }, [activeId, commitDraft, editMode, navigation]);
 
-  if (!deck) return <Screen />;
+  if (!deck) {
+    return (
+      <Screen>
+        <Toast message={loadError} onRetry={load} />
+      </Screen>
+    );
+  }
 
   const deckTagIds = deck.tags.map((t) => t.id);
   const starredCount = cards.filter((c) => c.starred).length;
@@ -463,7 +475,14 @@ export default function DetalleMazo() {
         <HeroButton label="Empezar" onPress={startStudy} style={{ marginTop: spacing.md }} />
       </ActionSheet>
 
-      <Toast message={editError} onDismiss={() => setEditError("")} />
+      <Toast
+        message={editError || loadError}
+        onRetry={!editError && loadError ? load : undefined}
+        onDismiss={() => {
+          setEditError("");
+          setLoadError("");
+        }}
+      />
     </Screen>
   );
 }
