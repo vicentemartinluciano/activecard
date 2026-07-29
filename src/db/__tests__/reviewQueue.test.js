@@ -14,10 +14,19 @@ const mockEstado = {
   newIntroduced: 0,
   retryIds: [],
   limits: { maxReviews: 40, maxNew: 15 },
+  fullReads: 0,
+  lightReads: 0,
 };
 
 jest.mock("../cards", () => ({
-  listAllCards: async () => mockCards,
+  listAllCards: async () => {
+    mockEstado.fullReads += 1;
+    return mockCards;
+  },
+  listCardsForQueue: async () => {
+    mockEstado.lightReads += 1;
+    return mockCards;
+  },
   countDistinctReviewedSince: async () => mockEstado.reviewed,
   countNewIntroducedSince: async () => mockEstado.newIntroduced,
   listRetryTodayIds: async () => mockEstado.retryIds,
@@ -51,9 +60,18 @@ beforeEach(() => {
   mockEstado.newIntroduced = 0;
   mockEstado.retryIds = [];
   mockEstado.limits = { maxReviews: 40, maxNew: 15 };
+  mockEstado.fullReads = 0;
+  mockEstado.lightReads = 0;
 });
 
 describe("getDailyQueue: los topes cuentan el día, no cada apertura", () => {
+  test("el repaso sí carga las tarjetas completas", async () => {
+    sembrar(3);
+    await getDailyQueue(NOW);
+    expect(mockEstado.fullReads).toBe(1);
+    expect(mockEstado.lightReads).toBe(0);
+  });
+
   test("sin nada hecho, la cola llega hasta el tope", async () => {
     sembrar(300);
     expect(await getDailyQueue(NOW)).toHaveLength(40);
@@ -100,6 +118,13 @@ describe("getDailyQueue: los topes cuentan el día, no cada apertura", () => {
 });
 
 describe("getDailyReviewStats: el día tiene que poder llegar a 100%", () => {
+  test("cuenta con la consulta liviana y no carga frente, dorso ni imágenes", async () => {
+    sembrar(10);
+    await getDailyReviewStats(NOW);
+    expect(mockEstado.lightReads).toBe(1);
+    expect(mockEstado.fullReads).toBe(0);
+  });
+
   test("recién empezado: nada hecho, el tope como total", async () => {
     sembrar(300);
     const s = await getDailyReviewStats(NOW);

@@ -131,6 +131,13 @@ export async function listAllCards() {
   return db.getAllAsync("SELECT * FROM cards");
 }
 
+// Versión mínima para calcular la cola y los contadores de Inicio. No trae
+// frente/dorso porque pueden contener imágenes base64 de cientos de KB.
+export async function listCardsForQueue() {
+  const db = await getDb();
+  return db.getAllAsync("SELECT id, deck_id, due, state FROM cards");
+}
+
 // Versión liviana para el buscador de la Biblioteca, que solo necesita texto.
 // listAllCards() trae las tarjetas ENTERAS, y desde que el editor permite
 // imágenes inline en base64 cada tarjeta con foto pesa cientos de KB: cargarlas

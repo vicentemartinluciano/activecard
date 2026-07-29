@@ -7,6 +7,7 @@ import {
   countDueCards,
   countNewIntroducedSince,
   listAllCards,
+  listCardsForQueue,
   listRetryTodayIds,
 } from "./cards";
 import { getDeckPriorities } from "./decks";
@@ -27,10 +28,10 @@ export function getDailyLimits() {
 // descuento la cola se rellenaba a 40 después de cada tanda, el hero decía
 // "40 pendientes" para siempre y "Completado ✓" no aparecía nunca — o sea que
 // el freno que existía para que el día terminara hacía exactamente lo contrario.
-export async function getDailyQueue(now = new Date()) {
+async function loadDailyQueue(cardLoader, now) {
   const startIso = startOfDay(now).toISOString();
   const [cards, deckPriorities, retryIds, limits, hechasHoy, nuevasHoy] = await Promise.all([
-    listAllCards(),
+    cardLoader(),
     getDeckPriorities(),
     listRetryTodayIds(startIso),
     getDailyLimits(),
@@ -51,9 +52,15 @@ export async function getDailyQueue(now = new Date()) {
   return buildDailyQueue(cards, { deckPriorities, now, retryIds, limits: restantes });
 }
 
+// La pantalla de repaso necesita el texto completo para mostrar cada tarjeta.
+export function getDailyQueue(now = new Date()) {
+  return loadDailyQueue(listAllCards, now);
+}
+
 // Cantidad de tarjetas pendientes hoy en mazos activos (debidas + falladas).
 export async function getDueCount(now = new Date()) {
-  const queue = await getDailyQueue(now);
+  // Inicio solo cuenta: leer imágenes y texto acá castigaba cada focus.
+  const queue = await loadDailyQueue(listCardsForQueue, now);
   return queue.length;
 }
 
