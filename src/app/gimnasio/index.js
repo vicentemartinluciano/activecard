@@ -9,6 +9,7 @@ import { useCallback, useState } from "react";
 import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import GlowPressable from "../../components/GlowPressable";
+import { StaggerRow, useStaggerKey } from "../../components/Stagger";
 import { Card, EmptyState, Pill, Screen } from "../../components/ui";
 import { listDecksWithIdeas } from "../../db/cards";
 import { listFolders } from "../../db/folders";
@@ -20,6 +21,8 @@ export default function GimnasioMental() {
   const folderFilter = folderId != null ? Number(folderId) : null;
   const [decks, setDecks] = useState([]);
   const [folders, setFolders] = useState([]);
+  // Re-dispara la entrada escalonada cada vez que se vuelve a esta pantalla.
+  const staggerKey = useStaggerKey();
 
   useFocusEffect(
     useCallback(() => {
@@ -89,22 +92,24 @@ export default function GimnasioMental() {
         ListEmptyComponent={
           <EmptyState text="Todavía no hay ideas guardadas. Se crean desde el rayo ⚡ al repasar." />
         }
-        renderItem={({ item }) => (
-          <Card onPress={() => router.push(`/gimnasio/${item.id}`)} style={styles.row}>
-            <Feather name={item.icon || "layers"} size={20} color={colors.accentText} />
-            <View style={{ flex: 1 }}>
-              <Text style={type.body} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={type.small}>
-                Última idea: {new Date(item.last_idea_at).toLocaleDateString("es-AR")}
-              </Text>
-            </View>
-            <Pill
-              color={textColors.violeta}
-              label={`${item.idea_count} ${item.idea_count === 1 ? "idea" : "ideas"}`}
-            />
-          </Card>
+        renderItem={({ item, index }) => (
+          <StaggerRow index={index} refreshKey={staggerKey}>
+            <Card onPress={() => router.push(`/gimnasio/${item.id}`)} style={styles.row}>
+              <Feather name={item.icon || "layers"} size={20} color={colors.accentText} />
+              <View style={{ flex: 1 }}>
+                <Text style={type.body} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={type.small}>
+                  Última idea: {new Date(item.last_idea_at).toLocaleDateString("es-AR")}
+                </Text>
+              </View>
+              <Pill
+                color={textColors.violeta}
+                label={`${item.idea_count} ${item.idea_count === 1 ? "idea" : "ideas"}`}
+              />
+            </Card>
+          </StaggerRow>
         )}
       />
     </Screen>

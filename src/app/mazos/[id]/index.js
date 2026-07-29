@@ -11,6 +11,7 @@ import GlowPressable from "../../../components/GlowPressable";
 import IconPicker from "../../../components/IconPicker";
 import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
+import Stagger from "../../../components/Stagger";
 import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
 import { listCardsByDeck, setCardPositions, setCardStarred, updateCardText } from "../../../db/cards";
 import {
@@ -230,6 +231,7 @@ export default function DetalleMazo() {
       />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <View style={{ gap: spacing.md }}>
+          <Stagger>
           {editingName ? (
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
               <Field value={name} onChangeText={setName} style={{ flex: 1 }} autoFocus />
@@ -372,6 +374,7 @@ export default function DetalleMazo() {
           >
             <Feather name="plus" size={22} color={colors.accentText} />
           </Pressable>
+          </Stagger>
         </View>
       </ScrollView>
 

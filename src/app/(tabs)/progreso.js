@@ -8,7 +8,7 @@
 
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import ActivityHeatmap from "../../components/ActivityHeatmap";
 import ForecastList from "../../components/ForecastList";
@@ -28,7 +28,7 @@ import {
 } from "../../db/stats";
 import { getStreak } from "../../db/streak";
 import { toPlainText } from "../../lib/richtext";
-import { colors, font, spacing, tabular, type } from "../../theme";
+import { colors, font, layout, spacing, tabular, type } from "../../theme";
 
 const PAGINAS = ["Retención", "Constancia"];
 
@@ -36,7 +36,17 @@ export default function Progreso() {
   const router = useRouter();
   const [data, setData] = useState(null);
   const [pagina, setPagina] = useState(0);
-  const [anchoCard, setAnchoCard] = useState(0);
+
+  // El ancho de las páginas del carrusel se CALCULA, no se espera de onLayout:
+  // si el layout no llega (pasa en entornos donde la vista no se compone), el
+  // carrusel quedaría en blanco para siempre. onLayout sigue estando, pero solo
+  // para corregir el valor, nunca para habilitar el render.
+  const { width: anchoVentana } = useWindowDimensions();
+  const anchoDisponible =
+    Math.min(anchoVentana, layout.maxWidth) - spacing.md * 2 - spacing.md * 2;
+  const [anchoMedido, setAnchoMedido] = useState(0);
+  const anchoCard = anchoMedido > 0 ? anchoMedido : Math.max(0, anchoDisponible);
+  const setAnchoCard = setAnchoMedido;
 
   useFocusEffect(
     useCallback(() => {
@@ -112,57 +122,71 @@ export default function Progreso() {
           <Stagger>
             {/* Retención y constancia comparten card: se deslizan de costado.
                 Así el gráfico tiene lugar para respirar sin comerse la pantalla. */}
-            <Card onLayout={(e) => setAnchoCard(e.nativeEvent.layout.width - spacing.md * 2)}>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={(e) => {
-                  const w = e.nativeEvent.layoutMeasurement.width;
-                  if (w > 0) setPagina(Math.round(e.nativeEvent.contentOffset.x / w));
+            <Card>
+              {/* El ancho se mide ACÁ y las páginas no se dibujan hasta tenerlo.
+                  Antes se renderizaban con ancho automático y cada una se
+                  desbordaba sobre la otra: se veía el gráfico de retención
+                  encima de la constancia. Cada página además recorta lo suyo. */}
+              <View
+                style={styles.carruselMedida}
+                onLayout={(e) => {
+                  const w = Math.round(e.nativeEvent.layout.width);
+                  if (w > 0) setAnchoCard(w);
                 }}
-                scrollEventThrottle={32}
               >
-                <View style={{ width: anchoCard || undefined, gap: spacing.sm }}>
-                  <View style={styles.rowHead}>
-                    <Text style={type.label}>Retención</Text>
-                    {resumen.delta != null ? (
-                      <Pill
-                        icon={resumen.delta >= 0 ? "trending-up" : "trending-down"}
-                        label={`${resumen.delta >= 0 ? "+" : ""}${resumen.delta} pts`}
-                        color={resumen.delta >= 0 ? colors.successBright : colors.danger}
-                      />
-                    ) : null}
-                  </View>
-                  <View style={styles.bigRow}>
-                    <Text style={styles.bigNum}>
-                      {sinDatos ? "–" : resumen.pct}
-                      <Text style={styles.bigUnit}>%</Text>
-                    </Text>
-                    <Text style={type.small}>últimos 30 días</Text>
-                  </View>
-                  <RetentionChart series={serie} />
-                  <Text style={type.small}>
-                    {sinDatos
-                      ? "Cuando repases unas cuantas tarjetas vas a ver acá si el sistema te está funcionando."
-                      : `De cada 100 tarjetas que repasaste, ${resumen.pct} las recordaste bien.`}
-                  </Text>
-                </View>
+                {anchoCard > 0 ? (
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={(e) => {
+                      const w = e.nativeEvent.layoutMeasurement.width;
+                      if (w > 0) setPagina(Math.round(e.nativeEvent.contentOffset.x / w));
+                    }}
+                    scrollEventThrottle={32}
+                  >
+                    <View style={[styles.pagina, { width: anchoCard }]}>
+                      <View style={styles.rowHead}>
+                        <Text style={type.label}>Retención</Text>
+                        {resumen.delta != null ? (
+                          <Pill
+                            icon={resumen.delta >= 0 ? "trending-up" : "trending-down"}
+                            label={`${resumen.delta >= 0 ? "+" : ""}${resumen.delta} pts`}
+                            color={resumen.delta >= 0 ? colors.successBright : colors.danger}
+                          />
+                        ) : null}
+                      </View>
+                      <View style={styles.bigRow}>
+                        <Text style={styles.bigNum}>
+                          {sinDatos ? "–" : resumen.pct}
+                          <Text style={styles.bigUnit}>%</Text>
+                        </Text>
+                        <Text style={type.small}>últimos 30 días</Text>
+                      </View>
+                      <RetentionChart series={serie} />
+                      <Text style={type.small}>
+                        {sinDatos
+                          ? "Cuando repases unas cuantas tarjetas vas a ver acá si el sistema te está funcionando."
+                          : `De cada 100 tarjetas que repasaste, ${resumen.pct} las recordaste bien.`}
+                      </Text>
+                    </View>
 
-                <View style={{ width: anchoCard || undefined, gap: spacing.sm }}>
-                  <View style={styles.rowHead}>
-                    <Text style={type.label}>Constancia</Text>
-                    {racha && racha.days > 0 ? (
-                      <Pill
-                        icon="zap"
-                        label={`${racha.days} ${racha.days === 1 ? "día" : "días"}`}
-                        color={colors.streak}
-                      />
-                    ) : null}
-                  </View>
-                  <ActivityHeatmap activity={actividad} />
-                </View>
-              </ScrollView>
+                    <View style={[styles.pagina, { width: anchoCard }]}>
+                      <View style={styles.rowHead}>
+                        <Text style={type.label}>Constancia</Text>
+                        {racha && racha.days > 0 ? (
+                          <Pill
+                            icon="zap"
+                            label={`${racha.days} ${racha.days === 1 ? "día" : "días"}`}
+                            color={colors.streak}
+                          />
+                        ) : null}
+                      </View>
+                      <ActivityHeatmap activity={actividad} />
+                    </View>
+                  </ScrollView>
+                ) : null}
+              </View>
 
               <View style={styles.dots}>
                 {PAGINAS.map((p, i) => (
@@ -237,6 +261,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  // El contenedor que mide: sin alto propio, lo pone el contenido de la página.
+  carruselMedida: {
+    width: "100%",
+  },
+  pagina: {
+    gap: spacing.sm,
+    // Recorta lo suyo: si una página se pasa, no invade la de al lado.
+    overflow: "hidden",
   },
   bigRow: {
     flexDirection: "row",

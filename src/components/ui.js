@@ -87,9 +87,14 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style }) 
 //
 // `halo`: resplandor que aparece SOLO mientras se toca (o con el mouse encima).
 // Va en el Pressable interno, que no es Animated y sí admite style-función.
+// onPressIn/onPressOut se exponen porque a veces el CONTENEDOR necesita saber
+// que el botón se está apretando (el hero de Inicio se ilumina con el press de
+// su propio botón, que si no se lo come el Pressable interno).
 export function Button({
   label,
   onPress,
+  onPressIn,
+  onPressOut,
   kind = "default",
   size = "md",
   disabled,
@@ -98,10 +103,14 @@ export function Button({
   halo,
 }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const pressIn = () =>
+  const pressIn = () => {
     Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
-  const pressOut = () =>
+    onPressIn?.();
+  };
+  const pressOut = () => {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }).start();
+    onPressOut?.();
+  };
 
   return (
     <Animated.View style={[{ transform: [{ scale }] }, style]}>

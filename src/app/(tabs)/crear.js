@@ -6,11 +6,12 @@ import { StyleSheet, Text, View } from "react-native";
 import ActionSheet from "../../components/ActionSheet";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
+import { GlowLayer, useSequentialGlow } from "../../components/SequentialGlow";
 import Stagger from "../../components/Stagger";
 import { InlineAdd, Screen } from "../../components/ui";
 import { createDeck } from "../../db/decks";
 import { createFolder } from "../../db/folders";
-import { colors, font, gradients, radius, spacing, type } from "../../theme";
+import { colors, font, glow, gradients, radius, spacing, type } from "../../theme";
 
 // Los emojis se quedan: decisión de Martín (se propuso pasarlos a Feather y lo
 // rechazó). Las tres opciones reaccionan IGUAL — ninguna es "la destacada".
@@ -24,6 +25,8 @@ const OPTIONS = [
 export default function Crear() {
   const router = useRouter();
   const [createStep, setCreateStep] = useState(null); // null | "mazo" | "carpeta"
+  // Un brillo recorre las tres tarjetas, de arriba abajo y de vuelta.
+  const glowSteps = useSequentialGlow(OPTIONS.length);
 
   const onCreateDeck = async (name) => {
     const id = await createDeck(name);
@@ -55,12 +58,16 @@ export default function Crear() {
             encienden el halo con hovered (web) / pressed (nativo) y Card no
             expone esos estados. El resto de la app sigue usando Card. */}
         <Stagger>
-        {OPTIONS.map((opt) => (
+        {OPTIONS.map((opt, i) => (
           <GlowPressable
             key={opt.key}
             onPress={() => handlePress(opt.key)}
             style={styles.row}
           >
+            {/* El brillo va saltando de una tarjeta a la otra en loop; la capa
+                es absoluta y no captura toques (una View con opacity 0 igual
+                se come los taps: trampa vieja de este proyecto). */}
+            <GlowLayer style={glowSteps[i]} halo={glow.halo} radius={radius.lg} />
             <LinearGradient
               colors={gradients.card}
               start={{ x: 0, y: 0 }}

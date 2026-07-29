@@ -14,12 +14,16 @@ import { Pressable } from "react-native";
 
 import { glow } from "../theme";
 
+// `active`: enciende el halo desde afuera. Sirve cuando lo que se toca está
+// ADENTRO (el botón del hero se come el press, así que el contenedor nunca se
+// entera) y la tarjeta entera igual tiene que iluminarse.
 export default function GlowPressable({
   onPress,
   onLongPress,
   style,
   halo = glow.halo,
   disabled,
+  active = false,
   children,
 }) {
   return (
@@ -27,7 +31,10 @@ export default function GlowPressable({
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled}
-      style={({ pressed, hovered }) => [style, (pressed || hovered) && !disabled && halo]}
+      style={({ pressed, hovered }) => [
+        style,
+        (pressed || hovered || active) && !disabled && halo,
+      ]}
     >
       {children}
     </Pressable>

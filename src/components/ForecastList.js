@@ -24,6 +24,7 @@ export default function ForecastList({ forecast = [], limit }) {
   const capRatio = limit ? Math.min(1, limit / maxCount) : null;
 
   const excedido = limit ? forecast.find((d) => d.count > limit) : null;
+  const total = forecast.reduce((a, d) => a + d.count, 0);
 
   return (
     <View style={{ gap: 10 }}>
@@ -33,12 +34,16 @@ export default function ForecastList({ forecast = [], limit }) {
           const ratio = d.count / maxCount;
           return (
             <View key={d.day} style={styles.row}>
-              <Text style={styles.dayLabel}>{i === 0 ? "hoy" : DIAS[d.date.getDay()]}</Text>
+              {/* Día + número: "mié 30" ubica mucho mejor que solo el día
+                  suelto cuando estás mirando la semana que viene. */}
+              <Text style={[styles.dayLabel, i === 0 && styles.dayLabelHoy]}>
+                {i === 0 ? "hoy" : `${DIAS[d.date.getDay()]} ${d.date.getDate()}`}
+              </Text>
               <View style={styles.rail}>
                 <View
                   style={[
                     styles.fill,
-                    { width: `${Math.max(ratio * 100, d.count > 0 ? 3 : 0)}%` },
+                    { width: `${Math.max(ratio * 100, d.count > 0 ? 4 : 0)}%` },
                     over && styles.fillOver,
                   ]}
                 />
@@ -46,13 +51,21 @@ export default function ForecastList({ forecast = [], limit }) {
                   <View pointerEvents="none" style={[styles.cap, { left: `${capRatio * 100}%` }]} />
                 ) : null}
               </View>
-              <Text style={[styles.count, over && styles.countOver]}>{d.count}</Text>
+              <Text style={[styles.count, over && styles.countOver, d.count === 0 && styles.countCero]}>
+                {d.count}
+              </Text>
             </View>
           );
         })}
       </View>
 
-      {limit ? (
+      {total === 0 ? (
+        // Siete ceros sin explicación se leen como "esto está roto".
+        <Text style={type.small}>
+          No hay nada agendado para los próximos días. Cuando estudies tarjetas nuevas van a
+          empezar a aparecer acá.
+        </Text>
+      ) : limit ? (
         <Text style={type.small}>
           La rayita es tu tope de <Text style={styles.fuerte}>{limit}</Text>.
           {excedido ? (
@@ -78,7 +91,12 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     ...type.small,
-    width: 34,
+    ...tabular,
+    width: 46,
+  },
+  dayLabelHoy: {
+    color: colors.text,
+    ...font(700),
   },
   rail: {
     flex: 1,
@@ -113,6 +131,10 @@ const styles = StyleSheet.create({
   countOver: {
     color: "#FF8A8E",
     ...font(700),
+  },
+  countCero: {
+    color: colors.textMuted,
+    opacity: 0.5,
   },
   fuerte: {
     color: colors.text,

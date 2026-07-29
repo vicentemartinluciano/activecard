@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import BorderLight from "../../components/BorderLight";
 import GlowPressable from "../../components/GlowPressable";
 import ProgressBar from "../../components/ProgressBar";
 import SectionSwipe from "../../components/SectionSwipe";
@@ -36,6 +37,9 @@ export default function Inicio() {
   const [userName, setUserName] = useState("");
   const [error, setError] = useState(null);
   const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
+  // El botón está DENTRO del hero y se queda con el press, así que el
+  // contenedor no se entera: este estado le avisa para que se ilumine igual.
+  const [ctaPressed, setCtaPressed] = useState(false);
 
   // Aparte del resto para poder reintentarla desde el aviso de error.
   const fetchStats = useCallback(async () => {
@@ -132,9 +136,16 @@ export default function Inicio() {
 
       <ScrollView contentContainerStyle={styles.body}>
         <Stagger>
-        {/* El hero enciende el halo al tocarlo. Sin borde neón: el degradé y el
-            resplandor al interactuar alcanzan (decisión de Martín). */}
-        <GlowPressable onPress={() => router.push("/repaso")} style={styles.heroOuter}>
+        {/* El hero: una luz gira por el borde de forma permanente (BorderLight)
+            y el halo cobalto se enciende al tocar la tarjeta O al apretar el
+            botón de adentro — de ahí el `active`, porque el press del botón no
+            llega al contenedor. */}
+        <GlowPressable
+          onPress={() => router.push("/repaso")}
+          style={styles.heroOuter}
+          active={ctaPressed}
+        >
+          <BorderLight radius={radius.lg}>
           <LinearGradient
             colors={gradients.hero}
             start={{ x: 0, y: 0 }}
@@ -188,9 +199,12 @@ export default function Inicio() {
               kind="inverse"
               halo={glow.halo}
               onPress={() => router.push("/repaso")}
+              onPressIn={() => setCtaPressed(true)}
+              onPressOut={() => setCtaPressed(false)}
               style={styles.heroCta}
             />
           </LinearGradient>
+          </BorderLight>
         </GlowPressable>
 
         {inProgressDecks.length > 0 ? (

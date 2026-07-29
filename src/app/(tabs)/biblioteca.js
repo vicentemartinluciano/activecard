@@ -7,7 +7,7 @@ import DeckListItem from "../../components/DeckListItem";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
-import { StaggerRow } from "../../components/Stagger";
+import { StaggerRow, useStaggerKey } from "../../components/Stagger";
 import { Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
 import { listAllCardsForSearch, listDecksWithIdeas } from "../../db/cards";
 import { listDecks, listTags } from "../../db/decks";
@@ -29,6 +29,8 @@ export default function Biblioteca() {
   const [query, setQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false); // etiquetas solo al enfocar
   const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
+  // Re-dispara la entrada escalonada cada vez que se vuelve a esta pantalla.
+  const staggerKey = useStaggerKey();
 
   const refresh = useCallback(() => {
     let alive = true;
@@ -285,7 +287,7 @@ export default function Biblioteca() {
         renderItem={({ item, index }) => (
           // Entrada escalonada solo en las primeras filas: con un mazo de 80
           // tarjetas, animarlas todas dejaría la última entrando segundos tarde.
-          <StaggerRow index={index}>
+          <StaggerRow index={index} refreshKey={staggerKey}>
             <DeckListItem
               deck={item}
               progress={progressByDeck[item.id]}
