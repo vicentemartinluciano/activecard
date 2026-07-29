@@ -118,6 +118,22 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   parte del flujo de estudio y NO se toca. **Los emojis 🤖✏️📁 de Crear SE QUEDAN**: se
   propuso pasarlos a Feather y Martín lo rechazó. Las 3 cards de Crear reaccionan igual —
   ninguna es "la destacada".
+- **Movimiento ambiental (F84)** — encima del halo reactivo, tres efectos con vida propia:
+  - `components/BorderLight.js`: una luz **gira por el borde** del hero de Inicio, tipo
+    indicador de carga. Como en RN no hay conic-gradient, debajo del contenido gira un
+    degradé lineal con insets negativos y el contenido opaco tapa todo salvo una franja
+    de 1.5px. **No mide la tarjeta a propósito** (medir con `onLayout` resultó frágil).
+  - `components/SequentialGlow.js`: en Crear el brillo **recorre las 3 cards** de arriba
+    abajo y vuelve. `boxShadow` no se puede interpolar → cada card lleva una capa absoluta
+    con el halo y se anima su **opacidad**, con `pointerEvents="none"`.
+  - `components/Stagger.js`: la escalerita se **rearma en cada foco** (`useStaggerKey`).
+    Las pantallas de tabs no se desmontan, así que sin eso corría una sola vez en la vida
+    de la app. Está en las 4 tabs + Ajustes + detalle de mazo + Gimnasio.
+  - Apretar REPASAR AHORA ilumina **también** la tarjeta que lo contiene: el botón se
+    come el press, así que `Button` expone `onPressIn/onPressOut` y `GlowPressable` toma
+    `active`.
+  - **Todas usan native driver SOLO en nativo** (`Platform.OS !== "web"`): react-native-web
+    no lo soporta y pedirlo deja la animación quieta.
 - **UI Neón (F43-F52, lo que sigue vigente)**: barras de progreso VERDES + `glow.green`,
   salvo la del hero: `gradients.bar` (cobalto→cián), ahora sin glow propio.
   Botones = píldora (primario sólido, secundarios
@@ -407,8 +423,18 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **`npm run lint` NO es lo que corre el CI**: el CI usa `npx eslint . --max-warnings 0`,
   que es MÁS estricto (incluye `scripts/`, `assets/`, y trata los warnings como error).
   Antes de pushear, correr el comando del CI, no `expo lint`.
-- **Metro + OneDrive**: el file-watching es poco confiable — si el preview no refleja
-  un cambio, reiniciar el server de preview (no debuggear bundle viejo).
+- **`CI=1` apaga el watch de Metro.** El lanzador del preview (`scripts/preview-web.js`)
+  tenía `CI: "1"` en el env y eso pone a Metro en modo CI: *"reloads are disabled"*.
+  Ningún cambio se reflejaba sin reiniciar el server a mano, y parecía un problema de
+  file-watching de OneDrive (por eso decía eso acá). Ya se sacó — **no volver a ponerlo**.
+- **En el navegador embebido del preview NO se pueden verificar animaciones ni
+  `onLayout`.** La página corre con `document.hidden = true` y **0 frames por segundo**:
+  `requestAnimationFrame` nunca dispara, así que ninguna animación JS avanza, y el
+  `ResizeObserver` detrás de `onLayout` tampoco emite. Se puede verificar estructura,
+  texto, estilos y medidas de layout; el movimiento se verifica en el celu o en un
+  Chrome real. **Corolario de diseño**: nada que dependa de `onLayout` o de que una
+  animación termine puede decidir si el contenido SE VE — si no llega, queda invisible
+  para siempre (pasó con la pantalla Progreso y con el carrusel).
 - **SQLite web**: SOLO la API async de expo-sqlite (la sync se cuelga). Al recargar,
   la apertura puede fallar transitoriamente por locks de OPFS ("Access Handle…" /
   "Invalid VFS state") → db/client.js reintenta; no cachear promesas rechazadas.
