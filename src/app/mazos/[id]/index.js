@@ -14,7 +14,13 @@ import ProgressBar from "../../../components/ProgressBar";
 import Stagger from "../../../components/Stagger";
 import Toast from "../../../components/Toast";
 import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
-import { listCardsByDeck, setCardPositions, setCardStarred, updateCardText } from "../../../db/cards";
+import {
+  listCardsByDeck,
+  setCardPositions,
+  setCardStarred,
+  setCardSuspended,
+  updateCardText,
+} from "../../../db/cards";
 import {
   deleteDeck,
   ensureTag,
@@ -31,6 +37,7 @@ import { getDeckDailyProgress } from "../../../db/progress";
 import { getDeckRetention } from "../../../db/stats";
 import { getSetting, setSetting } from "../../../db/settings";
 import { toPlainText } from "../../../lib/richtext";
+import { filterDeckCards } from "../../../lib/search";
 import { colors, font, glow, gradients, radius, spacing, textColors, type } from "../../../theme";
 
 // Botón destacado con la visual del hero de Inicio (degradado azul).
@@ -63,6 +70,19 @@ function StarToggle({ starred, onPress, size = 18 }) {
   );
 }
 
+function SuspendToggle({ suspended, onPress, size = 18 }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={10}>
+      <Feather
+        name={suspended ? "play-circle" : "pause-circle"}
+        size={size}
+        color={suspended ? colors.accentText : colors.textMuted}
+        style={{ opacity: suspended ? 1 : 0.45 }}
+      />
+    </Pressable>
+  );
+}
+
 export default function DetalleMazo() {
   const { id } = useLocalSearchParams();
   const deckId = Number(id);
@@ -90,6 +110,8 @@ export default function DetalleMazo() {
   const [draft, setDraft] = useState({ front: "", back: "" });
   const [editError, setEditError] = useState("");
   const [loadError, setLoadError] = useState("");
+  const [cardQuery, setCardQuery] = useState("");
+  const [cardFilter, setCardFilter] = useState(null);
   const allowNavigationRef = useRef(false);
   const savingDraftRef = useRef(false);
   const cardsRef = useRef(cards);
@@ -207,6 +229,20 @@ export default function DetalleMazo() {
     });
   }, []);
 
+  const toggleSuspended = useCallback(async (cardId) => {
+    const item = cardsRef.current.find((card) => card.id === cardId);
+    if (!item) return;
+    const suspended = item.suspended ? 0 : 1;
+    await setCardSuspended(cardId, suspended);
+    setCards((current) => {
+      const next = current.map((card) =>
+        card.id === cardId ? { ...card, suspended } : card
+      );
+      cardsRef.current = next;
+      return next;
+    });
+  }, []);
+
   const activateRow = useCallback(async (cardId) => {
     if (cardId === activeIdRef.current) return;
     const saved = await commitDraft();
@@ -235,6 +271,8 @@ export default function DetalleMazo() {
 
   const deckTagIds = deck.tags.map((t) => t.id);
   const starredCount = cards.filter((c) => c.starred).length;
+  const visibleCards = filterDeckCards(cards, cardQuery, cardFilter);
+  const filteringCards = !!cardQuery.trim() || cardFilter != null;
 
   const toggleTag = async (tagId) => {
     const next = deckTagIds.includes(tagId)
@@ -293,13 +331,25 @@ export default function DetalleMazo() {
         <Text style={styles.cardFront} numberOfLines={2}>
           {toPlainText(item.front)}
         </Text>
-        {item.source === "hybrid" ? (
-          <Pill icon="zap" label="Idea" color={textColors.violeta} style={styles.ideaPill} />
-        ) : null}
+        <View style={styles.cardPills}>
+          {item.source === "hybrid" ? (
+            <Pill icon="zap" label="Idea" color={textColors.violeta} style={styles.ideaPill} />
+          ) : null}
+          {item.source === "ai" ? (
+            <Pill icon="cpu" label="Sin revisar" color={colors.accentText} />
+          ) : null}
+          {item.suspended ? (
+            <Pill icon="pause-circle" label="Suspendida" color={colors.textMuted} />
+          ) : null}
+        </View>
         <Text style={type.small} numberOfLines={1}>
           {toPlainText(item.back)}
         </Text>
       </View>
+      <SuspendToggle
+        suspended={!!item.suspended}
+        onPress={() => toggleSuspended(item.id)}
+      />
       <StarToggle starred={!!item.starred} onPress={() => toggleStar(item.id)} />
     </Card>
   );
@@ -423,33 +473,85 @@ export default function DetalleMazo() {
             </Card>
           ) : null}
 
+          {cards.length > 0 ? (
+            <View style={{ gap: spacing.sm }}>
+              <View style={styles.cardSearch}>
+                <Feather name="search" size={17} color={colors.textMuted} />
+                <Field
+                  value={cardQuery}
+                  onChangeText={setCardQuery}
+                  placeholder="Buscar dentro del mazo…"
+                  style={styles.cardSearchField}
+                />
+                {cardQuery ? (
+                  <Pressable onPress={() => setCardQuery("")} hitSlop={8}>
+                    <Feather name="x" size={17} color={colors.textMuted} />
+                  </Pressable>
+                ) : null}
+              </View>
+              <View style={styles.tagRow}>
+                <Chip label="Todas" active={cardFilter == null} onPress={() => setCardFilter(null)} />
+                <Chip
+                  label="⭐"
+                  active={cardFilter === "starred"}
+                  onPress={() => setCardFilter(cardFilter === "starred" ? null : "starred")}
+                />
+                <Chip
+                  label="⚡ Ideas"
+                  active={cardFilter === "idea"}
+                  onPress={() => setCardFilter(cardFilter === "idea" ? null : "idea")}
+                />
+                <Chip
+                  label="🤖 Sin revisar"
+                  active={cardFilter === "unreviewed"}
+                  onPress={() =>
+                    setCardFilter(cardFilter === "unreviewed" ? null : "unreviewed")
+                  }
+                />
+                <Chip
+                  label="Suspendidas"
+                  active={cardFilter === "suspended"}
+                  onPress={() =>
+                    setCardFilter(cardFilter === "suspended" ? null : "suspended")
+                  }
+                />
+              </View>
+            </View>
+          ) : null}
+
           {cards.length === 0 ? (
             <EmptyState text="Este mazo no tiene tarjetas todavía." />
+          ) : visibleCards.length === 0 ? (
+            <EmptyState text="No hay tarjetas que coincidan con este filtro." icon="search" />
           ) : editMode ? (
             // En modo edición la lista va plana: el drag & drop y los editores
             // no pueden convivir (uno necesita long-press, el otro el foco).
             <View style={{ gap: spacing.sm }}>
-              {cards.map((item, i) => (
+              {visibleCards.map((item, i) => (
                 <EditableCardRow
                   key={item.id}
                   card={item}
                   index={i}
-                  total={cards.length}
+                  total={visibleCards.length}
                   active={activeId === item.id}
                   draft={activeId === item.id ? draft : null}
                   onActivate={activateRow}
                   onChangeDraft={changeDraft}
                   onToggleStar={toggleStar}
+                  onToggleSuspended={toggleSuspended}
                 />
               ))}
             </View>
-          ) : Platform.OS === "web" ? (
-            // El drag & drop es para el teléfono; en web la lista es estática.
-            <View style={{ gap: spacing.sm }}>{cards.map((item) => <View key={item.id}>{cardRow(item)}</View>)}</View>
+          ) : Platform.OS === "web" || filteringCards ? (
+            // El drag & drop es para el teléfono y solo sobre la lista completa:
+            // reordenar un subconjunto filtrado generaría posiciones ambiguas.
+            <View style={{ gap: spacing.sm }}>
+              {visibleCards.map((item) => <View key={item.id}>{cardRow(item)}</View>)}
+            </View>
           ) : (
             <Sortable.Grid
               columns={1}
-              data={cards}
+              data={visibleCards}
               keyExtractor={(c) => String(c.id)}
               rowGap={spacing.sm}
               onDragEnd={async ({ data }) => {
@@ -563,6 +665,27 @@ const styles = StyleSheet.create({
   cardFront: {
     ...type.body,
     ...font(500),
+  },
+  cardPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  cardSearch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.pillBg,
+    borderWidth: 1,
+    borderColor: colors.pillBorder,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+  },
+  cardSearchField: {
+    flex: 1,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    paddingHorizontal: 0,
   },
   ideaPill: {
     borderColor: "rgba(158,110,222,0.35)",

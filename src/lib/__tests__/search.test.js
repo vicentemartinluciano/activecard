@@ -1,4 +1,9 @@
-import { MAX_CARD_RESULTS, normalizeSearch, searchLibrary } from "../search";
+import {
+  filterDeckCards,
+  MAX_CARD_RESULTS,
+  normalizeSearch,
+  searchLibrary,
+} from "../search";
 
 const folders = [
   { id: 1, name: "Facultad" },
@@ -69,5 +74,30 @@ describe("searchLibrary", () => {
     expect(r.decks.map((d) => d.id)).toEqual([9]);
     expect(r.folders).toEqual([]);
     expect(r.cards).toEqual([]);
+  });
+});
+
+describe("filterDeckCards", () => {
+  const deckCards = [
+    { id: 1, front: "Álgebra lineal", back: "Matrices", starred: 1, source: "manual" },
+    { id: 2, front: "Conexión", back: "Idea propia", source: "hybrid" },
+    { id: 3, front: "Capital", back: "París", source: "ai" },
+    { id: 4, front: "Vieja", back: "Pausada", source: "manual", suspended: 1 },
+  ];
+
+  test("busca frente y dorso sin distinguir tildes", () => {
+    expect(filterDeckCards(deckCards, "algebra").map((card) => card.id)).toEqual([1]);
+    expect(filterDeckCards(deckCards, "paris").map((card) => card.id)).toEqual([3]);
+  });
+
+  test.each([
+    ["starred", 1],
+    ["idea", 2],
+    ["unreviewed", 3],
+    ["suspended", 4],
+  ])("aplica el filtro %s", (filter, expectedId) => {
+    expect(filterDeckCards(deckCards, "", filter).map((card) => card.id)).toEqual([
+      expectedId,
+    ]);
   });
 });

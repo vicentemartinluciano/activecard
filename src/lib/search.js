@@ -36,3 +36,19 @@ export function searchLibrary(query, { folders = [], decks = [], cards = [] } = 
       .slice(0, MAX_CARD_RESULTS),
   };
 }
+
+export function filterDeckCards(cards = [], query = "", filter = null) {
+  const q = normalizeSearch(query.trim());
+  return cards.filter((card) => {
+    const matchesQuery =
+      !q ||
+      normalizeSearch(toPlainText(card.front)).includes(q) ||
+      normalizeSearch(toPlainText(card.back)).includes(q);
+    if (!matchesQuery) return false;
+    if (filter === "starred") return !!card.starred;
+    if (filter === "idea") return card.source === "hybrid";
+    if (filter === "unreviewed") return card.source === "ai";
+    if (filter === "suspended") return !!card.suspended;
+    return true;
+  });
+}

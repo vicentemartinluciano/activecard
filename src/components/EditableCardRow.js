@@ -25,6 +25,7 @@ function EditableCardRow({
   onActivate,
   onChangeDraft,
   onToggleStar,
+  onToggleSuspended,
 }) {
   const front = active ? draft.front : card.front;
   const back = active ? draft.back : card.back;
@@ -43,9 +44,28 @@ function EditableCardRow({
         {card.source === "hybrid" ? (
           <Pill icon="zap" label="Idea" color={textColors.violeta} style={styles.ideaPill} />
         ) : null}
+        {card.source === "ai" ? (
+          <Pill icon="cpu" label="Sin revisar" color={colors.accentText} style={styles.ideaPill} />
+        ) : null}
+        {card.suspended ? (
+          <Pill
+            icon="pause-circle"
+            label="Suspendida"
+            color={colors.textMuted}
+            style={styles.ideaPill}
+          />
+        ) : null}
         <Text style={styles.counter}>
           {index + 1} / {total}
         </Text>
+        <Pressable onPress={() => onToggleSuspended(card.id)} hitSlop={10}>
+          <Feather
+            name={card.suspended ? "play-circle" : "pause-circle"}
+            size={15}
+            color={card.suspended ? colors.accentText : colors.textMuted}
+            style={{ opacity: card.suspended ? 1 : 0.45 }}
+          />
+        </Pressable>
       </View>
 
       {active ? (
