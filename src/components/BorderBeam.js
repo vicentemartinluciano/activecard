@@ -28,12 +28,11 @@ const VUELTA = 5200; // ms que tarda la luz en dar una vuelta a UNA tarjeta
 const LARGO = 62; // largo del segmento, en % del lado que recorre
 const GROSOR = 2;
 
-// El segmento es un TRAMO DEL DEGRADÉ DE LA APP (gradients.bar, cobalto→cián),
-// no un color plano: así la luz se lee como parte del mismo lenguaje visual que
-// las barras de progreso y el hero, en vez de un azul cualquiera.
+// La serpiente usa una sola familia cobalto. La punta es el mismo azul llevado
+// a más luminosidad: no cambia de tono hacia cián al recorrer la tarjeta.
 const COLA = "transparent";
-const CUERPO = "rgba(37,99,235,0.75)"; // #2563EB
-const PUNTA = "rgba(0,242,254,0.95)"; // #00F2FE
+const CUERPO = "rgba(62,99,221,0.70)";
+const PUNTA = "rgba(146,175,255,0.95)";
 
 // El Animated.Value compartido. `total` = cuántas tarjetas se pasan la luz.
 // OJO: acá NO se consulta AccessibilityInfo.isReduceMotionEnabled(). En el
@@ -100,8 +99,7 @@ function Tramo({ progress, base, k, thickness, largo }) {
     ? { width: `${largo}%`, height: thickness }
     : { width: thickness, height: `${largo}%` };
 
-  // Un tramo del degradé de la app: la punta cián adelante, el cuerpo cobalto
-  // atrás y la cola desvaneciéndose.
+  // Punta cobalto clara adelante, cuerpo cobalto y cola desvaneciéndose.
   const haciaAdelante = [COLA, CUERPO, PUNTA];
   const haciaAtras = [PUNTA, CUERPO, COLA];
   const gradiente =

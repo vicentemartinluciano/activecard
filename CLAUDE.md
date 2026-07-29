@@ -131,8 +131,9 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
     tarjeta y salta a la siguiente (`useBeam(3)` + `index`). Son 4 tramos (arriba →
     derecha → abajo → izquierda) dibujados ENCIMA del contenido, con posiciones en
     PORCENTAJE para no depender de `onLayout`. El padre necesita `overflow: hidden`.
-    El segmento es un TRAMO DEL DEGRADÉ de la app (cobalto→cián de `gradients.bar`),
-    no un color plano. **Cada lado sigue encendido hasta que sale la COLA, no hasta que
+    El segmento usa una sola familia cobalto: cuerpo `rgba(62,99,221,0.70)` y punta
+    cobalto clara `rgba(146,175,255,0.95)`. El cián queda reservado para
+    `gradients.bar` y el cierre de sesión. **Cada lado sigue encendido hasta que sale la COLA, no hasta que
     la punta llega al final**: por eso está visible en `[k, k+1+largo/100]` y dos lados se
     solapan. Sin ese solapamiento la luz SALTA de un lado al otro en vez de doblar la
     esquina, y en Crear se corta entre una tarjeta y la siguiente.
