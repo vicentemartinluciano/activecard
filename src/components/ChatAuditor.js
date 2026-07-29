@@ -14,7 +14,7 @@ import { toPlainText } from "../lib/richtext";
 import { colors, font, radius, spacing, type } from "../theme";
 import MicButton from "./MicButton";
 import NotionField from "./NotionField";
-import { Button, Field } from "./ui";
+import { Button, confirmAsync, Field } from "./ui";
 
 export default function ChatAuditor({ card, onDone }) {
   // stage: 'chat' (charla) | 'preview' (tarjeta editable) | 'saved' (guardada)
@@ -97,6 +97,22 @@ export default function ChatAuditor({ card, onDone }) {
     }
   };
 
+  const skip = async () => {
+    const hasWork =
+      transcript.length > 0 ||
+      input.trim().length > 0 ||
+      draft.front.trim().length > 0 ||
+      draft.back.trim().length > 0;
+    if (hasWork) {
+      const discard = await confirmAsync(
+        "Descartar esta charla",
+        "Se perderán la conversación y la síntesis que todavía no guardaste."
+      );
+      if (!discard) return;
+    }
+    onDone({ skipped: true });
+  };
+
   // --- Preview: la tarjeta propuesta, editable como cualquier otra ---
   if (stage === "preview") {
     return (
@@ -141,7 +157,7 @@ export default function ChatAuditor({ card, onDone }) {
               setStage("chat");
             }}
           />
-          <Button label="Saltar" kind="ghost" onPress={() => onDone({ skipped: true })} />
+          <Button label="Saltar" kind="ghost" onPress={skip} />
         </View>
       </View>
     );
@@ -200,7 +216,7 @@ export default function ChatAuditor({ card, onDone }) {
             <MicButton onTranscript={onMicTranscript} />
           </View>
           <View style={styles.actions}>
-            <Button label="Saltar" kind="ghost" onPress={() => onDone({ skipped: true })} />
+            <Button label="Saltar" kind="ghost" onPress={skip} />
             <Button
               label="Sintetizar"
               onPress={() => send({ forceSynthesis: true })}
