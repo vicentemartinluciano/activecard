@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -31,6 +31,7 @@ function greeting(date = new Date()) {
 
 export default function Inicio() {
   const router = useRouter();
+  const focused = useIsFocused();
   const [stats, setStats] = useState(null);
   const [streak, setStreak] = useState(null);
   const [inProgressDecks, setInProgressDecks] = useState([]);
@@ -41,7 +42,7 @@ export default function Inicio() {
   // contenedor no se entera: este estado le avisa para que se ilumine igual.
   const [ctaPressed, setCtaPressed] = useState(false);
   // Luz que recorre el borde del hero, en loop permanente.
-  const beam = useBeam(1);
+  const beam = useBeam(1, { disabled: !focused });
 
   // Aparte del resto para poder reintentarla desde el aviso de error.
   const fetchStats = useCallback(async () => {

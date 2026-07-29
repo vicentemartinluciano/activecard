@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useIsFocused, useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -24,9 +24,10 @@ const OPTIONS = [
 // Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
 export default function Crear() {
   const router = useRouter();
+  const focused = useIsFocused();
   const [createStep, setCreateStep] = useState(null); // null | "mazo" | "carpeta"
   // Una sola luz recorre el borde de las tres, una tras otra, en loop.
-  const beam = useBeam(OPTIONS.length);
+  const beam = useBeam(OPTIONS.length, { disabled: !focused });
 
   const onCreateDeck = async (name) => {
     const id = await createDeck(name);
