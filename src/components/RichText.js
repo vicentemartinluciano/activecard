@@ -4,7 +4,7 @@
 // (richhtml.js), la misma que usa el editor — así lo que se ve al estudiar
 // es exactamente lo que se ve al editar.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { describeBlock } from "../lib/richhtml";
@@ -76,7 +76,7 @@ function spanStyle(span) {
 // por cara — el dorso arranca centrado). Las listas nunca heredan el default
 // (siempre a la izquierda).
 export default function RichText({ text, style, containerStyle, defaultAlign = "left" }) {
-  const blocks = parseRich(text).map(describeBlock);
+  const blocks = useMemo(() => parseRich(text).map(describeBlock), [text]);
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {

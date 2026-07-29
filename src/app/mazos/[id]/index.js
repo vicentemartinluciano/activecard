@@ -92,6 +92,19 @@ export default function DetalleMazo() {
   const [loadError, setLoadError] = useState("");
   const allowNavigationRef = useRef(false);
   const savingDraftRef = useRef(false);
+  const cardsRef = useRef(cards);
+  const activeIdRef = useRef(activeId);
+  const draftRef = useRef(draft);
+
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   const load = useCallback(async () => {
     try {
@@ -99,7 +112,9 @@ export default function DetalleMazo() {
       setDeck(d);
       if (d) {
         setName(d.name);
-        setCards(await listCardsByDeck(deckId));
+        const loadedCards = await listCardsByDeck(deckId);
+        cardsRef.current = loadedCards;
+        setCards(loadedCards);
         setAllTags(await listTags());
         setFolders(await listFolders());
         setProgress(await getDeckDailyProgress(deckId));
@@ -126,11 +141,12 @@ export default function DetalleMazo() {
   }, []);
 
   const commitDraft = useCallback(async () => {
-    if (activeId == null) return true;
-    const original = cards.find((c) => c.id === activeId);
+    const editingId = activeIdRef.current;
+    if (editingId == null) return true;
+    const original = cardsRef.current.find((c) => c.id === editingId);
     if (!original) return true;
-    const front = draft.front.trim();
-    const back = draft.back.trim();
+    const front = draftRef.current.front.trim();
+    const back = draftRef.current.back.trim();
     if (!front || !back) {
       setEditError("Completá el frente y el dorso antes de salir.");
       return false;
@@ -140,15 +156,21 @@ export default function DetalleMazo() {
       return true;
     }
     try {
-      await updateCardText(activeId, front, back);
-      setCards((cs) => cs.map((c) => (c.id === activeId ? { ...c, front, back } : c)));
+      await updateCardText(editingId, front, back);
+      setCards((current) => {
+        const next = current.map((card) =>
+          card.id === editingId ? { ...card, front, back } : card
+        );
+        cardsRef.current = next;
+        return next;
+      });
       setEditError("");
       return true;
     } catch {
       setEditError("No pudimos guardar esta tarjeta. Volvé a intentar.");
       return false;
     }
-  }, [activeId, cards, draft]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (event) => {
@@ -168,6 +190,38 @@ export default function DetalleMazo() {
     });
     return unsubscribe;
   }, [activeId, commitDraft, editMode, navigation]);
+
+  const toggleStar = useCallback(async (cardId) => {
+    const item = cardsRef.current.find((card) => card.id === cardId);
+    if (!item) return;
+    const starred = item.starred ? 0 : 1;
+    await setCardStarred(cardId, starred);
+    setCards((current) => {
+      const next = current.map((card) =>
+        card.id === cardId ? { ...card, starred } : card
+      );
+      cardsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const activateRow = useCallback(async (cardId) => {
+    if (cardId === activeIdRef.current) return;
+    const saved = await commitDraft();
+    if (!saved) return;
+    const card = cardsRef.current.find((candidate) => candidate.id === cardId);
+    if (!card) return;
+    const nextDraft = { front: card.front, back: card.back };
+    activeIdRef.current = cardId;
+    draftRef.current = nextDraft;
+    setActiveId(cardId);
+    setDraft(nextDraft);
+  }, [commitDraft]);
+
+  const changeDraft = useCallback((nextDraft) => {
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+  }, []);
 
   if (!deck) {
     return (
@@ -211,22 +265,10 @@ export default function DetalleMazo() {
     }
   };
 
-  const toggleStar = async (item) => {
-    await setCardStarred(item.id, item.starred ? 0 : 1);
-    setCards((cs) => cs.map((c) => (c.id === item.id ? { ...c, starred: item.starred ? 0 : 1 } : c)));
-  };
-
-  const activateRow = async (card) => {
-    if (card.id === activeId) return;
-    const saved = await commitDraft();
-    if (!saved) return;
-    setActiveId(card.id);
-    setDraft({ front: card.front, back: card.back });
-  };
-
   const exitEditMode = async () => {
     const saved = await commitDraft();
     if (!saved) return;
+    activeIdRef.current = null;
     setActiveId(null);
     setEditMode(false);
     load();
@@ -256,7 +298,7 @@ export default function DetalleMazo() {
           {toPlainText(item.back)}
         </Text>
       </View>
-      <StarToggle starred={!!item.starred} onPress={() => toggleStar(item)} />
+      <StarToggle starred={!!item.starred} onPress={() => toggleStar(item.id)} />
     </Card>
   );
 
@@ -392,10 +434,10 @@ export default function DetalleMazo() {
                   index={i}
                   total={cards.length}
                   active={activeId === item.id}
-                  draft={draft}
-                  onActivate={() => activateRow(item)}
-                  onChangeDraft={setDraft}
-                  onToggleStar={() => toggleStar(item)}
+                  draft={activeId === item.id ? draft : null}
+                  onActivate={activateRow}
+                  onChangeDraft={changeDraft}
+                  onToggleStar={toggleStar}
                 />
               ))}
             </View>
@@ -438,6 +480,7 @@ export default function DetalleMazo() {
               allowNavigationRef.current = false;
               setEditError("");
               setEditMode(true);
+              activeIdRef.current = null;
               setActiveId(null);
             },
           },

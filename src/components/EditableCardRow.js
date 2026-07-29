@@ -32,7 +32,7 @@ function EditableCardRow({
   return (
     <View style={[styles.row, active && styles.rowActive]}>
       <View style={styles.head}>
-        <Pressable onPress={onToggleStar} hitSlop={10}>
+        <Pressable onPress={() => onToggleStar(card.id)} hitSlop={10}>
           {card.starred ? (
             <FontAwesome name="star" size={15} color="#FFC53D" />
           ) : (
@@ -63,7 +63,10 @@ function EditableCardRow({
           />
         </>
       ) : (
-        <Pressable onPress={onActivate} style={({ pressed }) => pressed && { opacity: 0.7 }}>
+        <Pressable
+          onPress={() => onActivate(card.id)}
+          style={({ pressed }) => pressed && { opacity: 0.7 }}
+        >
           <View style={styles.box}>
             <RichText text={front} style={styles.boxTextFront} defaultAlign="left" />
           </View>
