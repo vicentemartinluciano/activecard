@@ -48,13 +48,22 @@ export async function createCard({ deckId, front, back, source = "manual", origi
   return res.lastInsertRowId;
 }
 
-export async function updateCardText(id, front, back) {
+export async function updateCardText(id, front, back, { markReviewed = false } = {}) {
   const db = await getDb();
-  await db.runAsync("UPDATE cards SET front = ?, back = ? WHERE id = ?", [
-    front.trim(),
-    back.trim(),
-    id,
-  ]);
+  if (markReviewed) {
+    await db.runAsync(
+      `UPDATE cards SET front = ?, back = ?,
+       source = CASE WHEN source = 'ai' THEN 'manual' ELSE source END
+       WHERE id = ?`,
+      [front.trim(), back.trim(), id]
+    );
+  } else {
+    await db.runAsync("UPDATE cards SET front = ?, back = ? WHERE id = ?", [
+      front.trim(),
+      back.trim(),
+      id,
+    ]);
+  }
 }
 
 export async function deleteCard(id) {
@@ -110,6 +119,25 @@ export async function setCardStarred(id, starred) {
 export async function setCardSuspended(id, suspended) {
   const db = await getDb();
   await db.runAsync("UPDATE cards SET suspended = ? WHERE id = ?", [suspended, id]);
+}
+
+export async function setCardDeck(id, deckId) {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE cards SET deck_id = ?,
+       position = (SELECT COALESCE(MAX(position), 0) + 1 FROM cards WHERE deck_id = ?)
+     WHERE id = ?`,
+    [deckId, deckId, id]
+  );
+}
+
+export async function listRecentReviews(cardId, limit = 5) {
+  const db = await getDb();
+  return db.getAllAsync(
+    `SELECT id, rating, mode, reviewed_at FROM review_logs
+     WHERE card_id = ? ORDER BY reviewed_at DESC, id DESC LIMIT ?`,
+    [cardId, limit]
+  );
 }
 
 // Persiste el orden manual: position = índice + 1 según orderedIds.

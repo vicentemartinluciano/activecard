@@ -156,10 +156,12 @@ export default function DetalleMazo() {
       return true;
     }
     try {
-      await updateCardText(editingId, front, back);
+      await updateCardText(editingId, front, back, { markReviewed: true });
       setCards((current) => {
         const next = current.map((card) =>
-          card.id === editingId ? { ...card, front, back } : card
+          card.id === editingId
+            ? { ...card, front, back, source: card.source === "ai" ? "manual" : card.source }
+            : card
         );
         cardsRef.current = next;
         return next;
