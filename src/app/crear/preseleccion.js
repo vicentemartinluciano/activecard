@@ -1,12 +1,18 @@
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import NotionField from "../../components/NotionField";
+import Toast from "../../components/Toast";
 import { Button, Card, Chip, InlineAdd, Screen } from "../../components/ui";
 import { createCard } from "../../db/cards";
 import { createDeck, listDecks } from "../../db/decks";
-import { clearDraft, getDraft } from "../../lib/draftStore";
+import {
+  clearDraft,
+  getDraft,
+  loadDraft,
+  persistDraft,
+} from "../../lib/draftStore";
 import { toPlainText } from "../../lib/richtext";
 import { colors, font, radius, spacing, type } from "../../theme";
 
@@ -14,27 +20,78 @@ import { colors, font, radius, spacing, type } from "../../theme";
 // Cada tarjeta se puede descartar, editar con tus palabras, o agregar nuevas.
 export default function Preseleccion() {
   const router = useRouter();
-  const draft = getDraft();
+  const initialDraft = getDraft();
 
-  const [cards, setCards] = useState(() =>
-    draft ? draft.cards.map((c, i) => ({ ...c, key: i, kept: true })) : []
-  );
+  const [draft, setDraftState] = useState(initialDraft);
+  const [draftLoaded, setDraftLoaded] = useState(!!initialDraft);
+  const [cards, setCards] = useState(() => initialDraft?.cards || []);
   const [editingKey, setEditingKey] = useState(null);
   const [decks, setDecks] = useState([]);
-  const [deckId, setDeckId] = useState(null);
+  const [deckId, setDeckId] = useState(initialDraft?.deckId ?? null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    if (draftLoaded) return undefined;
+    let alive = true;
+    loadDraft()
+      .then((stored) => {
+        if (!alive) return;
+        setDraftState(stored);
+        setCards(stored?.cards || []);
+        setDeckId(stored?.deckId ?? null);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setSaveError("No pudimos recuperar la preselección pendiente.");
+      })
+      .finally(() => {
+        if (alive) setDraftLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [draftLoaded]);
 
   useEffect(() => {
     let alive = true;
-    listDecks().then((d) => {
-      if (!alive) return;
-      setDecks(d);
-      if (d.length === 1) setDeckId(d[0].id);
-    });
+    listDecks()
+      .then((d) => {
+        if (!alive) return;
+        setDecks(d);
+        setDeckId((current) => {
+          if (current != null && d.some((deck) => deck.id === current)) return current;
+          return d.length === 1 ? d[0].id : null;
+        });
+      })
+      .catch(() => {
+        if (alive) setSaveError("No pudimos cargar los mazos.");
+      });
     return () => {
       alive = false;
     };
   }, []);
+
+  const sourceLabel = draft?.sourceLabel;
+  useEffect(() => {
+    if (!draftLoaded || !sourceLabel || saving) return undefined;
+    const timer = setTimeout(() => {
+      persistDraft({ sourceLabel, cards, deckId }).catch(() => {
+        setSaveError("No pudimos actualizar el borrador.");
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [cards, deckId, draftLoaded, saving, sourceLabel]);
+
+  if (!draftLoaded) {
+    return (
+      <Screen style={styles.center}>
+        <Stack.Screen options={{ title: "Preselección" }} />
+        <ActivityIndicator color={colors.accent} size="large" />
+        <Text style={type.small}>Recuperando tu borrador…</Text>
+      </Screen>
+    );
+  }
 
   if (!draft) {
     return (
@@ -42,46 +99,93 @@ export default function Preseleccion() {
         <Stack.Screen options={{ title: "Preselección" }} />
         <Text style={type.body}>No hay tarjetas pendientes de revisar.</Text>
         <Button label="Crear tarjetas" kind="primary" onPress={() => router.replace("/crear")} />
+        <Toast message={saveError} onDismiss={() => setSaveError("")} />
       </Screen>
     );
   }
 
   const keptCount = cards.filter((c) => c.kept).length;
+  const pendingCount = cards.filter((c) => c.kept && !c.savedCardId).length;
 
   const toggleKept = (key) =>
-    setCards((cs) => cs.map((c) => (c.key === key ? { ...c, kept: !c.kept } : c)));
+    setCards((cs) =>
+      cs.map((c) => (c.key === key && !c.savedCardId ? { ...c, kept: !c.kept } : c))
+    );
 
   const editCard = (key, field, value) =>
-    setCards((cs) => cs.map((c) => (c.key === key ? { ...c, [field]: value } : c)));
+    setCards((cs) =>
+      cs.map((c) => (c.key === key && !c.savedCardId ? { ...c, [field]: value } : c))
+    );
 
   const addManual = () =>
     setCards((cs) => [
       ...cs,
-      { front: "", back: "", key: Date.now(), kept: true, manual: true },
+      {
+        front: "",
+        back: "",
+        key: `manual-${Date.now()}`,
+        kept: true,
+        manual: true,
+        savedCardId: null,
+      },
     ]);
 
   const onCreateDeck = async (name) => {
-    const id = await createDeck(name);
-    setDecks(await listDecks());
-    setDeckId(id);
+    try {
+      const id = await createDeck(name);
+      setDecks(await listDecks());
+      setDeckId(id);
+      setSaveError("");
+    } catch {
+      setSaveError("No pudimos crear el mazo.");
+    }
   };
 
   const save = async () => {
     if (!deckId || keptCount === 0 || saving) return;
+    const incomplete = cards.some(
+      (card) =>
+        card.kept &&
+        !card.savedCardId &&
+        (!card.front.trim() || !card.back.trim())
+    );
+    if (incomplete) {
+      setSaveError("Completá el frente y el dorso de todas las tarjetas elegidas.");
+      return;
+    }
     setSaving(true);
+    setEditingKey(null);
+    setSaveError("");
+    let nextCards = cards;
+    let savedNow = 0;
     try {
-      for (const c of cards) {
-        if (c.kept && c.front.trim() && c.back.trim()) {
-          await createCard({
+      for (const card of cards) {
+        if (card.kept && !card.savedCardId) {
+          const savedCardId = await createCard({
             deckId,
-            front: c.front,
-            back: c.back,
-            source: c.manual ? "manual" : "ai",
+            front: card.front,
+            back: card.back,
+            source: card.manual ? "manual" : "ai",
           });
+          savedNow += 1;
+          nextCards = nextCards.map((candidate) =>
+            candidate.key === card.key ? { ...candidate, savedCardId } : candidate
+          );
+          setCards(nextCards);
+          // Persistir después de cada alta evita duplicar las ya guardadas si
+          // la siguiente tarjeta falla y el usuario reintenta.
+          await persistDraft({ sourceLabel: draft.sourceLabel, cards: nextCards, deckId });
         }
       }
-      clearDraft();
+      await clearDraft();
       router.replace(`/mazos/${deckId}`);
+    } catch (error) {
+      const detail = error?.message ? ` ${error.message}` : "";
+      setSaveError(
+        savedNow > 0
+          ? `Se guardaron ${savedNow}; las restantes siguen en el borrador.${detail}`
+          : `No pudimos guardar las tarjetas.${detail}`
+      );
     } finally {
       setSaving(false);
     }
@@ -121,7 +225,10 @@ export default function Preseleccion() {
                 <Button label="Listo" kind="primary" onPress={() => setEditingKey(null)} />
               </View>
             ) : (
-              <Pressable onPress={() => setEditingKey(item.key)}>
+              <Pressable
+                disabled={!!item.savedCardId}
+                onPress={() => setEditingKey(item.key)}
+              >
                 <Text style={[styles.front, !item.kept && styles.textDiscarded]}>
                   {toPlainText(item.front) || "(sin frente — tocá para editar)"}
                 </Text>
@@ -131,11 +238,15 @@ export default function Preseleccion() {
               </Pressable>
             )}
             <View style={styles.cardActions}>
-              <Button
-                label={item.kept ? "Descartar" : "Recuperar"}
-                kind={item.kept ? "ghost" : "primary"}
-                onPress={() => toggleKept(item.key)}
-              />
+              {item.savedCardId ? (
+                <Text style={styles.savedLabel}>Guardada ✓</Text>
+              ) : (
+                <Button
+                  label={item.kept ? "Descartar" : "Recuperar"}
+                  kind={item.kept ? "ghost" : "primary"}
+                  onPress={() => toggleKept(item.key)}
+                />
+              )}
             </View>
           </Card>
         )}
@@ -162,7 +273,9 @@ export default function Preseleccion() {
               label={
                 saving
                   ? "Guardando…"
-                  : `Guardar ${keptCount} ${keptCount === 1 ? "tarjeta" : "tarjetas"}`
+                  : pendingCount === 0
+                    ? "Finalizar guardado"
+                    : `Guardar ${pendingCount} ${pendingCount === 1 ? "tarjeta" : "tarjetas"}`
               }
               kind="primary"
               onPress={save}
@@ -174,6 +287,7 @@ export default function Preseleccion() {
           </View>
         }
       />
+      <Toast message={saveError} onDismiss={() => setSaveError("")} />
     </Screen>
   );
 }
@@ -203,6 +317,11 @@ const styles = StyleSheet.create({
   cardActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
+  },
+  savedLabel: {
+    ...type.small,
+    color: colors.successBright,
+    ...font(600),
   },
   deckRow: {
     flexDirection: "row",

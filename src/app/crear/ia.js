@@ -44,8 +44,8 @@ export default function CrearConIA() {
     }
   };
 
-  const goPreselect = (cards, label) => {
-    setDraft(cards, label);
+  const goPreselect = async (cards, label) => {
+    await setDraft(cards, label);
     router.push("/crear/preseleccion");
   };
 
@@ -54,7 +54,7 @@ export default function CrearConIA() {
       if (!text.trim() || !customReady) return;
       setBusy("Claude está leyendo el material…");
       const cards = await generateCardsFromText(text, mode, customInstruction);
-      goPreselect(cards, "texto pegado");
+      await goPreselect(cards, "texto pegado");
     });
 
   const generateFromFile = () =>
@@ -67,7 +67,7 @@ export default function CrearConIA() {
         file.kind === "pdf"
           ? await generateCardsFromPdf(file.base64, mode, customInstruction)
           : await generateCardsFromText(file.text, mode, customInstruction);
-      goPreselect(cards, file.name);
+      await goPreselect(cards, file.name);
     });
 
   const generateFromNotion = () =>
@@ -82,7 +82,7 @@ export default function CrearConIA() {
       }
       setBusy(`Claude está leyendo "${page.title}"…`);
       const cards = await generateCardsFromText(page.text, mode, customInstruction);
-      goPreselect(resolveImageMarkers(cards, imageMap), page.title);
+      await goPreselect(resolveImageMarkers(cards, imageMap), page.title);
     });
 
   if (busy) {
