@@ -165,6 +165,21 @@ export async function countDistinctReviewedSince(mode, sinceIso) {
   return row ? row.n : 0;
 }
 
+// Cuántas tarjetas NUEVAS se estrenaron desde `sinceIso`: las que tienen su
+// PRIMER repaso de la historia dentro de esa ventana. Sirve para descontarlas
+// del tope diario de nuevas — si no, el tope se rellena cada vez que se
+// recalcula la cola y deja de proteger las semanas siguientes.
+export async function countNewIntroducedSince(sinceIso) {
+  const db = await getDb();
+  const row = await db.getFirstAsync(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT card_id, MIN(reviewed_at) AS primero FROM review_logs GROUP BY card_id
+     ) WHERE primero >= ?`,
+    [sinceIso]
+  );
+  return row ? row.n : 0;
+}
+
 // Tarjetas cuya ÚLTIMA calificación desde `sinceIso` fue "again" (cualquier
 // modo): falladas del día que siguen pendientes hasta que se acierten.
 export async function listRetryTodayIds(sinceIso) {

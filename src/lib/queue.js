@@ -91,8 +91,12 @@ export function buildDailyQueue(
 // en dos semanas — sin ese freno, un mazo generado con IA te hipoteca el mes.
 function applyLimits(queue, limits) {
   if (!limits) return queue;
-  const maxReviews = limits.maxReviews > 0 ? limits.maxReviews : Infinity;
-  const maxNew = limits.maxNew >= 0 ? limits.maxNew : Infinity;
+  // CERO SIGNIFICA AGOTADO, no "sin límite": los topes llegan acá ya
+  // descontando lo que se hizo hoy (ver getDailyQueue), así que 0 quiere decir
+  // "el día está completo" y la cola tiene que quedar vacía. "Sin límite" se
+  // expresa con `limits` en null o con el campo ausente.
+  const maxReviews = Number.isFinite(limits.maxReviews) ? limits.maxReviews : Infinity;
+  const maxNew = Number.isFinite(limits.maxNew) ? limits.maxNew : Infinity;
 
   const out = [];
   let nuevas = 0;

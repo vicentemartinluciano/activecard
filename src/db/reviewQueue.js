@@ -5,6 +5,7 @@ import { buildDailyQueue, endOfDay, startOfDay } from "../lib/queue";
 import {
   countDistinctReviewedSince,
   countDueCards,
+  countNewIntroducedSince,
   listAllCards,
   listRetryTodayIds,
 } from "./cards";
@@ -20,15 +21,34 @@ export function getDailyLimits() {
 
 // La cola del día incluye las FALLADAS de hoy (última nota = again): FSRS las
 // reprograma para mañana, pero siguen pendientes hasta que las aciertes.
-// Al final se recorta a los topes diarios: lo que sobra pasa a mañana.
+//
+// Al final se recorta a lo que QUEDA de los topes diarios, no al tope entero:
+// los topes cuentan el día completo, no cada vez que se abre la app. Sin este
+// descuento la cola se rellenaba a 40 después de cada tanda, el hero decía
+// "40 pendientes" para siempre y "Completado ✓" no aparecía nunca — o sea que
+// el freno que existía para que el día terminara hacía exactamente lo contrario.
 export async function getDailyQueue(now = new Date()) {
-  const [cards, deckPriorities, retryIds, limits] = await Promise.all([
+  const startIso = startOfDay(now).toISOString();
+  const [cards, deckPriorities, retryIds, limits, hechasHoy, nuevasHoy] = await Promise.all([
     listAllCards(),
     getDeckPriorities(),
-    listRetryTodayIds(startOfDay(now).toISOString()),
+    listRetryTodayIds(startIso),
     getDailyLimits(),
+    countDistinctReviewedSince(null, startIso),
+    countNewIntroducedSince(startIso),
   ]);
-  return buildDailyQueue(cards, { deckPriorities, now, retryIds, limits });
+
+  // Las falladas de hoy no gastan cupo: siguen pendientes, así que se descuentan
+  // de lo ya hecho (misma regla que en getDailyReviewStats).
+  const avanzadasHoy = Math.max(0, hechasHoy - retryIds.length);
+  const restantes = limits
+    ? {
+        maxReviews: Math.max(0, limits.maxReviews - avanzadasHoy),
+        maxNew: Math.max(0, limits.maxNew - nuevasHoy),
+      }
+    : null;
+
+  return buildDailyQueue(cards, { deckPriorities, now, retryIds, limits: restantes });
 }
 
 // Cantidad de tarjetas pendientes hoy en mazos activos (debidas + falladas).

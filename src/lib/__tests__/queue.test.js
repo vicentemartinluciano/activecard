@@ -162,6 +162,17 @@ describe("topes diarios", () => {
     expect(repasos).toHaveLength(5); // los repasos NO los toca el tope de nuevas
   });
 
+  test("maxReviews en 0 vacía la cola: cero es AGOTADO, no 'sin límite'", () => {
+    // Los topes llegan ya descontando lo hecho hoy, así que 0 = el día está
+    // completo. Un guard `maxReviews > 0 ? ... : Infinity` hacía que el día
+    // completo se leyera como ilimitado y devolvía la cola entera.
+    const queue = buildDailyQueue(vencidas(30), {
+      now: NOW,
+      limits: { maxReviews: 0, maxNew: 0 },
+    });
+    expect(queue).toEqual([]);
+  });
+
   test("maxNew en 0 deja el día solo con repasos", () => {
     const cards = [...vencidas(3, 0), ...vencidas(2, 2).map((c) => ({ ...c, id: c.id + 100 }))];
     const queue = buildDailyQueue(cards, {
