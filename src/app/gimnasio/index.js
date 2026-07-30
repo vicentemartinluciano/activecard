@@ -3,7 +3,7 @@
 // ideas abajo (sueltos primero). La idea vive UNA sola vez, en su mazo; acá
 // solo se la muestra desde otro ángulo. Con ?folderId=N filtra a esa carpeta.
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";

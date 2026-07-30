@@ -2,7 +2,7 @@
 // Tocar una abre el editor de la tarjeta — editar acá edita la tarjeta del
 // mazo (es LA misma card). El useFocusEffect refresca al volver del editor.
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text } from "react-native";

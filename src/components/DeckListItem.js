@@ -2,7 +2,7 @@
 // (N° de tarjetas + prioridad %, mismo color neutro), más la barra de progreso
 // diario. Compartida entre la Biblioteca y la pantalla de carpeta.
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, View } from "react-native";
 

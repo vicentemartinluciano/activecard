@@ -1,7 +1,7 @@
 // Pantalla de carpeta: sus mazos, agregar/quitar mazos sueltos,
 // renombrar y borrar (los mazos nunca se borran: quedan sueltos).
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";

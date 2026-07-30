@@ -1,6 +1,6 @@
 // Primitivas de UI compartidas — mantienen la estética minimalista consistente.
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { forwardRef, useRef, useState } from "react";
 import {
   Alert,

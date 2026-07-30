@@ -2,7 +2,8 @@
 // aplastado horizontal (scaleX) — robusto en Android new-arch, donde el
 // enfoque de dos caras absolutas con rotateY/opacity se rompía.
 
-import { Feather, FontAwesome } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
 

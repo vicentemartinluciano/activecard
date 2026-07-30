@@ -4,7 +4,7 @@
 //
 // Se usa vía el hook useToast() de un contenedor, o montando <Toast/> suelto.
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { useEffect, useRef } from "react";
 import { Animated, Platform, Pressable, StyleSheet, Text } from "react-native";
 

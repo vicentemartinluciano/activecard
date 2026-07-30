@@ -1,7 +1,7 @@
 // Bottom sheet reutilizable para menús contextuales y acciones ("...", "+").
 // Funciona en nativo y web (react-native-web soporta Modal).
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { useEffect, useState } from "react";
 import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 

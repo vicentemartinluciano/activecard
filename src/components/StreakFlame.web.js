@@ -2,7 +2,7 @@
 // lottie-react-native no es un módulo nativo confiable en web, así que acá
 // se usa un ícono estático (misma info: activo/inactivo + días).
 
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors, font } from "../theme";

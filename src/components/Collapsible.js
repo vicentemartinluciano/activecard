@@ -4,7 +4,7 @@
 // El resumen existe para que plegado siga diciendo algo útil ("40 repasos · 15
 // nuevas"): una sección cerrada que no informa nada es solo una puerta más.
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { useState } from "react";
 import { LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View } from "react-native";
 

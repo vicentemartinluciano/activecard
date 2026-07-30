@@ -7,7 +7,8 @@
 // dentro de una caja con pinta de input. Al tocar otra fila, el padre guarda la
 // anterior y mueve el editor. No cambiar esto sin medirlo en un mazo grande.
 
-import { Feather, FontAwesome } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 

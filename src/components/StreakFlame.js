@@ -3,7 +3,7 @@
 // La versión web vive en StreakFlame.web.js (Metro resuelve por extensión de
 // plataforma, así el bundle web nunca intenta cargar lottie-react-native).
 
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useIsFocused } from "expo-router";
 import LottieView from "lottie-react-native";
 import { useEffect, useRef } from "react";

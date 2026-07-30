@@ -1,6 +1,6 @@
 // Grilla de íconos de línea (Feather) para elegir el ícono de un mazo.
 
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { colors, radius, spacing } from "../theme";
