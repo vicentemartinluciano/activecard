@@ -24,7 +24,7 @@ if /i not "%BACKUP_OK%"=="RESPALDO" (
 )
 
 echo.
-echo  [1/9] Comprobando Node.js, npm y Git...
+echo  [1/10] Comprobando Node.js, npm y Git...
 where node >nul 2>nul
 if errorlevel 1 (
   echo  ERROR: no encuentro Node.js en el PATH.
@@ -42,7 +42,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [2/9] Comprobando la sesion de Expo/EAS...
+echo  [2/10] Comprobando la sesion de Expo/EAS...
 call npx eas-cli@latest whoami
 if errorlevel 1 (
   echo  ERROR: no hay una sesion EAS valida. Ejecuta: npx eas-cli login
@@ -50,7 +50,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [3/9] Comprobando rama, cambios tracked y sincronizacion...
+echo  [3/10] Comprobando rama, cambios tracked y sincronizacion...
 for /f "delims=" %%B in ('git branch --show-current') do set "CURRENT_BRANCH=%%B"
 if /i not "%CURRENT_BRANCH%"=="main" (
   echo  ERROR: la rama actual es "%CURRENT_BRANCH%"; el build solo sale desde main.
@@ -86,7 +86,33 @@ if /i not "%LOCAL_HEAD%"=="%REMOTE_HEAD%" (
 )
 
 echo.
-echo  [4/9] Instalando dependencias exactas del lockfile...
+echo  [4/10] Verificando que package-lock.json este sincronizado...
+rem  El APK 1.4.0 fallo en los servidores de EAS con "lock file's
+rem  @react-native/js-polyfills@0.86.0 does not satisfy ...@0.86.2": el lockfile
+rem  tenia un arbol hibrido que el npm de esta PC toleraba y el de EAS no. O sea
+rem  que el "npm ci" de aca NO alcanza como garantia. Esto lo detecta antes de
+rem  gastar el build: si regenerar el lock lo modifica, es que estaba
+rem  desincronizado con package.json.
+call npm install --package-lock-only --ignore-scripts
+if errorlevel 1 (
+  echo  ERROR: no se pudo regenerar package-lock.json.
+  goto :failure
+)
+git diff --quiet -- package-lock.json
+if errorlevel 1 (
+  echo.
+  echo  ERROR: package-lock.json estaba DESINCRONIZADO con package.json.
+  echo.
+  echo  Acaba de regenerarse solo. Este es exactamente el problema que hace
+  echo  fallar el build en los servidores de EAS aunque aca todo pase.
+  echo.
+  echo  Que hacer: revisa el cambio ^(git diff package-lock.json^), commitealo
+  echo  y volve a ejecutar este archivo.
+  goto :failure
+)
+
+echo.
+echo  [5/10] Instalando dependencias exactas del lockfile...
 call npm ci
 if errorlevel 1 (
   echo  ERROR: npm ci fallo.
@@ -94,7 +120,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [5/9] Validando compatibilidad con Expo Doctor...
+echo  [6/10] Validando compatibilidad con Expo Doctor...
 call npx expo-doctor
 if errorlevel 1 (
   echo  ERROR: Expo Doctor detecto un problema.
@@ -102,7 +128,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [6/9] Ejecutando ESLint sin warnings...
+echo  [7/10] Ejecutando ESLint sin warnings...
 call npx eslint . --max-warnings 0
 if errorlevel 1 (
   echo  ERROR: ESLint fallo.
@@ -110,7 +136,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [7/9] Ejecutando todos los tests...
+echo  [8/10] Ejecutando todos los tests...
 call npx jest --ci --runInBand
 if errorlevel 1 (
   echo  ERROR: Jest fallo.
@@ -118,7 +144,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [8/9] Generando el export Android de control...
+echo  [9/10] Generando el export Android de control...
 call npx expo export --platform android --clear
 if errorlevel 1 (
   echo  ERROR: el export Android fallo.
@@ -136,7 +162,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [9/9] Todo verde. Construyendo el APK en EAS...
+echo  [10/10] Todo verde. Construyendo el APK en EAS...
 call npx eas-cli@latest build --platform android --profile preview
 if errorlevel 1 (
   echo  ERROR: EAS Build fallo. Revisa el mensaje de arriba.

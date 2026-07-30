@@ -454,6 +454,15 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   al día siguiente. En `db/stats.js` el agrupado por día/semana se hace en JS.
 - **El auto-respaldo no puede reusar `exportBackup`**: en nativo ese abre el diálogo de
   compartir. `autoBackupIfDue` escribe directo al `documentDirectory`.
+- **Un `npm ci` verde acá NO garantiza que el build de EAS pase.** El APK 1.4.0 murió en
+  `INSTALL_DEPENDENCIES` con `lock file's @react-native/js-polyfills@0.86.0 does not
+  satisfy ...@0.86.2`: el lockfile había quedado con un árbol híbrido (los `@react-native/*`
+  en 0.86.0 en la raíz y 0.86.2 en las copias anidadas) después de un `expo install --fix`.
+  El npm de la PC de Martín y el de GitHub Actions lo toleraban — los dos pasaron en
+  verde — y el de los workers de EAS lo rechazó. **La validación que sí lo detecta**:
+  `npm install --package-lock-only --ignore-scripts` y después `git diff --quiet --
+  package-lock.json`; si el lock cambió, estaba desincronizado. Ya está en el `.bat`
+  (paso 4/10) y en el CI. Si alguna vez falla, la cura es `npm install` + commitear el lock.
 - **`npm run lint` NO es lo que corre el CI**: el CI usa `npx eslint . --max-warnings 0`,
   que es MÁS estricto (incluye `scripts/`, `assets/`, y trata los warnings como error).
   Antes de pushear, correr el comando del CI, no `expo lint`.

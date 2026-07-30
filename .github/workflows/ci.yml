@@ -26,6 +26,20 @@ jobs:
           node-version: 24
           cache: npm
 
+      # El APK 1.4.0 falló en los servidores de EAS por un lockfile con un árbol
+      # híbrido (@react-native/* en 0.86.0 en la raíz y 0.86.2 anidados). Ni el
+      # `npm ci` de esta CI ni el de la PC lo detectaban: los dos lo toleraban y
+      # el de EAS no. Este control sí lo agarra — si regenerar el lock lo
+      # modifica, es que estaba desincronizado con package.json.
+      - name: El lockfile tiene que estar sincronizado con package.json
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          if ! git diff --quiet -- package-lock.json; then
+            echo "::error file=package-lock.json::package-lock.json está desincronizado con package.json. Corré 'npm install' y commiteá el lockfile: así está, el build de EAS falla en INSTALL_DEPENDENCIES."
+            git --no-pager diff --stat -- package-lock.json
+            exit 1
+          fi
+
       - name: Instalar dependencias (limpio, como un usuario nuevo)
         run: npm ci
 
