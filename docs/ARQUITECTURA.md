@@ -11,8 +11,8 @@ puente entre dispositivos.
 ```
 src/
 ├── app/                        # rutas (expo-router)
-│   ├── _layout.js              # Stack raíz: carga las fuentes (useFonts), initKeys,
-│   │                           #   autoBackupIfDue y ErrorBoundary alrededor de todo
+│   ├── _layout.js              # Stack raíz: fuentes con fallback, initKeys, autoBackup
+│   │                           #   diferido, sync/taps del recordatorio y ErrorBoundary
 │   ├── (tabs)/_layout.js       # Bottom tabs: Inicio / Crear / Biblioteca / Progreso (Feather)
 │   ├── (tabs)/index.js         # Inicio: avatar+saludo POR HORA tocable (→ Ajustes) con el
 │   │                           #   nombre de settings.userName + racha suelta (solo número);
@@ -46,7 +46,7 @@ src/
 │   ├── mazos/[id]/index.js     # detalle: HeroButton "ESTUDIAR AHORA" (visual del hero, abre
 │   │                           #   el sheet "¿Cómo estudiamos?": Todas/Solo ⭐ y Barajado/Mi
 │   │                           #   orden, persiste en settings "studyPrefs"); lista de
-│   │                           #   tarjetas arrastrable (react-native-sortables, long-press;
+│   │                           #   tarjetas buscable/filtrable y arrastrable (sortables;
 │   │                           #   en web lista estática) con estrella por fila; fila
 │   │                           #   punteada "+" al final (reemplaza a "+ NUEVA TARJETA");
 │   │                           #   menú "..." (Renombrar/Editar detalles/Borrar)
@@ -54,18 +54,19 @@ src/
 │   │                           #   (filtra por estrella / respeta el orden manual; falladas
 │   │                           #   siempre barajadas), ronda de falladas, deshacer, resumen
 │   │                           #   oscuro con glow cián + confeti propio, skeleton
-│   ├── mazos/[id]/tarjeta.js   # editor manual (RichField frente/dorso) con
-│   │                           #   KeyboardAvoidingView + keyboardShouldPersistTaps
+│   ├── mazos/[id]/tarjeta.js   # editor manual + estado/historial FSRS, suspender,
+│   │                           #   mover de mazo y marcar IA como revisada
 │   ├── carpetas/[id]/index.js  # carpeta real: sus mazos, agregar/quitar, renombrar, borrar
 │   ├── gimnasio/index.js       # Gimnasio Mental: vista derivada de cards source='hybrid'
 │   │                           #   (listDecksWithIdeas). Espejo de Biblioteca: carpetas con
 │   │                           #   ideas + TODOS los mazos con ideas (sueltos primero).
 │   │                           #   ?folderId=N filtra a esa carpeta
-│   ├── gimnasio/[deckId].js    # ideas de un mazo (listIdeaCards): filas frente+dorso+fecha;
-│   │                           #   tocar → editor real (/mazos/[id]/tarjeta?cardId=N)
-│   ├── ajustes.js              # Carga diaria y Prioridad de mazos (ambas plegables), Tu
-│   │                           #   nombre, Respaldo (+ fecha de la copia automática),
-│   │                           #   Claves (solo web), "Ver mis ideas"
+│   ├── gimnasio/[deckId].js    # ideas de un mazo (listIdeaCards): editar tarjeta, abrir
+│   │                           #   charla guardada o iniciar otra con el Socio
+│   ├── gimnasio/nueva.js       # entrada directa al ChatAuditor: elige cualquier tarjeta
+│   ├── gimnasio/charla.js      # transcript persistido + tarjeta que originó la idea
+│   ├── ajustes.js              # Carga diaria, Prioridad y Recordatorio (nativo; todos
+│   │                           #   plegables), Tu nombre, Respaldo, Claves web, ideas
 ├── db/                         # SQLite async: client (retry OPFS), schema (migraciones),
 │   │                           #   decks, folders, cards (+ snapshotFsrs/undoReview para
 │   │                           #   deshacer un repaso; listAllCardsForSearch = versión
@@ -77,7 +78,7 @@ src/
 │   │                           #   personalizada), generator (Haiku 4.5), auditor (Sonnet 5),
 │   │                           #   notion, files, scheduler (ts-fsrs), queue (stride),
 │   │                           #   streak (puro), studySession, richtext, backup(IO),
-│   │                           #   keys, search (buscador puro de la Biblioteca)
+│   │                           #   keys, search, notifications (recordatorio local)
 ├── components/                 # ui.js (Screen/Button[píldora: Animated.View externo +
 │   │                           #   Pressable interno — NUNCA AnimatedPressable con
 │   │                           #   style-función]/Field/Chip/Card/Pill/InlineAdd/
@@ -96,7 +97,8 @@ src/
 │   │                           #   RichText, RichField, GlowPressable (halo SOLO al tocar),
 │   │                           #   Stagger (entrada escalonada con Animated, NO reanimated),
 │   │                           #   Collapsible, Toast, ErrorBoundary, EditableCardRow,
-│   │                           #   RetentionChart / ActivityHeatmap / ForecastList (sin SVG)
+│   │                           #   BorderBeam y RetentionChart (SVG), ActivityHeatmap,
+│   │                           #   ForecastList
 └── theme/                      # colors (Obsidian Cobalt: bg #09090B, cards #151518,
                                 #   cardBorder translúcido, azul #3E63DD + paleta,
                                 #   cyanBorder rgba), font(N)/fontFamilies (Plus Jakarta
@@ -130,6 +132,9 @@ src/
   INTEGER` (orden manual; se inicializa = id) + índice `idx_cards_deck_pos`.
   El backup NO cambió de versión: el restore inserta solo las columnas
   presentes en cada fila, así que los respaldos viejos toman los DEFAULT.
+- v5: `cards.suspended INTEGER NOT NULL DEFAULT 0`. Las suspendidas siguen visibles
+  y editables en su mazo, pero quedan fuera de cola diaria, modo mazo, forecast y
+  puntos débiles. Un respaldo viejo restaura con el DEFAULT sin cambiar de versión.
 
 Regla: NUNCA editar migraciones aplicadas; solo agregar al final del array.
 
@@ -140,6 +145,10 @@ mazos con prioridad > 0, intercaladas por **stride scheduling** determinístico
 (cada mazo avanza con paso 100000/prioridad; se emite siempre el de menor
 recorrido, empate → menor deckId). 100% aparece el doble de seguido que 50%.
 Dentro de cada mazo, la más vencida primero.
+`getDailyReviewStats` usa `listCardsForQueue` (`id, deck_id, due, state,
+suspended`) para no cargar frente/dorso ni imágenes base64 al contar. Los topes
+se aplican con el cupo restante después de descontar tarjetas ya repasadas y
+nuevas introducidas hoy.
 
 **Repaso diario** (F56): mismo sistema que el modo mazo — swipe (derecha =
 Good, izquierda = Again, arriba = Hard "Más o menos") o círculos ✕/~/✓ →
@@ -160,6 +169,7 @@ de las "hechas" — la barra llega al 100% recién cuando acertaste todo.
 al final, si hubo falladas, ronda extra opcional (repetible) que también
 llama a `reviewCard` (decisión de producto: la recuperación cuenta en FSRS).
 Si el mazo ya está al 100% del día → "Estudiar de nuevo" con el mazo entero.
+Las suspendidas se excluyen de ambos pools.
 
 **Estrellas y orden manual (v4)**: `setCardStarred(id, 0|1)` (toggle desde la
 lista del mazo y desde la tarjeta en estudio/repaso) y `setCardPositions(
@@ -229,6 +239,9 @@ costo de Sonnet); el auditor del Gimnasio Mental sigue en Sonnet 5
 (`MODELS.sonnet`, default de `callClaude`/`callClaudeJson` cuando no se pasa
 `model`). Import de Quizlet eliminado (F23): las fuentes son texto, archivo y
 Notion.
+La preselección se persiste en `settings.generationDraft`: sobrevive a un cierre
+de Android, recuerda selección/ediciones/mazo y marca cada tarjeta ya guardada.
+Si una inserción falla, muestra el avance parcial y permite retomar sin duplicar.
 
 `GENERATOR_SYSTEM` está calibrado contra las tarjetas que Martín arma a mano en
 Quizlet (F73) — ver las reglas y su porqué en `CLAUDE.md` (Decisiones de
@@ -265,6 +278,10 @@ está madura; el socio propone la síntesis o el usuario la fuerza con
 "Sintetizar" → preview editable con NotionField → al guardar inserta en
 `connections` (registro interno) + tarjeta híbrida (source 'hybrid', mismo mazo)
 que entra a FSRS.
+Además del rayo del repaso, `gimnasio/nueva.js` permite elegir cualquier tarjeta
+y empezar cuando se quiera. Salir con una charla en curso exige confirmación.
+`listConnectionsByHybridCard` recupera el transcript y la tarjeta origen para
+`gimnasio/charla.js`.
 
 **Carpetas** (`db/folders.js`): nivel de organización sobre los mazos.
 Biblioteca = grilla de carpetas fluida (`flexGrow`/`flexBasis`, tiles con
@@ -310,6 +327,8 @@ ahí viven las claves). Los respaldos v1 (sin folders) siguen siendo
 restaurables: se normalizan a folders vacío. Restore = reemplazo total
 transaccional conservando ids.
 Web: descarga Blob / picker. Nativo: expo-file-system legacy + expo-sharing.
+El automático semanal corre después de las interacciones iniciales y rota tres
+archivos (`activecard-auto-1/2/3.json`) en vez de sobrescribir una única copia.
 
 ## Claves de API (`lib/keys.js`)
 Caché en memoria inicializada en el root layout desde `settings`
@@ -414,15 +433,29 @@ El agrupado por día/semana se hace **en JS**, nunca con `substr()` en SQL: `rev
 `due` están en UTC y la app razona en hora local, así que un repaso de las 22:00 caería en
 el día siguiente.
 
-**Gráficos sin SVG.** `react-native-svg` no está instalado y es nativo, así que
-`RetentionChart` dibuja el área con columnas (`LinearGradient`) y la línea con segmentos
-rotados (`transformOrigin: "left center"`).
+**Movimiento y gráficos (F84-F85).** `BorderBeam` usa un único `Path` SVG redondeado,
+segmento cobalto largo y ciclo de 6,8 s; Inicio tiene un loop y Crear comparte otro entre
+sus tres cards. Ambos loops se detienen al perder foco. `RetentionChart` usa una curva
+cúbica SVG, área degradada y margen lateral para no cortar el último punto. La escalerita
+de `Stagger` se rearma cada vez que una pantalla recupera foco.
 
 **Topes diarios.** `settings.dailyLimits` se aplica al final de `buildDailyQueue`, sobre la
 cola ya intercalada por stride: lo que queda afuera es lo de menor prioridad.
 
 **Modo edición del mazo.** Solo la fila enfocada monta `NotionField` (un WebView por
-instancia); el resto muestra `RichText` en una caja con pinta de input.
+instancia); el resto muestra `RichText` en una caja con pinta de input. Guarda al cambiar
+de fila y ante `beforeRemove`. La pantalla incorpora buscador y filtros ⭐ / ⚡ Idea /
+sin revisar / suspendidas.
+
+## Runtime nativo 1.4.0
+
+`react-native-svg` y `expo-notifications` se agregaron juntos y `app.json.version` pasó a
+**1.4.0**. El recordatorio está apagado por defecto, usa 20:30 como hora inicial y solo
+programa una notificación local cuando quedan tarjetas pendientes. Se cancela/reprograma
+al abrir la app y al terminar una sesión; tocarla navega a `/repaso`.
+
+Esta tanda exige un APK nuevo: el 1.3.0 no contiene esos módulos y no puede recibirla por
+OTA. El build lo dispara Martín con `comandos/CONSTRUIR-APP-ANDROID.bat`.
 
 ## Limitaciones conocidas
 - **`entering` de reanimated deja el contenido invisible si la animación no arranca**

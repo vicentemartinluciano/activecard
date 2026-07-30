@@ -128,17 +128,12 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Movimiento ambiental (F84)** — encima del halo reactivo, tres efectos con vida propia:
   - `components/BorderBeam.js`: un **segmento de luz con cola de cometa recorre el
     contorno** — el hero de Inicio y, en Crear, UNA SOLA luz que da la vuelta a una
-    tarjeta y salta a la siguiente (`useBeam(3)` + `index`). Son 4 tramos (arriba →
-    derecha → abajo → izquierda) dibujados ENCIMA del contenido, con posiciones en
-    PORCENTAJE para no depender de `onLayout`. El padre necesita `overflow: hidden`.
-    El segmento usa una sola familia cobalto: cuerpo `rgba(62,99,221,0.70)` y punta
-    cobalto clara `rgba(146,175,255,0.95)`. El cián queda reservado para
-    `gradients.bar` y el cierre de sesión. **Cada lado sigue encendido hasta que sale la COLA, no hasta que
-    la punta llega al final**: por eso está visible en `[k, k+1+largo/100]` y dos lados se
-    solapan. Sin ese solapamiento la luz SALTA de un lado al otro en vez de doblar la
-    esquina, y en Crear se corta entre una tarjeta y la siguiente.
-    **Descartado**: girar un degradé por detrás y dejar asomar una franja — da un barrido
-    difuso sin forma y el contenedor que lo aloja deja ver el fondo como un borde negro.
+    tarjeta y continúa en la siguiente (`useBeam(3)` + `index`). Desde F85 es un `Path`
+    SVG con esquinas redondeadas reales, `strokeDasharray`/`strokeDashoffset`, segmento
+    largo (34% del perímetro) y ciclo de 6,8 s. Usa una sola familia cobalto: cuerpo
+    `rgba(62,99,221,0.70)` y punta clara `rgba(146,175,255,0.95)`. El cián queda reservado
+    para `gradients.bar` y el cierre de sesión. En web el `Path` normal se actualiza con
+    un listener; `AnimatedPath` se usa solo en nativo para evitar warnings del renderer.
   - `components/Stagger.js`: la escalerita se **rearma en cada foco** (`useStaggerKey`).
     Las pantallas de tabs no se desmontan, así que sin eso corría una sola vez en la vida
     de la app. Está en las 4 tabs + Ajustes + detalle de mazo + Gimnasio.
@@ -258,12 +253,10 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   baseUrl /activecard). El build corre sin .env → las claves NO van embebidas en la
   web: se pegan en Ajustes (solo visible en web) y viven en settings del navegador.
   En el APK las claves sí van embebidas por env vars de EAS.
-- **Notificaciones: PENDIENTE, no descartadas** (F83). Martín reabrió la decisión y quiere un
-  recordatorio diario que se dispare **solo si quedan tarjetas pendientes** (si llega los días
-  que ya estudiaste se vuelve ruido y lo silencia). Se dejó SIN implementar a pedido suyo
-  porque `expo-notifications` es nativo y obligaría a un APK: **no gastar créditos de EAS solo
-  por eso**. Cuando haya otro motivo para construir un APK, entra ahí (bumpear `version` en el
-  mismo commit).
+- **Recordatorio diario configurable (F85)**: `expo-notifications`, apagado por defecto y
+  con hora inicial 20:30. Programa una sola notificación local si quedan tarjetas pendientes;
+  se cancela/recalcula al abrir la app y al cerrar una sesión. Tocar la notificación abre
+  `/repaso`. Los controles viven en un plegable de Ajustes y se ocultan en web.
 - **UI "Obsidian Cobalt" sobre fondo #09090B**
   (cards #151518 con borde translúcido `cardBorder`), acento azul #3E63DD + degradado
   verde (`theme.gradients.progress`, TODAS las barras de progreso) y azul profundo
@@ -286,8 +279,8 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   el "..." del detalle de mazo (Renombrar/Editar detalles/Borrar). No crear Modal/menú ad-hoc.
 - **Runtime OTA vs APK**: `app.json.runtimeVersion.policy: "appVersion"`. Al agregar un
   módulo NATIVO nuevo, bumpear `version` en el MISMO commit — así los OTA posteriores
-  quedan aislados al próximo APK y nunca crashean el APK instalado (se hizo al agregar
-  `expo-linear-gradient`, versión pasó a 1.1.0).
+  quedan aislados al próximo APK y nunca crashean el APK instalado. La versión actual es
+  **1.4.0** por `react-native-svg` + `expo-notifications`; Martín dispara siempre el build.
 
 ## Dónde estamos
 - Fases 0-6 y rediseño F8-F15 completos (tema azul, tabs, prioridad %, racha,
@@ -402,12 +395,27 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
      final de `buildDailyQueue`; Ajustes con secciones plegables (`components/Collapsible.js`).
   6. **Pantalla Progreso** (4ª tab) + **modo edición del mazo** + robustez (Toast,
      ErrorBoundary, auto-respaldo, buscador liviano).
-- **Pendiente inmediato F83**: Martín corre `ACTUALIZAR-APP.bat` (OTA) y hace el QA en el celu.
-  Verificado en preview web: tipografía cargada, halo que se enciende/apaga, hero con las 3
-  pills, Ajustes con los plegables y Progreso completa (con la DB vacía). **NO verificado**
-  (la DB del preview está vacía y el navegador embebido no permite clicks): el modo edición
-  del mazo con tarjetas reales, el pill de Retención, el gráfico de retención con datos, y
-  "Estudiar mis puntos débiles".
+- **F84 COMPLETA (movimiento ambiental, OTA)**: `BorderBeam` cobalto más lento y largo,
+  escalerita rearmada por foco en todas las secciones y continuidad de una única luz entre
+  las tres cards de Crear. El beam se detiene cuando su tab pierde foco para no competir con
+  los gestos del repaso.
+- **F85 COMPLETA EN CÓDIGO (robustez, gobierno de tarjetas, Gimnasio y runtime 1.4.0)**:
+  - La ronda de falladas conserva el estado FSRS ya actualizado; los topes descuentan lo
+    estudiado hoy y el hero puede terminar realmente en 100%.
+  - Guardado del editor al volver atrás, fallback si fallan las fuentes, errores recuperables,
+    tres auto-respaldos rotativos y borrador IA persistente con recuperación de guardado parcial.
+  - La cola cuenta con columnas livianas (sin cargar imágenes); las luces se frenan fuera de
+    foco y las filas de edición no re-renderizan todas al escribir.
+  - Migración v5: `cards.suspended`. Buscar/filtrar tarjetas dentro del mazo, suspender,
+    mover de mazo, revisar el estado e historial FSRS y marcar las generadas por IA como
+    revisadas.
+  - Gimnasio accesible en cualquier momento (`gimnasio/nueva.js`), confirmación antes de
+    descartar una charla y lectura del transcript/origen desde `gimnasio/charla.js`.
+  - `BorderBeam` y `RetentionChart` usan SVG real. El runtime pasó a **1.4.0** y suma el
+    recordatorio diario configurable mediante `expo-notifications`.
+- **Pendiente inmediato**: Martín corre `comandos/CONSTRUIR-APP-ANDROID.bat` para generar el
+  APK 1.4.0 y hace el QA nativo. No usar `ACTUALIZAR-APP.bat` para esta tanda: el APK 1.3.0
+  instalado no contiene los dos módulos nativos nuevos.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).
@@ -425,9 +433,9 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **En RN `fontFamily` + `fontWeight` NO se combinan**: hay que cargar un archivo por peso y
   elegir la familia a mano (`font(N)` del theme). Poner `fontWeight: "700"` con una familia
   custom muestra la regular en Android.
-- **`react-native-svg` NO está instalado** y es un módulo nativo: agregarlo obliga a un APK.
-  Por eso el gráfico de retención se dibuja con Views + `expo-linear-gradient` (columnas para
-  el área, segmentos rotados con `transformOrigin` para la línea).
+- **SVG animado en web**: pasar un `Animated.Value` directamente a un `AnimatedPath` de
+  `react-native-svg` dispara el warning `collapsable=false` en react-native-web. `BorderBeam`
+  usa `AnimatedPath` en nativo y un `Path` normal actualizado por listener en web.
 - **`reviewed_at` y `due` se guardan en UTC** (`toISOString()`) pero la app razona en hora
   local: agrupar por día con `substr(reviewed_at, 1, 10)` en SQL manda los repasos de la noche
   al día siguiente. En `db/stats.js` el agrupado por día/semana se hace en JS.
