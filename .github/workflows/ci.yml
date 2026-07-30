@@ -13,9 +13,9 @@ on:
 
 jobs:
   verificar:
-    name: Corrector + tests
+    name: Doctor + corrector + tests + export
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
@@ -29,8 +29,14 @@ jobs:
       - name: Instalar dependencias (limpio, como un usuario nuevo)
         run: npm ci
 
+      - name: Compatibilidad con Expo SDK
+        run: npx expo-doctor
+
       - name: Corrector de código (ESLint)
         run: npx eslint . --max-warnings 0
 
       - name: Tests de la lógica (Jest)
         run: npx jest --ci
+
+      - name: Export Android de control
+        run: npx expo export --platform android --clear
