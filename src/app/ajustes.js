@@ -17,6 +17,7 @@ import {
   parseReminderTime,
   setReminderPrefs,
   syncReviewReminder,
+  updateReviewReminderEnabled,
 } from "../lib/notifications";
 import { colors, spacing, type } from "../theme";
 
@@ -81,23 +82,19 @@ export default function Ajustes() {
     setReminder((current) => ({ ...current, enabled }));
     setReminderStatus(null);
     try {
-      const prefs = await setReminderPrefs({ enabled, time: reminderTime });
+      const { prefs, result } = await updateReviewReminderEnabled(enabled, reminderTime);
+      setReminder(prefs);
       if (!enabled) {
-        await syncReviewReminder();
-        setReminder(prefs);
         setReminderStatus("Recordatorio desactivado.");
         return;
       }
-      const result = await syncReviewReminder({ requestPermission: true });
       if (result.status === "permission-denied") {
-        const disabled = await setReminderPrefs({ enabled: false });
-        setReminder(disabled);
-        setReminderStatus("Android no concedió permiso para mostrar notificaciones.");
+        setReminderStatus(
+          "El permiso fue rechazado. El recordatorio quedó desactivado; podés habilitarlo desde los ajustes de Android."
+        );
       } else if (result.status === "no-pending") {
-        setReminder(prefs);
         setReminderStatus("Activado. Se programará cuando haya tarjetas pendientes.");
       } else {
-        setReminder(prefs);
         setReminderStatus("Recordatorio programado ✓");
       }
     } catch (e) {

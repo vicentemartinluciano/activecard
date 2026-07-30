@@ -5,7 +5,7 @@ import { getSetting, setSetting } from "../db/settings";
 
 const PREFS_KEY = "reviewReminder";
 const SCHEDULED_KEY = "reviewReminderScheduled";
-const CHANNEL_ID = "repaso-diario";
+export const REVIEW_CHANNEL_ID = "repaso-diario";
 
 export const DEFAULT_REMINDER = { enabled: false, time: "20:30" };
 
@@ -60,6 +60,16 @@ async function cancelPrevious(Notifications) {
   await setSetting(SCHEDULED_KEY, null);
 }
 
+async function ensureReviewChannel(Notifications) {
+  if (Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync(REVIEW_CHANNEL_ID, {
+    name: "Repaso diario",
+    description: "Recordatorios cuando todavía quedan tarjetas pendientes.",
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: "default",
+  });
+}
+
 export async function configureNotificationHandler() {
   if (Platform.OS === "web") return;
   const Notifications = await import("expo-notifications");
@@ -73,9 +83,9 @@ export async function configureNotificationHandler() {
   });
 }
 
-export async function subscribeToReminderPress(onRoute) {
+export async function subscribeToReminderPress(onRoute, { notificationsModule = null } = {}) {
   if (Platform.OS === "web") return () => {};
-  const Notifications = await import("expo-notifications");
+  const Notifications = notificationsModule || (await import("expo-notifications"));
   const open = (response) => {
     const route = response?.notification?.request?.content?.data?.route;
     if (typeof route === "string") onRoute(route);
@@ -92,27 +102,22 @@ export async function subscribeToReminderPress(onRoute) {
 export async function syncReviewReminder({
   now = new Date(),
   requestPermission = false,
+  notificationsModule = null,
 } = {}) {
   if (Platform.OS === "web") return { status: "unsupported" };
-  const Notifications = await import("expo-notifications");
+  const Notifications = notificationsModule || (await import("expo-notifications"));
   const prefs = await getReminderPrefs();
   await cancelPrevious(Notifications);
   if (!prefs.enabled) return { status: "disabled" };
+
+  // Android 13 necesita un canal antes de mostrar el diálogo de permiso.
+  await ensureReviewChannel(Notifications);
 
   let permission = await Notifications.getPermissionsAsync();
   if (permission.status !== "granted" && requestPermission) {
     permission = await Notifications.requestPermissionsAsync();
   }
   if (permission.status !== "granted") return { status: "permission-denied" };
-
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: "Repaso diario",
-      description: "Recordatorios cuando todavía quedan tarjetas pendientes.",
-      importance: Notifications.AndroidImportance.DEFAULT,
-      sound: "default",
-    });
-  }
 
   let target = getReminderTarget(now, prefs.time);
   let statsAtTarget = await getDailyReviewStats(
@@ -136,9 +141,32 @@ export async function syncReviewReminder({
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: target,
-      channelId: Platform.OS === "android" ? CHANNEL_ID : undefined,
+      channelId: Platform.OS === "android" ? REVIEW_CHANNEL_ID : undefined,
     },
   });
   await setSetting(SCHEDULED_KEY, { id, target: target.toISOString() });
   return { status: "scheduled", id, target, remaining: statsAtTarget.remaining };
+}
+
+export async function updateReviewReminderEnabled(
+  enabled,
+  time,
+  { notificationsModule = null } = {}
+) {
+  try {
+    const prefs = await setReminderPrefs({ enabled, time });
+    const result = await syncReviewReminder({
+      requestPermission: enabled,
+      notificationsModule,
+    });
+    if (result.status !== "permission-denied") return { prefs, result };
+
+    const disabledPrefs = await setReminderPrefs({ enabled: false });
+    return { prefs: disabledPrefs, result };
+  } catch (error) {
+    if (enabled) {
+      await setReminderPrefs({ enabled: false, time }).catch(() => {});
+    }
+    throw error;
+  }
 }
