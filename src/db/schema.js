@@ -116,6 +116,18 @@ export const MIGRATIONS = [
   `
   ALTER TABLE cards ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0;
   `,
+
+  // v6 — índices para estadísticas, última nota diaria y tarjetas híbridas.
+  // No cambia columnas ni datos, por lo que es compatible con bases y
+  // respaldos de cualquier versión anterior.
+  `
+  CREATE INDEX IF NOT EXISTS idx_review_logs_reviewed_at
+    ON review_logs(reviewed_at);
+  CREATE INDEX IF NOT EXISTS idx_review_logs_card_reviewed_at
+    ON review_logs(card_id, reviewed_at DESC, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_connections_hybrid_card_id
+    ON connections(hybrid_card_id);
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

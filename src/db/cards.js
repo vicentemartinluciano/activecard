@@ -164,6 +164,28 @@ export async function listAllCards() {
   return db.getAllAsync("SELECT * FROM cards");
 }
 
+// Hidrata únicamente las tarjetas elegidas por una cola liviana. La consulta
+// SQL no garantiza el orden de IN (...), por eso se reconstruye según `ids`.
+// Los lotes evitan superar el límite de variables de SQLite en listas grandes.
+export async function listCardsByIds(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+
+  const db = await getDb();
+  const uniqueIds = [...new Set(ids)];
+  const rows = [];
+  const chunkSize = 500;
+  for (let start = 0; start < uniqueIds.length; start += chunkSize) {
+    const chunk = uniqueIds.slice(start, start + chunkSize);
+    const placeholders = chunk.map(() => "?").join(", ");
+    rows.push(
+      ...(await db.getAllAsync(`SELECT * FROM cards WHERE id IN (${placeholders})`, chunk))
+    );
+  }
+
+  const byId = new Map(rows.map((card) => [String(card.id), card]));
+  return ids.map((id) => byId.get(String(id))).filter(Boolean);
+}
+
 // Versión mínima para calcular la cola y los contadores de Inicio. No trae
 // frente/dorso porque pueden contener imágenes base64 de cientos de KB.
 export async function listCardsForQueue() {

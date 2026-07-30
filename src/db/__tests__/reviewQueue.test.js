@@ -14,18 +14,21 @@ const mockEstado = {
   newIntroduced: 0,
   retryIds: [],
   limits: { maxReviews: 40, maxNew: 15 },
-  fullReads: 0,
   lightReads: 0,
+  hydrateReads: 0,
+  hydratedIds: [],
 };
 
 jest.mock("../cards", () => ({
-  listAllCards: async () => {
-    mockEstado.fullReads += 1;
-    return mockCards;
-  },
   listCardsForQueue: async () => {
     mockEstado.lightReads += 1;
     return mockCards;
+  },
+  listCardsByIds: async (ids) => {
+    mockEstado.hydrateReads += 1;
+    mockEstado.hydratedIds = [...ids];
+    const byId = new Map(mockCards.map((card) => [card.id, card]));
+    return ids.map((id) => ({ ...byId.get(id), front: `frente ${id}`, back: `dorso ${id}` }));
   },
   countDistinctReviewedSince: async () => mockEstado.reviewed,
   countNewIntroducedSince: async () => mockEstado.newIntroduced,
@@ -60,16 +63,20 @@ beforeEach(() => {
   mockEstado.newIntroduced = 0;
   mockEstado.retryIds = [];
   mockEstado.limits = { maxReviews: 40, maxNew: 15 };
-  mockEstado.fullReads = 0;
   mockEstado.lightReads = 0;
+  mockEstado.hydrateReads = 0;
+  mockEstado.hydratedIds = [];
 });
 
 describe("getDailyQueue: los topes cuentan el día, no cada apertura", () => {
-  test("el repaso sí carga las tarjetas completas", async () => {
-    sembrar(3);
-    await getDailyQueue(NOW);
-    expect(mockEstado.fullReads).toBe(1);
-    expect(mockEstado.lightReads).toBe(0);
+  test("decide con metadatos e hidrata únicamente los IDs finales", async () => {
+    sembrar(300);
+    const queue = await getDailyQueue(NOW);
+    expect(mockEstado.lightReads).toBe(1);
+    expect(mockEstado.hydrateReads).toBe(1);
+    expect(mockEstado.hydratedIds).toEqual(queue.map((card) => card.id));
+    expect(mockEstado.hydratedIds).toHaveLength(40);
+    expect(queue[0]).toEqual(expect.objectContaining({ front: expect.any(String) }));
   });
 
   test("sin nada hecho, la cola llega hasta el tope", async () => {
@@ -122,7 +129,7 @@ describe("getDailyReviewStats: el día tiene que poder llegar a 100%", () => {
     sembrar(10);
     await getDailyReviewStats(NOW);
     expect(mockEstado.lightReads).toBe(1);
-    expect(mockEstado.fullReads).toBe(0);
+    expect(mockEstado.hydrateReads).toBe(0);
   });
 
   test("recién empezado: nada hecho, el tope como total", async () => {

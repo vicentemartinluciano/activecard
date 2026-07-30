@@ -6,7 +6,7 @@ import {
   countDistinctReviewedSince,
   countDueCards,
   countNewIntroducedSince,
-  listAllCards,
+  listCardsByIds,
   listCardsForQueue,
   listRetryTodayIds,
 } from "./cards";
@@ -52,9 +52,11 @@ async function loadDailyQueue(cardLoader, now) {
   return buildDailyQueue(cards, { deckPriorities, now, retryIds, limits: restantes });
 }
 
-// La pantalla de repaso necesita el texto completo para mostrar cada tarjeta.
-export function getDailyQueue(now = new Date()) {
-  return loadDailyQueue(listAllCards, now);
+// Primero decide con metadatos; recién después hidrata frente/dorso de los IDs
+// finales. Así una imagen inline ajena al día nunca entra en memoria.
+export async function getDailyQueue(now = new Date()) {
+  const queue = await loadDailyQueue(listCardsForQueue, now);
+  return listCardsByIds(queue.map((card) => card.id));
 }
 
 // Cantidad de tarjetas pendientes hoy en mazos activos (debidas + falladas).

@@ -80,6 +80,16 @@ describe("migraciones de esquema", () => {
     );
   });
 
+  test("la migración v6 agrega únicamente los tres índices de rendimiento", () => {
+    expect(MIGRATIONS).toHaveLength(6);
+    expect(MIGRATIONS[5]).toContain("ON review_logs(reviewed_at)");
+    expect(MIGRATIONS[5]).toContain(
+      "ON review_logs(card_id, reviewed_at DESC, id DESC)"
+    );
+    expect(MIGRATIONS[5]).toContain("ON connections(hybrid_card_id)");
+    expect(MIGRATIONS[5]).not.toContain("ALTER TABLE");
+  });
+
   test("el esquema inicial define todas las tablas del plan", () => {
     for (const table of [
       "decks",
