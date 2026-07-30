@@ -13,6 +13,7 @@ import SwipeCard from "../components/SwipeCard";
 import { Button, EmptyState, Pill, Screen } from "../components/ui";
 import { getCard, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
+import { syncReviewReminder } from "../lib/notifications";
 import { buildFailedRound } from "../lib/studySession";
 import { toPlainText } from "../lib/richtext";
 import { colors, glow, gradients, radius, spacing, type } from "../theme";
@@ -154,6 +155,12 @@ export default function Repaso() {
       };
     }, [])
   );
+
+  const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
+  useEffect(() => {
+    if (!sessionComplete) return;
+    syncReviewReminder().catch(() => {});
+  }, [sessionComplete]);
 
   const reviewFailed = () => {
     startRound(buildFailedRound(round, failedIds));

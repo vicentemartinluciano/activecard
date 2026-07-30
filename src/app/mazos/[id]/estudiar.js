@@ -13,6 +13,7 @@ import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
 import { getCard, listCardsByDeck, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { listWeakCards } from "../../../db/stats";
+import { syncReviewReminder } from "../../../lib/notifications";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import { colors, glow, gradients, radius, spacing, type } from "../../../theme";
 
@@ -193,6 +194,12 @@ export default function Estudiar() {
       };
     }, [])
   );
+
+  const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
+  useEffect(() => {
+    if (!sessionComplete) return;
+    syncReviewReminder().catch(() => {});
+  }, [sessionComplete]);
 
   if (status === "loading") {
     return (

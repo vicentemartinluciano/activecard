@@ -1,192 +1,198 @@
-// Gráfico de retención por semana: área con degradé + línea + grilla + línea de
-// promedio + puntos + meses en el eje X.
-//
-// POR QUÉ NO USA SVG: react-native-svg NO está instalado y es un módulo NATIVO
-// — agregarlo obligaría a construir un APK nuevo y esta tanda entera va por
-// OTA. Así que se dibuja con Views:
-//   · el área son columnas verticales (una por semana) con LinearGradient;
-//   · la línea son segmentos rotados con transformOrigin en el extremo izquierdo;
-//   · grilla, promedio, puntos y etiquetas son Views/Text absolutos.
-// Si algún día entra react-native-svg por otro motivo, esto se puede reescribir.
+// Curva semanal de retención. SVG permite un área continua, una línea suave y
+// puntos completos en los extremos sin depender de Views rotadas.
 
-import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Line,
+  Path,
+  Stop,
+} from "react-native-svg";
 
 import { colors, font, tabular, type } from "../theme";
 
-const MARGEN_X = 7; // aire a cada lado: el punto final mide 8px de diámetro
-const PLOT_H = 88; // alto del área de dibujo
-const AXIS_H = 18; // franja de las etiquetas de meses
-const MIN_PCT = 50; // piso de la escala: abajo de 50% no hace falta detalle
+const MARGEN_X = 7;
+const PLOT_H = 88;
+const AXIS_H = 18;
+const MIN_PCT = 50;
 const MAX_PCT = 100;
+const LINE_COLOR = "#4CC38A";
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-const LINE = "#4CC38A";
-
-// % → coordenada Y dentro del plot (0 arriba).
 function yOf(pct) {
   const clamped = Math.max(MIN_PCT, Math.min(MAX_PCT, pct));
   return PLOT_H - ((clamped - MIN_PCT) / (MAX_PCT - MIN_PCT)) * PLOT_H;
 }
 
-const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+export function smoothPath(points) {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    const c1 = {
+      x: p1.x + (p2.x - p0.x) / 6,
+      y: Math.max(0, Math.min(PLOT_H, p1.y + (p2.y - p0.y) / 6)),
+    };
+    const c2 = {
+      x: p2.x - (p3.x - p1.x) / 6,
+      y: Math.max(0, Math.min(PLOT_H, p2.y - (p3.y - p1.y) / 6)),
+    };
+    path += ` C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`;
+  }
+  return path;
+}
 
-// `anchoBase`: ancho de arranque calculado por la pantalla. onLayout después lo
-// corrige, pero sin esto el gráfico depende de que la medición llegue — y si no
-// llega, no se dibuja nada (ver la trampa del preview en CLAUDE.md).
 export default function RetentionChart({ series, anchoBase = 0 }) {
-  const [medido, setMedido] = useState(0);
-  const width = medido > 0 ? medido : Math.max(0, anchoBase - 24);
+  const [measured, setMeasured] = useState(0);
+  const width = measured > 0 ? measured : Math.max(0, anchoBase - 24);
+  const pointsWithData = (series || [])
+    .map((item, index) => ({ ...item, index }))
+    .filter((item) => item.pct != null);
 
-  // Solo las semanas con repasos: una semana sin datos no es 0% de retención,
-  // es "no estudiaste" — dibujarla como cero sería mentir.
-  const puntos = (series || [])
-    .map((s, i) => ({ ...s, i }))
-    .filter((s) => s.pct != null);
-
-  // Margen a los costados para que el punto del extremo (y su etiqueta) entren
-  // enteros: dibujado justo sobre el borde, se veía cortado por la mitad.
-  const n = series ? series.length : 0;
-  const util = Math.max(0, width - MARGEN_X * 2);
-  const step = n > 1 && util > 0 ? util / (n - 1) : 0;
-  const xOf = (i) => MARGEN_X + i * step;
-
-  const promedio =
-    puntos.length > 0
-      ? Math.round(puntos.reduce((a, p) => a + p.pct, 0) / puntos.length)
+  const count = series?.length || 0;
+  const usefulWidth = Math.max(0, width - MARGEN_X * 2);
+  const step = count > 1 && usefulWidth > 0 ? usefulWidth / (count - 1) : 0;
+  const xOf = (index) => MARGEN_X + index * step;
+  const points = pointsWithData.map((point) => ({
+    ...point,
+    x: xOf(point.index),
+    y: yOf(point.pct),
+  }));
+  const linePath = smoothPath(points);
+  const areaPath =
+    points.length > 1
+      ? `${linePath} L ${points[points.length - 1].x} ${PLOT_H} L ${points[0].x} ${PLOT_H} Z`
+      : "";
+  const average =
+    points.length > 0
+      ? Math.round(points.reduce((sum, point) => sum + point.pct, 0) / points.length)
       : null;
 
-  // Etiquetas de mes: la primera semana de cada mes que aparezca en la serie.
-  const etiquetas = [];
-  let ultimoMes = null;
-  (series || []).forEach((s, i) => {
-    if (!s.weekStart) return;
-    const mes = Number(s.weekStart.slice(5, 7)) - 1;
-    if (mes !== ultimoMes) {
-      etiquetas.push({ i, label: MESES[mes] });
-      ultimoMes = mes;
+  const labels = [];
+  let lastMonth = null;
+  (series || []).forEach((item, index) => {
+    if (!item.weekStart) return;
+    const month = Number(item.weekStart.slice(5, 7)) - 1;
+    if (month !== lastMonth) {
+      labels.push({ index, label: MESES[month] });
+      lastMonth = month;
     }
   });
 
   return (
     <View>
       <View style={styles.wrap}>
-        {/* Eje Y: las referencias van afuera del plot para no ensuciarlo. */}
         <View style={styles.axisY}>
-          {[MAX_PCT, 75, MIN_PCT].map((v) => (
-            <Text key={v} style={styles.axisLabel}>
-              {v}
+          {[MAX_PCT, 75, MIN_PCT].map((value) => (
+            <Text key={value} style={styles.axisLabel}>
+              {value}
             </Text>
           ))}
         </View>
 
-        <View style={styles.plot} onLayout={(e) => { const w = e.nativeEvent.layout.width; if (w > 0) setMedido(w); }}>
-          {/* Grilla */}
-          {[MAX_PCT, 75, MIN_PCT].map((v) => (
-            <View
-              key={v}
-              pointerEvents="none"
-              style={[styles.grid, { top: yOf(v) }, v === MIN_PCT && styles.gridBase]}
-            />
-          ))}
+        <View
+          style={styles.plot}
+          onLayout={(event) => {
+            const nextWidth = event.nativeEvent.layout.width;
+            if (nextWidth > 0 && nextWidth !== measured) setMeasured(nextWidth);
+          }}
+        >
+          {width > 0 ? (
+            <Svg width="100%" height={PLOT_H} style={StyleSheet.absoluteFill}>
+              <Defs>
+                <SvgLinearGradient id="retention-area" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <Stop offset="0%" stopColor="rgba(76,195,138,0.30)" />
+                  <Stop offset="100%" stopColor="rgba(76,195,138,0)" />
+                </SvgLinearGradient>
+              </Defs>
 
-          {width > 0 && puntos.length > 0 ? (
-            <>
-              {/* Área: una columna por semana con datos. Muchas columnas juntas
-                  se leen como un área continua. */}
-              {puntos.map((p) => {
-                const y = yOf(p.pct);
-                return (
-                  <LinearGradient
-                    key={`a${p.i}`}
-                    colors={["rgba(76,195,138,0.26)", "rgba(76,195,138,0)"]}
-                    pointerEvents="none"
-                    style={{
-                      position: "absolute",
-                      left: xOf(p.i) - step / 2,
-                      width: step || 1,
-                      top: y,
-                      height: PLOT_H - y,
-                    }}
-                  />
-                );
-              })}
+              {[MAX_PCT, 75, MIN_PCT].map((value) => (
+                <Line
+                  key={value}
+                  x1={0}
+                  x2={width}
+                  y1={yOf(value)}
+                  y2={yOf(value)}
+                  stroke={
+                    value === MIN_PCT
+                      ? "rgba(255,255,255,0.13)"
+                      : "rgba(255,255,255,0.07)"
+                  }
+                  strokeWidth={1}
+                />
+              ))}
 
-              {/* Línea: un segmento rotado por par de puntos consecutivos. */}
-              {puntos.slice(0, -1).map((p, k) => {
-                const q = puntos[k + 1];
-                const x1 = xOf(p.i);
-                const y1 = yOf(p.pct);
-                const dx = xOf(q.i) - x1;
-                const dy = yOf(q.pct) - y1;
-                const largo = Math.sqrt(dx * dx + dy * dy);
-                const angulo = Math.atan2(dy, dx);
-                return (
-                  <View
-                    key={`l${p.i}`}
-                    pointerEvents="none"
-                    style={{
-                      position: "absolute",
-                      left: x1,
-                      top: y1 - 1,
-                      width: largo,
-                      height: 2,
-                      borderRadius: 1,
-                      backgroundColor: LINE,
-                      transform: [{ rotate: `${angulo}rad` }],
-                      transformOrigin: "left center",
-                    }}
-                  />
-                );
-              })}
-
-              {/* Promedio */}
-              {promedio != null ? (
-                <View pointerEvents="none" style={[styles.avgLine, { top: yOf(promedio) }]}>
-                  <Text style={styles.avgLabel}>prom. {promedio}</Text>
-                </View>
+              {areaPath ? <Path d={areaPath} fill="url(#retention-area)" /> : null}
+              {linePath ? (
+                <Path
+                  d={linePath}
+                  fill="none"
+                  stroke={LINE_COLOR}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               ) : null}
 
-              {/* Puntos: el último resaltado, los demás discretos. */}
-              {puntos.map((p, k) => {
-                const ultimo = k === puntos.length - 1;
-                const size = ultimo ? 8 : 5;
+              {average != null ? (
+                <Line
+                  x1={0}
+                  x2={width}
+                  y1={yOf(average)}
+                  y2={yOf(average)}
+                  stroke="rgba(139,139,152,0.5)"
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                />
+              ) : null}
+
+              {points.map((point, index) => {
+                const latest = index === points.length - 1;
                 return (
-                  <View
-                    key={`p${p.i}`}
-                    pointerEvents="none"
-                    style={{
-                      position: "absolute",
-                      left: xOf(p.i) - size / 2,
-                      top: yOf(p.pct) - size / 2,
-                      width: size,
-                      height: size,
-                      borderRadius: size / 2,
-                      backgroundColor: ultimo ? LINE : colors.surfaceCard,
-                      borderWidth: ultimo ? 0 : 1.5,
-                      borderColor: LINE,
-                    }}
+                  <Circle
+                    key={point.index}
+                    cx={point.x}
+                    cy={point.y}
+                    r={latest ? 4 : 2.8}
+                    fill={latest ? LINE_COLOR : colors.surfaceCard}
+                    stroke={LINE_COLOR}
+                    strokeWidth={latest ? 0 : 1.5}
                   />
                 );
               })}
-            </>
+            </Svg>
+          ) : null}
+
+          {average != null ? (
+            <Text style={[styles.averageLabel, { top: Math.max(0, yOf(average) - 7) }]}>
+              prom. {average}
+            </Text>
           ) : null}
         </View>
       </View>
 
-      {/* Eje X */}
       <View style={styles.axisX}>
         {width > 0
-          ? etiquetas.map((e) => (
-              <Text key={e.i} style={[styles.axisLabel, styles.axisXLabel, { left: xOf(e.i) - 12 }]}>
-                {e.label}
+          ? labels.map((label) => (
+              <Text
+                key={label.index}
+                style={[styles.axisLabel, styles.axisXLabel, { left: xOf(label.index) - 12 }]}
+              >
+                {label.label}
               </Text>
             ))
           : null}
       </View>
 
-      {puntos.length === 0 ? (
-        <Text style={[type.small, styles.vacio]}>
+      {points.length === 0 ? (
+        <Text style={[type.small, styles.empty]}>
           Todavía no hay repasos suficientes para dibujar la curva.
         </Text>
       ) : null}
@@ -211,32 +217,15 @@ const styles = StyleSheet.create({
     flex: 1,
     height: PLOT_H,
   },
-  grid: {
+  averageLabel: {
     position: "absolute",
-    left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.07)",
-  },
-  gridBase: {
-    backgroundColor: "rgba(255,255,255,0.13)",
-  },
-  avgLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "rgba(139,139,152,0.5)",
-    alignItems: "flex-end",
-  },
-  avgLabel: {
     fontSize: 8.5,
     ...font(600),
     ...tabular,
     color: colors.textMuted,
     backgroundColor: colors.surfaceCard,
     paddingHorizontal: 4,
-    transform: [{ translateY: -6 }],
   },
   axisX: {
     height: AXIS_H,
@@ -253,7 +242,7 @@ const styles = StyleSheet.create({
     width: 24,
     textAlign: "center",
   },
-  vacio: {
+  empty: {
     textAlign: "center",
     marginTop: 4,
   },

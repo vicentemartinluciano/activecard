@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
 import Collapsible from "../components/Collapsible";
 import PercentSlider from "../components/PercentSlider";
@@ -11,7 +11,14 @@ import { DEFAULT_LIMITS, getDailyLimits } from "../db/reviewQueue";
 import { getSetting, setSetting } from "../db/settings";
 import { getAnthropicKey, getNotionToken, setAnthropicKey, setNotionToken } from "../lib/keys";
 import { exportBackup, pickBackupFile, restoreParsedBackup } from "../lib/backupIO";
-import { spacing, type } from "../theme";
+import {
+  DEFAULT_REMINDER,
+  getReminderPrefs,
+  parseReminderTime,
+  setReminderPrefs,
+  syncReviewReminder,
+} from "../lib/notifications";
+import { colors, spacing, type } from "../theme";
 
 export default function Ajustes() {
   const router = useRouter();
@@ -25,12 +32,20 @@ export default function Ajustes() {
   const [userName, setUserName] = useState("");
   const [nameStatus, setNameStatus] = useState(null);
   const [lastAuto, setLastAuto] = useState(null);
+  const [reminder, setReminder] = useState(DEFAULT_REMINDER);
+  const [reminderTime, setReminderTime] = useState(DEFAULT_REMINDER.time);
+  const [reminderStatus, setReminderStatus] = useState(null);
 
   const load = useCallback(async () => {
     setDecks(await listDecks());
     setLimits(await getDailyLimits());
     setUserName(await getSetting("userName", "Martín"));
     setLastAuto(await getSetting("lastAutoBackup", null));
+    if (Platform.OS !== "web") {
+      const prefs = await getReminderPrefs();
+      setReminder(prefs);
+      setReminderTime(prefs.time);
+    }
     if (Platform.OS === "web") {
       setAnthropicKeyInput(getAnthropicKey() || "");
       setNotionTokenInput(getNotionToken() || "");
@@ -60,6 +75,56 @@ export default function Ajustes() {
     await setSetting("userName", clean);
     setNameStatus("Guardado ✓");
     setTimeout(() => setNameStatus(null), 2500);
+  };
+
+  const toggleReminder = async (enabled) => {
+    setReminder((current) => ({ ...current, enabled }));
+    setReminderStatus(null);
+    try {
+      const prefs = await setReminderPrefs({ enabled, time: reminderTime });
+      if (!enabled) {
+        await syncReviewReminder();
+        setReminder(prefs);
+        setReminderStatus("Recordatorio desactivado.");
+        return;
+      }
+      const result = await syncReviewReminder({ requestPermission: true });
+      if (result.status === "permission-denied") {
+        const disabled = await setReminderPrefs({ enabled: false });
+        setReminder(disabled);
+        setReminderStatus("Android no concedió permiso para mostrar notificaciones.");
+      } else if (result.status === "no-pending") {
+        setReminder(prefs);
+        setReminderStatus("Activado. Se programará cuando haya tarjetas pendientes.");
+      } else {
+        setReminder(prefs);
+        setReminderStatus("Recordatorio programado ✓");
+      }
+    } catch (e) {
+      setReminder((current) => ({ ...current, enabled: false }));
+      setReminderStatus(e.message || "No pudimos configurar el recordatorio.");
+    }
+  };
+
+  const saveReminderTime = async () => {
+    const parsed = parseReminderTime(reminderTime);
+    if (!parsed) {
+      setReminderStatus("Usá una hora válida en formato HH:MM.");
+      return;
+    }
+    try {
+      const prefs = await setReminderPrefs({ time: parsed.formatted });
+      setReminder(prefs);
+      setReminderTime(prefs.time);
+      const result = await syncReviewReminder();
+      setReminderStatus(
+        result.status === "scheduled"
+          ? "Nueva hora programada ✓"
+          : "Hora guardada. Se programará cuando haya pendientes."
+      );
+    } catch (e) {
+      setReminderStatus(e.message || "No pudimos guardar la hora.");
+    }
   };
 
   const pausados = decks.filter((d) => d.priority === 0).length;
@@ -144,6 +209,41 @@ export default function Ajustes() {
             vuelve mañana, en cuatro días y en dos semanas.
           </Text>
         </Collapsible>
+
+        {Platform.OS !== "web" ? (
+          <Collapsible
+            icon="bell"
+            title="Recordatorio de repaso"
+            summary={reminder.enabled ? `Activo · ${reminder.time}` : "Desactivado"}
+          >
+            <View style={styles.reminderToggle}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={type.body}>Avisarme si quedan pendientes</Text>
+                <Text style={type.small}>
+                  Si ya completaste el día, ActiveCard no te interrumpe.
+                </Text>
+              </View>
+              <Switch
+                value={reminder.enabled}
+                onValueChange={toggleReminder}
+                trackColor={{ false: colors.surfaceHigh, true: colors.accentSoft }}
+                thumbColor={reminder.enabled ? colors.accentText : colors.textMuted}
+              />
+            </View>
+            <View style={styles.reminderTimeRow}>
+              <Field
+                value={reminderTime}
+                onChangeText={setReminderTime}
+                placeholder="20:30"
+                keyboardType="numbers-and-punctuation"
+                maxLength={5}
+                style={{ flex: 1 }}
+              />
+              <Button label="Guardar hora" onPress={saveReminderTime} />
+            </View>
+            {reminderStatus ? <Text style={type.small}>{reminderStatus}</Text> : null}
+          </Collapsible>
+        ) : null}
 
         <Collapsible
           icon="sliders"
@@ -266,5 +366,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     alignItems: "center",
+  },
+  reminderToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  reminderTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
 });

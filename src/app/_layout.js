@@ -5,7 +5,7 @@ import {
   PlusJakartaSans_800ExtraBold,
   useFonts,
 } from "@expo-google-fonts/plus-jakarta-sans";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { InteractionManager } from "react-native";
@@ -14,9 +14,15 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { autoBackupIfDue } from "../lib/backupIO";
 import { initKeys } from "../lib/keys";
+import {
+  configureNotificationHandler,
+  subscribeToReminderPress,
+  syncReviewReminder,
+} from "../lib/notifications";
 import { colors, font } from "../theme";
 
 export default function RootLayout() {
+  const router = useRouter();
   // Un archivo por peso (ver fontFamilies en theme). Esperamos la carga para
   // evitar el salto del primer frame, salvo que falle: ahí la app continúa con
   // la fuente del sistema.
@@ -29,13 +35,31 @@ export default function RootLayout() {
 
   useEffect(() => {
     initKeys().catch((e) => console.warn("No se pudieron leer las claves guardadas:", e));
+    configureNotificationHandler().catch((e) =>
+      console.warn("No se pudo configurar el recordatorio:", e)
+    );
     // El respaldo recorre toda la base. Lo arrancamos recién cuando terminó la
     // navegación inicial para que nunca compita con el primer render.
     const backupTask = InteractionManager.runAfterInteractions(() => {
       autoBackupIfDue().catch((e) => console.warn("No se pudo hacer el respaldo automático:", e));
+      syncReviewReminder().catch((e) =>
+        console.warn("No se pudo programar el recordatorio:", e)
+      );
     });
     return () => backupTask.cancel();
   }, []);
+
+  useEffect(() => {
+    let unsubscribe = null;
+    subscribeToReminderPress((route) => router.push(route))
+      .then((cleanup) => {
+        unsubscribe = cleanup;
+      })
+      .catch((e) => console.warn("No se pudo escuchar el recordatorio:", e));
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (fontError) {
