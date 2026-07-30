@@ -21,9 +21,10 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   `.claude/launch.json`. Navegar a `http://localhost:8081/`, verificar por DOM
   (preview_eval) + console errors.
 - OTA al teléfono: `comandos/ACTUALIZAR-APP.bat` (= `eas update --branch preview`). Solo JS/UI.
-- APK nuevo: `comandos/CONSTRUIR-APP-ANDROID.bat` (= `eas build -p android --profile preview`).
-  Solo si se agrega un módulo NATIVO nuevo o cambia el identificador.
-- CI: GitHub Actions corre lint+tests en cada push.
+- APK nuevo: `comandos/CONSTRUIR-APP-ANDROID.bat`. Exige respaldo reciente y valida
+  EAS/main/sync/árbol tracked + `npm ci` + Doctor + lint + tests + export Android
+  antes de ejecutar `eas build --profile preview`. Solo Martín lo dispara.
+- CI: GitHub Actions corre Doctor + lint + tests + export Android en cada push.
 
 ## Convenciones de trabajo
 - **Un feature por commit.** Mensajes terminan con `Co-Authored-By: Claude <modelo> <noreply@anthropic.com>`.
@@ -253,10 +254,13 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   baseUrl /activecard). El build corre sin .env → las claves NO van embebidas en la
   web: se pegan en Ajustes (solo visible en web) y viven en settings del navegador.
   En el APK las claves sí van embebidas por env vars de EAS.
-- **Recordatorio diario configurable (F85)**: `expo-notifications`, apagado por defecto y
+- **Recordatorio diario configurable (F85-F86)**: `expo-notifications`, apagado por defecto y
   con hora inicial 20:30. Programa una sola notificación local si quedan tarjetas pendientes;
   se cancela/recalcula al abrir la app y al cerrar una sesión. Tocar la notificación abre
-  `/repaso`. Los controles viven en un plegable de Ajustes y se ocultan en web.
+  `/repaso`. Android crea primero el canal `repaso-diario`, usa monograma AC blanco con tinte
+  cobalto y recién después solicita permiso; un rechazo apaga y persiste el switch. Es un
+  recordatorio aproximado: NO pedir `SCHEDULE_EXACT_ALARM`. Los controles viven en un
+  plegable de Ajustes y se ocultan en web.
 - **UI "Obsidian Cobalt" sobre fondo #09090B**
   (cards #151518 con borde translúcido `cardBorder`), acento azul #3E63DD + degradado
   verde (`theme.gradients.progress`, TODAS las barras de progreso) y azul profundo
@@ -413,6 +417,15 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
     descartar una charla y lectura del transcript/origen desde `gimnasio/charla.js`.
   - `BorderBeam` y `RetentionChart` usan SVG real. El runtime pasó a **1.4.0** y suma el
     recordatorio diario configurable mediante `expo-notifications`.
+- **F86 COMPLETA EN CÓDIGO (endurecimiento previo al APK 1.4.0)**:
+  - SDK 57 alineado con `expo install --fix`; lockfile reproducible y Doctor 20/20.
+  - Recordatorio Android endurecido (canal antes del permiso, rechazo revierte el switch,
+    icono AC 96×96, tinte cobalto, sin alarma exacta).
+  - La cola diaria decide con `listCardsForQueue` y luego hidrata solo los IDs finales con
+    `listCardsByIds`; migración v6 indexa logs por fecha/tarjeta y conexiones híbridas.
+  - Jakarta e iconos se importan por submódulo: export Android bajó de 60 a 34 assets y de
+    12.650.956 a 8.985.782 bytes (−29%) sin cambiar la UI.
+  - El `.bat` y CI ejecutan el preflight completo; el agente NO construye el APK.
 - **Pendiente inmediato**: Martín corre `comandos/CONSTRUIR-APP-ANDROID.bat` para generar el
   APK 1.4.0 y hace el QA nativo. No usar `ACTUALIZAR-APP.bat` para esta tanda: el APK 1.3.0
   instalado no contiene los dos módulos nativos nuevos.

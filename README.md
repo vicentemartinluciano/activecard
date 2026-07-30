@@ -12,7 +12,7 @@ Los `.bat` de la carpeta `comandos/`:
 |---|---|---|
 | `INICIAR-APP.bat` | Levanta Expo en modo desarrollo | Para probar en el teléfono |
 | `ACTUALIZAR-APP.bat` | Envía cambios OTA a la app instalada (~1 min) | Cambios de código/UI |
-| `CONSTRUIR-APP-ANDROID.bat` | Construye un APK nuevo en la nube (~10-20 min) | Solo si se agrega un módulo nativo |
+| `CONSTRUIR-APP-ANDROID.bat` | Valida respaldo, repo y calidad; luego construye el APK (~10-20 min) | Solo si se agrega un módulo nativo |
 
 ## Desarrollo
 

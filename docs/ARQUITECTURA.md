@@ -135,6 +135,9 @@ src/
 - v5: `cards.suspended INTEGER NOT NULL DEFAULT 0`. Las suspendidas siguen visibles
   y editables en su mazo, pero quedan fuera de cola diaria, modo mazo, forecast y
   puntos débiles. Un respaldo viejo restaura con el DEFAULT sin cambiar de versión.
+- v6: índices `review_logs(reviewed_at)`,
+  `review_logs(card_id, reviewed_at DESC, id DESC)` y
+  `connections(hybrid_card_id)`. No cambia columnas ni el formato de respaldo.
 
 Regla: NUNCA editar migraciones aplicadas; solo agregar al final del array.
 
@@ -145,10 +148,11 @@ mazos con prioridad > 0, intercaladas por **stride scheduling** determinístico
 (cada mazo avanza con paso 100000/prioridad; se emite siempre el de menor
 recorrido, empate → menor deckId). 100% aparece el doble de seguido que 50%.
 Dentro de cada mazo, la más vencida primero.
-`getDailyReviewStats` usa `listCardsForQueue` (`id, deck_id, due, state,
-suspended`) para no cargar frente/dorso ni imágenes base64 al contar. Los topes
-se aplican con el cupo restante después de descontar tarjetas ya repasadas y
-nuevas introducidas hoy.
+`getDailyReviewStats` y la selección de `getDailyQueue` usan `listCardsForQueue`
+(`id, deck_id, due, state, suspended`) para no cargar frente/dorso ni imágenes
+base64. Repaso hidrata recién los IDs finales con `listCardsByIds(ids)`, en el
+mismo orden de la cola y por lotes de 500. Los topes se aplican con el cupo
+restante después de descontar tarjetas ya repasadas y nuevas introducidas hoy.
 
 **Repaso diario** (F56): mismo sistema que el modo mazo — swipe (derecha =
 Good, izquierda = Again, arriba = Hard "Más o menos") o círculos ✕/~/✓ →
@@ -452,10 +456,19 @@ sin revisar / suspendidas.
 `react-native-svg` y `expo-notifications` se agregaron juntos y `app.json.version` pasó a
 **1.4.0**. El recordatorio está apagado por defecto, usa 20:30 como hora inicial y solo
 programa una notificación local cuando quedan tarjetas pendientes. Se cancela/reprograma
-al abrir la app y al terminar una sesión; tocarla navega a `/repaso`.
+al abrir la app y al terminar una sesión; tocarla navega a `/repaso`. En Android crea
+primero el canal `repaso-diario`, usa `notification-icon.png` (AC blanco/transparente
+96×96) con tinte `#3E63DD` y revierte el switch si el permiso es rechazado. No usa
+`SCHEDULE_EXACT_ALARM`: el horario es aproximado.
 
 Esta tanda exige un APK nuevo: el 1.3.0 no contiene esos módulos y no puede recibirla por
 OTA. El build lo dispara Martín con `comandos/CONSTRUIR-APP-ANDROID.bat`.
+
+**Preflight F86.** El `.bat` exige confirmar un respaldo reciente, sesión EAS válida,
+rama `main`, árbol tracked limpio y `HEAD == origin/main`; luego corre `npm ci`, Doctor,
+ESLint sin warnings, Jest y export Android. Cualquier error corta antes de EAS Build.
+CI replica Doctor, lint, tests y export Android. Los imports directos dejan el export en
+34 assets / 8.985.782 bytes (antes 60 / 12.650.956).
 
 ## Limitaciones conocidas
 - **`entering` de reanimated deja el contenido invisible si la animación no arranca**
