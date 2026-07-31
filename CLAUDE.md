@@ -126,15 +126,18 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   consultó) y de que la luz del borde no apareciera nunca. Es una app personal y los efectos
   se pidieron explícitamente: corren siempre. Mismo motivo por el que el Lottie se clava —
   ver la trampa del `autoPlay` más abajo.
-- **Movimiento ambiental (F84)** — encima del halo reactivo, tres efectos con vida propia:
-  - `components/BorderBeam.js`: un **segmento de luz con cola de cometa recorre el
-    contorno** — el hero de Inicio y, en Crear, UNA SOLA luz que da la vuelta a una
-    tarjeta y continúa en la siguiente (`useBeam(3)` + `index`). Desde F85 es un `Path`
-    SVG con esquinas redondeadas reales, `strokeDasharray`/`strokeDashoffset`, segmento
-    largo (34% del perímetro) y ciclo de 6,8 s. Usa una sola familia cobalto: cuerpo
-    `rgba(62,99,221,0.70)` y punta clara `rgba(146,175,255,0.95)`. El cián queda reservado
-    para `gradients.bar` y el cierre de sesión. En web el `Path` normal se actualiza con
-    un listener; `AnimatedPath` se usa solo en nativo para evitar warnings del renderer.
+- **Movimiento ambiental (F84, revisado en F87)** — encima del halo reactivo:
+  - `components/Sheen.js`: un **reflejo diagonal barre la superficie**, lento (7 s) y
+    suave (pico de opacidad 0,16). Es una banda inclinada (`skewX -18°`) del ancho de
+    media card, hecha con `LinearGradient` + `translateX`, dibujada con `absoluteFill` +
+    `pointerEvents none` como primer hijo de la superficie a iluminar (que ya recorta con
+    su propio `overflow: hidden`). Va **SOLO en el hero de Inicio**. Mide su ancho con
+    `onLayout`, lo cual es aceptable acá porque es puramente decorativo: si no llega, lo
+    único que pasa es que no se ve el brillo.
+    **Reemplazó al `BorderBeam`** (F84-F86), el segmento de luz que recorría el contorno
+    del hero y de las tres cards de Crear: a Martín se le hacía inquieto ("efecto
+    lombriz") y se eliminó del proyecto. **Crear quedó a propósito sin movimiento
+    ambiental** — solo el halo cobalto al tocar. No re-litigar sin él.
   - `components/Stagger.js`: la escalerita se **rearma en cada foco** (`useStaggerKey`).
     Las pantallas de tabs no se desmontan, así que sin eso corría una sola vez en la vida
     de la app. Está en las 4 tabs + Ajustes + detalle de mazo + Gimnasio.
@@ -447,8 +450,9 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   elegir la familia a mano (`font(N)` del theme). Poner `fontWeight: "700"` con una familia
   custom muestra la regular en Android.
 - **SVG animado en web**: pasar un `Animated.Value` directamente a un `AnimatedPath` de
-  `react-native-svg` dispara el warning `collapsable=false` en react-native-web. `BorderBeam`
-  usa `AnimatedPath` en nativo y un `Path` normal actualizado por listener en web.
+  `react-native-svg` dispara el warning `collapsable=false` en react-native-web. El patrón
+  que funciona es `AnimatedPath` en nativo y un `Path` normal actualizado por listener en
+  web (lo usaba `BorderBeam`, ya eliminado; tenerlo a mano si vuelve a animarse un SVG).
 - **`reviewed_at` y `due` se guardan en UTC** (`toISOString()`) pero la app razona en hora
   local: agrupar por día con `substr(reviewed_at, 1, 10)` en SQL manda los repasos de la noche
   al día siguiente. En `db/stats.js` el agrupado por día/semana se hace en JS.

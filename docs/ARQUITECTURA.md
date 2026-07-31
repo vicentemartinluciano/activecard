@@ -97,7 +97,7 @@ src/
 │   │                           #   RichText, RichField, GlowPressable (halo SOLO al tocar),
 │   │                           #   Stagger (entrada escalonada con Animated, NO reanimated),
 │   │                           #   Collapsible, Toast, ErrorBoundary, EditableCardRow,
-│   │                           #   BorderBeam y RetentionChart (SVG), ActivityHeatmap,
+│   │                           #   Sheen (reflejo diagonal), RetentionChart (SVG), ActivityHeatmap,
 │   │                           #   ForecastList
 └── theme/                      # colors (Obsidian Cobalt: bg #09090B, cards #151518,
                                 #   cardBorder translúcido, azul #3E63DD + paleta,
@@ -437,9 +437,11 @@ El agrupado por día/semana se hace **en JS**, nunca con `substr()` en SQL: `rev
 `due` están en UTC y la app razona en hora local, así que un repaso de las 22:00 caería en
 el día siguiente.
 
-**Movimiento y gráficos (F84-F85).** `BorderBeam` usa un único `Path` SVG redondeado,
-segmento cobalto largo y ciclo de 6,8 s; Inicio tiene un loop y Crear comparte otro entre
-sus tres cards. Ambos loops se detienen al perder foco. `RetentionChart` usa una curva
+**Movimiento y gráficos (F84-F87).** `Sheen` barre una banda de luz cobalto inclinada
+(`LinearGradient` + `translateX`, ciclo de 7 s) por encima del degradé del hero de Inicio;
+es el único movimiento ambiental que queda y se detiene al perder foco. Reemplazó al
+`BorderBeam`, la luz que recorría el contorno del hero y de las tres cards de Crear (se
+leía inquieta — F87). `RetentionChart` usa una curva
 cúbica SVG, área degradada y margen lateral para no cortar el último punto. La escalerita
 de `Stagger` se rearma cada vez que una pantalla recupera foco.
 

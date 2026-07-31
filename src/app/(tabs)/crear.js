@@ -1,10 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useIsFocused, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
-import BorderBeam, { useBeam } from "../../components/BorderBeam";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Stagger from "../../components/Stagger";
@@ -24,10 +23,7 @@ const OPTIONS = [
 // Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
 export default function Crear() {
   const router = useRouter();
-  const focused = useIsFocused();
   const [createStep, setCreateStep] = useState(null); // null | "mazo" | "carpeta"
-  // Una sola luz recorre el borde de las tres, una tras otra, en loop.
-  const beam = useBeam(OPTIONS.length, { disabled: !focused });
 
   const onCreateDeck = async (name) => {
     const id = await createDeck(name);
@@ -59,7 +55,7 @@ export default function Crear() {
             encienden el halo con hovered (web) / pressed (nativo) y Card no
             expone esos estados. El resto de la app sigue usando Card. */}
         <Stagger>
-        {OPTIONS.map((opt, i) => (
+        {OPTIONS.map((opt) => (
           <GlowPressable
             key={opt.key}
             onPress={() => handlePress(opt.key)}
@@ -71,9 +67,6 @@ export default function Crear() {
               end={{ x: 1, y: 1 }}
               style={styles.rowInner}
             >
-              {/* UNA sola luz para las tres: da la vuelta al borde de esta
-                  tarjeta durante su turno y después salta a la siguiente. */}
-              <BorderBeam progress={beam} index={i} radius={radius.lg} />
               <View style={styles.emojiBox}>
                 <Text style={{ fontSize: 26 }}>{opt.emoji}</Text>
               </View>
@@ -113,8 +106,8 @@ const styles = StyleSheet.create({
   },
   rowInner: {
     borderRadius: radius.lg,
-    // Recorta la luz del borde contra las esquinas redondeadas. Va acá, en el
-    // degradé interno, y NO en `row`: ahí se comería el halo del press.
+    // Recorta el degradé contra las esquinas redondeadas. Va acá, en el degradé
+    // interno, y NO en `row`: ahí se comería el halo del press.
     overflow: "hidden",
     minHeight: 104,
     flexDirection: "row",

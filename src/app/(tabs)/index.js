@@ -5,10 +5,10 @@ import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import BorderBeam, { useBeam } from "../../components/BorderBeam";
 import GlowPressable from "../../components/GlowPressable";
 import ProgressBar from "../../components/ProgressBar";
 import SectionSwipe from "../../components/SectionSwipe";
+import Sheen from "../../components/Sheen";
 import Skeleton from "../../components/Skeleton";
 import Stagger from "../../components/Stagger";
 import StreakFlame from "../../components/StreakFlame";
@@ -41,8 +41,6 @@ export default function Inicio() {
   // El botón está DENTRO del hero y se queda con el press, así que el
   // contenedor no se entera: este estado le avisa para que se ilumine igual.
   const [ctaPressed, setCtaPressed] = useState(false);
-  // Luz que recorre el borde del hero, en loop permanente.
-  const beam = useBeam(1, { disabled: !focused });
 
   // Aparte del resto para poder reintentarla desde el aviso de error.
   const fetchStats = useCallback(async () => {
@@ -154,9 +152,9 @@ export default function Inicio() {
             end={{ x: 1, y: 1 }}
             style={styles.hero}
           >
-            {/* La luz va ENCIMA del degradé, no detrás: dibujada sobre el borde
-                y sin envolver nada, así no agrega ningún marco alrededor. */}
-            <BorderBeam progress={beam} radius={radius.lg} />
+            {/* El reflejo va ENCIMA del degradé y debajo del texto: barre la
+                superficie sin agregar ningún marco alrededor. */}
+            <Sheen disabled={!focused} radius={radius.lg} />
             <Text style={styles.heroTitle}>Repaso de hoy</Text>
             {completedToday ? (
               <Text style={styles.heroDone}>Completado ✓</Text>
