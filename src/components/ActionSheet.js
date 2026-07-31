@@ -80,6 +80,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
     width: "100%",
+    // A propósito NO usa layout.maxWidth: en web ese token vale 840 y un bottom
+    // sheet tan ancho se ve mal. El sheet se queda angosto en todos lados.
     maxWidth: 480,
     alignSelf: "center",
   },

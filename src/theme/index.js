@@ -3,6 +3,8 @@
 // principal + paleta de apoyo flexible (racha, resaltados, colores de texto)
 // para que la app no sea una plancha monocroma.
 
+import { Platform } from "react-native";
+
 export const colors = {
   bg: "#09090B",
   surface: "#121216",
@@ -66,10 +68,15 @@ export const spacing = {
 };
 
 // Ancho máximo del contenido: en el teléfono no aplica (la pantalla es más
-// angosta), pero en la web de escritorio evita que todo se estire a lo ancho
-// del monitor — la app queda como una columna centrada tipo móvil.
+// angosta), pero en la web evita que todo se estire a lo ancho del monitor.
+// En escritorio la columna de 480 se veía como un celular gigante centrado, así
+// que ahí va más ancha; en el navegador de un celular sigue mandando el
+// width:100% del contenedor, así que no cambia nada.
 export const layout = {
-  maxWidth: 480,
+  maxWidth: Platform.OS === "web" ? 840 : 480,
+  // El carril de estudio va más angosto que el resto de la app: a 840 la
+  // tarjeta queda muy ancha para su alto y el texto se lee incómodo.
+  studyMaxWidth: Platform.OS === "web" ? 560 : 480,
 };
 
 // Semántica: lg = contenedores Card principales, md = filas/superficies internas,

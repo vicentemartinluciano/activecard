@@ -20,6 +20,7 @@ import {
   colors,
   glow,
   gradients,
+  layout,
   radius,
   ratingBorders,
   ratingColors,
@@ -258,7 +259,7 @@ export default function Repaso() {
   }
 
   return (
-    <Screen>
+    <Screen style={{ maxWidth: layout.studyMaxWidth }}>
       <Stack.Screen options={{ title: "Repaso" }} />
       <ProgressBar
         pct={(index / round.length) * 100}

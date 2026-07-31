@@ -19,6 +19,7 @@ import {
   colors,
   glow,
   gradients,
+  layout,
   radius,
   ratingBorders,
   ratingColors,
@@ -289,7 +290,7 @@ export default function Estudiar() {
   const card = round[index];
 
   return (
-    <Screen>
+    <Screen style={{ maxWidth: layout.studyMaxWidth }}>
       <Stack.Screen options={{ title: "Estudiar" }} />
       <ProgressBar
         pct={(index / round.length) * 100}

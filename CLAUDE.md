@@ -271,6 +271,14 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   baseUrl /activecard). El build corre sin .env → las claves NO van embebidas en la
   web: se pegan en Ajustes (solo visible en web) y viven en settings del navegador.
   En el APK las claves sí van embebidas por env vars de EAS.
+- **Web de escritorio (F87)**: `layout.maxWidth` vale **840 en web** y 480 en nativo — la
+  columna de 480 se veía como un celular gigante centrado. Sigue siendo **una sola columna**:
+  NO hay grillas de 2-3 columnas (se evaluó y se descartó por costo/riesgo). Dos excepciones
+  a propósito: `ActionSheet` se queda en 480 (un bottom sheet de 840 se ve mal) y el carril de
+  estudio usa `layout.studyMaxWidth` (560), porque a 840 la tarjeta queda muy ancha para su
+  alto. `src/app/+html.js` (documento HTML de Expo Router, solo web) oculta las barras de
+  scroll: `showsVerticalScrollIndicator={false}` NO alcanza — react-native-web solo emite
+  `scrollbar-width` con esa prop y eso no cubre WebKit, por eso el CSS va global.
 - **Recordatorio diario configurable (F85-F86)**: `expo-notifications`, apagado por defecto y
   con hora inicial 20:30. Programa una sola notificación local si quedan tarjetas pendientes;
   se cancela/recalcula al abrir la app y al cerrar una sesión. Tocar la notificación abre
