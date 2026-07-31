@@ -70,6 +70,13 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   arriba a la derecha — N° de tarjetas (número pelado, sin la palabra "tarjetas") y prioridad %
   ("Pausado" en 0%), ambos del MISMO color neutro (no azul) — más la barra de progreso diario.
   Sin tags ni carpeta en la fila. Decisión de Martín; no volver a mostrar los detalles.
+- **Fila de TARJETA en el detalle del mazo (F87)**: frente + dorso a la izquierda y las TRES
+  acciones apiladas en COLUMNA a la derecha (pensar con el socio / suspender / estrella).
+  "Pensar esto con el socio" perdió el texto y quedó solo el ícono `message-circle` — el
+  texto se comía una línea entera. Los **chips de filtro** (Todas/⭐/⚡ Ideas/🤖 Sin revisar/
+  Suspendidas) solo se muestran con el buscador enfocado o si hay un filtro activo, igual que
+  las etiquetas de Biblioteca. El `onBlur` va con `setTimeout(…, 120)`: sin eso el blur se
+  traga el tap sobre el chip. El buscador NO se movió de lugar.
 - **Swipe horizontal entre secciones (F81)**: `components/SectionSwipe.js` envuelve las 3 tabs
   (Inicio/Crear/Biblioteca) con un `Gesture.Pan` (gesture-handler, ya presente → OTA, NO
   pager-view nativo): al soltar con desplazamiento+velocidad salta a la sección vecina

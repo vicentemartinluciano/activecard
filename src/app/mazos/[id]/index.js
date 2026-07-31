@@ -113,6 +113,9 @@ export default function DetalleMazo() {
   const [loadError, setLoadError] = useState("");
   const [cardQuery, setCardQuery] = useState("");
   const [cardFilter, setCardFilter] = useState(null);
+  // Los chips de filtro solo se muestran con el buscador enfocado, igual que
+  // las etiquetas de Biblioteca: la lista de tarjetas empieza más arriba.
+  const [cardSearchFocused, setCardSearchFocused] = useState(false);
   const allowNavigationRef = useRef(false);
   const savingDraftRef = useRef(false);
   const cardsRef = useRef(cards);
@@ -346,19 +349,24 @@ export default function DetalleMazo() {
         <Text style={type.small} numberOfLines={1}>
           {toPlainText(item.back)}
         </Text>
+      </View>
+      {/* Las tres acciones apiladas a la derecha. El "Pensar esto con el socio"
+          era un texto que se comía una línea entera de la fila: ahora es el
+          ícono solo, alineado con la suspensión y la estrella. */}
+      <View style={styles.cardActions}>
         <Pressable
           onPress={() => router.push(`/gimnasio/nueva?cardId=${item.id}`)}
-          style={({ pressed }) => [styles.thinkAction, pressed && { opacity: 0.65 }]}
+          hitSlop={10}
+          style={({ pressed }) => pressed && { opacity: 0.65 }}
         >
-          <Feather name="message-circle" size={13} color={colors.accentText} />
-          <Text style={styles.thinkActionText}>Pensar esto con el socio</Text>
+          <Feather name="message-circle" size={18} color={colors.accentText} />
         </Pressable>
+        <SuspendToggle
+          suspended={!!item.suspended}
+          onPress={() => toggleSuspended(item.id)}
+        />
+        <StarToggle starred={!!item.starred} onPress={() => toggleStar(item.id)} />
       </View>
-      <SuspendToggle
-        suspended={!!item.suspended}
-        onPress={() => toggleSuspended(item.id)}
-      />
-      <StarToggle starred={!!item.starred} onPress={() => toggleStar(item.id)} />
     </Card>
   );
 
@@ -490,6 +498,10 @@ export default function DetalleMazo() {
                   onChangeText={setCardQuery}
                   placeholder="Buscar dentro del mazo…"
                   style={styles.cardSearchField}
+                  onFocus={() => setCardSearchFocused(true)}
+                  // El delay es obligatorio: sin él el blur se traga el tap
+                  // sobre el chip y el filtro nunca se aplica.
+                  onBlur={() => setTimeout(() => setCardSearchFocused(false), 120)}
                 />
                 {cardQuery ? (
                   <Pressable onPress={() => setCardQuery("")} hitSlop={8}>
@@ -497,33 +509,41 @@ export default function DetalleMazo() {
                   </Pressable>
                 ) : null}
               </View>
-              <View style={styles.tagRow}>
-                <Chip label="Todas" active={cardFilter == null} onPress={() => setCardFilter(null)} />
-                <Chip
-                  label="⭐"
-                  active={cardFilter === "starred"}
-                  onPress={() => setCardFilter(cardFilter === "starred" ? null : "starred")}
-                />
-                <Chip
-                  label="⚡ Ideas"
-                  active={cardFilter === "idea"}
-                  onPress={() => setCardFilter(cardFilter === "idea" ? null : "idea")}
-                />
-                <Chip
-                  label="🤖 Sin revisar"
-                  active={cardFilter === "unreviewed"}
-                  onPress={() =>
-                    setCardFilter(cardFilter === "unreviewed" ? null : "unreviewed")
-                  }
-                />
-                <Chip
-                  label="Suspendidas"
-                  active={cardFilter === "suspended"}
-                  onPress={() =>
-                    setCardFilter(cardFilter === "suspended" ? null : "suspended")
-                  }
-                />
-              </View>
+              {/* Con un filtro puesto siguen a la vista aunque el buscador
+                  pierda el foco: si no, no habría cómo sacarlo. */}
+              {cardSearchFocused || cardFilter != null ? (
+                <View style={styles.tagRow}>
+                  <Chip
+                    label="Todas"
+                    active={cardFilter == null}
+                    onPress={() => setCardFilter(null)}
+                  />
+                  <Chip
+                    label="⭐"
+                    active={cardFilter === "starred"}
+                    onPress={() => setCardFilter(cardFilter === "starred" ? null : "starred")}
+                  />
+                  <Chip
+                    label="⚡ Ideas"
+                    active={cardFilter === "idea"}
+                    onPress={() => setCardFilter(cardFilter === "idea" ? null : "idea")}
+                  />
+                  <Chip
+                    label="🤖 Sin revisar"
+                    active={cardFilter === "unreviewed"}
+                    onPress={() =>
+                      setCardFilter(cardFilter === "unreviewed" ? null : "unreviewed")
+                    }
+                  />
+                  <Chip
+                    label="Suspendidas"
+                    active={cardFilter === "suspended"}
+                    onPress={() =>
+                      setCardFilter(cardFilter === "suspended" ? null : "suspended")
+                    }
+                  />
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -704,17 +724,10 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     paddingHorizontal: 0,
   },
-  thinkAction: {
-    flexDirection: "row",
+  cardActions: {
     alignItems: "center",
-    alignSelf: "flex-start",
-    gap: spacing.xs,
-    marginTop: 2,
-  },
-  thinkActionText: {
-    ...type.small,
-    ...font(600),
-    color: colors.accentText,
+    justifyContent: "center",
+    gap: spacing.sm,
   },
   ideaPill: {
     borderColor: "rgba(158,110,222,0.35)",
