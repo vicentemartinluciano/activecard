@@ -95,6 +95,20 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   tarjeta con el rayo ⚡ junto a la estrella (decisión del momento, NO persiste, cada
   tarjeta arranca apagada) — al calificar esa tarjeta se abre el auditor. Decisión de
   Martín post-OTA Etapa 1; no volver al gimnasio-tras-cada-tarjeta.
+- **Señal ÚNICA al deslizar (F87)**: las pills "La sabía" / "Más o menos" / "No la sabía" son
+  **mutuamente excluyentes** — antes cada opacidad salía de su propio eje y una diagonal
+  encendía dos a la vez. `swipeOpacities()` (exportada de `SwipeCard.js` y testeada aparte)
+  calcula la dominancia entre ejes; la fuerza que decide **quién gana va SIN clamp**, porque
+  pasado el umbral los dos ejes saturan en 1 y la diferencia se volvería 0 justo cuando el
+  gesto es más claro. Las pills conservan sus esquinas inclinadas (verde a la izquierda −12°,
+  roja a la derecha +12°, azul al centro) pero son grandes (22px, borde 2,5). Además **la
+  tarjeta se enciende con un borde del color de la nota**: tres overlays absolutos con
+  `pointerEvents none` DESPUÉS de `{children}` (para tapar el borde estático de `FlipCard.face`)
+  y color fijo — interpolar `borderColor` es frágil en Android.
+- **`ratingColors` / `ratingBorders` (theme)**: el color de cada nota vive en UN solo lugar y
+  lo usan la pill, el borde de la tarjeta, los círculos ✕/~/✓ y las píldoras del resumen.
+  Antes estaban duplicados e incoherentes (el verde de la pill era `colors.success`, apagado,
+  y el del botón un `#5BE7AD` suelto). No volver a hardcodear un color de nota por pantalla.
 - **Fallar NO es avanzar (F64 + F70)**: las tarjetas cuya ÚLTIMA nota del día es
   "again" siguen pendientes — re-entran a la cola diaria (`retryIds` en
   `buildDailyQueue`, vía `listRetryTodayIds`) y NO cuentan como hechas en la barra del

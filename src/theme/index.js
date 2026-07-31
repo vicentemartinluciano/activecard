@@ -38,6 +38,25 @@ export const textColors = {
   violeta: "#9E6EDE",
 };
 
+// Colores por nota (FSRS). Un solo lugar: los usan la pill que aparece al
+// deslizar, el borde con el que se enciende la tarjeta, los círculos ✕/~/✓ y
+// las píldoras del resumen. Antes estaban duplicados e inconsistentes (el verde
+// de la pill era `colors.success`, apagado, y el del botón un "#5BE7AD" suelto);
+// con el borde de la tarjeta encima, la diferencia se notaba.
+export const ratingColors = {
+  good: "#5BE7AD", // "La sabía"
+  hard: "#8FA6F3", // "Más o menos" (= colors.accentText)
+  again: "#E5484D", // "No la sabía" (= textColors.rojo)
+};
+
+// Los mismos colores al 45% (sufijo alpha #RRGGBBAA), para los bordes
+// atenuados de los círculos ✕/~/✓ de las pantallas de estudio.
+export const ratingBorders = {
+  good: `${ratingColors.good}73`,
+  hard: `${ratingColors.hard}73`,
+  again: `${ratingColors.again}73`,
+};
+
 export const spacing = {
   xs: 4,
   sm: 8,

@@ -5,9 +5,66 @@
 import { useRef } from "react";
 import { Animated, PanResponder, StyleSheet, Text, useWindowDimensions } from "react-native";
 
-import { colors, font, radius } from "../theme";
+import { colors, font, radius, ratingColors } from "../theme";
 
 const SWIPE_THRESHOLD = 90;
+
+// Opacidad de cada señal ("La sabía" / "No la sabía" / "Más o menos") a partir
+// del arrastre. Antes cada una salía suelta de su propio eje, así que un
+// arrastre en diagonal encendía DOS a la vez y se leía sucio. La compuerta deja
+// pasar UNA sola: el eje dominante gana y el otro se apaga, con un cruce corto
+// para que no titile justo en la diagonal.
+// Exportada aparte para poder testear la exclusividad sin montar el componente.
+export function swipeOpacities(pan, threshold = SWIPE_THRESHOLD) {
+  // Para decidir QUIÉN gana, las fuerzas van SIN clamp: pasado el umbral los
+  // dos ejes saturarían en 1 y la diferencia se volvería 0 justo cuando el
+  // gesto es más claro (arrastrar lejos en diagonal encendía las dos señales
+  // al 50%).
+  const fuerzaXCruda = pan.x.interpolate({
+    inputRange: [-threshold, 0, threshold],
+    outputRange: [1, 0, 1],
+  });
+  const fuerzaYCruda = pan.y.interpolate({
+    inputRange: [-threshold, 0],
+    outputRange: [1, 0],
+  });
+  const fuerzaY = pan.y.interpolate({
+    inputRange: [-threshold, 0],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+  const dominancia = Animated.subtract(fuerzaXCruda, fuerzaYCruda);
+  const gateH = dominancia.interpolate({
+    inputRange: [-0.06, 0.06],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const gateV = dominancia.interpolate({
+    inputRange: [-0.06, 0.06],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+
+  return {
+    knew: Animated.multiply(
+      pan.x.interpolate({
+        inputRange: [0, threshold],
+        outputRange: [0, 1],
+        extrapolate: "clamp",
+      }),
+      gateH
+    ),
+    forgot: Animated.multiply(
+      pan.x.interpolate({
+        inputRange: [-threshold, 0],
+        outputRange: [1, 0],
+        extrapolate: "clamp",
+      }),
+      gateH
+    ),
+    middle: Animated.multiply(fuerzaY, gateV),
+  };
+}
 
 export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipeUp }) {
   const { width, height } = useWindowDimensions();
@@ -84,21 +141,12 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
     inputRange: [-width, 0, width],
     outputRange: ["-12deg", "0deg", "12deg"],
   });
-  const knewOpacity = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-  const forgotOpacity = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-  const middleOpacity = pan.y.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
+
+  const {
+    knew: knewOpacity,
+    forgot: forgotOpacity,
+    middle: middleOpacity,
+  } = swipeOpacities(pan);
 
   return (
     <Animated.View
@@ -114,20 +162,37 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
         pointerEvents="none"
         style={[styles.badge, styles.badgeRight, { opacity: knewOpacity }]}
       >
-        <Text style={[styles.badgeText, { color: colors.success }]}>La sabía</Text>
+        <Text style={[styles.badgeText, { color: ratingColors.good }]}>La sabía</Text>
       </Animated.View>
       <Animated.View
         pointerEvents="none"
         style={[styles.badge, styles.badgeLeft, { opacity: forgotOpacity }]}
       >
-        <Text style={[styles.badgeText, { color: colors.danger }]}>No la sabía</Text>
+        <Text style={[styles.badgeText, { color: ratingColors.again }]}>No la sabía</Text>
       </Animated.View>
       {onSwipeUp ? (
         <Animated.View pointerEvents="none" style={[styles.badgeUp, { opacity: middleOpacity }]}>
-          <Text style={[styles.badgeText, { color: colors.accentText }]}>Más o menos</Text>
+          <Text style={[styles.badgeText, { color: ratingColors.hard }]}>Más o menos</Text>
         </Animated.View>
       ) : null}
       {children}
+      {/* El borde va DESPUÉS de children para tapar el borde estático de la
+          tarjeta (FlipCard.face). Tres capas de color fijo con su opacidad ya
+          calculada: interpolar `borderColor` es frágil en Android. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.edge, { borderColor: ratingColors.good, opacity: knewOpacity }]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.edge, { borderColor: ratingColors.again, opacity: forgotOpacity }]}
+      />
+      {onSwipeUp ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.edge, { borderColor: ratingColors.hard, opacity: middleOpacity }]}
+        />
+      ) : null}
     </Animated.View>
   );
 }
@@ -138,38 +203,45 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: "absolute",
-    top: 16,
+    top: 20,
     zIndex: 10,
-    borderWidth: 1.5,
-    borderRadius: radius.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    borderWidth: 2.5,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     backgroundColor: colors.bg,
   },
   badgeRight: {
     left: 16,
-    borderColor: colors.success,
+    borderColor: ratingColors.good,
     transform: [{ rotate: "-12deg" }],
   },
   badgeLeft: {
     right: 16,
-    borderColor: colors.danger,
+    borderColor: ratingColors.again,
     transform: [{ rotate: "12deg" }],
   },
   badgeUp: {
     position: "absolute",
-    top: 16,
+    top: 20,
     alignSelf: "center",
     zIndex: 10,
-    borderWidth: 1.5,
-    borderRadius: radius.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    borderWidth: 2.5,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     backgroundColor: colors.bg,
-    borderColor: colors.accentText,
+    borderColor: ratingColors.hard,
   },
   badgeText: {
-    ...font(700),
-    fontSize: 15,
+    ...font(800),
+    fontSize: 22,
+    letterSpacing: 0.3,
+  },
+  // Mismo radio que FlipCard.face: el borde tiene que calzar exacto encima.
+  edge: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 2.5,
+    borderRadius: radius.lg,
   },
 });

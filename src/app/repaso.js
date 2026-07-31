@@ -16,7 +16,16 @@ import { getDailyQueue } from "../db/reviewQueue";
 import { syncReviewReminder } from "../lib/notifications";
 import { buildFailedRound } from "../lib/studySession";
 import { toPlainText } from "../lib/richtext";
-import { colors, glow, gradients, radius, spacing, type } from "../theme";
+import {
+  colors,
+  glow,
+  gradients,
+  radius,
+  ratingBorders,
+  ratingColors,
+  spacing,
+  type,
+} from "../theme";
 
 // Vibración de éxito al entrar al resumen — montado solo ahí, no en cada
 // render de la pantalla de repaso.
@@ -203,9 +212,9 @@ export default function Repaso() {
         <View style={styles.summaryNeon}>
           <Text style={styles.summaryTitle}>Repaso terminado</Text>
           <View style={styles.summaryPills}>
-            <Pill color="#5BE7AD" label={`Recordadas: ${counts.good}`} />
-            <Pill color={colors.accentText} label={`Más o menos: ${counts.hard}`} />
-            <Pill color={colors.danger} label={`Olvidadas: ${counts.again}`} />
+            <Pill color={ratingColors.good} label={`Recordadas: ${counts.good}`} />
+            <Pill color={ratingColors.hard} label={`Más o menos: ${counts.hard}`} />
+            <Pill color={ratingColors.again} label={`Olvidadas: ${counts.again}`} />
           </View>
           {counts.connections > 0 ? (
             <Pill color={colors.accentText} label={`Conexiones creadas: ${counts.connections}`} />
@@ -301,19 +310,19 @@ export default function Repaso() {
           onPress={() => grade("again")}
           style={({ pressed }) => [styles.circle, styles.circleNo, pressed && { opacity: 0.7 }]}
         >
-          <Feather name="x" size={26} color={colors.danger} />
+          <Feather name="x" size={26} color={ratingColors.again} />
         </Pressable>
         <Pressable
           onPress={() => grade("hard")}
           style={({ pressed }) => [styles.circle, styles.circleMid, pressed && { opacity: 0.7 }]}
         >
-          <Feather name="minus" size={26} color={colors.accentText} />
+          <Feather name="minus" size={26} color={ratingColors.hard} />
         </Pressable>
         <Pressable
           onPress={() => grade("good")}
           style={({ pressed }) => [styles.circle, styles.circleYes, pressed && { opacity: 0.7 }]}
         >
-          <Feather name="check" size={26} color="#5BE7AD" />
+          <Feather name="check" size={26} color={ratingColors.good} />
         </Pressable>
       </View>
       {gymArmed ? (
@@ -358,13 +367,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   circleNo: {
-    borderColor: "rgba(229,72,77,0.45)",
+    borderColor: ratingBorders.again,
   },
   circleMid: {
-    borderColor: "rgba(143,166,243,0.45)",
+    borderColor: ratingBorders.hard,
   },
   circleYes: {
-    borderColor: "rgba(91,231,173,0.45)",
+    borderColor: ratingBorders.good,
   },
   hint: {
     textAlign: "center",
