@@ -21,6 +21,7 @@ import { layout } from "../theme";
 
 const CICLO = 7000; // ms por barrido — lento a propósito
 const ANCHO_RATIO = 0.5; // la banda mide la mitad del ancho del contenedor
+const INCLINACION = 18; // grados
 
 export default function Sheen({ disabled = false, radius = 0 }) {
   const { width: anchoVentana } = useWindowDimensions();
@@ -56,6 +57,14 @@ export default function Sheen({ disabled = false, radius = 0 }) {
     outputRange: [-banda, ancho + banda],
   });
 
+  // MISMO reflejo en las dos plataformas, con la transformación que cada una
+  // respeta: en web el `skewX` de siempre; en Android `skewX` se ignora (el
+  // reflejo se veía recto, sin inclinar) y la rotación sí se aplica. Para una
+  // banda cuyas puntas quedan fuera del recorte, inclinar por corte o por giro
+  // se ve igual.
+  const inclinar =
+    Platform.OS === "web" ? { skewX: `-${INCLINACION}deg` } : { rotate: `-${INCLINACION}deg` };
+
   return (
     <View
       pointerEvents="none"
@@ -68,13 +77,15 @@ export default function Sheen({ disabled = false, radius = 0 }) {
       {ancho > 0 ? (
         <Animated.View
           // El alto de más deja que la banda inclinada cubra las esquinas: sin
-          // eso el skew deja dos triángulos apagados arriba y abajo.
+          // eso la inclinación deja dos triángulos apagados arriba y abajo. Con
+          // el giro (nativo) hace falta más aire que con el corte: sobra invisible
+          // porque el contenedor recorta.
           style={{
             position: "absolute",
-            top: -40,
-            bottom: -40,
+            top: -160,
+            bottom: -160,
             width: banda,
-            transform: [{ translateX }, { skewX: "-18deg" }],
+            transform: [{ translateX }, inclinar],
           }}
         >
           <LinearGradient

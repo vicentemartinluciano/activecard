@@ -239,8 +239,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   // Mismo radio que FlipCard.face: el borde tiene que calzar exacto encima.
+  // zIndex OBLIGATORIO (mismo valor que los badges, que sí se veían): en Android
+  // la tarjeta corre su giro con native driver y eso la promueve a su propia
+  // capa, que se dibuja por ENCIMA de los hermanos posteriores aunque vayan
+  // después en el JSX. Sin esto, el borde quedaba tapado y solo asomaba la
+  // franja de abajo (en web se veía completo y en el celu no).
   edge: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
     borderWidth: 2.5,
     borderRadius: radius.lg,
   },
