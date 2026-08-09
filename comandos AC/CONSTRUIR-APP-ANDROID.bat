@@ -1,11 +1,12 @@
 @echo off
 setlocal
 chcp 65001 >nul
-title ActiveCard - Validar y construir APK 1.4.0
+set "APP_VERSION=1.5.0"
+title ActiveCard - Validar y construir APK %APP_VERSION%
 cd /d "%~dp0.."
 
 echo.
-echo  ACTIVECard - BUILD SEGURO DEL APK 1.4.0
+echo  ACTIVECard - BUILD SEGURO DEL APK %APP_VERSION%
 echo  =========================================
 echo.
 echo  Este proceso valida el proyecto completo antes de gastar un build de EAS.

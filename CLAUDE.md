@@ -20,8 +20,8 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
 - **Preview web** (verificar cambios): MCP de preview con el server `activecard-web` de
   `.claude/launch.json`. Navegar a `http://localhost:8081/`, verificar por DOM
   (preview_eval) + console errors.
-- OTA al teléfono: `comandos/ACTUALIZAR-APP.bat` (= `eas update --branch preview`). Solo JS/UI.
-- APK nuevo: `comandos/CONSTRUIR-APP-ANDROID.bat`. Exige respaldo reciente y valida
+- OTA al teléfono: `comandos AC/ACTUALIZAR-APP.bat` (= `eas update --branch preview`). Solo JS/UI.
+- APK nuevo: `comandos AC/CONSTRUIR-APP-ANDROID.bat`. Exige respaldo reciente y valida
   EAS/main/sync/árbol tracked + `npm ci` + Doctor + lint + tests + export Android
   antes de ejecutar `eas build --profile preview`. Solo Martín lo dispara.
 - CI: GitHub Actions corre Doctor + lint + tests + export Android en cada push.
@@ -371,7 +371,7 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   RichText renderiza divisor y numeradas + editor Notion (TipTap v3: WebView en nativo,
   react-dom en web) con los atajos y la barrita esencial. `react-native-webview` es
   NATIVO → `app.json` version quedó en **1.3.0** en el mismo commit.
-- **Pendiente inmediato**: **Martín dispara `comandos/CONSTRUIR-APP-ANDROID.bat`**
+- **Pendiente inmediato**: **Martín dispara `comandos AC/CONSTRUIR-APP-ANDROID.bat`**
   (APK 1.3.0, consume créditos EAS — siempre él) y hace el QA del editor en el teléfono.
   Verificado en preview web: los 4 atajos, la barrita con sus 5 botones, negrita desde
   el bubble, y `expo export --platform web` sin romperse. NO verificado todavía: el
@@ -458,9 +458,15 @@ publica en Play Store, se instala como APK propio y se actualiza por EAS Update
   - Jakarta e iconos se importan por submódulo: export Android bajó de 60 a 34 assets y de
     12.650.956 a 8.985.782 bytes (−29%) sin cambiar la UI.
   - El `.bat` y CI ejecutan el preflight completo; el agente NO construye el APK.
-- **Pendiente inmediato**: Martín corre `comandos/CONSTRUIR-APP-ANDROID.bat` para generar el
-  APK 1.4.0 y hace el QA nativo. No usar `ACTUALIZAR-APP.bat` para esta tanda: el APK 1.3.0
-  instalado no contiene los dos módulos nativos nuevos.
+- **F87 COMPLETA EN CÓDIGO (Gimnasio general + runtime 1.5.0)**:
+  - Chat general persistente con historial, borradores y acciones de tarjetas siempre
+    confirmadas; fondo estrellado suave y compositor adaptado al teclado.
+  - Dictado local estilo WhatsApp con Whisper Base: bloquear, pausar/reanudar, descartar y
+    aceptar. `whisper.rn` y el stream PCM son nativos, por eso exige APK nuevo.
+  - Los scripts operativos se movieron a `comandos AC/` y la mudanza está registrada en Git.
+- **Pendiente inmediato**: Martín corre `comandos AC/CONSTRUIR-APP-ANDROID.bat` para generar
+  el APK 1.5.0 y hace el QA nativo en el Galaxy A15. No usar `ACTUALIZAR-APP.bat` para esta
+  tanda: el APK instalado no contiene Whisper ni el stream PCM.
 
 ## Cuentas
 - Anthropic: key creada y validada (en `.env` local como EXPO_PUBLIC_ANTHROPIC_API_KEY).

@@ -479,7 +479,7 @@ primero el canal `repaso-diario`, usa `notification-icon.png` (AC blanco/transpa
 `SCHEDULE_EXACT_ALARM`: el horario es aproximado.
 
 Esta tanda exige un APK nuevo: el 1.3.0 no contiene esos módulos y no puede recibirla por
-OTA. El build lo dispara Martín con `comandos/CONSTRUIR-APP-ANDROID.bat`.
+OTA. El build lo dispara Martín con `comandos AC/CONSTRUIR-APP-ANDROID.bat`.
 
 **Preflight F86.** El `.bat` exige confirmar un respaldo reciente, sesión EAS válida,
 rama `main`, árbol tracked limpio y `HEAD == origin/main`; luego corre `npm ci`, Doctor,

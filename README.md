@@ -6,7 +6,7 @@ tiendas — se instala como APK propio y se actualiza por EAS Update (OTA).
 
 ## Operación diaria (sin terminal)
 
-Los `.bat` de la carpeta `comandos/`:
+Los `.bat` de la carpeta `comandos AC/`:
 
 | Script | Qué hace | Cuándo usarlo |
 |---|---|---|
