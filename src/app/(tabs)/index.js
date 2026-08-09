@@ -132,6 +132,15 @@ export default function Inicio() {
 
         <View style={styles.streakRow}>
           <StreakFlame days={streak ? streak.days : null} active={!!streak && streak.activeToday} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Abrir Gimnasio Mental"
+            hitSlop={8}
+            onPress={() => router.push("/gimnasio/chat")}
+            style={({ pressed }) => [styles.gymShortcut, pressed && { opacity: 0.7 }]}
+          >
+            <Feather name="zap" size={20} color="#00F2FE" />
+          </Pressable>
         </View>
       </View>
 
@@ -301,7 +310,17 @@ const styles = StyleSheet.create({
   streakRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.sm,
+  },
+  gymShortcut: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.cyanBorder,
+    backgroundColor: "rgba(8,22,38,0.82)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   body: {
     paddingHorizontal: spacing.md,

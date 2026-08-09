@@ -15,7 +15,6 @@ import { getCard, reviewCard, setCardStarred, snapshotFsrs, undoReview } from ".
 import { getDailyQueue } from "../db/reviewQueue";
 import { syncReviewReminder } from "../lib/notifications";
 import { buildFailedRound } from "../lib/studySession";
-import { toPlainText } from "../lib/richtext";
 import {
   colors,
   glow,
@@ -179,7 +178,7 @@ export default function Repaso() {
   if (status === "loading") {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "Repaso" }} />
+        <Stack.Screen options={{ title: "Repaso", headerShown: true }} />
         <Skeleton height={8} style={{ borderRadius: 999, marginBottom: spacing.md }} />
         <Skeleton style={{ flex: 1, marginVertical: spacing.sm }} />
         <View style={styles.grade}>
@@ -194,7 +193,7 @@ export default function Repaso() {
   if (status === "empty") {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "Repaso" }} />
+        <Stack.Screen options={{ title: "Repaso", headerShown: true }} />
         <EmptyState
           full
           icon="check-circle"
@@ -209,7 +208,7 @@ export default function Repaso() {
     const hasReviews = counts.good + counts.hard + counts.again > 0;
     return (
       <Screen style={styles.center}>
-        <Stack.Screen options={{ title: "Repaso" }} />
+        <Stack.Screen options={{ title: "Repaso", headerShown: true }} />
         <View style={styles.summaryNeon}>
           <Text style={styles.summaryTitle}>Repaso terminado</Text>
           <View style={styles.summaryPills}>
@@ -247,12 +246,7 @@ export default function Repaso() {
   if (phase === "gym") {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "Repaso" }} />
-        <View style={styles.gymConcept}>
-          <Text style={type.small} numberOfLines={2}>
-            {toPlainText(card.front)}
-          </Text>
-        </View>
+        <Stack.Screen options={{ headerShown: false }} />
         <ChatAuditor card={card} onDone={finishGym} />
       </Screen>
     );
@@ -260,7 +254,7 @@ export default function Repaso() {
 
   return (
     <Screen style={{ maxWidth: layout.studyMaxWidth }}>
-      <Stack.Screen options={{ title: "Repaso" }} />
+      <Stack.Screen options={{ title: "Repaso", headerShown: true }} />
       <ProgressBar
         pct={(index / round.length) * 100}
         gradient={gradients.progress}
@@ -379,14 +373,6 @@ const styles = StyleSheet.create({
   hint: {
     textAlign: "center",
     marginTop: spacing.sm,
-  },
-  gymConcept: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceHigh,
-    padding: spacing.sm + 4,
-    marginBottom: spacing.sm,
   },
   summaryNeon: {
     alignSelf: "stretch",

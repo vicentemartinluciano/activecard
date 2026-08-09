@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -96,12 +97,18 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   const router = useRouter();
   const params = useLocalSearchParams();
   const routeChatId = params.chatId ? Number(params.chatId) : null;
-  const persistentChatId = chatId || routeChatId || null;
+  const originCardId = card?.id || null;
+  const hasEmbeddedCard = originCardId != null;
+  // El repaso vive en la misma ruta mientras cambia de tarjeta. No tomamos un
+  // chatId viejo de sus params: cada rayo abre su propia charla y su propia
+  // referencia de origen. En la pantalla independiente sí hidratamos por URL.
+  const persistentChatId = chatId || (!hasEmbeddedCard ? routeChatId : null) || null;
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const scrollRef = useRef(null);
   const saveTimer = useRef(null);
 
@@ -115,20 +122,35 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const id = persistentChatId || await createGymChat({ originCardId: card?.id || null });
+      const id = persistentChatId || await createGymChat({ originCardId });
       const [chat, savedMessages] = await Promise.all([getGymChat(id), listGymMessages(id)]);
       if (!alive) return;
       if (!chat) throw new Error("Esta conversación ya no existe.");
       setSession(chat);
       setMessages(savedMessages);
       setInput(chat?.draft_text || "");
-      if (!persistentChatId) router.setParams({ chatId: String(id) });
+      if (!persistentChatId && !hasEmbeddedCard) router.setParams({ chatId: String(id) });
     })().catch((e) => setError(e.message || String(e)));
     return () => {
       alive = false;
       clearTimeout(saveTimer.current);
     };
-  }, [card?.id, persistentChatId, router]);
+  }, [hasEmbeddedCard, originCardId, persistentChatId, router]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setKeyboardOpen(true)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardOpen(false)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const changeInput = (value) => {
     setInput(value);
@@ -240,10 +262,33 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
 
   if (!session) return <ActivityIndicator color={colors.accent} style={{ flex: 1 }} />;
 
+  const result = () => ({
+    chatted: messages.length > 0,
+    validated: messages.some(
+      (message) =>
+        message.metadata?.action?.type === "create_card" &&
+        message.metadata.action.source === "hybrid" &&
+        message.metadata.action.status === "done"
+    ),
+  });
+
+  const close = () => {
+    if (onDone) onDone(result());
+    else if (router.canGoBack()) router.back();
+    else router.replace("/");
+  };
+
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView
+      style={[styles.root, keyboardOpen && styles.rootKeyboard]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "android" ? -24 : 0}
+    >
       <StarField />
       <View style={styles.header}>
+        <Pressable onPress={close} style={styles.backButton} hitSlop={8}>
+          <Feather name="arrow-left" size={23} color={colors.text} />
+        </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Gimnasio Mental</Text>
           <Text style={styles.saved}>Tu conversación se guarda automáticamente</Text>
@@ -296,21 +341,11 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
           <Feather name="send" size={19} color="#fff" />
         </Pressable>
       </View>
-      {onDone ? (
+      {onDone && !keyboardOpen ? (
         <Button
           label="Continuar el repaso"
           kind="ghost"
-          onPress={() =>
-            onDone({
-              chatted: true,
-              validated: messages.some(
-                (message) =>
-                  message.metadata?.action?.type === "create_card" &&
-                  message.metadata.action.source === "hybrid" &&
-                  message.metadata.action.status === "done"
-              ),
-            })
-          }
+          onPress={close}
         />
       ) : null}
     </KeyboardAvoidingView>
@@ -319,7 +354,9 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: spacing.sm, overflow: "hidden" },
+  rootKeyboard: { paddingBottom: spacing.sm },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
+  backButton: { width: 34, height: 38, alignItems: "center", justifyContent: "center" },
   title: { ...type.heading, fontSize: 23 },
   saved: { ...type.small, fontSize: 11 },
   iconButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.cardBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(21,21,24,0.7)" },
@@ -346,7 +383,7 @@ const styles = StyleSheet.create({
   optionTitle: { ...type.body, ...font(600), fontSize: 14 },
   error: { color: colors.danger, fontSize: 12 },
   draftStatus: { ...type.small, fontSize: 10, color: "#00F2FE", marginLeft: spacing.sm },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, marginHorizontal: 1, padding: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(20,24,34,0.96)" },
-  field: { flex: 1, minHeight: 42, maxHeight: 112, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 10 },
-  send: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
+  composer: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: 1, padding: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(20,24,34,0.96)" },
+  field: { flex: 1, minHeight: 38, maxHeight: 96, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 6 },
+  send: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
 });

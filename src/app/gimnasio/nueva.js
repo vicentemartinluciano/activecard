@@ -3,7 +3,6 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import ChatAuditor from "../../components/ChatAuditor";
 import Toast from "../../components/Toast";
 import { Card, EmptyState, Field, Screen } from "../../components/ui";
 import { getCard, listAllCardsForSearch } from "../../db/cards";
@@ -18,7 +17,6 @@ export default function NuevaCharla() {
   const requestedCardId = cardId ? Number(cardId) : null;
   const requestedDeckId = deckId ? Number(deckId) : null;
 
-  const [card, setCard] = useState(null);
   const [options, setOptions] = useState([]);
   const [deckNames, setDeckNames] = useState({});
   const [query, setQuery] = useState("");
@@ -30,7 +28,7 @@ export default function NuevaCharla() {
     const load = requestedCardId
       ? getCard(requestedCardId).then((selected) => {
           if (!selected) throw new Error("Tarjeta inexistente");
-          if (alive) setCard(selected);
+          if (alive) router.replace(`/gimnasio/chat?cardId=${selected.id}`);
         })
       : Promise.all([listAllCardsForSearch(), listDecks()]).then(([cards, decks]) => {
           if (!alive) return;
@@ -52,22 +50,16 @@ export default function NuevaCharla() {
     return () => {
       alive = false;
     };
-  }, [requestedCardId, requestedDeckId]);
+  }, [requestedCardId, requestedDeckId, router]);
 
   const chooseCard = async (id) => {
     try {
       const selected = await getCard(id);
       if (!selected) throw new Error("Tarjeta inexistente");
-      setCard(selected);
-      setError("");
+      router.push(`/gimnasio/chat?cardId=${selected.id}`);
     } catch {
       setError("No pudimos abrir esa tarjeta.");
     }
-  };
-
-  const finish = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/gimnasio");
   };
 
   if (!loaded) {
@@ -75,24 +67,6 @@ export default function NuevaCharla() {
       <Screen style={styles.center}>
         <Stack.Screen options={{ title: "Nueva conexión" }} />
         <ActivityIndicator color={colors.accent} size="large" />
-      </Screen>
-    );
-  }
-
-  if (card) {
-    return (
-      <Screen>
-        <Stack.Screen options={{ title: "Pensar con el socio" }} />
-        <Card level="high" style={styles.contextCard}>
-          <Text style={styles.contextLabel}>Idea de partida</Text>
-          <Text style={styles.contextText} numberOfLines={3}>
-            {toPlainText(card.front)}
-          </Text>
-        </Card>
-        <View style={{ flex: 1, marginTop: spacing.md }}>
-          <ChatAuditor card={card} onDone={finish} />
-        </View>
-        <Toast message={error} onDismiss={() => setError("")} />
       </Screen>
     );
   }
@@ -150,20 +124,6 @@ const styles = StyleSheet.create({
   center: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  contextCard: {
-    gap: spacing.xs,
-  },
-  contextLabel: {
-    ...type.small,
-    ...font(700),
-    color: colors.accentText,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  contextText: {
-    ...type.body,
-    ...font(600),
   },
   search: {
     flexDirection: "row",
