@@ -122,7 +122,12 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
   // Vuelo hacia arriba = "Más o menos" (Hard). Solo se dispara si hay callback.
   const flyUp = () => {
     if (!latest.current.onSwipeUp) {
-      Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 6 }).start();
+      clearFrame();
+      Animated.timing(pan, {
+        toValue: { x: 0, y: 0 },
+        duration: 130,
+        useNativeDriver: false,
+      }).start();
       return;
     }
     Animated.timing(pan, {
@@ -155,19 +160,24 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
         else if (g.dx < -SWIPE_THRESHOLD) flyOut(-1);
         else if (g.dy < -SWIPE_THRESHOLD) flyUp();
         else {
-          Animated.spring(pan, {
+          // El color se apaga al soltar, no cuando termina el retorno. Con el
+          // spring anterior la tarjeta quedaba inclinada y coloreada casi un
+          // segundo aunque el swipe se hubiera cancelado.
+          clearFrame();
+          Animated.timing(pan, {
             toValue: { x: 0, y: 0 },
+            duration: 130,
             useNativeDriver: false,
-            friction: 6,
-          }).start(clearFrame);
+          }).start();
         }
       },
       onPanResponderTerminate: () => {
-        Animated.spring(pan, {
+        clearFrame();
+        Animated.timing(pan, {
           toValue: { x: 0, y: 0 },
+          duration: 130,
           useNativeDriver: false,
-          friction: 6,
-        }).start(clearFrame);
+        }).start();
       },
     })
   ).current;
