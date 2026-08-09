@@ -69,6 +69,31 @@ export function swipeOpacities(pan, threshold = SWIPE_THRESHOLD) {
 export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipeUp }) {
   const { width, height } = useWindowDimensions();
   const pan = useRef(new Animated.ValueXY()).current;
+  const frameRef = useRef(null);
+
+  // En Android/Fabric una capa absoluta sobre FlipCard se separaba de la
+  // tarjeta al rotar: terminaba viéndose como una raya luminosa abajo. Acá
+  // coloreamos el borde DEL MISMO nodo que se mueve y rota, por lo que las
+  // cuatro aristas quedan físicamente pegadas a la tarjeta.
+  const paintFrame = (gesture) => {
+    const horizontal = Math.abs(gesture.dx) >= Math.abs(gesture.dy);
+    const magnitude = horizontal ? Math.abs(gesture.dx) : Math.max(0, -gesture.dy);
+    if (magnitude < 3 || (!horizontal && !onSwipeUp)) {
+      frameRef.current?.setNativeProps({ style: { borderColor: "transparent" } });
+      return;
+    }
+    const color = horizontal
+      ? gesture.dx >= 0 ? ratingColors.good : ratingColors.again
+      : ratingColors.hard;
+    const alpha = Math.round((0.35 + Math.min(1, magnitude / SWIPE_THRESHOLD) * 0.65) * 255)
+      .toString(16)
+      .padStart(2, "0");
+    frameRef.current?.setNativeProps({ style: { borderColor: `${color}${alpha}` } });
+  };
+
+  const clearFrame = () => {
+    frameRef.current?.setNativeProps({ style: { borderColor: "transparent" } });
+  };
 
   // El PanResponder se crea UNA sola vez por montaje y captura el flyOut del
   // primer render. Sin estos refs, el swipe llamaba a callbacks VIEJOS: si
@@ -88,6 +113,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
       useNativeDriver: false,
     }).start(() => {
       pan.setValue({ x: 0, y: 0 });
+      clearFrame();
       if (direction > 0) latest.current.onSwipeRight();
       else latest.current.onSwipeLeft();
     });
@@ -105,6 +131,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
       useNativeDriver: false,
     }).start(() => {
       pan.setValue({ x: 0, y: 0 });
+      clearFrame();
       latest.current.onSwipeUp();
     });
   };
@@ -121,6 +148,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
         (g.dy < -12 && Math.abs(g.dy) > Math.abs(g.dx)),
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
+        listener: (_, gesture) => paintFrame(gesture),
       }),
       onPanResponderRelease: (_, g) => {
         if (g.dx > SWIPE_THRESHOLD) flyOut(1);
@@ -131,8 +159,15 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
             toValue: { x: 0, y: 0 },
             useNativeDriver: false,
             friction: 6,
-          }).start();
+          }).start(clearFrame);
         }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(pan, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: false,
+          friction: 6,
+        }).start(clearFrame);
       },
     })
   ).current;
@@ -150,6 +185,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
 
   return (
     <Animated.View
+      ref={frameRef}
       {...responder.panHandlers}
       style={[
         styles.container,
@@ -176,23 +212,6 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
         </Animated.View>
       ) : null}
       {children}
-      {/* El borde va DESPUÉS de children para tapar el borde estático de la
-          tarjeta (FlipCard.face). Tres capas de color fijo con su opacidad ya
-          calculada: interpolar `borderColor` es frágil en Android. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.edge, styles.edgeGood, { borderColor: ratingColors.good, opacity: knewOpacity }]}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.edge, styles.edgeAgain, { borderColor: ratingColors.again, opacity: forgotOpacity }]}
-      />
-      {onSwipeUp ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.edge, styles.edgeHard, { borderColor: ratingColors.hard, opacity: middleOpacity }]}
-        />
-      ) : null}
     </Animated.View>
   );
 }
@@ -200,6 +219,9 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    borderWidth: 3,
+    borderColor: "transparent",
+    borderRadius: radius.lg,
   },
   badge: {
     position: "absolute",
@@ -237,26 +259,5 @@ const styles = StyleSheet.create({
     ...font(800),
     fontSize: 22,
     letterSpacing: 0.3,
-  },
-  // Mismo radio que FlipCard.face: el borde tiene que calzar exacto encima.
-  // zIndex OBLIGATORIO (mismo valor que los badges, que sí se veían): en Android
-  // la tarjeta corre su giro con native driver y eso la promueve a su propia
-  // capa, que se dibuja por ENCIMA de los hermanos posteriores aunque vayan
-  // después en el JSX. Sin esto, el borde quedaba tapado y solo asomaba la
-  // franja de abajo (en web se veía completo y en el celu no).
-  edge: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
-    borderWidth: 3,
-    borderRadius: radius.lg,
-  },
-  edgeGood: {
-    boxShadow: `0 0 11px ${ratingColors.good}75, inset 0 0 7px ${ratingColors.good}40`,
-  },
-  edgeAgain: {
-    boxShadow: `0 0 11px ${ratingColors.again}75, inset 0 0 7px ${ratingColors.again}40`,
-  },
-  edgeHard: {
-    boxShadow: `0 0 11px ${ratingColors.hard}75, inset 0 0 7px ${ratingColors.hard}40`,
   },
 });
