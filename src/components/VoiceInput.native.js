@@ -1,12 +1,21 @@
 import Feather from "@expo/vector-icons/Feather";
 import * as FileSystem from "expo-file-system/legacy";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, PanResponder, PermissionsAndroid, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { initWhisper } from "whisper.rn/index";
 import { RealtimeTranscriber } from "whisper.rn/realtime-transcription/RealtimeTranscriber";
 import { AudioPcmStreamAdapter } from "whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter";
 
-import { colors, font, radius, spacing, tabular, type } from "../theme";
+import { colors, font, radius, spacing, type } from "../theme";
 
 const MODEL_NAME = "ggml-base-q5_1.bin";
 const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`;
@@ -23,35 +32,63 @@ async function getWhisper() {
   return whisperPromise;
 }
 
-const elapsedLabel = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function VoiceDots({ active }) {
+  const dots = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
+
+  useEffect(() => {
+    const animations = dots.map((dot, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 90),
+          Animated.timing(dot, { toValue: 1, duration: 220, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 220, useNativeDriver: true }),
+          Animated.delay((dots.length - index) * 90),
+        ])
+      )
+    );
+    if (active) animations.forEach((animation) => animation.start());
+    else dots.forEach((dot) => dot.setValue(0));
+    return () => animations.forEach((animation) => animation.stop());
+  }, [active, dots]);
+
+  return (
+    <View style={styles.dots}>
+      {dots.map((dot, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.voiceDot,
+            {
+              opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
+              transform: [{ translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [2, -3] }) }],
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 export default function VoiceInput({ value, onChangeText }) {
-  const { width: windowWidth } = useWindowDimensions();
   const [state, setState] = useState("idle"); // idle | downloading | recording | paused | processing
   const [progress, setProgress] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [hint, setHint] = useState("");
-  const [locked, setLocked] = useState(false);
-  const [cancelArmed, setCancelArmed] = useState(false);
   const transcriberRef = useRef(null);
   const segmentRef = useRef("");
   const accumulatedRef = useRef("");
   const baseRef = useRef("");
-  const lockedRef = useRef(false);
-  const cancelArmedRef = useRef(false);
-  const pressedRef = useRef(false);
-  const startingRef = useRef(false);
-  const latest = useRef({ begin: null, finish: null, discard: null });
-
-  useEffect(() => {
-    if (state !== "recording") return undefined;
-    const timer = setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
-    return () => clearInterval(timer);
-  }, [state]);
+  const finalResolverRef = useRef(null);
 
   useEffect(() => () => {
+    finalResolverRef.current = null;
     transcriberRef.current?.release().catch(() => {});
   }, []);
 
@@ -78,7 +115,7 @@ export default function VoiceInput({ value, onChangeText }) {
       throw new Error("No se pudo descargar Whisper.");
     }
     setState("idle");
-    setHint("Modelo listo: mantené apretado para dictar");
+    setHint("Modelo listo: tocá el micrófono para dictar");
     return true;
   };
 
@@ -96,9 +133,9 @@ export default function VoiceInput({ value, onChangeText }) {
         { whisperContext: whisper, audioStream: new AudioPcmStreamAdapter() },
         {
           audioSliceSec: 5,
-          audioMinSec: 0.8,
-          realtimeProcessingPauseMs: 1050,
-          initRealtimeAfterMs: 600,
+          audioMinSec: 0.6,
+          realtimeProcessingPauseMs: 900,
+          initRealtimeAfterMs: 500,
           transcribeOptions: { language: "es", maxThreads: 4 },
         },
         {
@@ -109,24 +146,19 @@ export default function VoiceInput({ value, onChangeText }) {
             const spoken = [accumulatedRef.current, text].filter(Boolean).join(" ").trim();
             onChangeText([baseRef.current, spoken].filter(Boolean).join(" ").trim());
           },
+          onSliceTranscriptionStabilized: (text) => {
+            const clean = text?.trim();
+            if (clean) segmentRef.current = clean;
+            finalResolverRef.current?.(clean || "");
+            finalResolverRef.current = null;
+          },
           onError: (message) => setError(String(message)),
         }
       );
       transcriberRef.current = transcriber;
       setState("recording");
-      startingRef.current = true;
       await transcriber.start();
-      startingRef.current = false;
-      // Si el usuario soltó mientras Android pedía permiso o Whisper iniciaba,
-      // cerramos acá. Sin esta compuerta el micrófono podía quedar grabando solo.
-      if (cancelArmedRef.current) {
-        await latest.current.discard();
-      } else if (!pressedRef.current && !lockedRef.current) {
-        await pause();
-        await finish();
-      }
     } catch (e) {
-      startingRef.current = false;
       setError(e.message || String(e));
       setState("idle");
     }
@@ -136,37 +168,36 @@ export default function VoiceInput({ value, onChangeText }) {
     if (!transcriberRef.current) return;
     setState("processing");
     const transcriber = transcriberRef.current;
+    const finalText = new Promise((resolve) => {
+      finalResolverRef.current = resolve;
+    });
     await transcriber.nextSlice();
-    const deadline = Date.now() + 12000;
-    while (transcriber.getStatistics().isTranscribing && Date.now() < deadline) {
-      // Whisper Base puede tardar varios segundos en el Galaxy A15. Esperamos
-      // el último corte antes de liberar el micrófono para no perder palabras.
-      await wait(120);
-    }
+    await Promise.race([finalText, wait(20000)]);
     await transcriber.stop();
     await transcriber.release();
     transcriberRef.current = null;
-    accumulatedRef.current = [accumulatedRef.current, segmentRef.current].filter(Boolean).join(" ").trim();
+    finalResolverRef.current = null;
+    accumulatedRef.current = [accumulatedRef.current, segmentRef.current]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     segmentRef.current = "";
+    onChangeText([baseRef.current, accumulatedRef.current].filter(Boolean).join(" ").trim());
     setState("paused");
   };
 
   const finish = async () => {
     if (transcriberRef.current) await pause();
-    const spoken = [accumulatedRef.current, segmentRef.current].filter(Boolean).join(" ").trim();
-    onChangeText([baseRef.current, spoken].filter(Boolean).join(" ").trim());
+    onChangeText([baseRef.current, accumulatedRef.current].filter(Boolean).join(" ").trim());
     accumulatedRef.current = "";
     segmentRef.current = "";
     baseRef.current = "";
-    lockedRef.current = false;
-    cancelArmedRef.current = false;
-    setLocked(false);
-    setCancelArmed(false);
-    setElapsed(0);
     setState("idle");
   };
 
   const discard = async () => {
+    finalResolverRef.current?.("");
+    finalResolverRef.current = null;
     if (transcriberRef.current) {
       await transcriberRef.current.stop();
       await transcriberRef.current.release();
@@ -176,11 +207,6 @@ export default function VoiceInput({ value, onChangeText }) {
     accumulatedRef.current = "";
     segmentRef.current = "";
     baseRef.current = "";
-    lockedRef.current = false;
-    cancelArmedRef.current = false;
-    setLocked(false);
-    setCancelArmed(false);
-    setElapsed(0);
     setState("idle");
   };
 
@@ -197,79 +223,56 @@ export default function VoiceInput({ value, onChangeText }) {
     }
     baseRef.current = value.trim();
     accumulatedRef.current = "";
-    lockedRef.current = false;
-    cancelArmedRef.current = false;
-    setLocked(false);
-    setCancelArmed(false);
-    setElapsed(0);
     await startSegment();
   };
 
-  latest.current = { begin, finish, discard };
-
-  const responder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => {
-      pressedRef.current = true;
-      latest.current.begin();
-    },
-    onPanResponderMove: (_, gesture) => {
-      if (gesture.dx < -56 && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
-        cancelArmedRef.current = true;
-        setCancelArmed(true);
-        return;
-      }
-      if (gesture.dy < -48 && Math.abs(gesture.dy) > Math.abs(gesture.dx)) {
-        lockedRef.current = true;
-        setLocked(true);
-      }
-    },
-    onPanResponderRelease: () => {
-      pressedRef.current = false;
-      if (cancelArmedRef.current) {
-        latest.current.discard().catch(() => {});
-      } else if (!lockedRef.current && transcriberRef.current && !startingRef.current) {
-        latest.current.finish().catch(() => {});
-      }
-    },
-    onPanResponderTerminate: () => {
-      pressedRef.current = false;
-      if (!lockedRef.current && transcriberRef.current && !startingRef.current) {
-        latest.current.finish().catch(() => {});
-      }
-    },
-  })).current;
-
   if (state === "downloading") {
-    return <View style={styles.download}><ActivityIndicator color="#00F2FE" size="small" /><Text style={styles.downloadText}>{Math.round(progress * 100)}%</Text></View>;
+    return (
+      <View style={styles.download}>
+        <ActivityIndicator color="#00F2FE" size="small" />
+        <Text style={styles.downloadText}>{Math.round(progress * 100)}%</Text>
+      </View>
+    );
   }
 
   if (["recording", "paused", "processing"].includes(state)) {
     return (
-      <View style={[styles.bar, cancelArmed && styles.barCancel, { width: Math.min(336, windowWidth - 32) }]}>
-        <View style={styles.dot} />
-        <Text style={styles.time}>{elapsedLabel(elapsed)}</Text>
-        <View style={styles.wave}>
-          {cancelArmed ? (
-            <Text style={styles.cancelText}>Soltá para cancelar</Text>
-          ) : locked ? (
-            <Text style={styles.gestureText}><Feather name="lock" size={12} /> Bloqueado</Text>
-          ) : (
-            <Text style={styles.gestureText}>← cancelar · ↑ bloquear</Text>
-          )}
+      <View style={styles.audioPanel}>
+        <View style={styles.voicePill}>
+          <View style={[styles.statusDot, state === "paused" && styles.statusDotPaused]} />
+          <VoiceDots active={state === "recording"} />
         </View>
-        <Pressable onPress={state === "recording" ? pause : startSegment} disabled={state === "processing"} style={styles.control}>
-          {state === "processing" ? <ActivityIndicator color="#00F2FE" size="small" /> : <Feather name={state === "recording" ? "pause" : "play"} size={18} color="#00F2FE" />}
+        <Pressable
+          onPress={state === "recording" ? pause : startSegment}
+          disabled={state === "processing"}
+          style={styles.control}
+        >
+          {state === "processing" ? (
+            <ActivityIndicator color="#00F2FE" size="small" />
+          ) : (
+            <Feather name={state === "recording" ? "pause" : "play"} size={17} color="#00F2FE" />
+          )}
         </Pressable>
-        <Pressable onPress={discard} style={styles.quiet}><Feather name="trash-2" size={17} color={colors.textMuted} /></Pressable>
-        <Pressable onPress={finish} style={styles.finish}><Feather name="check" size={18} color="#fff" /></Pressable>
+        <Pressable onPress={discard} style={styles.quiet}>
+          <Feather name="trash-2" size={17} color={colors.textMuted} />
+        </Pressable>
+        <Pressable
+          accessibilityLabel="Cargar transcripción"
+          onPress={finish}
+          disabled={state === "processing"}
+          style={[styles.finish, state === "processing" && { opacity: 0.45 }]}
+        >
+          <Feather name="check" size={18} color="#fff" />
+        </Pressable>
       </View>
     );
   }
 
   return (
     <View>
-      <View {...responder.panHandlers} style={styles.mic}><Feather name="mic" size={18} color="#00F2FE" /></View>
+      <Pressable accessibilityLabel="Dictar por voz" onPress={begin} style={styles.mic}>
+        <Feather name="mic" size={18} color="#00F2FE" />
+      </Pressable>
       {error ? <Text style={styles.error} numberOfLines={1}>{error}</Text> : null}
       {hint ? <Text style={styles.hint} numberOfLines={1}>{hint}</Text> : null}
     </View>
@@ -280,16 +283,17 @@ const styles = StyleSheet.create({
   mic: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.cyanBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,22,38,0.82)" },
   download: { width: 44, height: 38, alignItems: "center", justifyContent: "center" },
   downloadText: { ...type.small, ...font(600), fontSize: 9, color: "#00F2FE" },
-  bar: { position: "absolute", right: -46, bottom: 52, zIndex: 20, elevation: 8, height: 52, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "#141822" },
-  barCancel: { borderColor: `${colors.danger}99` },
-  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#F05D62" },
-  time: { ...type.small, ...font(600), ...tabular, color: colors.text },
-  wave: { flex: 1, height: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-around" },
-  gestureText: { ...type.small, ...font(600), fontSize: 10, color: colors.textMuted, textAlign: "center" },
-  cancelText: { ...type.small, ...font(700), fontSize: 10, color: colors.danger, textAlign: "center" },
-  control: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.cyanBorder, alignItems: "center", justifyContent: "center" },
-  quiet: { width: 30, height: 34, alignItems: "center", justifyContent: "center" },
+  // Es hijo directo del composer: right: 0 lo alinea con su borde. El valor
+  // negativo anterior empujaba justamente el botón de confirmar fuera del A15.
+  audioPanel: { position: "absolute", right: 0, bottom: 50, zIndex: 20, elevation: 8, width: 248, height: 42, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
+  voicePill: { width: 102, height: 34, borderRadius: radius.pill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: "#141822" },
+  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#F05D62" },
+  statusDotPaused: { backgroundColor: colors.textMuted },
+  dots: { height: 16, flexDirection: "row", alignItems: "center", gap: 5 },
+  voiceDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#00F2FE" },
+  control: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#141822", alignItems: "center", justifyContent: "center" },
+  quiet: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#141822", alignItems: "center", justifyContent: "center" },
   finish: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
-  error: { position: "absolute", width: 180, right: 0, bottom: 46, color: colors.danger, fontSize: 9 },
-  hint: { position: "absolute", width: 220, right: 0, bottom: 46, color: "#00F2FE", fontSize: 9 },
+  error: { position: "absolute", width: 220, right: 0, bottom: 46, color: colors.danger, fontSize: 9 },
+  hint: { position: "absolute", width: 240, right: 0, bottom: 46, color: "#00F2FE", fontSize: 9 },
 });

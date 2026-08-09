@@ -282,7 +282,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
     <KeyboardAvoidingView
       style={[styles.root, keyboardOpen && styles.rootKeyboard]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "android" ? -24 : 0}
+      keyboardVerticalOffset={Platform.OS === "android" ? -64 : 0}
     >
       <StarField />
       <View style={styles.header}>
@@ -354,7 +354,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: spacing.sm, overflow: "hidden" },
-  rootKeyboard: { paddingBottom: spacing.sm },
+  rootKeyboard: { paddingBottom: spacing.md },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
   backButton: { width: 34, height: 38, alignItems: "center", justifyContent: "center" },
   title: { ...type.heading, fontSize: 23 },
