@@ -33,14 +33,17 @@ export default function VoiceInput({ value, onChangeText }) {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [hint, setHint] = useState("");
+  const [locked, setLocked] = useState(false);
+  const [cancelArmed, setCancelArmed] = useState(false);
   const transcriberRef = useRef(null);
   const segmentRef = useRef("");
   const accumulatedRef = useRef("");
   const baseRef = useRef("");
   const lockedRef = useRef(false);
+  const cancelArmedRef = useRef(false);
   const pressedRef = useRef(false);
   const startingRef = useRef(false);
-  const latest = useRef({ begin: null, finish: null });
+  const latest = useRef({ begin: null, finish: null, discard: null });
 
   useEffect(() => {
     if (state !== "recording") return undefined;
@@ -92,10 +95,10 @@ export default function VoiceInput({ value, onChangeText }) {
       const transcriber = new RealtimeTranscriber(
         { whisperContext: whisper, audioStream: new AudioPcmStreamAdapter() },
         {
-          audioSliceSec: 8,
+          audioSliceSec: 5,
           audioMinSec: 0.8,
-          realtimeProcessingPauseMs: 1500,
-          initRealtimeAfterMs: 900,
+          realtimeProcessingPauseMs: 1050,
+          initRealtimeAfterMs: 600,
           transcribeOptions: { language: "es", maxThreads: 4 },
         },
         {
@@ -116,7 +119,9 @@ export default function VoiceInput({ value, onChangeText }) {
       startingRef.current = false;
       // Si el usuario soltó mientras Android pedía permiso o Whisper iniciaba,
       // cerramos acá. Sin esta compuerta el micrófono podía quedar grabando solo.
-      if (!pressedRef.current && !lockedRef.current) {
+      if (cancelArmedRef.current) {
+        await latest.current.discard();
+      } else if (!pressedRef.current && !lockedRef.current) {
         await pause();
         await finish();
       }
@@ -154,6 +159,9 @@ export default function VoiceInput({ value, onChangeText }) {
     segmentRef.current = "";
     baseRef.current = "";
     lockedRef.current = false;
+    cancelArmedRef.current = false;
+    setLocked(false);
+    setCancelArmed(false);
     setElapsed(0);
     setState("idle");
   };
@@ -169,6 +177,9 @@ export default function VoiceInput({ value, onChangeText }) {
     segmentRef.current = "";
     baseRef.current = "";
     lockedRef.current = false;
+    cancelArmedRef.current = false;
+    setLocked(false);
+    setCancelArmed(false);
     setElapsed(0);
     setState("idle");
   };
@@ -187,11 +198,14 @@ export default function VoiceInput({ value, onChangeText }) {
     baseRef.current = value.trim();
     accumulatedRef.current = "";
     lockedRef.current = false;
+    cancelArmedRef.current = false;
+    setLocked(false);
+    setCancelArmed(false);
     setElapsed(0);
     await startSegment();
   };
 
-  latest.current = { begin, finish };
+  latest.current = { begin, finish, discard };
 
   const responder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -200,11 +214,21 @@ export default function VoiceInput({ value, onChangeText }) {
       latest.current.begin();
     },
     onPanResponderMove: (_, gesture) => {
-      if (gesture.dy < -48) lockedRef.current = true;
+      if (gesture.dx < -56 && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
+        cancelArmedRef.current = true;
+        setCancelArmed(true);
+        return;
+      }
+      if (gesture.dy < -48 && Math.abs(gesture.dy) > Math.abs(gesture.dx)) {
+        lockedRef.current = true;
+        setLocked(true);
+      }
     },
     onPanResponderRelease: () => {
       pressedRef.current = false;
-      if (!lockedRef.current && transcriberRef.current && !startingRef.current) {
+      if (cancelArmedRef.current) {
+        latest.current.discard().catch(() => {});
+      } else if (!lockedRef.current && transcriberRef.current && !startingRef.current) {
         latest.current.finish().catch(() => {});
       }
     },
@@ -222,10 +246,18 @@ export default function VoiceInput({ value, onChangeText }) {
 
   if (["recording", "paused", "processing"].includes(state)) {
     return (
-      <View style={[styles.bar, { width: Math.min(322, windowWidth - 48) }]}>
+      <View style={[styles.bar, cancelArmed && styles.barCancel, { width: Math.min(336, windowWidth - 32) }]}>
         <View style={styles.dot} />
         <Text style={styles.time}>{elapsedLabel(elapsed)}</Text>
-        <View style={styles.wave}>{[7, 13, 20, 10, 17, 8, 21, 12].map((height, i) => <View key={i} style={[styles.waveLine, { height }]} />)}</View>
+        <View style={styles.wave}>
+          {cancelArmed ? (
+            <Text style={styles.cancelText}>Soltá para cancelar</Text>
+          ) : locked ? (
+            <Text style={styles.gestureText}><Feather name="lock" size={12} /> Bloqueado</Text>
+          ) : (
+            <Text style={styles.gestureText}>← cancelar · ↑ bloquear</Text>
+          )}
+        </View>
         <Pressable onPress={state === "recording" ? pause : startSegment} disabled={state === "processing"} style={styles.control}>
           {state === "processing" ? <ActivityIndicator color="#00F2FE" size="small" /> : <Feather name={state === "recording" ? "pause" : "play"} size={18} color="#00F2FE" />}
         </Pressable>
@@ -245,14 +277,16 @@ export default function VoiceInput({ value, onChangeText }) {
 }
 
 const styles = StyleSheet.create({
-  mic: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: colors.cyanBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,22,38,0.82)" },
-  download: { width: 48, height: 42, alignItems: "center", justifyContent: "center" },
+  mic: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.cyanBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,22,38,0.82)" },
+  download: { width: 44, height: 38, alignItems: "center", justifyContent: "center" },
   downloadText: { ...type.small, ...font(600), fontSize: 9, color: "#00F2FE" },
-  bar: { position: "absolute", right: -50, bottom: -6, height: 54, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "#141822" },
+  bar: { position: "absolute", right: -46, bottom: 52, zIndex: 20, elevation: 8, height: 52, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "#141822" },
+  barCancel: { borderColor: `${colors.danger}99` },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#F05D62" },
   time: { ...type.small, ...font(600), ...tabular, color: colors.text },
   wave: { flex: 1, height: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-around" },
-  waveLine: { width: 2, borderRadius: 1, backgroundColor: "#00F2FE" },
+  gestureText: { ...type.small, ...font(600), fontSize: 10, color: colors.textMuted, textAlign: "center" },
+  cancelText: { ...type.small, ...font(700), fontSize: 10, color: colors.danger, textAlign: "center" },
   control: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.cyanBorder, alignItems: "center", justifyContent: "center" },
   quiet: { width: 30, height: 34, alignItems: "center", justifyContent: "center" },
   finish: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
