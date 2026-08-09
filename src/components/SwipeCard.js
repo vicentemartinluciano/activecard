@@ -181,16 +181,16 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
           calculada: interpolar `borderColor` es frágil en Android. */}
       <Animated.View
         pointerEvents="none"
-        style={[styles.edge, { borderColor: ratingColors.good, opacity: knewOpacity }]}
+        style={[styles.edge, styles.edgeGood, { borderColor: ratingColors.good, opacity: knewOpacity }]}
       />
       <Animated.View
         pointerEvents="none"
-        style={[styles.edge, { borderColor: ratingColors.again, opacity: forgotOpacity }]}
+        style={[styles.edge, styles.edgeAgain, { borderColor: ratingColors.again, opacity: forgotOpacity }]}
       />
       {onSwipeUp ? (
         <Animated.View
           pointerEvents="none"
-          style={[styles.edge, { borderColor: ratingColors.hard, opacity: middleOpacity }]}
+          style={[styles.edge, styles.edgeHard, { borderColor: ratingColors.hard, opacity: middleOpacity }]}
         />
       ) : null}
     </Animated.View>
@@ -247,7 +247,16 @@ const styles = StyleSheet.create({
   edge: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 10,
-    borderWidth: 2.5,
+    borderWidth: 3,
     borderRadius: radius.lg,
+  },
+  edgeGood: {
+    boxShadow: `0 0 11px ${ratingColors.good}75, inset 0 0 7px ${ratingColors.good}40`,
+  },
+  edgeAgain: {
+    boxShadow: `0 0 11px ${ratingColors.again}75, inset 0 0 7px ${ratingColors.again}40`,
+  },
+  edgeHard: {
+    boxShadow: `0 0 11px ${ratingColors.hard}75, inset 0 0 7px ${ratingColors.hard}40`,
   },
 });

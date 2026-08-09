@@ -63,7 +63,7 @@ export default function Sheen({ disabled = false, radius = 0 }) {
   // banda cuyas puntas quedan fuera del recorte, inclinar por corte o por giro
   // se ve igual.
   const inclinar =
-    Platform.OS === "web" ? { skewX: `-${INCLINACION}deg` } : { rotate: `-${INCLINACION}deg` };
+    Platform.OS === "web" ? { skewX: `${INCLINACION}deg` } : { rotate: `${INCLINACION}deg` };
 
   return (
     <View
