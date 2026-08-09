@@ -1,6 +1,9 @@
 import { buildBackup, restoreBackup } from "../backup";
 
-const TABLES = ["folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections"];
+const TABLES = [
+  "folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections",
+  "gym_chats", "gym_messages",
+];
 
 // Doble mínimo de una conexión expo-sqlite async con tablas en memoria.
 function fakeDb(initialTables = {}) {
@@ -41,7 +44,7 @@ describe("buildBackup", () => {
     });
     const backup = await buildBackup(db, NOW);
     expect(backup.app).toBe("activecard");
-    expect(backup.version).toBe(2);
+    expect(backup.version).toBe(3);
     expect(backup.exportedAt).toBe(NOW.toISOString());
     expect(backup.decks).toEqual([{ id: 1, name: "Administración", created_at: "x" }]);
     expect(backup.cards).toEqual([{ id: 1, deck_id: 1, front: "f", back: "b" }]);
@@ -82,6 +85,8 @@ describe("restoreBackup", () => {
       cards: 1,
       review_logs: 0,
       connections: 0,
+      gym_chats: 0,
+      gym_messages: 0,
     });
   });
 

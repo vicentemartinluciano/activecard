@@ -1,298 +1,352 @@
-// Gimnasio Mental: charla iterativa con el Socio Exigente.
-// El usuario construye una conexión CON el socio (texto o dictado). Cuando la
-// conexión está madura, el socio propone una síntesis (o el usuario la fuerza
-// con "Sintetizar") → se muestra la tarjeta en un preview editable → al guardar
-// se crea la conexión y nace la tarjeta híbrida (una tarjeta más, entra a FSRS).
+import Feather from "@expo/vector-icons/Feather";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-
-import { createCard } from "../db/cards";
+import { createCard, deleteCard, getCard, updateCardText } from "../db/cards";
 import { saveConnection } from "../db/connections";
-import { auditConnection } from "../lib/auditor";
+import { getDeck } from "../db/decks";
+import {
+  addGymMessage,
+  createGymChat,
+  getGymChat,
+  listGymMessages,
+  renameGymChat,
+  setGymChatDraft,
+  updateGymMessageMetadata,
+} from "../db/gymChats";
+import { resolveGymCardChoice, runGymAssistant } from "../lib/gymAssistant";
 import { toPlainText } from "../lib/richtext";
 import { colors, font, radius, spacing, type } from "../theme";
-import MicButton from "./MicButton";
-import NotionField from "./NotionField";
+import StarField from "./StarField";
+import VoiceInput from "./VoiceInput";
 import { Button, confirmAsync, Field } from "./ui";
 
-export default function ChatAuditor({ card, onDone }) {
-  // stage: 'chat' (charla) | 'preview' (tarjeta editable) | 'saved' (guardada)
-  const [stage, setStage] = useState("chat");
-  const [transcript, setTranscript] = useState([]); // [{role:'user'|'auditor', text, card?}]
+const titleFrom = (text) => {
+  const clean = text.trim().replace(/\s+/g, " ");
+  return clean.length > 44 ? `${clean.slice(0, 44)}…` : clean || "Nueva charla";
+};
+
+function ActionPreview({ message, onConfirm, onChoose, busy }) {
+  const action = message.metadata?.action;
+  if (!action) return null;
+  if (action.type === "choose_card") {
+    const options = Array.isArray(action.options) ? action.options : [];
+    const selectedCardId = action.selectedCardId;
+    return (
+      <View style={styles.actionCard}>
+        {options.map((option) => (
+          <Pressable
+            key={option.cardId}
+            disabled={selectedCardId != null || busy}
+            onPress={() => onChoose(message, option.cardId)}
+            style={[styles.optionRow, selectedCardId != null && option.cardId !== selectedCardId && { opacity: 0.45 }]}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.optionTitle} numberOfLines={2}>{option.front}</Text>
+              <Text style={type.small}>{option.deckName}</Text>
+            </View>
+            <Feather name={selectedCardId === option.cardId ? "check" : "chevron-right"} size={18} color={selectedCardId === option.cardId ? "#00F2FE" : colors.textMuted} />
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+  if (!["edit_card", "create_card", "delete_card"].includes(action.type)) return null;
+  const done = action.status === "done";
+  return (
+    <View style={styles.actionCard}>
+      <Text style={styles.actionEyebrow}>
+        {action.type === "edit_card" ? "CAMBIO PROPUESTO" : action.type === "create_card" ? "TARJETA PROPUESTA" : "ELIMINACIÓN PROPUESTA"}
+      </Text>
+      {action.before ? (
+        <View style={styles.beforeBox}>
+          <Text style={styles.miniLabel}>ANTES</Text>
+          <Text style={styles.previewText}>{toPlainText(action.before.front)}</Text>
+          <Text style={styles.previewMuted}>{toPlainText(action.before.back)}</Text>
+        </View>
+      ) : null}
+      {action.type !== "delete_card" ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={styles.miniLabel}>{action.type === "edit_card" ? "DESPUÉS" : "FRENTE"}</Text>
+          <Text style={styles.previewText}>{toPlainText(action.front)}</Text>
+          <Text style={styles.previewMuted}>{toPlainText(action.back)}</Text>
+        </View>
+      ) : null}
+      <Button
+        label={done ? "Aplicado" : action.type === "delete_card" ? "Revisar eliminación" : "Confirmar"}
+        kind={action.type === "delete_card" ? "ghost" : "primary"}
+        disabled={done || busy}
+        onPress={() => onConfirm(message)}
+      />
+    </View>
+  );
+}
+
+export default function ChatAuditor({ card = null, chatId = null, onDone = null }) {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const routeChatId = params.chatId ? Number(params.chatId) : null;
+  const persistentChatId = chatId || routeChatId || null;
+  const [session, setSession] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const [draft, setDraft] = useState({ front: "", back: "" }); // tarjeta en preview
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(null); // {hybridCardId, front} tras guardar
+  const [error, setError] = useState("");
   const scrollRef = useRef(null);
-  const baseInputRef = useRef(""); // texto previo al dictado en curso
+  const saveTimer = useRef(null);
 
-  // Un turno de charla. forceSynthesis lo dispara el botón "Sintetizar": puede
-  // ir sin texto nuevo (solo pide cerrar con lo que ya hay).
-  const send = async ({ forceSynthesis = false } = {}) => {
+  const hydrateAction = useCallback(async (turn) => {
+    const action = turn.action;
+    if (!action || !["edit_card", "delete_card"].includes(action.type) || !action.cardId) return action;
+    const before = await getCard(action.cardId);
+    return before ? { ...action, before: { front: before.front, back: before.back, deck_id: before.deck_id } } : action;
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const id = persistentChatId || await createGymChat({ originCardId: card?.id || null });
+      const [chat, savedMessages] = await Promise.all([getGymChat(id), listGymMessages(id)]);
+      if (!alive) return;
+      if (!chat) throw new Error("Esta conversación ya no existe.");
+      setSession(chat);
+      setMessages(savedMessages);
+      setInput(chat?.draft_text || "");
+      if (!persistentChatId) router.setParams({ chatId: String(id) });
+    })().catch((e) => setError(e.message || String(e)));
+    return () => {
+      alive = false;
+      clearTimeout(saveTimer.current);
+    };
+  }, [card?.id, persistentChatId, router]);
+
+  const changeInput = (value) => {
+    setInput(value);
+    clearTimeout(saveTimer.current);
+    if (session?.id) saveTimer.current = setTimeout(() => setGymChatDraft(session.id, value).catch(() => {}), 250);
+  };
+
+  const appendAssistant = async (turn) => {
+    const action = await hydrateAction(turn);
+    const id = await addGymMessage(session.id, "assistant", turn.message, action ? { action } : null);
+    const row = { id, chat_id: session.id, role: "assistant", text: turn.message, metadata: action ? { action } : null };
+    setMessages((current) => [...current, row]);
+    return row;
+  };
+
+  const send = async () => {
     const text = input.trim();
-    if (busy) return;
-    if (!text && !forceSynthesis) return;
-    const nextTranscript = text ? [...transcript, { role: "user", text }] : transcript;
-    setTranscript(nextTranscript);
-    setInput("");
-    baseInputRef.current = "";
+    if (!text || busy || !session) return;
     setBusy(true);
-    setError(null);
+    setError("");
     try {
-      const turn = await auditConnection(card, nextTranscript, { forceSynthesis });
-      const auditorMsg = turn.card
-        ? { role: "auditor", text: turn.message, card: turn.card }
-        : { role: "auditor", text: turn.message };
-      setTranscript([...nextTranscript, auditorMsg]);
-      if (turn.mode === "sintesis") {
-        setDraft({ ...turn.card });
-        setStage("preview");
+      clearTimeout(saveTimer.current);
+      const id = await addGymMessage(session.id, "user", text);
+      const userMessage = { id, chat_id: session.id, role: "user", text, metadata: null };
+      const next = [...messages, userMessage];
+      setMessages(next);
+      setInput("");
+      await setGymChatDraft(session.id, "");
+      if (messages.length === 0 && session.title === "Nueva charla") {
+        const title = titleFrom(text);
+        await renameGymChat(session.id, title);
+        setSession((current) => ({ ...current, title }));
       }
+      const origin = card || (session.origin_card_id ? await getCard(session.origin_card_id) : null);
+      const turn = await runGymAssistant({ originCard: origin, messages: next });
+      await appendAssistant(turn);
     } catch (e) {
       setError(e.message || String(e));
-      // Restaurar el estado previo para no perder lo escrito.
-      setTranscript(transcript);
-      setInput(text);
     } finally {
       setBusy(false);
     }
   };
 
-  // Guardar la tarjeta editada: crea la híbrida y registra la conexión.
-  const confirmSave = async () => {
-    if (!draft.front.trim() || !draft.back.trim() || saving) return;
-    setSaving(true);
-    setError(null);
+  const chooseCard = async (message, cardId) => {
+    if (busy) return;
+    setBusy(true);
     try {
-      const hybridCardId = await createCard({
-        deckId: card.deck_id,
-        front: draft.front,
-        back: draft.back,
-        source: "hybrid",
-        originCardId: card.id,
+      const action = message.metadata.action;
+      const origin = card || (session.origin_card_id ? await getCard(session.origin_card_id) : null);
+      const turn = await resolveGymCardChoice({
+        originCard: origin,
+        messages,
+        cardId,
+        intent: action.intent,
+        instruction: action.instruction,
       });
-      await saveConnection({
-        cardId: card.id,
-        finalText: toPlainText(draft.back),
-        transcript,
-        hybridCardId,
-      });
-      setSaved({ hybridCardId, front: draft.front });
-      setStage("saved");
+      await appendAssistant(turn);
+      const completedChoice = { ...action, selectedCardId: cardId };
+      await updateGymMessageMetadata(message.id, { action: completedChoice });
+      setMessages((current) => current.map((item) => item.id === message.id ? { ...item, metadata: { action: completedChoice } } : item));
     } catch (e) {
-      setError(e.message || String(e)); // queda en preview, se puede reintentar
+      setError(e.message || String(e));
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   };
 
-  const onMicTranscript = (text, isFinal) => {
-    // Mientras dicta: base + parcial. Al finalizar, queda fijado.
-    setInput(`${baseInputRef.current}${baseInputRef.current ? " " : ""}${text}`);
-    if (isFinal) {
-      baseInputRef.current = `${baseInputRef.current}${baseInputRef.current ? " " : ""}${text}`;
+  const confirmAction = async (message) => {
+    const action = message.metadata.action;
+    if (!action || action.status === "done") return;
+    setBusy(true);
+    try {
+      if (action.type === "edit_card") {
+        if (!(await getCard(action.cardId))) throw new Error("La tarjeta ya no existe.");
+        await updateCardText(action.cardId, action.front, action.back);
+      } else if (action.type === "create_card") {
+        if (!(await getDeck(action.deckId))) throw new Error("El mazo elegido ya no existe.");
+        const createdId = await createCard({
+          deckId: action.deckId,
+          front: action.front,
+          back: action.back,
+          source: action.source === "hybrid" ? "hybrid" : "manual",
+          originCardId: action.source === "hybrid" ? action.originCardId || session.origin_card_id : null,
+        });
+        action.createdCardId = createdId;
+        if (action.source === "hybrid" && (action.originCardId || session.origin_card_id)) {
+          await saveConnection({
+            cardId: action.originCardId || session.origin_card_id,
+            finalText: toPlainText(action.back),
+            transcript: messages.map((item) => ({ role: item.role, text: item.text })),
+            hybridCardId: createdId,
+          });
+        }
+      } else if (action.type === "delete_card") {
+        if (!(await getCard(action.cardId))) throw new Error("La tarjeta ya no existe.");
+        const ok = await confirmAsync("Eliminar esta tarjeta", "Esta acción no se puede deshacer.");
+        if (!ok) return;
+        await deleteCard(action.cardId);
+      }
+      const completed = { ...action, status: "done" };
+      await updateGymMessageMetadata(message.id, { action: completed });
+      setMessages((current) => current.map((item) => item.id === message.id ? { ...item, metadata: { action: completed } } : item));
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
-  const skip = async () => {
-    const hasWork =
-      transcript.length > 0 ||
-      input.trim().length > 0 ||
-      draft.front.trim().length > 0 ||
-      draft.back.trim().length > 0;
-    if (hasWork) {
-      const discard = await confirmAsync(
-        "Descartar esta charla",
-        "Se perderán la conversación y la síntesis que todavía no guardaste."
-      );
-      if (!discard) return;
-    }
-    onDone({ skipped: true });
-  };
+  if (!session) return <ActivityIndicator color={colors.accent} style={{ flex: 1 }} />;
 
-  // --- Preview: la tarjeta propuesta, editable como cualquier otra ---
-  if (stage === "preview") {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Tarjeta propuesta</Text>
-        <Text style={type.small}>Ajustala como quieras antes de guardarla.</Text>
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.sm }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={{ gap: spacing.sm }}>
-            <Text style={type.small}>Frente (pregunta)</Text>
-            <NotionField
-              value={draft.front}
-              onChangeText={(v) => setDraft((d) => ({ ...d, front: v }))}
-              defaultAlign="center"
-            />
-          </View>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={type.small}>Dorso (síntesis)</Text>
-            <NotionField
-              value={draft.back}
-              onChangeText={(v) => setDraft((d) => ({ ...d, back: v }))}
-            />
-          </View>
-        </ScrollView>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button
-          label={saving ? "Guardando…" : "Guardar tarjeta"}
-          kind="primary"
-          onPress={confirmSave}
-          disabled={!draft.front.trim() || !draft.back.trim() || saving}
-        />
-        <View style={styles.actions}>
-          <Button
-            label="Seguir charlando"
-            kind="ghost"
-            style={{ flex: 1 }}
-            onPress={() => {
-              setError(null);
-              setStage("chat");
-            }}
-          />
-          <Button label="Saltar" kind="ghost" onPress={skip} />
-        </View>
-      </View>
-    );
-  }
-
-  // --- Charla ---
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Gimnasio Mental</Text>
-      <Text style={type.small}>
-        Charlá con tu socio: ¿con qué otra idea, libro, materia o vivencia conectás este concepto?
-      </Text>
-
+    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <StarField />
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Gimnasio Mental</Text>
+          <Text style={styles.saved}>Tu conversación se guarda automáticamente</Text>
+        </View>
+        <Pressable onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
+          <Feather name="clock" size={20} color={colors.text} />
+        </Pressable>
+        <Pressable onPress={() => router.push("/gimnasio/chat")} style={styles.iconButton}>
+          <Feather name="plus" size={21} color={colors.text} />
+        </Pressable>
+      </View>
+      {(card || session.origin_front) ? (
+        <View style={styles.contextPill}>
+          <Feather name="book-open" size={15} color="#00F2FE" />
+          <Text style={styles.contextText} numberOfLines={1}>{toPlainText(card?.front || session.origin_front)}</Text>
+        </View>
+      ) : null}
       <ScrollView
         ref={scrollRef}
         style={styles.chat}
-        contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.sm }}
-        onContentSizeChange={() => scrollRef.current && scrollRef.current.scrollToEnd()}
+        contentContainerStyle={styles.chatContent}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        {transcript.map((m, i) => (
-          <View
-            key={i}
-            style={[styles.bubble, m.role === "user" ? styles.bubbleUser : styles.bubbleAuditor]}
-          >
-            <Text style={styles.bubbleText}>{m.text}</Text>
-          </View>
-        ))}
-        {busy ? (
-          <View style={[styles.bubble, styles.bubbleAuditor]}>
-            <ActivityIndicator color={colors.accent} size="small" />
+        {messages.length === 0 ? (
+          <View style={styles.welcome}>
+            <View style={styles.avatar}><Feather name="aperture" size={22} color="#00F2FE" /></View>
+            <Text style={styles.welcomeText}>Podemos pensar cualquier tema o trabajar con tus tarjetas. Decime qué necesitás.</Text>
           </View>
         ) : null}
+        {messages.map((message) => (
+          <View key={message.id} style={message.role === "user" ? styles.userWrap : styles.assistantWrap}>
+            {message.role === "assistant" ? <View style={styles.avatar}><Feather name="aperture" size={18} color="#00F2FE" /></View> : null}
+            <View style={{ maxWidth: message.role === "user" ? "86%" : "88%", gap: spacing.xs }}>
+              <View style={[styles.bubble, message.role === "user" ? styles.userBubble : styles.assistantBubble]}>
+                <Text style={styles.bubbleText}>{message.text}</Text>
+              </View>
+              <ActionPreview message={message} onConfirm={confirmAction} onChoose={chooseCard} busy={busy} />
+            </View>
+          </View>
+        ))}
+        {busy ? <View style={[styles.assistantWrap, { alignItems: "center" }]}><View style={styles.avatar}><Feather name="aperture" size={18} color="#00F2FE" /></View><ActivityIndicator color="#00F2FE" /></View> : null}
       </ScrollView>
-
       {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {saved ? (
-        <View style={styles.validatedBox}>
-          <Text style={styles.validatedTitle}>Conexión validada</Text>
-          <Text style={type.small}>Nueva tarjeta híbrida: “{saved.front}”</Text>
-          <Button label="Continuar" kind="primary" onPress={() => onDone({ validated: true })} />
-        </View>
-      ) : (
-        <>
-          <View style={styles.inputRow}>
-            <Field
-              value={input}
-              onChangeText={(v) => {
-                setInput(v);
-                baseInputRef.current = v;
-              }}
-              placeholder="Escribí tu conexión…"
-              multiline
-              style={{ flex: 1, minHeight: 60 }}
-            />
-            <MicButton onTranscript={onMicTranscript} />
-          </View>
-          <View style={styles.actions}>
-            <Button label="Saltar" kind="ghost" onPress={skip} />
-            <Button
-              label="Sintetizar"
-              onPress={() => send({ forceSynthesis: true })}
-              disabled={busy || !transcript.some((m) => m.role === "user")}
-            />
-            <Button
-              label="Enviar"
-              kind="primary"
-              style={{ flex: 1 }}
-              onPress={() => send()}
-              disabled={!input.trim() || busy}
-            />
-          </View>
-        </>
-      )}
-    </View>
+      <Text style={styles.draftStatus}>{input ? "Borrador guardado" : "Guardado"}</Text>
+      <View style={styles.composer}>
+        <Field value={input} onChangeText={changeInput} placeholder="Preguntá, dictá o pedí un cambio…" multiline style={styles.field} />
+        <VoiceInput value={input} onChangeText={changeInput} />
+        <Pressable onPress={send} disabled={!input.trim() || busy} style={[styles.send, (!input.trim() || busy) && { opacity: 0.35 }]}>
+          <Feather name="send" size={19} color="#fff" />
+        </Pressable>
+      </View>
+      {onDone ? (
+        <Button
+          label="Continuar el repaso"
+          kind="ghost"
+          onPress={() =>
+            onDone({
+              chatted: true,
+              validated: messages.some(
+                (message) =>
+                  message.metadata?.action?.type === "create_card" &&
+                  message.metadata.action.source === "hybrid" &&
+                  message.metadata.action.status === "done"
+              ),
+            })
+          }
+        />
+      ) : null}
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    gap: spacing.sm,
-  },
-  title: {
-    ...type.body,
-    ...font(700),
-    color: colors.accent,
-  },
-  chat: {
-    flex: 1,
-  },
-  bubble: {
-    borderRadius: radius.md,
-    padding: spacing.md,
-    maxWidth: "88%",
-  },
-  bubbleUser: {
-    alignSelf: "flex-end",
-    backgroundColor: colors.accentSoft,
-  },
-  bubbleAuditor: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.surfaceCard,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  bubbleText: {
-    ...type.body,
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  error: {
-    color: colors.danger,
-    fontSize: 13,
-  },
-  inputRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    alignItems: "flex-end",
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  validatedBox: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.successBright,
-    backgroundColor: colors.surfaceCard,
-  },
-  validatedTitle: {
-    ...type.body,
-    ...font(700),
-    color: colors.successBright,
-  },
+  root: { flex: 1, gap: spacing.sm, overflow: "hidden" },
+  header: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
+  title: { ...type.heading, fontSize: 23 },
+  saved: { ...type.small, fontSize: 11 },
+  iconButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.cardBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(21,21,24,0.7)" },
+  contextPill: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(62,99,221,0.42)", backgroundColor: "rgba(12,18,31,0.78)" },
+  contextText: { ...type.small, ...font(600), color: colors.text, flexShrink: 1 },
+  chat: { flex: 1 },
+  chatContent: { gap: spacing.md, paddingVertical: spacing.sm },
+  welcome: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, maxWidth: "92%" },
+  welcomeText: { ...type.body, flex: 1, color: colors.textMuted, lineHeight: 22 },
+  assistantWrap: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, alignSelf: "stretch" },
+  userWrap: { alignSelf: "stretch", alignItems: "flex-end" },
+  avatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "rgba(65,190,240,0.3)", backgroundColor: "rgba(8,22,38,0.82)", alignItems: "center", justifyContent: "center" },
+  bubble: { paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md },
+  assistantBubble: { backgroundColor: "rgba(21,25,33,0.9)", borderTopWidth: 1, borderTopColor: "rgba(65,190,240,0.4)" },
+  userBubble: { backgroundColor: "rgba(24,33,58,0.94)", borderWidth: 1, borderColor: "rgba(62,99,221,0.55)", borderBottomRightRadius: 5 },
+  bubbleText: { ...type.body, fontSize: 15, lineHeight: 22 },
+  actionCard: { gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(15,20,29,0.94)" },
+  actionEyebrow: { ...type.small, ...font(700), color: "#00F2FE", fontSize: 10, letterSpacing: 0.8 },
+  beforeBox: { gap: 3, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.025)" },
+  miniLabel: { ...type.small, ...font(700), fontSize: 9, color: colors.textMuted },
+  previewText: { ...type.body, ...font(600), fontSize: 14 },
+  previewMuted: { ...type.small, color: colors.textMuted },
+  optionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder },
+  optionTitle: { ...type.body, ...font(600), fontSize: 14 },
+  error: { color: colors.danger, fontSize: 12 },
+  draftStatus: { ...type.small, fontSize: 10, color: "#00F2FE", marginLeft: spacing.sm },
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, marginHorizontal: 1, padding: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(20,24,34,0.96)" },
+  field: { flex: 1, minHeight: 42, maxHeight: 112, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 10 },
+  send: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
 });

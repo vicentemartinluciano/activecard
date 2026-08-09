@@ -68,11 +68,19 @@ export default function GimnasioMental() {
         contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
         ListHeaderComponent={
           <View style={{ gap: spacing.md, marginBottom: spacing.sm }}>
-            <Button
-              label="Nueva conexión"
-              kind="primary"
-              onPress={() => router.push("/gimnasio/nueva")}
-            />
+            <View style={styles.topActions}>
+              <Button
+                label="Nueva charla"
+                kind="primary"
+                style={{ flex: 1 }}
+                onPress={() => router.push("/gimnasio/chat")}
+              />
+              <Button
+                label="Historial"
+                kind="default"
+                onPress={() => router.push("/gimnasio/historial")}
+              />
+            </View>
             {showFolderGrid ? (
               <View style={{ gap: spacing.sm }}>
                 <Text style={type.label}>Carpetas</Text>
@@ -139,6 +147,10 @@ export default function GimnasioMental() {
 }
 
 const styles = StyleSheet.create({
+  topActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
   folderRow: {
     gap: spacing.sm,
     // Aire para que el halo del tile no se recorte contra el borde del carril

@@ -128,6 +128,31 @@ export const MIGRATIONS = [
   CREATE INDEX IF NOT EXISTS idx_connections_hybrid_card_id
     ON connections(hybrid_card_id);
   `,
+
+  // v7 — conversaciones persistentes del Gimnasio Mental.
+  `
+  CREATE TABLE IF NOT EXISTS gym_chats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL DEFAULT 'Nueva charla',
+    origin_card_id INTEGER,
+    draft_text TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_gym_chats_updated_at
+    ON gym_chats(updated_at DESC, id DESC);
+
+  CREATE TABLE IF NOT EXISTS gym_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER NOT NULL REFERENCES gym_chats(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    text TEXT NOT NULL,
+    metadata TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_gym_messages_chat
+    ON gym_messages(chat_id, created_at ASC, id ASC);
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

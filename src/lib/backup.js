@@ -5,14 +5,20 @@
 export const BACKUP_APP = "activecard";
 // v2 agrega la tabla folders. Los respaldos v1 (sin folders) siguen siendo
 // restaurables: se normalizan a folders vacío.
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 // folders primero: aunque folder_id no tiene FK real, insertar padres antes
 // que hijos es la convención del restore.
-const TABLES = ["folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections"];
+const TABLES = [
+  "folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections",
+  "gym_chats", "gym_messages",
+];
 
 // Orden de borrado al restaurar: hijos antes que padres (por las FKs).
-const DELETE_ORDER = ["connections", "review_logs", "deck_tags", "cards", "tags", "decks", "folders"];
+const DELETE_ORDER = [
+  "gym_messages", "gym_chats", "connections", "review_logs", "deck_tags",
+  "cards", "tags", "decks", "folders",
+];
 
 export async function buildBackup(db, now = new Date()) {
   const data = {};
@@ -34,12 +40,13 @@ function validateBackup(backup) {
   if (backup.app !== BACKUP_APP) {
     throw new Error("Este archivo no es un respaldo de ActiveCard.");
   }
-  if (backup.version !== 1 && backup.version !== BACKUP_VERSION) {
+  if (![1, 2, BACKUP_VERSION].includes(backup.version)) {
     throw new Error(`Versión de respaldo no soportada (${backup.version}).`);
   }
   for (const table of TABLES) {
     // Un respaldo v1 no trae folders: es válido y se normaliza a [].
     if (table === "folders" && backup.version === 1 && backup[table] === undefined) continue;
+    if (["gym_chats", "gym_messages"].includes(table) && backup.version < 3 && backup[table] === undefined) continue;
     if (!Array.isArray(backup[table])) {
       throw new Error(`El respaldo no tiene datos de "${table}".`);
     }
@@ -50,7 +57,12 @@ function validateBackup(backup) {
 // originales para no romper las relaciones). Devuelve un conteo por tabla.
 export async function restoreBackup(db, backup) {
   validateBackup(backup);
-  const data = { ...backup, folders: backup.folders || [] };
+  const data = {
+    ...backup,
+    folders: backup.folders || [],
+    gym_chats: backup.gym_chats || [],
+    gym_messages: backup.gym_messages || [],
+  };
 
   await db.execAsync("BEGIN");
   try {

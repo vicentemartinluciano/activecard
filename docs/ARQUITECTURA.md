@@ -64,6 +64,8 @@ src/
 │   ├── gimnasio/[deckId].js    # ideas de un mazo (listIdeaCards): editar tarjeta, abrir
 │   │                           #   charla guardada o iniciar otra con el Socio
 │   ├── gimnasio/nueva.js       # entrada directa al ChatAuditor: elige cualquier tarjeta
+│   ├── gimnasio/chat.js        # charla libre o reapertura persistente por ?id=N
+│   ├── gimnasio/historial.js   # historial local: reabrir, crear y borrar charlas
 │   ├── gimnasio/charla.js      # transcript persistido + tarjeta que originó la idea
 │   ├── ajustes.js              # Carga diaria, Prioridad y Recordatorio (nativo; todos
 │   │                           #   plegables), Tu nombre, Respaldo, Claves web, ideas
@@ -71,14 +73,14 @@ src/
 │   │                           #   decks, folders, cards (+ snapshotFsrs/undoReview para
 │   │                           #   deshacer un repaso; listAllCardsForSearch = versión
 │   │                           #   liviana para el buscador, sin las imágenes base64),
-│   │                           #   settings, connections, reviewQueue (+ dailyLimits),
+│   │                           #   settings, connections, gymChats, reviewQueue (+ dailyLimits),
 │   │                           #   streak, progress, stats (retención/actividad/forecast/
 │   │                           #   puntos débiles — todo derivado, sin tablas nuevas)
 ├── lib/                        # claude (MODELS.sonnet/haiku), prompts (+ instrucción
 │   │                           #   personalizada), generator (Haiku 4.5), auditor (Sonnet 5),
 │   │                           #   notion, files, scheduler (ts-fsrs), queue (stride),
 │   │                           #   streak (puro), studySession, richtext, backup(IO),
-│   │                           #   keys, search, notifications (recordatorio local)
+│   │                           #   keys, search, gymAssistant, notifications (recordatorio local)
 ├── components/                 # ui.js (Screen/Button[píldora: Animated.View externo +
 │   │                           #   Pressable interno — NUNCA AnimatedPressable con
 │   │                           #   style-función]/Field/Chip/Card/Pill/InlineAdd/
@@ -89,7 +91,8 @@ src/
 │   │                           #   SwipeCard, DeckListItem (minimalista: nombre + N° tarjetas
 │   │                           #   y prioridad arriba a la derecha, mismo color), SectionSwipe
 │   │                           #   (swipe horizontal entre tabs por gesture-handler),
-│   │                           #   MicButton, ChatAuditor, ProgressBar(+gradient+glowStyle),
+│   │                           #   MicButton, VoiceInput(.native/.web), ChatAuditor,
+│   │                           #   StarField, ProgressBar(+gradient+glowStyle),
 │   │                           #   StreakFlame(.web) (flag USE_LOTTIE: Lottie SOFTWARE o
 │   │                           #   CodeFlame en código), ConfettiOverlay (confeti en código,
 │   │                           #   un solo archivo nativo+web, sin Lottie), Skeleton,
@@ -138,6 +141,10 @@ src/
 - v6: índices `review_logs(reviewed_at)`,
   `review_logs(card_id, reviewed_at DESC, id DESC)` y
   `connections(hybrid_card_id)`. No cambia columnas ni el formato de respaldo.
+- v7: `gym_chats(id, title, origin_card_id, draft_text, created_at, updated_at)` +
+  `gym_messages(id, chat_id, role, text, metadata, created_at)`. Los mensajes y
+  borradores sobreviven cierres; borrar una charla elimina sus mensajes por
+  `ON DELETE CASCADE`, nunca las tarjetas que ya se hayan creado o modificado.
 
 Regla: NUNCA editar migraciones aplicadas; solo agregar al final del array.
 
@@ -276,15 +283,23 @@ en código (translateY + rotate escalonados por índice, one-shot,
 `useNativeDriver`), un solo archivo que funciona en nativo Y web — reemplazó
 al Lottie, que se congelaba en el APK new-arch.
 
-**Gimnasio Mental**: chat multi-turno con el Socio Exigente (JSON por turno
-{modo: charla|sintesis, mensaje, tarjeta}). Charla libre hasta que la conexión
-está madura; el socio propone la síntesis o el usuario la fuerza con
-"Sintetizar" → preview editable con NotionField → al guardar inserta en
-`connections` (registro interno) + tarjeta híbrida (source 'hybrid', mismo mazo)
-que entra a FSRS.
-Además del rayo del repaso, `gimnasio/nueva.js` permite elegir cualquier tarjeta
-y empezar cuando se quiera. Salir con una charla en curso exige confirmación.
-`listConnectionsByHybridCard` recupera el transcript y la tarjeta origen para
+**Gimnasio Mental**: chat general multi-turno con Sonnet 5; puede empezar libre o
+con una tarjeta de contexto. La IA conversa sobre cualquier tema y, si el usuario
+lo pide, devuelve una propuesta estructurada para buscar, editar, crear o borrar
+tarjetas. `lib/gymAssistant.js` resuelve la búsqueda sobre la base local: si hay
+varias coincidencias muestra opciones y recién entonces vuelve a consultar a la
+IA con la tarjeta real. Ninguna mutación se ejecuta desde el modelo: siempre se
+muestra un panel de revisión, todas requieren confirmación y borrar exige una
+segunda confirmación explícita. Crear una conexión/tarjeta híbrida sigue siendo
+posible, pero ya no es el final obligatorio de la charla.
+
+`gym_chats` y `gym_messages` guardan cada turno, el título automático y el
+borrador; el `chatId` también queda en la ruta para recuperarlo tras cerrar o
+recargar la app. `gimnasio/historial.js` permite reabrir, crear y borrar charlas.
+La pantalla usa fondo estrellado suave con estrellas fugaces espaciadas, burbujas
+anchas y `KeyboardAvoidingView` para mantener el compositor sobre el teclado.
+Además del rayo del repaso, `gimnasio/nueva.js` permite elegir cualquier tarjeta.
+`listConnectionsByHybridCard` mantiene la lectura de transcripts históricos en
 `gimnasio/charla.js`.
 
 **Carpetas** (`db/folders.js`): nivel de organización sobre los mazos.
@@ -325,11 +340,11 @@ y mayúsculas — carpetas por nombre, mazos por nombre o etiqueta, tarjetas por
 positivos), máx. 20 tarjetas. La UI vive arriba de la Biblioteca; tocar una
 tarjeta abre su editor.
 
-**Respaldo** (`lib/backup.js` puro + `backupIO.js`): JSON versionado (v2) con
-folders/decks/tags/deck_tags/cards/review_logs/connections (NUNCA settings —
-ahí viven las claves). Los respaldos v1 (sin folders) siguen siendo
-restaurables: se normalizan a folders vacío. Restore = reemplazo total
-transaccional conservando ids.
+**Respaldo** (`lib/backup.js` puro + `backupIO.js`): JSON versionado (v3) con
+folders/decks/tags/deck_tags/cards/review_logs/connections/gym_chats/gym_messages
+(NUNCA settings — ahí viven las claves). Los respaldos v1 (sin folders) y v2
+(sin chats persistentes) siguen siendo restaurables: se normalizan las tablas
+ausentes a arrays vacíos. Restore = reemplazo total transaccional conservando ids.
 Web: descarga Blob / picker. Nativo: expo-file-system legacy + expo-sharing.
 El automático semanal corre después de las interacciones iniciales y rota tres
 archivos (`activecard-auto-1/2/3.json`) en vez de sobrescribir una única copia.
@@ -472,11 +487,26 @@ ESLint sin warnings, Jest y export Android. Cualquier error corta antes de EAS B
 CI replica Doctor, lint, tests y export Android. Los imports directos dejan el export en
 34 assets / 8.985.782 bytes (antes 60 / 12.650.956).
 
+## Runtime nativo 1.5.0
+
+El dictado del Gimnasio usa Whisper Base multilingüe cuantizado (`ggml-base-q5_1.bin`)
+completamente local mediante `whisper.rn` +
+`@fugood/react-native-audio-pcm-stream`. El modelo (~60 MB) se descarga una sola vez
+al almacenamiento privado de la app; no agranda el APK ni envía el audio a terceros.
+La interfaz imita el flujo de WhatsApp: mantener para grabar, deslizar arriba para
+bloquear, pausar/reanudar, descartar o aceptar; la transcripción queda editable en el
+compositor. Al pausar se fuerza y espera el último corte antes de liberar el stream para
+no perder las palabras finales. Web conserva el dictado disponible del navegador como
+fallback. Estos módulos son nativos, por eso `app.json.version` pasó a **1.5.0** y exige
+un APK nuevo antes de cualquier OTA de esta tanda.
+
 ## Limitaciones conocidas
 - **`entering` de reanimated deja el contenido invisible si la animación no arranca**
   (`visibility: hidden` permanente). Por eso `Stagger` usa `Animated` de RN.
-- `@jamsch/expo-speech-recognition` no funciona en Expo Go ni web → micrófono
-  solo verificable en el APK. En web se oculta el MicButton.
+- Whisper local no funciona en Expo Go ni puede validarse por preview web: descarga,
+  grabación, velocidad, temperatura y memoria deben probarse en el APK 1.5.0 sobre el
+  Galaxy A15. La primera pulsación descarga el modelo; luego hay que mantener el
+  micrófono otra vez para grabar.
 - `lottie-react-native` no funciona en web → StreakFlame.web.js por extensión
   de plataforma (un require condicional no alcanza: Metro resuelve estático).
 - PDF: límite de la API de Claude ~100 páginas / 32MB por request.

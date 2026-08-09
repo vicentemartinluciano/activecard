@@ -81,13 +81,19 @@ describe("migraciones de esquema", () => {
   });
 
   test("la migración v6 agrega únicamente los tres índices de rendimiento", () => {
-    expect(MIGRATIONS).toHaveLength(6);
     expect(MIGRATIONS[5]).toContain("ON review_logs(reviewed_at)");
     expect(MIGRATIONS[5]).toContain(
       "ON review_logs(card_id, reviewed_at DESC, id DESC)"
     );
     expect(MIGRATIONS[5]).toContain("ON connections(hybrid_card_id)");
     expect(MIGRATIONS[5]).not.toContain("ALTER TABLE");
+  });
+
+  test("la migración v7 agrega charlas y mensajes persistentes", () => {
+    expect(MIGRATIONS).toHaveLength(7);
+    expect(MIGRATIONS[6]).toContain("CREATE TABLE IF NOT EXISTS gym_chats");
+    expect(MIGRATIONS[6]).toContain("CREATE TABLE IF NOT EXISTS gym_messages");
+    expect(MIGRATIONS[6]).toContain("REFERENCES gym_chats(id) ON DELETE CASCADE");
   });
 
   test("el esquema inicial define todas las tablas del plan", () => {
