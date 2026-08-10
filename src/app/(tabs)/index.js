@@ -19,7 +19,7 @@ import { getDecksDailyProgress } from "../../db/progress";
 import { getDailyReviewStats } from "../../db/reviewQueue";
 import { getSetting } from "../../db/settings";
 import { getStreak } from "../../db/streak";
-import { colors, font, glow, gradients, layout, radius, spacing, tabular, type } from "../../theme";
+import { colors, font, glow, gradients, layout, radius, spacing, tabular, textColors, type } from "../../theme";
 
 // Saludo según la hora, para que Inicio no diga siempre lo mismo.
 function greeting(date = new Date()) {
@@ -139,7 +139,7 @@ export default function Inicio() {
             onPress={() => router.push("/gimnasio/chat")}
             style={({ pressed }) => [styles.gymShortcut, pressed && { opacity: 0.7 }]}
           >
-            <Feather name="zap" size={20} color="#00F2FE" />
+            <Feather name="zap" size={20} color={textColors.violeta} />
           </Pressable>
         </View>
       </View>
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.pill,
-    backgroundColor: colors.pillBg,
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
