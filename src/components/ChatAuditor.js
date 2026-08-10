@@ -334,13 +334,17 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       </ScrollView>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.draftStatus}>{input ? "Borrador guardado" : "Guardado"}</Text>
-      <View style={styles.composer}>
-        <Field value={input} onChangeText={changeInput} placeholder="Preguntá, dictá o pedí un cambio…" multiline style={styles.field} />
-        <VoiceInput value={input} onChangeText={changeInput} />
-        <Pressable onPress={send} disabled={!input.trim() || busy} style={[styles.send, (!input.trim() || busy) && { opacity: 0.35 }]}>
-          <Feather name="send" size={19} color="#fff" />
-        </Pressable>
-      </View>
+      <VoiceInput value={input} onChangeText={changeInput}>
+        {({ micButton, active }) => (
+          <View style={styles.composer}>
+            <Field value={input} onChangeText={changeInput} placeholder="Preguntá, dictá o pedí un cambio…" multiline editable={!active} style={styles.field} />
+            {micButton}
+            <Pressable onPress={send} disabled={!input.trim() || busy || active} style={[styles.send, (!input.trim() || busy || active) && { opacity: 0.35 }]}>
+              <Feather name="send" size={19} color="#fff" />
+            </Pressable>
+          </View>
+        )}
+      </VoiceInput>
       {onDone && !keyboardOpen ? (
         <Button
           label="Continuar el repaso"
