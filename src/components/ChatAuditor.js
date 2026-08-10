@@ -282,7 +282,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
     <KeyboardAvoidingView
       style={[styles.root, keyboardOpen && styles.rootKeyboard]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "android" ? -64 : 0}
+      keyboardVerticalOffset={Platform.OS === "android" ? 16 : 0}
     >
       <StarField />
       <View style={styles.header}>
