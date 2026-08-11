@@ -1,4 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -28,6 +29,8 @@ import {
 import { resolveGymCardChoice, runGymAssistant } from "../lib/gymAssistant";
 import { toPlainText } from "../lib/richtext";
 import { colors, font, radius, spacing, type } from "../theme";
+import CardAttachmentSheet from "./CardAttachmentSheet";
+import RichText from "./RichText";
 import StarField from "./StarField";
 import VoiceInput from "./VoiceInput";
 import { Button, confirmAsync, Field } from "./ui";
@@ -36,6 +39,31 @@ const titleFrom = (text) => {
   const clean = text.trim().replace(/\s+/g, " ");
   return clean.length > 44 ? `${clean.slice(0, 44)}…` : clean || "Nueva charla";
 };
+
+function AttachmentPills({ items = [], onRemove }) {
+  if (!items.length) return null;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.attachmentRow}>
+      {items.map((item) => {
+        const id = item.cardId || item.id;
+        return (
+          <View key={id} style={styles.attachmentPill}>
+            <Feather name="file-text" size={14} color="#00F2FE" />
+            <View style={styles.attachmentCopy}>
+              <Text style={styles.attachmentTitle} numberOfLines={1}>{toPlainText(item.front)}</Text>
+              <Text style={styles.attachmentDeck} numberOfLines={1}>{item.deckName || "Tarjeta"}</Text>
+            </View>
+            {onRemove ? (
+              <Pressable onPress={() => onRemove(id)} hitSlop={8}>
+                <Feather name="x" size={15} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
 
 function ActionPreview({ message, onConfirm, onChoose, busy }) {
   const action = message.metadata?.action;
@@ -109,6 +137,8 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
+  const [attachments, setAttachments] = useState([]);
   const scrollRef = useRef(null);
   const saveTimer = useRef(null);
 
@@ -122,20 +152,38 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const id = persistentChatId || await createGymChat({ originCardId });
-      const [chat, savedMessages] = await Promise.all([getGymChat(id), listGymMessages(id)]);
+      if (persistentChatId) {
+        const [chat, savedMessages] = await Promise.all([
+          getGymChat(persistentChatId),
+          listGymMessages(persistentChatId),
+        ]);
+        if (!alive) return;
+        if (!chat) throw new Error("Esta conversación ya no existe.");
+        setSession(chat);
+        setMessages(savedMessages);
+        setInput(chat?.draft_text || "");
+        return;
+      }
       if (!alive) return;
-      if (!chat) throw new Error("Esta conversación ya no existe.");
-      setSession(chat);
-      setMessages(savedMessages);
-      setInput(chat?.draft_text || "");
-      if (!persistentChatId && !hasEmbeddedCard) router.setParams({ chatId: String(id) });
+      // La charla todavía es efímera. Se crea en SQLite recién con el primer
+      // envío, así abrir y cerrar el Gimnasio no ensucia el historial.
+      setMessages([]);
+      setInput("");
+      setAttachments([]);
+      setSession({
+        id: null,
+        title: "Nueva charla",
+        origin_card_id: originCardId,
+        origin_front: card?.front || null,
+        origin_back: card?.back || null,
+        draft_text: "",
+      });
     })().catch((e) => setError(e.message || String(e)));
     return () => {
       alive = false;
       clearTimeout(saveTimer.current);
     };
-  }, [hasEmbeddedCard, originCardId, persistentChatId, router]);
+  }, [card?.back, card?.front, originCardId, persistentChatId]);
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -158,35 +206,58 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
     if (session?.id) saveTimer.current = setTimeout(() => setGymChatDraft(session.id, value).catch(() => {}), 250);
   };
 
-  const appendAssistant = async (turn) => {
+  const ensureSession = async () => {
+    if (session?.id) return session;
+    const id = await createGymChat({ originCardId: session?.origin_card_id || originCardId });
+    const chat = await getGymChat(id);
+    if (!chat) throw new Error("No pudimos crear la conversación.");
+    setSession(chat);
+    if (!hasEmbeddedCard) router.setParams({ chatId: String(id) });
+    return chat;
+  };
+
+  const appendAssistant = async (turn, chat = session) => {
     const action = await hydrateAction(turn);
-    const id = await addGymMessage(session.id, "assistant", turn.message, action ? { action } : null);
-    const row = { id, chat_id: session.id, role: "assistant", text: turn.message, metadata: action ? { action } : null };
+    const id = await addGymMessage(chat.id, "assistant", turn.message, action ? { action } : null);
+    const row = { id, chat_id: chat.id, role: "assistant", text: turn.message, metadata: action ? { action } : null };
     setMessages((current) => [...current, row]);
     return row;
   };
 
   const send = async () => {
-    const text = input.trim();
-    if (!text || busy || !session) return;
+    const typedText = input.trim();
+    if ((!typedText && attachments.length === 0) || busy || !session) return;
     setBusy(true);
     setError("");
     try {
+      const chat = await ensureSession();
+      const text = typedText || `Adjunté ${attachments.length} ${attachments.length === 1 ? "tarjeta" : "tarjetas"}.`;
+      const metadata = attachments.length
+        ? {
+            attachments: attachments.map((item) => ({
+              cardId: item.id,
+              deckId: item.deck_id,
+              deckName: item.deckName,
+              front: toPlainText(item.front).slice(0, 220),
+            })),
+          }
+        : null;
       clearTimeout(saveTimer.current);
-      const id = await addGymMessage(session.id, "user", text);
-      const userMessage = { id, chat_id: session.id, role: "user", text, metadata: null };
+      const id = await addGymMessage(chat.id, "user", text, metadata);
+      const userMessage = { id, chat_id: chat.id, role: "user", text, metadata };
       const next = [...messages, userMessage];
       setMessages(next);
       setInput("");
-      await setGymChatDraft(session.id, "");
-      if (messages.length === 0 && session.title === "Nueva charla") {
-        const title = titleFrom(text);
-        await renameGymChat(session.id, title);
+      setAttachments([]);
+      await setGymChatDraft(chat.id, "");
+      if (messages.length === 0 && chat.title === "Nueva charla") {
+        const title = titleFrom(typedText || toPlainText(attachments[0]?.front || "Tarjetas adjuntas"));
+        await renameGymChat(chat.id, title);
         setSession((current) => ({ ...current, title }));
       }
-      const origin = card || (session.origin_card_id ? await getCard(session.origin_card_id) : null);
+      const origin = card || (chat.origin_card_id ? await getCard(chat.origin_card_id) : null);
       const turn = await runGymAssistant({ originCard: origin, messages: next });
-      await appendAssistant(turn);
+      await appendAssistant(turn, chat);
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -291,13 +362,13 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Gimnasio Mental</Text>
-          <Text style={styles.saved}>Tu conversación se guarda automáticamente</Text>
+          <Text style={styles.saved}>Se guarda desde tu primer mensaje</Text>
         </View>
         <Pressable onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
           <Feather name="clock" size={20} color={colors.text} />
         </Pressable>
         <Pressable onPress={() => router.push("/gimnasio/chat")} style={styles.iconButton}>
-          <Feather name="plus" size={21} color={colors.text} />
+          <Feather name="edit-3" size={20} color={colors.text} />
         </Pressable>
       </View>
       {(card || session.origin_front) ? (
@@ -315,36 +386,58 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       >
         {messages.length === 0 ? (
           <View style={styles.welcome}>
-            <View style={styles.avatar}><Feather name="aperture" size={22} color="#00F2FE" /></View>
+            <View style={styles.avatar}><MaterialCommunityIcons name="brain" size={22} color="#00F2FE" /></View>
             <Text style={styles.welcomeText}>Podemos pensar cualquier tema o trabajar con tus tarjetas. Decime qué necesitás.</Text>
           </View>
         ) : null}
         {messages.map((message) => (
           <View key={message.id} style={message.role === "user" ? styles.userWrap : styles.assistantWrap}>
-            {message.role === "assistant" ? <View style={styles.avatar}><Feather name="aperture" size={18} color="#00F2FE" /></View> : null}
-            <View style={{ maxWidth: message.role === "user" ? "86%" : "88%", gap: spacing.xs }}>
+            {message.role === "assistant" ? <View style={styles.avatar}><MaterialCommunityIcons name="brain" size={18} color="#00F2FE" /></View> : null}
+            <View style={message.role === "user" ? styles.userMessageContent : styles.assistantMessageContent}>
+              <AttachmentPills items={message.metadata?.attachments || []} />
               <View style={[styles.bubble, message.role === "user" ? styles.userBubble : styles.assistantBubble]}>
-                <Text style={styles.bubbleText}>{message.text}</Text>
+                {message.role === "assistant" ? (
+                  <RichText text={message.text} style={styles.bubbleText} containerStyle={styles.richBubble} />
+                ) : (
+                  <Text style={styles.bubbleText}>{message.text}</Text>
+                )}
               </View>
               <ActionPreview message={message} onConfirm={confirmAction} onChoose={chooseCard} busy={busy} />
             </View>
           </View>
         ))}
-        {busy ? <View style={[styles.assistantWrap, { alignItems: "center" }]}><View style={styles.avatar}><Feather name="aperture" size={18} color="#00F2FE" /></View><ActivityIndicator color="#00F2FE" /></View> : null}
+        {busy ? <View style={styles.assistantWrap}><View style={styles.avatar}><MaterialCommunityIcons name="brain" size={18} color="#00F2FE" /></View><ActivityIndicator color="#00F2FE" style={styles.busyIndicator} /></View> : null}
       </ScrollView>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Text style={styles.draftStatus}>{input ? "Borrador guardado" : "Guardado"}</Text>
+      <AttachmentPills
+        items={attachments}
+        onRemove={(id) => setAttachments((current) => current.filter((item) => item.id !== id))}
+      />
       <VoiceInput value={input} onChangeText={changeInput}>
         {({ micButton, active }) => (
           <View style={styles.composer}>
-            <Field value={input} onChangeText={changeInput} placeholder="Preguntá, dictá o pedí un cambio…" multiline editable={!active} style={styles.field} />
+            <Pressable
+              onPress={() => setAttachmentSheetOpen(true)}
+              disabled={active || busy}
+              style={[styles.attachButton, (active || busy) && { opacity: 0.35 }]}
+              hitSlop={6}
+            >
+              <Feather name="plus" size={21} color={colors.text} />
+            </Pressable>
+            <Field value={input} onChangeText={changeInput} placeholder="" multiline editable={!active} style={styles.field} />
             {micButton}
-            <Pressable onPress={send} disabled={!input.trim() || busy || active} style={[styles.send, (!input.trim() || busy || active) && { opacity: 0.35 }]}>
+            <Pressable onPress={send} disabled={(!input.trim() && attachments.length === 0) || busy || active} style={[styles.send, ((!input.trim() && attachments.length === 0) || busy || active) && { opacity: 0.35 }]}>
               <Feather name="send" size={19} color="#fff" />
             </Pressable>
           </View>
         )}
       </VoiceInput>
+      <CardAttachmentSheet
+        visible={attachmentSheetOpen}
+        onClose={() => setAttachmentSheetOpen(false)}
+        selected={attachments}
+        onConfirm={setAttachments}
+      />
       {onDone && !keyboardOpen ? (
         <Button
           label="Continuar el repaso"
@@ -368,15 +461,19 @@ const styles = StyleSheet.create({
   contextText: { ...type.small, ...font(600), color: colors.text, flexShrink: 1 },
   chat: { flex: 1 },
   chatContent: { gap: spacing.md, paddingVertical: spacing.sm },
-  welcome: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, maxWidth: "92%" },
+  welcome: { alignItems: "flex-start", gap: spacing.sm, width: "100%" },
   welcomeText: { ...type.body, flex: 1, color: colors.textMuted, lineHeight: 22 },
-  assistantWrap: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, alignSelf: "stretch" },
+  assistantWrap: { alignItems: "flex-start", gap: spacing.xs, alignSelf: "stretch" },
   userWrap: { alignSelf: "stretch", alignItems: "flex-end" },
+  assistantMessageContent: { width: "100%", gap: spacing.xs },
+  userMessageContent: { maxWidth: "88%", gap: spacing.xs, alignItems: "stretch" },
   avatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "rgba(65,190,240,0.3)", backgroundColor: "rgba(8,22,38,0.82)", alignItems: "center", justifyContent: "center" },
   bubble: { paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md },
-  assistantBubble: { backgroundColor: "rgba(21,25,33,0.9)", borderTopWidth: 1, borderTopColor: "rgba(65,190,240,0.4)" },
+  assistantBubble: { backgroundColor: "rgba(17,22,30,0.78)", borderLeftWidth: 2, borderLeftColor: "rgba(65,190,240,0.52)", borderTopLeftRadius: 6 },
   userBubble: { backgroundColor: "rgba(24,33,58,0.94)", borderWidth: 1, borderColor: "rgba(62,99,221,0.55)", borderBottomRightRadius: 5 },
   bubbleText: { ...type.body, fontSize: 15, lineHeight: 22 },
+  richBubble: { gap: 7 },
+  busyIndicator: { marginLeft: spacing.sm, marginTop: spacing.xs },
   actionCard: { gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(15,20,29,0.94)" },
   actionEyebrow: { ...type.small, ...font(700), color: "#00F2FE", fontSize: 10, letterSpacing: 0.8 },
   beforeBox: { gap: 3, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.025)" },
@@ -386,8 +483,13 @@ const styles = StyleSheet.create({
   optionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder },
   optionTitle: { ...type.body, ...font(600), fontSize: 14 },
   error: { color: colors.danger, fontSize: 12 },
-  draftStatus: { ...type.small, fontSize: 10, color: "#00F2FE", marginLeft: spacing.sm },
+  attachmentRow: { gap: spacing.xs, paddingHorizontal: 1 },
+  attachmentPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 190, paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: "rgba(65,190,240,0.28)", backgroundColor: "rgba(12,21,33,0.94)" },
+  attachmentCopy: { flex: 1, gap: 1 },
+  attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 11 },
+  attachmentDeck: { ...type.small, fontSize: 9, color: colors.textMuted },
   composer: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: 1, padding: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(20,24,34,0.96)" },
+  attachButton: { width: 34, height: 38, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   field: { flex: 1, minHeight: 38, maxHeight: 96, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 6 },
   send: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
 });

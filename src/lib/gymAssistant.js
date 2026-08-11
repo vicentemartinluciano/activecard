@@ -78,17 +78,42 @@ function serializeMessages(messages) {
   });
 }
 
-function buildContext(originCard, decks, extra = "") {
+async function collectAttachedCards(messages) {
+  const byId = new Map();
+  for (const message of messages) {
+    for (const attachment of message.metadata?.attachments || []) {
+      const cardId = Number(attachment.cardId);
+      if (!Number.isInteger(cardId)) continue;
+      byId.set(cardId, { ...attachment, cardId });
+    }
+  }
+  const refs = [...byId.values()].slice(-12);
+  const cards = await Promise.all(refs.map((item) => getCard(item.cardId)));
+  return cards.map((card, index) => card ? {
+    ...refs[index],
+    cardId: card.id,
+    deckId: card.deck_id,
+    front: card.front,
+    back: card.back,
+  } : null).filter(Boolean);
+}
+
+function buildContext(originCard, decks, attachedCards = [], extra = "") {
   const origin = originCard
     ? `\nTARJETA DE CONTEXTO:\nID ${originCard.id}, mazo ${originCard.deck_id}\nFrente: ${originCard.front}\nDorso: ${originCard.back}`
     : "\nLa charla empezó libre, sin tarjeta de origen.";
   const catalog = decks.map((deck) => `- ${deck.id}: ${deck.name}`).join("\n");
-  return `CATÁLOGO DE MAZOS:\n${catalog || "(sin mazos)"}${origin}${extra ? `\n\n${extra}` : ""}`;
+  const attached = attachedCards.length
+    ? `\n\nTARJETAS ADJUNTAS POR EL USUARIO:\n${attachedCards.map((item) =>
+        `ID ${item.cardId}, mazo ${item.deckId}${item.deckName ? ` (${item.deckName})` : ""}\nFrente: ${clip(item.front, 900)}\nDorso: ${clip(item.back, 1800)}`
+      ).join("\n\n")}`
+    : "";
+  return `CATÁLOGO DE MAZOS:\n${catalog || "(sin mazos)"}${origin}${attached}${extra ? `\n\n${extra}` : ""}`;
 }
 
-async function callTurn(messages, originCard, decks, extra = "", allowedCardIds = []) {
+async function callTurn(messages, originCard, decks, attachedCards = [], extra = "", allowedCardIds = []) {
   const result = await callClaudeJson({
-    system: `${GYM_ASSISTANT_SYSTEM}\n\n${buildContext(originCard, decks, extra)}`,
+    system: `${GYM_ASSISTANT_SYSTEM}\n\n${buildContext(originCard, decks, attachedCards, extra)}`,
     messages: serializeMessages(messages),
     maxTokens: 3200,
   });
@@ -108,7 +133,12 @@ async function callTurn(messages, originCard, decks, extra = "", allowedCardIds 
 
 export async function runGymAssistant({ originCard = null, messages }) {
   const decks = await listDecks();
-  const first = await callTurn(messages, originCard, decks, "", originCard ? [originCard.id] : []);
+  const attachedCards = await collectAttachedCards(messages);
+  const allowedCardIds = [
+    ...(originCard ? [originCard.id] : []),
+    ...attachedCards.map((item) => item.cardId),
+  ];
+  const first = await callTurn(messages, originCard, decks, attachedCards, "", allowedCardIds);
   if (first.action?.type !== "search_cards") return first;
 
   const allCards = await listAllCardsForSearch();
@@ -158,5 +188,5 @@ export async function resolveGymCardChoice({
   const [card, decks] = await Promise.all([getCard(cardId), providedDecks || listDecks()]);
   if (!card) throw new Error("La tarjeta elegida ya no existe.");
   const extra = `TARJETA ELEGIDA PARA ${intent}:\nID ${card.id}, mazo ${card.deck_id}\nFrente: ${card.front}\nDorso: ${card.back}\nPedido original: ${instruction}\nAhora respondé o prepará la acción correspondiente usando este ID real.`;
-  return callTurn(messages, originCard, decks, extra, [card.id]);
+  return callTurn(messages, originCard, decks, [], extra, [card.id]);
 }
