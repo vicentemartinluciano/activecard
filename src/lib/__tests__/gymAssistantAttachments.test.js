@@ -1,14 +1,14 @@
+import { getCard } from "../../db/cards";
+import { listDecks } from "../../db/decks";
+import { callClaudeJson } from "../claude";
+import { runGymAssistant } from "../gymAssistant";
+
 jest.mock("../../db/cards", () => ({
   getCard: jest.fn(),
   listAllCardsForSearch: jest.fn(),
 }));
 jest.mock("../../db/decks", () => ({ listDecks: jest.fn() }));
 jest.mock("../claude", () => ({ callClaudeJson: jest.fn() }));
-
-import { getCard } from "../../db/cards";
-import { listDecks } from "../../db/decks";
-import { callClaudeJson } from "../claude";
-import { runGymAssistant } from "../gymAssistant";
 
 beforeEach(() => {
   jest.clearAllMocks();
