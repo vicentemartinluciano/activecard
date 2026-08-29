@@ -1,5 +1,4 @@
 import Feather from "@expo/vector-icons/Feather";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -29,6 +28,7 @@ import {
 import { resolveGymCardChoice, runGymAssistant } from "../lib/gymAssistant";
 import { toPlainText } from "../lib/richtext";
 import { colors, font, radius, spacing, type } from "../theme";
+import BrainMark from "./BrainMark";
 import CardAttachmentSheet from "./CardAttachmentSheet";
 import RichText from "./RichText";
 import StarField from "./StarField";
@@ -362,7 +362,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Gimnasio Mental</Text>
-          <Text style={styles.saved}>Se guarda desde tu primer mensaje</Text>
+          <Text style={styles.saved}>Conversá, investigá y trabajá con tus tarjetas</Text>
         </View>
         <Pressable onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
           <Feather name="clock" size={20} color={colors.text} />
@@ -386,27 +386,39 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       >
         {messages.length === 0 ? (
           <View style={styles.welcome}>
-            <View style={styles.avatar}><MaterialCommunityIcons name="brain" size={22} color="#00F2FE" /></View>
-            <Text style={styles.welcomeText}>Podemos pensar cualquier tema o trabajar con tus tarjetas. Decime qué necesitás.</Text>
-          </View>
-        ) : null}
-        {messages.map((message) => (
-          <View key={message.id} style={message.role === "user" ? styles.userWrap : styles.assistantWrap}>
-            {message.role === "assistant" ? <View style={styles.avatar}><MaterialCommunityIcons name="brain" size={18} color="#00F2FE" /></View> : null}
-            <View style={message.role === "user" ? styles.userMessageContent : styles.assistantMessageContent}>
-              <AttachmentPills items={message.metadata?.attachments || []} />
-              <View style={[styles.bubble, message.role === "user" ? styles.userBubble : styles.assistantBubble]}>
-                {message.role === "assistant" ? (
-                  <RichText text={message.text} style={styles.bubbleText} containerStyle={styles.richBubble} />
-                ) : (
-                  <Text style={styles.bubbleText}>{message.text}</Text>
-                )}
-              </View>
-              <ActionPreview message={message} onConfirm={confirmAction} onChoose={chooseCard} busy={busy} />
+            <View style={styles.avatar}><BrainMark size={34} /></View>
+            <View style={[styles.bubble, styles.assistantBubble]}>
+              <Text style={styles.welcomeText}>Podemos pensar cualquier tema o trabajar con tus tarjetas. Decime qué necesitás.</Text>
             </View>
           </View>
-        ))}
-        {busy ? <View style={styles.assistantWrap}><View style={styles.avatar}><MaterialCommunityIcons name="brain" size={18} color="#00F2FE" /></View><ActivityIndicator color="#00F2FE" style={styles.busyIndicator} /></View> : null}
+        ) : null}
+        {messages.map((message, index) => {
+          const startsAssistantGroup = message.role === "assistant" && messages[index - 1]?.role !== "assistant";
+          return (
+            <View key={message.id} style={message.role === "user" ? styles.userWrap : styles.assistantWrap}>
+              {startsAssistantGroup ? <View style={styles.avatar}><BrainMark size={32} /></View> : null}
+              <View style={message.role === "user" ? styles.userMessageContent : styles.assistantMessageContent}>
+                <AttachmentPills items={message.metadata?.attachments || []} />
+                <View style={[styles.bubble, message.role === "user" ? styles.userBubble : styles.assistantBubble]}>
+                  {message.role === "assistant" ? (
+                    <RichText text={message.text} style={styles.bubbleText} containerStyle={styles.richBubble} />
+                  ) : (
+                    <Text style={styles.bubbleText}>{message.text}</Text>
+                  )}
+                </View>
+                <ActionPreview message={message} onConfirm={confirmAction} onChoose={chooseCard} busy={busy} />
+              </View>
+            </View>
+          );
+        })}
+        {busy ? (
+          <View style={styles.assistantWrap}>
+            {messages[messages.length - 1]?.role !== "assistant" ? <View style={styles.avatar}><BrainMark size={32} /></View> : null}
+            <View style={[styles.bubble, styles.assistantBubble, styles.busyBubble]}>
+              <ActivityIndicator color="#42DCE7" />
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <AttachmentPills
@@ -462,18 +474,18 @@ const styles = StyleSheet.create({
   chat: { flex: 1 },
   chatContent: { gap: spacing.md, paddingVertical: spacing.sm },
   welcome: { alignItems: "flex-start", gap: spacing.sm, width: "100%" },
-  welcomeText: { ...type.body, flex: 1, color: colors.textMuted, lineHeight: 22 },
+  welcomeText: { ...type.body, color: colors.textMuted, lineHeight: 22 },
   assistantWrap: { alignItems: "flex-start", gap: spacing.xs, alignSelf: "stretch" },
   userWrap: { alignSelf: "stretch", alignItems: "flex-end" },
   assistantMessageContent: { width: "100%", gap: spacing.xs },
   userMessageContent: { maxWidth: "88%", gap: spacing.xs, alignItems: "stretch" },
-  avatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "rgba(65,190,240,0.3)", backgroundColor: "rgba(8,22,38,0.82)", alignItems: "center", justifyContent: "center" },
+  avatar: { width: 34, height: 34, marginLeft: 5, alignItems: "center", justifyContent: "center" },
   bubble: { paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md },
-  assistantBubble: { backgroundColor: "rgba(17,22,30,0.78)", borderLeftWidth: 2, borderLeftColor: "rgba(65,190,240,0.52)", borderTopLeftRadius: 6 },
-  userBubble: { backgroundColor: "rgba(24,33,58,0.94)", borderWidth: 1, borderColor: "rgba(62,99,221,0.55)", borderBottomRightRadius: 5 },
+  assistantBubble: { width: "100%", backgroundColor: "rgba(20,22,29,0.94)", borderWidth: 1, borderColor: "rgba(91,104,151,0.23)", borderTopLeftRadius: radius.md, borderBottomLeftRadius: 6 },
+  userBubble: { backgroundColor: "rgba(28,37,72,0.9)", borderWidth: 1, borderColor: "rgba(92,116,209,0.34)", borderBottomRightRadius: 5 },
   bubbleText: { ...type.body, fontSize: 15, lineHeight: 22 },
   richBubble: { gap: 7 },
-  busyIndicator: { marginLeft: spacing.sm, marginTop: spacing.xs },
+  busyBubble: { width: 54, minHeight: 44, alignItems: "center", justifyContent: "center" },
   actionCard: { gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(15,20,29,0.94)" },
   actionEyebrow: { ...type.small, ...font(700), color: "#00F2FE", fontSize: 10, letterSpacing: 0.8 },
   beforeBox: { gap: 3, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.025)" },
