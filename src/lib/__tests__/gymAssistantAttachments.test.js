@@ -1,6 +1,6 @@
 import { getCard } from "../../db/cards";
 import { listDecks } from "../../db/decks";
-import { callClaudeJson } from "../claude";
+import { callOpenAIJson } from "../openai";
 import { runGymAssistant } from "../gymAssistant";
 
 jest.mock("../../db/cards", () => ({
@@ -8,7 +8,7 @@ jest.mock("../../db/cards", () => ({
   listAllCardsForSearch: jest.fn(),
 }));
 jest.mock("../../db/decks", () => ({ listDecks: jest.fn() }));
-jest.mock("../claude", () => ({ callClaudeJson: jest.fn() }));
+jest.mock("../openai", () => ({ callOpenAIJson: jest.fn(), REASONING: { chat: "high" } }));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 test("incluye varias tarjetas adjuntas como contexto accionable", async () => {
-  callClaudeJson.mockResolvedValue({
+  callOpenAIJson.mockResolvedValue({
     message: "Preparé el cambio.",
     action: { type: "edit_card", cardId: 9, front: "Frente final", back: "Dorso final" },
   });
@@ -36,12 +36,12 @@ test("incluye varias tarjetas adjuntas como contexto accionable", async () => {
   });
 
   expect(result.action.cardId).toBe(9);
-  expect(callClaudeJson.mock.calls[0][0].system).toContain("TARJETAS ADJUNTAS POR EL USUARIO");
-  expect(callClaudeJson.mock.calls[0][0].system).toContain("Es una posición difícil de imitar.");
+  expect(callOpenAIJson.mock.calls[0][0].system).toContain("TARJETAS ADJUNTAS POR EL USUARIO");
+  expect(callOpenAIJson.mock.calls[0][0].system).toContain("Es una posición difícil de imitar.");
 });
 
 test("rechaza una edición sobre una tarjeta que no fue adjuntada", async () => {
-  callClaudeJson.mockResolvedValue({
+  callOpenAIJson.mockResolvedValue({
     message: "Preparé el cambio.",
     action: { type: "edit_card", cardId: 99, front: "F", back: "B" },
   });

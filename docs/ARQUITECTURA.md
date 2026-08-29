@@ -76,8 +76,8 @@ src/
 │   │                           #   settings, connections, gymChats, reviewQueue (+ dailyLimits),
 │   │                           #   streak, progress, stats (retención/actividad/forecast/
 │   │                           #   puntos débiles — todo derivado, sin tablas nuevas)
-├── lib/                        # claude (MODELS.sonnet/haiku), prompts (+ instrucción
-│   │                           #   personalizada), generator (Haiku 4.5), auditor (Sonnet 5),
+├── lib/                        # openai (GPT-5.6 Luna + Responses API), prompts
+│   │                           #   (+ instrucción personalizada), generator/auditor,
 │   │                           #   notion, files, scheduler (ts-fsrs), queue (stride),
 │   │                           #   streak (puro), studySession, richtext, backup(IO),
 │   │                           #   keys, search, gymAssistant, notifications (recordatorio local)
@@ -245,25 +245,19 @@ prompt generador → JSON {cards} → preselección → FSRS. Extracción:
 `conceptos_clave` | `completo` | `personalizado` (instrucción libre del
 usuario, concatenada en el mensaje user vía `buildGeneratorMessage({..,
 custom})`/`buildGeneratorPdfPrompt(mode, custom)` — el system prompt queda fijo
-y cacheable). Modelo: **Haiku 4.5** (`MODELS.haiku` en `lib/claude.js`, ~¼ del
-costo de Sonnet); el auditor del Gimnasio Mental sigue en Sonnet 5
-(`MODELS.sonnet`, default de `callClaude`/`callClaudeJson` cuando no se pasa
-`model`). Import de Quizlet eliminado (F23): las fuentes son texto, archivo y
-Notion.
+y cacheable). Modelo único: **GPT-5.6 Luna** mediante Responses API
+(`lib/openai.js`): generación y análisis documental usan razonamiento `xhigh`;
+la conversación normal del Gimnasio usa `high`. Import de Quizlet eliminado
+(F23): las fuentes son texto, archivo y Notion.
 La preselección se persiste en `settings.generationDraft`: sobrevive a un cierre
 de Android, recuerda selección/ediciones/mazo y marca cada tarjeta ya guardada.
 Si una inserción falla, muestra el avance parcial y permite retomar sin duplicar.
 
 `GENERATOR_SYSTEM` está calibrado contra las tarjetas que Martín arma a mano en
-Quizlet (F73) — ver las reglas y su porqué en `CLAUDE.md` (Decisiones de
-producto). Un A/B con un apunte de facultad denso mostró que Haiku NO iguala a
-Sonnet: sigue peor las instrucciones condicionales (con "partí SOLO si…" metía
-6 sub-conceptos en una tarjeta; con "SIEMPRE/NUNCA" + un ejemplo obligatorio
-calcado al caso real, genera las 7 correctas). De ahí que el prompt use lenguaje
-directivo y ejemplos concretos en vez de criterios a sopesar — no "suavizarlo"
-sin re-testear. Lo que el prompt NO logra que Haiku respete (usar color, no
-duplicar tarjetas) queda a revisión manual: es una decisión de Martín, no un
-pendiente.
+Quizlet (F73) — ver las reglas y su porqué en `CLAUDE.md`. Conserva lenguaje
+directivo, ejemplos concretos y el contrato JSON. La migración a Luna fue una
+decisión directa de producto, sin A/B; la revisión manual de la propuesta sigue
+siendo obligatoria antes de escribir tarjetas en SQLite.
 
 **Deshacer un repaso** (`db/cards.js`): `reviewCard` devuelve el `logId` del
 `review_logs` insertado. `snapshotFsrs(card)` captura el estado FSRS ANTES de
@@ -351,10 +345,12 @@ archivos (`activecard-auto-1/2/3.json`) en vez de sobrescribir una única copia.
 
 ## Claves de API (`lib/keys.js`)
 Caché en memoria inicializada en el root layout desde `settings`
-(anthropic_key / notion_token); fallback a `process.env.EXPO_PUBLIC_*`.
-- APK: las env vars van embebidas en el build (EAS env vars del proyecto).
-- Web pública: el workflow buildea sin .env → sin claves embebidas; el
-  usuario las pega en Ajustes (sección visible solo en web).
+(`openai_key` / `notion_token`); fallback a `process.env.EXPO_PUBLIC_*`.
+- APK: usa `EXPO_PUBLIC_ACTIVECARD_AI_URL` para llamar a un gateway que conserva
+  la clave real de OpenAI fuera del binario. La clave directa queda solo como
+  fallback de desarrollo local.
+- Web pública: el workflow buildea sin `.env`; el usuario pega su propia clave
+  de OpenAI en Ajustes y queda guardada únicamente en ese navegador.
 
 ## Web pública
 `.github/workflows/deploy-web.yml`: expo export -p web → 404.html (fallback
@@ -509,13 +505,12 @@ un APK nuevo antes de cualquier OTA de esta tanda.
   micrófono otra vez para grabar.
 - `lottie-react-native` no funciona en web → StreakFlame.web.js por extensión
   de plataforma (un require condicional no alcanza: Metro resuelve estático).
-- PDF: límite de la API de Claude ~100 páginas / 32MB por request.
+- PDF: `files.js` mantiene un tope preventivo de tamaño antes de convertir a base64.
 - Metro + OneDrive: watch poco confiable → reiniciar el preview tras editar.
 - El navegador embebido del preview retiene locks OPFS → verificar DB en
   Chrome real.
 - **Notion en la web pública no funciona**: la API de Notion no habilita CORS
-  para llamadas directas desde el navegador (a diferencia de la de Claude, que
-  sí lo permite vía el header `anthropic-dangerous-direct-browser-access`).
+  para llamadas directas desde el navegador.
   Falla con error de red al primer fetch. Es una limitación de la API de
   Notion, no arreglable sin un backend propio (descartado por diseño). En web,
   usar la fuente "Archivo" con un Markdown exportado desde Notion; la

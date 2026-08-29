@@ -3,7 +3,7 @@
 // contexto de 200K tokens cubre PDFs de hasta ~100 páginas; para material
 // más grande, pegar el texto directo en vez de subir el archivo.
 
-import { callClaudeJson, MODELS } from "./claude";
+import { callOpenAIJson, MODELS, REASONING } from "./openai";
 import { buildGeneratorMessage, buildGeneratorPdfPrompt, GENERATOR_SYSTEM } from "./prompts";
 import { IMG_SENTINEL } from "./richtext";
 
@@ -38,32 +38,35 @@ export function resolveImageMarkers(cards, imageMap = {}) {
 
 // mode: 'conceptos_clave' | 'completo' | 'personalizado'
 export async function generateCardsFromText(text, mode, custom = "") {
-  const result = await callClaudeJson({
+  const result = await callOpenAIJson({
     system: GENERATOR_SYSTEM,
     messages: [{ role: "user", content: buildGeneratorMessage({ text, mode, custom }) }],
-    maxTokens: 8192,
-    model: MODELS.haiku,
+    maxTokens: 24000,
+    model: MODELS.luna,
+    reasoningEffort: REASONING.complex,
   });
   return validateCards(result);
 }
 
 export async function generateCardsFromPdf(base64, mode, custom = "") {
-  const result = await callClaudeJson({
+  const result = await callOpenAIJson({
     system: GENERATOR_SYSTEM,
     messages: [
       {
         role: "user",
         content: [
           {
-            type: "document",
-            source: { type: "base64", media_type: "application/pdf", data: base64 },
+            type: "input_file",
+            filename: "material.pdf",
+            file_data: `data:application/pdf;base64,${base64}`,
           },
-          { type: "text", text: buildGeneratorPdfPrompt(mode, custom) },
+          { type: "input_text", text: buildGeneratorPdfPrompt(mode, custom) },
         ],
       },
     ],
-    maxTokens: 8192,
-    model: MODELS.haiku,
+    maxTokens: 24000,
+    model: MODELS.luna,
+    reasoningEffort: REASONING.complex,
   });
   return validateCards(result);
 }

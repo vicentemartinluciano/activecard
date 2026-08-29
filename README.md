@@ -1,7 +1,7 @@
 # ActiveCard
 
 App **privada** de aprendizaje a largo plazo: repetición espaciada (FSRS) +
-"Gimnasio Mental" de asociación de ideas auditado por Claude. No se publica en
+"Gimnasio Mental" de asociación de ideas asistido por GPT-5.6 Luna. No se publica en
 tiendas — se instala como APK propio y se actualiza por EAS Update (OTA).
 
 ## Operación diaria (sin terminal)

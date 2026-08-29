@@ -1,4 +1,4 @@
-import { extractJson } from "../claude";
+import { extractJson } from "../openai";
 
 describe("extractJson (parseo robusto de respuestas de IA)", () => {
   test("JSON directo", () => {

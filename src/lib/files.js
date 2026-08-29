@@ -47,7 +47,7 @@ export async function pickStudyFile() {
 
   if (isPdf) {
     const base64 = await readUri(asset.uri, { asBase64: true });
-    // Límite de la API de Claude: ~32MB por request (el base64 pesa ~33% más).
+    // Tope preventivo para no mandar documentos enormes desde el teléfono.
     if (base64.length > 24_000_000) {
       throw new Error("El PDF es demasiado grande (máximo ~18MB). Divídilo o exportá menos páginas.");
     }

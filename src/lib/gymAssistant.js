@@ -1,6 +1,6 @@
 import { getCard, listAllCardsForSearch } from "../db/cards";
 import { listDecks } from "../db/decks";
-import { callClaudeJson } from "./claude";
+import { callOpenAIJson, REASONING } from "./openai";
 import { GYM_ASSISTANT_SYSTEM } from "./prompts";
 import { filterDeckCards } from "./search";
 import { toPlainText } from "./richtext";
@@ -112,10 +112,11 @@ function buildContext(originCard, decks, attachedCards = [], extra = "") {
 }
 
 async function callTurn(messages, originCard, decks, attachedCards = [], extra = "", allowedCardIds = []) {
-  const result = await callClaudeJson({
+  const result = await callOpenAIJson({
     system: `${GYM_ASSISTANT_SYSTEM}\n\n${buildContext(originCard, decks, attachedCards, extra)}`,
     messages: serializeMessages(messages),
     maxTokens: 3200,
+    reasoningEffort: REASONING.chat,
   });
   const turn = validateGymTurn(result);
   const action = turn.action;

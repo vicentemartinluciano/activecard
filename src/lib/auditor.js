@@ -2,7 +2,7 @@
 // Mantiene la conversación completa (y las tarjetas propuestas) para que el
 // socio recuerde lo hablado a lo largo de los turnos.
 
-import { callClaudeJson } from "./claude";
+import { callOpenAIJson, REASONING } from "./openai";
 import { AUDITOR_SYNTH_REQUEST, AUDITOR_SYSTEM, buildAuditorContext } from "./prompts";
 
 // Valida y normaliza un turno del socio del Gimnasio Mental.
@@ -49,10 +49,11 @@ export function buildAuditorMessages(card, transcript, { forceSynthesis = false 
 }
 
 export async function auditConnection(card, transcript, options = {}) {
-  const result = await callClaudeJson({
+  const result = await callOpenAIJson({
     system: AUDITOR_SYSTEM,
     messages: buildAuditorMessages(card, transcript, options),
-    maxTokens: 1500,
+    maxTokens: 8000,
+    reasoningEffort: REASONING.complex,
   });
   return validateAuditorTurn(result);
 }

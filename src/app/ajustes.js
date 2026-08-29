@@ -9,7 +9,7 @@ import { Button, Card, confirmAsync, Field, Screen } from "../components/ui";
 import { listDecks, updateDeckPriority } from "../db/decks";
 import { DEFAULT_LIMITS, getDailyLimits } from "../db/reviewQueue";
 import { getSetting, setSetting } from "../db/settings";
-import { getAnthropicKey, getNotionToken, setAnthropicKey, setNotionToken } from "../lib/keys";
+import { getNotionToken, getOpenAIKey, setNotionToken, setOpenAIKey } from "../lib/keys";
 import { exportBackup, pickBackupFile, restoreParsedBackup } from "../lib/backupIO";
 import {
   DEFAULT_REMINDER,
@@ -25,7 +25,7 @@ export default function Ajustes() {
   const router = useRouter();
   const [decks, setDecks] = useState([]);
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
-  const [anthropicKey, setAnthropicKeyInput] = useState("");
+  const [openAIKey, setOpenAIKeyInput] = useState("");
   const [notionToken, setNotionTokenInput] = useState("");
   const [keysStatus, setKeysStatus] = useState(null);
   const [backupStatus, setBackupStatus] = useState(null);
@@ -48,7 +48,7 @@ export default function Ajustes() {
       setReminderTime(prefs.time);
     }
     if (Platform.OS === "web") {
-      setAnthropicKeyInput(getAnthropicKey() || "");
+      setOpenAIKeyInput(getOpenAIKey() || "");
       setNotionTokenInput(getNotionToken() || "");
     }
   }, []);
@@ -127,7 +127,7 @@ export default function Ajustes() {
   const pausados = decks.filter((d) => d.priority === 0).length;
 
   const saveKeys = async () => {
-    await setAnthropicKey(anthropicKey);
+    await setOpenAIKey(openAIKey);
     await setNotionToken(notionToken);
     setKeysStatus("Guardadas ✓");
     setTimeout(() => setKeysStatus(null), 2500);
@@ -299,11 +299,11 @@ export default function Ajustes() {
               En la web pública las claves no vienen incluidas por seguridad: pegalas acá una
               vez y quedan guardadas solo en este navegador.
             </Text>
-            <Text style={type.small}>Clave de Anthropic (Claude)</Text>
+            <Text style={type.small}>Clave de OpenAI</Text>
             <Field
-              value={anthropicKey}
-              onChangeText={setAnthropicKeyInput}
-              placeholder="sk-ant-…"
+              value={openAIKey}
+              onChangeText={setOpenAIKeyInput}
+              placeholder="sk-…"
               autoCapitalize="none"
               secureTextEntry
             />

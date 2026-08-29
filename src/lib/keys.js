@@ -3,34 +3,34 @@
 // corre sin .env) — ahí el usuario las pega una vez en Ajustes y quedan
 // guardadas en la DB local del navegador (tabla settings).
 //
-// getAnthropicKey()/getNotionToken() son síncronas (las usan claude.js y
+// getOpenAIKey()/getNotionToken() son síncronas (las usa el cliente de IA y
 // notion.js dentro de un fetch, sin poder esperar una promesa) por eso se
 // cachean en memoria: initKeys() se llama una sola vez al montar la app.
 
 import { getSetting, setSetting } from "../db/settings";
 
-let cache = { anthropic: null, notion: null };
+let cache = { openai: null, notion: null };
 
 export async function initKeys() {
-  const [anthropic, notion] = await Promise.all([
-    getSetting("anthropic_key", null),
+  const [openai, notion] = await Promise.all([
+    getSetting("openai_key", null),
     getSetting("notion_token", null),
   ]);
-  cache = { anthropic, notion };
+  cache = { openai, notion };
 }
 
-export function getAnthropicKey() {
-  return cache.anthropic || process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || null;
+export function getOpenAIKey() {
+  return cache.openai || process.env.EXPO_PUBLIC_OPENAI_API_KEY || null;
 }
 
 export function getNotionToken() {
   return cache.notion || process.env.EXPO_PUBLIC_NOTION_TOKEN || null;
 }
 
-export async function setAnthropicKey(value) {
+export async function setOpenAIKey(value) {
   const clean = value ? value.trim() : "";
-  await setSetting("anthropic_key", clean || null);
-  cache.anthropic = clean || null;
+  await setSetting("openai_key", clean || null);
+  cache.openai = clean || null;
 }
 
 export async function setNotionToken(value) {
