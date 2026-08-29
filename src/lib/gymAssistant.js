@@ -98,6 +98,48 @@ async function collectAttachedCards(messages) {
   } : null).filter(Boolean);
 }
 
+function collectAttachedSources(messages) {
+  const sources = [];
+  const seen = new Set();
+  for (const message of messages) {
+    for (const source of message.metadata?.sources || []) {
+      const key = `${source.name}:${source.base64?.length || source.text?.length || 0}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sources.push(source);
+    }
+  }
+  return sources.slice(-6);
+}
+
+function sourceInput(sources) {
+  if (!sources.length) return [];
+  const content = [
+    {
+      type: "input_text",
+      text: "Fuentes adjuntas por el usuario. Usalas según el pedido de la conversación; no asumas que quiere crear tarjetas.",
+    },
+  ];
+  for (const source of sources) {
+    if (source.kind === "text" && source.text) {
+      content.push({ type: "input_text", text: `\nARCHIVO ${source.name}:\n${source.text}` });
+    } else if (source.mimeType?.startsWith("image/") && source.base64) {
+      content.push({
+        type: "input_image",
+        image_url: `data:${source.mimeType};base64,${source.base64}`,
+        detail: "auto",
+      });
+    } else if (source.base64) {
+      content.push({
+        type: "input_file",
+        filename: source.name || "documento",
+        file_data: `data:${source.mimeType || "application/octet-stream"};base64,${source.base64}`,
+      });
+    }
+  }
+  return [{ role: "user", content }];
+}
+
 function buildContext(originCard, decks, attachedCards = [], extra = "") {
   const origin = originCard
     ? `\nTARJETA DE CONTEXTO:\nID ${originCard.id}, mazo ${originCard.deck_id}\nFrente: ${originCard.front}\nDorso: ${originCard.back}`
@@ -111,10 +153,10 @@ function buildContext(originCard, decks, attachedCards = [], extra = "") {
   return `CATÁLOGO DE MAZOS:\n${catalog || "(sin mazos)"}${origin}${attached}${extra ? `\n\n${extra}` : ""}`;
 }
 
-async function callTurn(messages, originCard, decks, attachedCards = [], extra = "", allowedCardIds = []) {
+async function callTurn(messages, originCard, decks, attachedCards = [], attachedSources = [], extra = "", allowedCardIds = []) {
   const result = await callOpenAIJson({
     system: `${GYM_ASSISTANT_SYSTEM}\n\n${buildContext(originCard, decks, attachedCards, extra)}`,
-    messages: serializeMessages(messages),
+    messages: [...serializeMessages(messages), ...sourceInput(attachedSources)],
     maxTokens: 3200,
     reasoningEffort: REASONING.chat,
   });
@@ -135,11 +177,12 @@ async function callTurn(messages, originCard, decks, attachedCards = [], extra =
 export async function runGymAssistant({ originCard = null, messages }) {
   const decks = await listDecks();
   const attachedCards = await collectAttachedCards(messages);
+  const attachedSources = collectAttachedSources(messages);
   const allowedCardIds = [
     ...(originCard ? [originCard.id] : []),
     ...attachedCards.map((item) => item.cardId),
   ];
-  const first = await callTurn(messages, originCard, decks, attachedCards, "", allowedCardIds);
+  const first = await callTurn(messages, originCard, decks, attachedCards, attachedSources, "", allowedCardIds);
   if (first.action?.type !== "search_cards") return first;
 
   const allCards = await listAllCardsForSearch();
@@ -189,5 +232,5 @@ export async function resolveGymCardChoice({
   const [card, decks] = await Promise.all([getCard(cardId), providedDecks || listDecks()]);
   if (!card) throw new Error("La tarjeta elegida ya no existe.");
   const extra = `TARJETA ELEGIDA PARA ${intent}:\nID ${card.id}, mazo ${card.deck_id}\nFrente: ${card.front}\nDorso: ${card.back}\nPedido original: ${instruction}\nAhora respondé o prepará la acción correspondiente usando este ID real.`;
-  return callTurn(messages, originCard, decks, [], extra, [card.id]);
+  return callTurn(messages, originCard, decks, [], collectAttachedSources(messages), extra, [card.id]);
 }

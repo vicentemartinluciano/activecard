@@ -50,3 +50,30 @@ test("rechaza una edición sobre una tarjeta que no fue adjuntada", async () => 
     messages: [{ role: "user", text: "Editala", metadata: { attachments: [{ cardId: 9 }] } }],
   })).rejects.toThrow(/no estaba en el contexto/);
 });
+
+test("envía las fuentes adjuntas en el formato multimodal de Responses API", async () => {
+  callOpenAIJson.mockResolvedValue({ message: "Leí las fuentes.", action: null });
+
+  await runGymAssistant({
+    messages: [{
+      role: "user",
+      text: "Compará estos materiales",
+      metadata: {
+        sources: [
+          { kind: "text", name: "ideas.md", mimeType: "text/markdown", text: "Idea central" },
+          { kind: "file", name: "apunte.pdf", mimeType: "application/pdf", base64: "UERG" },
+          { kind: "file", name: "grafico.png", mimeType: "image/png", base64: "UE5H" },
+        ],
+      },
+    }],
+  });
+
+  const input = callOpenAIJson.mock.calls[0][0].messages;
+  const sourceTurn = input[input.length - 1];
+  expect(sourceTurn.role).toBe("user");
+  expect(sourceTurn.content).toEqual(expect.arrayContaining([
+    expect.objectContaining({ type: "input_text", text: expect.stringContaining("Idea central") }),
+    expect.objectContaining({ type: "input_file", filename: "apunte.pdf", file_data: "data:application/pdf;base64,UERG" }),
+    expect.objectContaining({ type: "input_image", image_url: "data:image/png;base64,UE5H" }),
+  ]));
+});

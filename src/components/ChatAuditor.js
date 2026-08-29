@@ -26,10 +26,12 @@ import {
   updateGymMessageMetadata,
 } from "../db/gymChats";
 import { resolveGymCardChoice, runGymAssistant } from "../lib/gymAssistant";
+import { pickGymFiles } from "../lib/files";
 import { toPlainText } from "../lib/richtext";
 import { colors, font, radius, spacing, type } from "../theme";
 import BrainMark from "./BrainMark";
 import CardAttachmentSheet from "./CardAttachmentSheet";
+import ActionSheet from "./ActionSheet";
 import RichText from "./RichText";
 import StarField from "./StarField";
 import VoiceInput from "./VoiceInput";
@@ -61,6 +63,25 @@ function AttachmentPills({ items = [], onRemove }) {
           </View>
         );
       })}
+    </ScrollView>
+  );
+}
+
+function SourcePills({ items = [], onRemove }) {
+  if (!items.length) return null;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.attachmentRow}>
+      {items.map((item, index) => (
+        <View key={`${item.name}-${index}`} style={styles.sourcePill}>
+          <Feather name={item.mimeType?.startsWith("image/") ? "image" : "file"} size={14} color="#42DCE7" />
+          <Text style={styles.attachmentTitle} numberOfLines={1}>{item.name}</Text>
+          {onRemove ? (
+            <Pressable onPress={() => onRemove(index)} hitSlop={8}>
+              <Feather name="x" size={15} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
     </ScrollView>
   );
 }
@@ -137,8 +158,10 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
+  const [sourceAttachments, setSourceAttachments] = useState([]);
   const scrollRef = useRef(null);
   const saveTimer = useRef(null);
 
@@ -170,6 +193,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       setMessages([]);
       setInput("");
       setAttachments([]);
+      setSourceAttachments([]);
       setSession({
         id: null,
         title: "Nueva charla",
@@ -226,13 +250,15 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
 
   const send = async () => {
     const typedText = input.trim();
-    if ((!typedText && attachments.length === 0) || busy || !session) return;
+    if ((!typedText && attachments.length === 0 && sourceAttachments.length === 0) || busy || !session) return;
     setBusy(true);
     setError("");
     try {
       const chat = await ensureSession();
-      const text = typedText || `Adjunté ${attachments.length} ${attachments.length === 1 ? "tarjeta" : "tarjetas"}.`;
-      const metadata = attachments.length
+      const text = typedText || (sourceAttachments.length
+        ? `Adjunté ${sourceAttachments.length} ${sourceAttachments.length === 1 ? "fuente" : "fuentes"}.`
+        : `Adjunté ${attachments.length} ${attachments.length === 1 ? "tarjeta" : "tarjetas"}.`);
+      const metadata = attachments.length || sourceAttachments.length
         ? {
             attachments: attachments.map((item) => ({
               cardId: item.id,
@@ -240,6 +266,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
               deckName: item.deckName,
               front: toPlainText(item.front).slice(0, 220),
             })),
+            sources: sourceAttachments,
           }
         : null;
       clearTimeout(saveTimer.current);
@@ -249,9 +276,10 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       setMessages(next);
       setInput("");
       setAttachments([]);
+      setSourceAttachments([]);
       await setGymChatDraft(chat.id, "");
       if (messages.length === 0 && chat.title === "Nueva charla") {
-        const title = titleFrom(typedText || toPlainText(attachments[0]?.front || "Tarjetas adjuntas"));
+        const title = titleFrom(typedText || sourceAttachments[0]?.name || toPlainText(attachments[0]?.front || "Tarjetas adjuntas"));
         await renameGymChat(chat.id, title);
         setSession((current) => ({ ...current, title }));
       }
@@ -262,6 +290,18 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       setError(e.message || String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const addSources = async () => {
+    setError("");
+    try {
+      const picked = await pickGymFiles();
+      if (picked.length) {
+        setSourceAttachments((current) => [...current, ...picked].slice(0, 6));
+      }
+    } catch (e) {
+      setError(e.message || String(e));
     }
   };
 
@@ -399,6 +439,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
               {startsAssistantGroup ? <View style={styles.avatar}><BrainMark size={32} /></View> : null}
               <View style={message.role === "user" ? styles.userMessageContent : styles.assistantMessageContent}>
                 <AttachmentPills items={message.metadata?.attachments || []} />
+                <SourcePills items={message.metadata?.sources || []} />
                 <View style={[styles.bubble, message.role === "user" ? styles.userBubble : styles.assistantBubble]}>
                   {message.role === "assistant" ? (
                     <RichText text={message.text} style={styles.bubbleText} containerStyle={styles.richBubble} />
@@ -425,11 +466,15 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
         items={attachments}
         onRemove={(id) => setAttachments((current) => current.filter((item) => item.id !== id))}
       />
+      <SourcePills
+        items={sourceAttachments}
+        onRemove={(index) => setSourceAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+      />
       <VoiceInput value={input} onChangeText={changeInput}>
         {({ micButton, active }) => (
           <View style={styles.composer}>
             <Pressable
-              onPress={() => setAttachmentSheetOpen(true)}
+              onPress={() => setAddMenuOpen(true)}
               disabled={active || busy}
               style={[styles.attachButton, (active || busy) && { opacity: 0.35 }]}
               hitSlop={6}
@@ -438,12 +483,21 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
             </Pressable>
             <Field value={input} onChangeText={changeInput} placeholder="" multiline editable={!active} style={styles.field} />
             {micButton}
-            <Pressable onPress={send} disabled={(!input.trim() && attachments.length === 0) || busy || active} style={[styles.send, ((!input.trim() && attachments.length === 0) || busy || active) && { opacity: 0.35 }]}>
+            <Pressable onPress={send} disabled={(!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active} style={[styles.send, ((!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active) && { opacity: 0.35 }]}>
               <Feather name="send" size={19} color="#fff" />
             </Pressable>
           </View>
         )}
       </VoiceInput>
+      <ActionSheet
+        visible={addMenuOpen}
+        onClose={() => setAddMenuOpen(false)}
+        title="Añadir al chat"
+        options={[
+          { label: "Añadir fuente", icon: "paperclip", onPress: addSources },
+          { label: "Referenciar tarjetas", icon: "layers", onPress: () => setAttachmentSheetOpen(true) },
+        ]}
+      />
       <CardAttachmentSheet
         visible={attachmentSheetOpen}
         onClose={() => setAttachmentSheetOpen(false)}
@@ -497,6 +551,7 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 12 },
   attachmentRow: { gap: spacing.xs, paddingHorizontal: 1 },
   attachmentPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 190, paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: "rgba(65,190,240,0.28)", backgroundColor: "rgba(12,21,33,0.94)" },
+  sourcePill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, maxWidth: 220, paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(62,99,221,0.38)", backgroundColor: "rgba(18,24,48,0.9)" },
   attachmentCopy: { flex: 1, gap: 1 },
   attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 11 },
   attachmentDeck: { ...type.small, fontSize: 9, color: colors.textMuted },

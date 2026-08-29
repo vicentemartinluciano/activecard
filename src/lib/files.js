@@ -1,4 +1,4 @@
-// Selección y lectura de archivos (TXT/MD locales, PDF a base64).
+// Selección y lectura de fuentes para Crear y Gimnasio Mental.
 // En Android el picker muestra también Google Drive como proveedor,
 // así que los documentos del Drive entran por acá (exportados a PDF/texto).
 
@@ -26,6 +26,64 @@ async function readUri(uri, { asBase64 }) {
   return FileSystem.readAsStringAsync(uri, {
     encoding: asBase64 ? FileSystem.EncodingType.Base64 : FileSystem.EncodingType.UTF8,
   });
+}
+
+const GYM_FILE_TYPES = [
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "image/*",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
+
+const MIME_BY_EXTENSION = {
+  pdf: "application/pdf",
+  txt: "text/plain",
+  md: "text/markdown",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+
+function fileMimeType(asset, name) {
+  if (asset.mimeType && asset.mimeType !== "application/octet-stream") return asset.mimeType;
+  const extension = name.split(".").pop()?.toLowerCase();
+  return MIME_BY_EXTENSION[extension] || "application/octet-stream";
+}
+
+export async function pickGymFiles() {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: GYM_FILE_TYPES,
+    copyToCacheDirectory: true,
+    multiple: true,
+  });
+  if (result.canceled || !result.assets?.length) return [];
+
+  const files = [];
+  for (const asset of result.assets.slice(0, 6)) {
+    const name = asset.name || "documento";
+    const mimeType = fileMimeType(asset, name);
+    const isText = mimeType.startsWith("text/") || /\.(txt|md)$/i.test(name);
+    if (isText) {
+      const text = await readUri(asset.uri, { asBase64: false });
+      if (text.trim()) files.push({ kind: "text", name, mimeType, text });
+      continue;
+    }
+    const base64 = await readUri(asset.uri, { asBase64: true });
+    if (base64.length > 24_000_000) {
+      throw new Error(`"${name}" es demasiado grande (máximo aproximado: 18 MB).`);
+    }
+    files.push({ kind: "file", name, mimeType, base64 });
+  }
+  return files;
 }
 
 // Abre el picker y devuelve:
