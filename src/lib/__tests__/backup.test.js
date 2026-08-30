@@ -1,4 +1,4 @@
-import { buildBackup, restoreBackup } from "../backup";
+import { buildBackup, listSourcesFromMessages, restoreBackup } from "../backup";
 
 const TABLES = [
   "folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections",
@@ -55,6 +55,47 @@ describe("buildBackup", () => {
     const db = fakeDb();
     const backup = await buildBackup(db, NOW);
     expect(backup.settings).toBeUndefined();
+  });
+
+  test("permite elegir qué archivos adjuntos entran al respaldo manual", async () => {
+    const fuenteA = { kind: "text", name: "a.md", mimeType: "text/markdown", text: "Fuente A" };
+    const fuenteB = { kind: "file", name: "b.pdf", mimeType: "application/pdf", base64: "UERG" };
+    const db = fakeDb({
+      gym_messages: [{
+        id: 1,
+        chat_id: 1,
+        role: "user",
+        text: "Dos fuentes",
+        metadata: JSON.stringify({ sources: [fuenteA, fuenteB], attachments: [{ cardId: 7 }] }),
+      }],
+    });
+    const [optionA] = listSourcesFromMessages(db.tables.gym_messages);
+    const backup = await buildBackup(db, NOW, { sourceKeys: [optionA.key] });
+    const metadata = JSON.parse(backup.gym_messages[0].metadata);
+    expect(metadata.sources).toEqual([fuenteA]);
+    expect(metadata.attachments).toEqual([{ cardId: 7 }]);
+  });
+
+  test("puede exportar el historial sin ningún archivo adjunto", async () => {
+    const db = fakeDb({
+      gym_messages: [{
+        id: 1,
+        metadata: JSON.stringify({ sources: [{ name: "a.md", text: "contenido" }] }),
+      }],
+    });
+    const backup = await buildBackup(db, NOW, { sourceKeys: [] });
+    expect(backup.gym_messages[0].metadata).toBeNull();
+  });
+
+  test("el selector agrupa la misma fuente repetida", () => {
+    const source = { kind: "text", name: "ideas.md", mimeType: "text/markdown", text: "idea" };
+    const rows = [
+      { metadata: JSON.stringify({ sources: [source] }) },
+      { metadata: JSON.stringify({ sources: [source] }) },
+    ];
+    expect(listSourcesFromMessages(rows)).toEqual([
+      expect.objectContaining({ name: "ideas.md", occurrences: 2 }),
+    ]);
   });
 });
 

@@ -1,7 +1,8 @@
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
+import ActionSheet from "../components/ActionSheet";
 import Collapsible from "../components/Collapsible";
 import PercentSlider from "../components/PercentSlider";
 import Stagger from "../components/Stagger";
@@ -10,7 +11,12 @@ import { listDecks, updateDeckPriority } from "../db/decks";
 import { DEFAULT_LIMITS, getDailyLimits } from "../db/reviewQueue";
 import { getSetting, setSetting } from "../db/settings";
 import { getNotionToken, getOpenAIKey, setNotionToken, setOpenAIKey } from "../lib/keys";
-import { exportBackup, pickBackupFile, restoreParsedBackup } from "../lib/backupIO";
+import {
+  exportBackup,
+  listExportableSources,
+  pickBackupFile,
+  restoreParsedBackup,
+} from "../lib/backupIO";
 import {
   DEFAULT_REMINDER,
   getReminderPrefs,
@@ -30,6 +36,9 @@ export default function Ajustes() {
   const [keysStatus, setKeysStatus] = useState(null);
   const [backupStatus, setBackupStatus] = useState(null);
   const [backupBusy, setBackupBusy] = useState(false);
+  const [backupSources, setBackupSources] = useState([]);
+  const [selectedBackupSources, setSelectedBackupSources] = useState([]);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
   const [userName, setUserName] = useState("");
   const [nameStatus, setNameStatus] = useState(null);
   const [lastAuto, setLastAuto] = useState(null);
@@ -137,13 +146,43 @@ export default function Ajustes() {
     setBackupBusy(true);
     setBackupStatus(null);
     try {
-      const name = await exportBackup();
+      const sources = await listExportableSources();
+      if (sources.length) {
+        setBackupSources(sources);
+        setSelectedBackupSources([]);
+        setSourcePickerOpen(true);
+        return;
+      }
+      const name = await exportBackup(new Date(), { sourceKeys: [] });
       setBackupStatus(`Exportado: ${name}`);
     } catch (e) {
       setBackupStatus(`Error al exportar: ${e.message || e}`);
     } finally {
       setBackupBusy(false);
     }
+  };
+
+  const finishExport = async (sourceKeys) => {
+    setSourcePickerOpen(false);
+    setBackupBusy(true);
+    setBackupStatus(null);
+    try {
+      const name = await exportBackup(new Date(), { sourceKeys });
+      const suffix = sourceKeys.length
+        ? ` · ${sourceKeys.length} ${sourceKeys.length === 1 ? "archivo incluido" : "archivos incluidos"}`
+        : " · sin archivos adjuntos";
+      setBackupStatus(`Exportado: ${name}${suffix}`);
+    } catch (e) {
+      setBackupStatus(`Error al exportar: ${e.message || e}`);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const toggleBackupSource = (key) => {
+    setSelectedBackupSources((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key]
+    );
   };
 
   const doImport = async () => {
@@ -341,6 +380,64 @@ export default function Ajustes() {
         </Card>
         </Stagger>
       </ScrollView>
+      <ActionSheet
+        visible={sourcePickerOpen}
+        onClose={() => setSourcePickerOpen(false)}
+        title="¿Incluir archivos adjuntos?"
+      >
+        <Text style={type.small}>
+          Las conversaciones se respaldan siempre. Marcá solo los archivos que también querés
+          guardar dentro del respaldo.
+        </Text>
+        <Pressable
+          style={styles.selectAll}
+          onPress={() =>
+            setSelectedBackupSources(
+              selectedBackupSources.length === backupSources.length
+                ? []
+                : backupSources.map((source) => source.key)
+            )
+          }
+        >
+          <Text style={type.small}>
+            {selectedBackupSources.length === backupSources.length ? "Quitar todos" : "Seleccionar todos"}
+          </Text>
+        </Pressable>
+        <ScrollView style={styles.sourceList} contentContainerStyle={{ gap: spacing.xs }}>
+          {backupSources.map((source) => {
+            const selected = selectedBackupSources.includes(source.key);
+            return (
+              <Pressable
+                key={source.key}
+                style={[styles.sourceRow, selected && styles.sourceRowSelected]}
+                onPress={() => toggleBackupSource(source.key)}
+              >
+                <View style={[styles.sourceCheck, selected && styles.sourceCheckSelected]}>
+                  {selected ? <Text style={styles.sourceCheckText}>✓</Text> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={type.body} numberOfLines={1}>{source.name}</Text>
+                  <Text style={type.small}>
+                    {Math.max(1, Math.round(source.sizeBytes / 1024))} KB
+                    {source.occurrences > 1 ? ` · usado ${source.occurrences} veces` : ""}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <Button
+          label={
+            selectedBackupSources.length
+              ? `Exportar con ${selectedBackupSources.length}`
+              : "Elegí al menos un archivo"
+          }
+          kind="primary"
+          disabled={selectedBackupSources.length === 0}
+          onPress={() => finishExport(selectedBackupSources)}
+        />
+        <Button label="Exportar sin archivos" kind="ghost" onPress={() => finishExport([])} />
+      </ActionSheet>
     </Screen>
   );
 }
@@ -373,5 +470,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  selectAll: {
+    alignSelf: "flex-end",
+    paddingVertical: spacing.xs,
+  },
+  sourceList: {
+    maxHeight: 280,
+  },
+  sourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surfaceHigh,
+  },
+  sourceRowSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  sourceCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sourceCheckSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
+  },
+  sourceCheckText: {
+    color: "#FFFFFF",
+    fontSize: 13,
   },
 });

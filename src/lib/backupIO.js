@@ -6,16 +6,22 @@ import * as DocumentPicker from "expo-document-picker";
 import { Platform } from "react-native";
 
 import { getDb } from "../db/client";
-import { buildBackup, restoreBackup } from "./backup";
+import { buildBackup, listSourcesFromMessages, restoreBackup } from "./backup";
 
 function fileName(now = new Date()) {
   const iso = now.toISOString().slice(0, 10);
   return `activecard-respaldo-${iso}.json`;
 }
 
-export async function exportBackup(now = new Date()) {
+export async function listExportableSources() {
   const db = await getDb();
-  const backup = await buildBackup(db, now);
+  const messages = await db.getAllAsync("SELECT id, chat_id, metadata FROM gym_messages");
+  return listSourcesFromMessages(messages);
+}
+
+export async function exportBackup(now = new Date(), { sourceKeys } = {}) {
+  const db = await getDb();
+  const backup = await buildBackup(db, now, { sourceKeys });
   const json = JSON.stringify(backup, null, 2);
   const name = fileName(now);
 
