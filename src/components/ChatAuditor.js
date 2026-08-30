@@ -46,7 +46,12 @@ const titleFrom = (text) => {
 function AttachmentPills({ items = [], onRemove }) {
   if (!items.length) return null;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.attachmentRow}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.attachmentScroller}
+      contentContainerStyle={styles.attachmentRow}
+    >
       {items.map((item) => {
         const id = item.cardId || item.id;
         return (
@@ -71,7 +76,12 @@ function AttachmentPills({ items = [], onRemove }) {
 function SourcePills({ items = [], onRemove }) {
   if (!items.length) return null;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.attachmentRow}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.attachmentScroller}
+      contentContainerStyle={styles.attachmentRow}
+    >
       {items.map((item, index) => (
         <View key={`${item.name}-${index}`} style={styles.sourcePill}>
           <Feather name={item.mimeType?.startsWith("image/") ? "image" : "file"} size={14} color="#42DCE7" />
@@ -778,9 +788,10 @@ const styles = StyleSheet.create({
   dangerSummary: { flexDirection: "row", gap: spacing.sm, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(229,72,77,0.08)", borderWidth: 1, borderColor: "rgba(229,72,77,0.25)" },
   confirmName: { ...font(700), color: colors.text },
   error: { color: colors.danger, fontSize: 12 },
-  attachmentRow: { gap: spacing.xs, paddingHorizontal: 1 },
-  attachmentPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 190, paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: "rgba(65,190,240,0.28)", backgroundColor: "rgba(12,21,33,0.94)" },
-  sourcePill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, maxWidth: 220, paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(62,99,221,0.38)", backgroundColor: "rgba(18,24,48,0.9)" },
+  attachmentScroller: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 },
+  attachmentRow: { gap: spacing.xs, paddingHorizontal: 1, height: 52, alignItems: "center" },
+  attachmentPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 230, height: 48, paddingHorizontal: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: "rgba(65,190,240,0.28)", backgroundColor: "rgba(12,21,33,0.94)" },
+  sourcePill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 230, height: 48, paddingHorizontal: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: "rgba(62,99,221,0.38)", backgroundColor: "rgba(18,24,48,0.9)" },
   attachmentCopy: { flex: 1, gap: 1 },
   attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 11 },
   attachmentDeck: { ...type.small, fontSize: 9, color: colors.textMuted },
