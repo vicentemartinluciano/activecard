@@ -104,7 +104,7 @@ export async function buildBackup(db, now = new Date(), { sourceKeys } = {}) {
   };
 }
 
-function validateBackup(backup) {
+export function validateBackup(backup) {
   if (!backup || typeof backup !== "object") {
     throw new Error("El archivo no tiene un formato válido.");
   }
@@ -124,16 +124,20 @@ function validateBackup(backup) {
   }
 }
 
-// Reemplaza TODOS los datos actuales por los del respaldo (conserva los ids
-// originales para no romper las relaciones). Devuelve un conteo por tabla.
-export async function restoreBackup(db, backup) {
+export function normalizeBackup(backup) {
   validateBackup(backup);
-  const data = {
+  return {
     ...backup,
     folders: backup.folders || [],
     gym_chats: backup.gym_chats || [],
     gym_messages: backup.gym_messages || [],
   };
+}
+
+// Reemplaza TODOS los datos actuales por los del respaldo (conserva los ids
+// originales para no romper las relaciones). Devuelve un conteo por tabla.
+export async function restoreBackup(db, backup) {
+  const data = normalizeBackup(backup);
 
   await db.execAsync("BEGIN");
   try {

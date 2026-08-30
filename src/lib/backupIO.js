@@ -6,7 +6,8 @@ import * as DocumentPicker from "expo-document-picker";
 import { Platform } from "react-native";
 
 import { getDb } from "../db/client";
-import { buildBackup, listSourcesFromMessages, restoreBackup } from "./backup";
+import { buildBackup, listSourcesFromMessages, normalizeBackup, restoreBackup } from "./backup";
+import { applyAdditiveImport, prepareAdditiveImport } from "./backupMerge";
 
 function fileName(now = new Date()) {
   const iso = now.toISOString().slice(0, 10);
@@ -73,6 +74,7 @@ export async function pickBackupFile() {
   } catch (e) {
     throw new Error("El archivo no es un JSON válido.");
   }
+  normalizeBackup(parsed);
 
   return {
     parsed,
@@ -84,6 +86,45 @@ export async function pickBackupFile() {
 export async function restoreParsedBackup(parsed) {
   const db = await getDb();
   return restoreBackup(db, parsed);
+}
+
+function preImportFileName(now = new Date()) {
+  return `activecard-antes-de-importar-${now.toISOString().replace(/[:.]/g, "-")}.json`;
+}
+
+export async function createPreImportBackup(now = new Date()) {
+  const db = await getDb();
+  const backup = await buildBackup(db, now);
+  const json = JSON.stringify(backup, null, 2);
+  const name = preImportFileName(now);
+  if (Platform.OS === "web") {
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    return name;
+  }
+  const FileSystem = await import("expo-file-system/legacy");
+  const uri = FileSystem.documentDirectory + name;
+  await FileSystem.writeAsStringAsync(uri, json, { encoding: FileSystem.EncodingType.UTF8 });
+  return uri;
+}
+
+export async function prepareParsedAdditiveImport(parsed) {
+  const db = await getDb();
+  return prepareAdditiveImport(db, parsed);
+}
+
+export async function mergeParsedBackup(parsed, selection, plan, now = new Date()) {
+  const safetyCopy = await createPreImportBackup(now);
+  const db = await getDb();
+  const counts = await applyAdditiveImport(db, parsed, selection, plan);
+  return { counts, safetyCopy };
 }
 
 const AUTO_BACKUP_KEY = "lastAutoBackup";

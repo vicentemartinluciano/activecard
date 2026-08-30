@@ -15,8 +15,10 @@ import {
   exportBackup,
   listExportableSources,
   pickBackupFile,
+  prepareParsedAdditiveImport,
   restoreParsedBackup,
 } from "../lib/backupIO";
+import { setPendingImport } from "../lib/pendingImport";
 import {
   DEFAULT_REMINDER,
   getReminderPrefs,
@@ -39,6 +41,8 @@ export default function Ajustes() {
   const [backupSources, setBackupSources] = useState([]);
   const [selectedBackupSources, setSelectedBackupSources] = useState([]);
   const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
+  const [importModeOpen, setImportModeOpen] = useState(false);
+  const [pickedBackup, setPickedBackup] = useState(null);
   const [userName, setUserName] = useState("");
   const [nameStatus, setNameStatus] = useState(null);
   const [lastAuto, setLastAuto] = useState(null);
@@ -191,16 +195,51 @@ export default function Ajustes() {
     try {
       const picked = await pickBackupFile();
       if (!picked) return;
+      setPickedBackup(picked);
+      setImportModeOpen(true);
+    } catch (e) {
+      setBackupStatus(`Error al importar: ${e.message || e}`);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const replaceImport = async () => {
+    if (!pickedBackup) return;
+    setImportModeOpen(false);
+    setBackupBusy(true);
+    try {
       const ok = await confirmAsync(
-        "Importar respaldo",
-        `Esto REEMPLAZA todos los datos actuales por los del archivo (${picked.decks} mazos, ${picked.cards} tarjetas). No se puede deshacer.`
+        "Reemplazar todo",
+        `Esto borra los datos actuales y los reemplaza por los del archivo (${pickedBackup.decks} mazos, ${pickedBackup.cards} tarjetas). No se puede deshacer.`
       );
-      if (!ok) return;
-      const counts = await restoreParsedBackup(picked.parsed);
+      if (!ok) {
+        setPickedBackup(null);
+        return;
+      }
+      const counts = await restoreParsedBackup(pickedBackup.parsed);
       setBackupStatus(`Importado: ${counts.decks} mazos, ${counts.cards} tarjetas.`);
+      setPickedBackup(null);
       load();
     } catch (e) {
       setBackupStatus(`Error al importar: ${e.message || e}`);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const previewAdditiveImport = async () => {
+    if (!pickedBackup) return;
+    setImportModeOpen(false);
+    setBackupBusy(true);
+    setBackupStatus(null);
+    try {
+      const plan = await prepareParsedAdditiveImport(pickedBackup.parsed);
+      setPendingImport({ parsed: pickedBackup.parsed, plan });
+      setPickedBackup(null);
+      router.push("/importar-respaldo");
+    } catch (e) {
+      setBackupStatus(`Error al analizar: ${e.message || e}`);
     } finally {
       setBackupBusy(false);
     }
@@ -384,6 +423,24 @@ export default function Ajustes() {
         </Card>
         </Stagger>
       </ScrollView>
+      <ActionSheet
+        visible={importModeOpen}
+        onClose={() => {
+          setImportModeOpen(false);
+          setPickedBackup(null);
+        }}
+        title="¿Cómo querés importar?"
+      >
+        <Text style={type.small}>
+          Podés reemplazar tu biblioteca completa o revisar qué información nueva querés sumar.
+        </Text>
+        <Button label="Agregar a mis datos" kind="primary" onPress={previewAdditiveImport} />
+        <Button label="Reemplazar todo" kind="danger" onPress={replaceImport} />
+        <Button label="Cancelar" kind="ghost" onPress={() => {
+          setImportModeOpen(false);
+          setPickedBackup(null);
+        }} />
+      </ActionSheet>
       <ActionSheet
         visible={sourcePickerOpen}
         onClose={() => setSourcePickerOpen(false)}
