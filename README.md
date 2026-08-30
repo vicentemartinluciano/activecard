@@ -4,6 +4,10 @@ App **privada** de aprendizaje a largo plazo: repetición espaciada (FSRS) +
 "Gimnasio Mental" de asociación de ideas asistido por GPT-5.6 Luna. No se publica en
 tiendas — se instala como APK propio y se actualiza por EAS Update (OTA).
 
+La conexión con GPT-5.6 Luna se configura una vez desde Ajustes con una clave de
+OpenAI guardada solo en el dispositivo. Un gateway propio sigue siendo la opción
+recomendada si la app deja de ser de uso personal.
+
 ## Operación diaria (sin terminal)
 
 Los `.bat` de la carpeta `comandos AC/`:

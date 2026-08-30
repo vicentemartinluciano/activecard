@@ -51,13 +51,13 @@ export default function Ajustes() {
     setLimits(await getDailyLimits());
     setUserName(await getSetting("userName", "Martín"));
     setLastAuto(await getSetting("lastAutoBackup", null));
+    setOpenAIKeyInput(getOpenAIKey() || "");
     if (Platform.OS !== "web") {
       const prefs = await getReminderPrefs();
       setReminder(prefs);
       setReminderTime(prefs.time);
     }
     if (Platform.OS === "web") {
-      setOpenAIKeyInput(getOpenAIKey() || "");
       setNotionTokenInput(getNotionToken() || "");
     }
   }, []);
@@ -137,7 +137,7 @@ export default function Ajustes() {
 
   const saveKeys = async () => {
     await setOpenAIKey(openAIKey);
-    await setNotionToken(notionToken);
+    if (Platform.OS === "web") await setNotionToken(notionToken);
     setKeysStatus("Guardadas ✓");
     setTimeout(() => setKeysStatus(null), 2500);
   };
@@ -331,21 +331,24 @@ export default function Ajustes() {
           {backupStatus ? <Text style={type.small}>{backupStatus}</Text> : null}
         </Card>
 
-        {Platform.OS === "web" ? (
-          <Card style={styles.section}>
-            <Text style={styles.sectionTitle}>Claves de API</Text>
-            <Text style={type.small}>
-              En la web pública las claves no vienen incluidas por seguridad: pegalas acá una
-              vez y quedan guardadas solo en este navegador.
-            </Text>
-            <Text style={type.small}>Clave de OpenAI</Text>
-            <Field
-              value={openAIKey}
-              onChangeText={setOpenAIKeyInput}
-              placeholder="sk-…"
-              autoCapitalize="none"
-              secureTextEntry
-            />
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Conexión con la IA</Text>
+          <Text style={type.small}>
+            {Platform.OS === "web"
+              ? "Las claves quedan guardadas solo en este navegador."
+              : "Pegá tu clave de OpenAI una vez. Queda solo en este teléfono y no se incluye en los respaldos."}
+          </Text>
+          <Text style={type.small}>Clave de OpenAI</Text>
+          <Field
+            value={openAIKey}
+            onChangeText={setOpenAIKeyInput}
+            placeholder="sk-…"
+            autoCapitalize="none"
+            autoCorrect={false}
+            secureTextEntry
+          />
+          {Platform.OS === "web" ? (
+            <>
             <Text style={type.small}>Token de Notion</Text>
             <Field
               value={notionToken}
@@ -354,10 +357,11 @@ export default function Ajustes() {
               autoCapitalize="none"
               secureTextEntry
             />
-            <Button label="Guardar claves" kind="primary" onPress={saveKeys} />
-            {keysStatus ? <Text style={type.small}>{keysStatus}</Text> : null}
-          </Card>
-        ) : null}
+            </>
+          ) : null}
+          <Button label="Guardar conexión" kind="primary" onPress={saveKeys} />
+          {keysStatus ? <Text style={type.small}>{keysStatus}</Text> : null}
+        </Card>
 
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Tu nombre</Text>

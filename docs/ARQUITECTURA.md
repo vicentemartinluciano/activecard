@@ -340,15 +340,19 @@ folders/decks/tags/deck_tags/cards/review_logs/connections/gym_chats/gym_message
 (sin chats persistentes) siguen siendo restaurables: se normalizan las tablas
 ausentes a arrays vacíos. Restore = reemplazo total transaccional conservando ids.
 Web: descarga Blob / picker. Nativo: expo-file-system legacy + expo-sharing.
+Antes del respaldo manual, Ajustes detecta las fuentes adjuntas a chats y deja
+elegir cuáles incluir; el historial y las referencias a tarjetas se conservan
+siempre. El respaldo automático incluye todo para maximizar la recuperación.
 El automático semanal corre después de las interacciones iniciales y rota tres
 archivos (`activecard-auto-1/2/3.json`) en vez de sobrescribir una única copia.
 
 ## Claves de API (`lib/keys.js`)
 Caché en memoria inicializada en el root layout desde `settings`
 (`openai_key` / `notion_token`); fallback a `process.env.EXPO_PUBLIC_*`.
-- APK: usa `EXPO_PUBLIC_ACTIVECARD_AI_URL` para llamar a un gateway que conserva
-  la clave real de OpenAI fuera del binario. La clave directa queda solo como
-  fallback de desarrollo local.
+- APK: si existe `EXPO_PUBLIC_ACTIVECARD_AI_URL`, usa ese gateway para conservar
+  la clave real de OpenAI fuera del binario. En la app privada también se puede
+  pegar la clave directa desde Ajustes: queda solo en SQLite del teléfono, nunca
+  en el APK ni en el respaldo.
 - Web pública: el workflow buildea sin `.env`; el usuario pega su propia clave
   de OpenAI en Ajustes y queda guardada únicamente en ese navegador.
 
