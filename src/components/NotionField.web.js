@@ -11,12 +11,15 @@ import { EDITOR_CSS } from "../lib/editorCss";
 import {
   activeStates,
   applyColor,
+  applyFormat,
   buildExtensions,
   BUBBLE_BUTTONS,
   COLOR_BUTTON,
   COLOR_KEYS,
   currentImageWidth,
   EDITOR_TEXT_COLORS,
+  FORMAT_BUTTON,
+  FORMAT_OPTIONS,
   handleImagePaste,
   IMAGE_BTN_SVG,
   IMAGE_SIZES,
@@ -127,6 +130,19 @@ export default function NotionField({
           ) : (
             <>
           <div className="nf-row">
+            <button
+              type="button"
+              title={FORMAT_BUTTON.label}
+              aria-label={FORMAT_BUTTON.label}
+              className={`nf-btn${state.formatKey !== "paragraph" ? " is-active" : ""}`}
+              onPointerDown={(e) => {
+                stop(e);
+                const bubble = e.currentTarget.closest(".nf-bubble");
+                bubble.querySelector(".nf-formats").classList.toggle("open");
+                bubble.querySelector(".nf-swatches").classList.remove("open");
+              }}
+              dangerouslySetInnerHTML={{ __html: FORMAT_BUTTON.html }}
+            />
             {BUBBLE_BUTTONS.map((b) => (
               <button
                 key={b.key}
@@ -137,6 +153,7 @@ export default function NotionField({
                 onPointerDown={(e) => {
                   stop(e);
                   runBubbleAction(editor, b.key);
+                  e.currentTarget.closest(".nf-bubble").querySelector(".nf-formats").classList.remove("open");
                 }}
                 dangerouslySetInnerHTML={{ __html: b.html }}
               />
@@ -151,9 +168,28 @@ export default function NotionField({
                 stop(e);
                 const row = e.currentTarget.closest(".nf-bubble").querySelector(".nf-swatches");
                 row.classList.toggle("open");
+                e.currentTarget.closest(".nf-bubble").querySelector(".nf-formats").classList.remove("open");
               }}
               dangerouslySetInnerHTML={{ __html: COLOR_BUTTON.html }}
             />
+          </div>
+          <div className="nf-row nf-formats">
+            {FORMAT_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                title={option.label}
+                aria-label={option.label}
+                className={`nf-btn nf-format-btn${state.formatKey === option.key ? " is-active" : ""}`}
+                onPointerDown={(e) => {
+                  stop(e);
+                  applyFormat(editor, option.key);
+                  e.currentTarget.closest(".nf-formats").classList.remove("open");
+                }}
+              >
+                {option.html}
+              </button>
+            ))}
           </div>
           <div className="nf-row nf-swatches">
             {COLOR_KEYS.map((key) => (

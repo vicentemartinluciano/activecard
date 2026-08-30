@@ -13,6 +13,7 @@ const MARKERS = [
   { open: "**", close: "**", prop: "bold" },
   { open: "__", close: "__", prop: "underline" },
   { open: "==", close: "==", prop: "highlight" },
+  { open: "~~", close: "~~", prop: "strike" },
   { open: "*", close: "*", prop: "italic" },
 ];
 
@@ -31,6 +32,20 @@ const ALIGN_STRIP_RE = /^[\uE000\uE001\uE002]/;
 // (richhtml.js) lo interpreta y RichText lo renderiza como <Image>. toPlainText
 // lo omite (as\u00ED no ensucia previews / b\u00FAsqueda / contexto de IA).
 export const IMG_SENTINEL = "\uE010";
+
+// Formato por bloque (títulos y cita). Al igual que la alineación, vive como
+// un sentinel privado e invisible al inicio de la línea para conservar el
+// WYSIWYG sin cambiar el esquema SQLite ni mostrar Markdown al usuario.
+export const BLOCK_SENTINELS = {
+  heading1: "\uE020",
+  heading2: "\uE021",
+  heading3: "\uE022",
+  quote: "\uE023",
+};
+export const BLOCK_BY_CHAR = Object.fromEntries(
+  Object.entries(BLOCK_SENTINELS).map(([key, value]) => [value, key])
+);
+const BLOCK_STRIP_RE = /^[\uE020-\uE023]/;
 
 const COLOR_RE = /^\[\[([a-zA-Z]+):/;
 
@@ -112,7 +127,9 @@ export function parseRich(text) {
 export function toPlainText(text) {
   return parseRich(text)
     .map((block) => {
-      const plain = block.spans.map((s) => s.text).join("").replace(ALIGN_STRIP_RE, "");
+      const plain = block.spans.map((s) => s.text).join("")
+        .replace(ALIGN_STRIP_RE, "")
+        .replace(BLOCK_STRIP_RE, "");
       // Los bloques imagen no aportan texto (evita volcar el data URI base64 en
       // previews / búsqueda / contexto de IA).
       return plain.startsWith(IMG_SENTINEL) ? "" : plain;

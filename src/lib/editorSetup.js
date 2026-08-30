@@ -26,20 +26,20 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left" } = {}
   return [
     StarterKit.configure({
       // Fuera lo que el formato de ActiveCard no sabe representar.
-      heading: false,
-      blockquote: false,
+      heading: { levels: [1, 2, 3] },
+      blockquote: {},
       code: false,
       codeBlock: false,
-      strike: false,
+      strike: {},
       link: false,
       hardBreak: false,
       trailingNode: false,
-      // Quedan: bold, italic, underline, horizontalRule (---),
-      // bulletList (- ), orderedList (1. ), undoRedo.
+      // Quedan también los atajos tipo Notion: # / ## / ### para títulos,
+      // > para cita, ~~ para tachado, --- divisor, - viñeta y 1. numerada.
     }),
     Highlight,
     TColor,
-    TextAlign.configure({ types: ["paragraph"], defaultAlignment: defaultAlign }),
+    TextAlign.configure({ types: ["paragraph", "heading", "blockquote"], defaultAlignment: defaultAlign }),
     Image,
     Placeholder.configure({ placeholder }),
     Shortcuts,
@@ -98,11 +98,27 @@ export function handleImagePaste(editor, event) {
 export const COLOR_KEYS = Object.keys(EDITOR_TEXT_COLORS);
 export { EDITOR_TEXT_COLORS };
 
-// Barrita flotante: SOLO lo esencial (decisión de producto). Listas, divisor
-// y flecha se hacen por atajo de tipeo, no por botón.
+// Barrita flotante: conserva lo esencial y suma UN selector de formato de
+// bloque. Los atajos siguen funcionando aunque el usuario no abra el selector.
 const HIGHLIGHTER_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>`;
 // Ícono de alineación (un botón que cicla izquierda → centro → derecha).
 const ALIGN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/></svg>`;
+
+export const FORMAT_BUTTON = {
+  key: "format",
+  label: "Cambiar formato",
+  html: '<span style="font-size:16px;font-weight:700">¶</span>',
+};
+
+export const FORMAT_OPTIONS = [
+  { key: "paragraph", label: "Texto", html: "P" },
+  { key: "heading1", label: "Título 1", html: "H1" },
+  { key: "heading2", label: "Título 2", html: "H2" },
+  { key: "heading3", label: "Título 3", html: "H3" },
+  { key: "quote", label: "Cita", html: "❝" },
+  { key: "bulletList", label: "Viñetas", html: "•" },
+  { key: "orderedList", label: "Lista numerada", html: "1." },
+];
 
 export const BUBBLE_BUTTONS = [
   { key: "bold", label: "Negrita", html: '<b style="font-size:15px">B</b>' },
@@ -127,6 +143,7 @@ export function activeStates(editor) {
   // derecha (izquierda = default, sin resaltar).
   state.align =
     editor.isActive({ textAlign: "center" }) || editor.isActive({ textAlign: "right" });
+  state.formatKey = currentFormat(editor);
   for (const key of COLOR_KEYS) {
     if (editor.isActive("tcolor", { color: key })) {
       state.colorKey = key;
@@ -134,6 +151,35 @@ export function activeStates(editor) {
     }
   }
   return state;
+}
+
+export function currentFormat(editor) {
+  if (editor.isActive("heading", { level: 1 })) return "heading1";
+  if (editor.isActive("heading", { level: 2 })) return "heading2";
+  if (editor.isActive("heading", { level: 3 })) return "heading3";
+  if (editor.isActive("blockquote")) return "quote";
+  if (editor.isActive("bulletList")) return "bulletList";
+  if (editor.isActive("orderedList")) return "orderedList";
+  return "paragraph";
+}
+
+export function applyFormat(editor, key) {
+  // Primero saca cualquier contenedor incompatible; después aplica el bloque
+  // elegido. Son comandos separados para que TipTap no deje un título dentro
+  // de una lista o una cita dentro de otra cita.
+  if (editor.isActive("bulletList")) editor.chain().focus().toggleBulletList().run();
+  if (editor.isActive("orderedList")) editor.chain().focus().toggleOrderedList().run();
+  if (editor.isActive("blockquote")) editor.chain().focus().toggleBlockquote().run();
+
+  const chain = editor.chain().focus();
+  if (key === "heading1") chain.setHeading({ level: 1 });
+  else if (key === "heading2") chain.setHeading({ level: 2 });
+  else if (key === "heading3") chain.setHeading({ level: 3 });
+  else if (key === "quote") chain.setParagraph().toggleBlockquote();
+  else if (key === "bulletList") chain.setParagraph().toggleBulletList();
+  else if (key === "orderedList") chain.setParagraph().toggleOrderedList();
+  else chain.setParagraph();
+  chain.run();
 }
 
 // Aplica la acción de un botón del bubble.

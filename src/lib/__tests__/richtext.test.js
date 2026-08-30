@@ -1,4 +1,5 @@
 import {
+  BLOCK_SENTINELS,
   parseRich,
   toPlainText,
   toggleListLines,
@@ -32,6 +33,12 @@ describe("parseRich", () => {
   test("resaltado", () => {
     expect(parseRich("==highlight==")).toEqual([
       { type: "p", spans: [{ text: "highlight", highlight: true }] },
+    ]);
+  });
+
+  test("tachado", () => {
+    expect(parseRich("~~tachado~~")).toEqual([
+      { type: "p", spans: [{ text: "tachado", strike: true }] },
     ]);
   });
 
@@ -111,6 +118,11 @@ describe("toPlainText", () => {
 
   test("texto sin marcas queda igual", () => {
     expect(toPlainText("simple")).toBe("simple");
+  });
+
+  test("omite los sentinels invisibles de títulos y citas", () => {
+    expect(toPlainText(`${BLOCK_SENTINELS.heading1}Título`)).toBe("Título");
+    expect(toPlainText(`${BLOCK_SENTINELS.quote}Una cita`)).toBe("Una cita");
   });
 });
 

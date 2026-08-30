@@ -53,10 +53,27 @@ export const EDITOR_CSS = `
   white-space: pre-wrap;
 }
 .nf-root .ProseMirror p { margin: 0 0 2px; }
+.nf-root .ProseMirror h1,
+.nf-root .ProseMirror h2,
+.nf-root .ProseMirror h3 { margin: 4px 0; line-height: 1.22; font-weight: 750; }
+.nf-root .ProseMirror h1 { font-size: 1.55em; }
+.nf-root .ProseMirror h2 { font-size: 1.3em; }
+.nf-root .ProseMirror h3 { font-size: 1.12em; }
+.nf-root .ProseMirror blockquote {
+  margin: 5px 0;
+  padding: 3px 0 3px 12px;
+  border-left: 3px solid #5B6897;
+  color: #B7B7C2;
+}
+.nf-root .ProseMirror s { text-decoration: line-through; }
 /* Cara con default centrado (el frente): los párrafos "sin tocar" se ven
    centrados en el editor (WYSIWYG). Un text-align inline explícito (izq/der)
    gana por especificidad, así se puede forzar otra alineación. */
-.nf-align-center .ProseMirror p { text-align: center; }
+.nf-align-center .ProseMirror p,
+.nf-align-center .ProseMirror h1,
+.nf-align-center .ProseMirror h2,
+.nf-align-center .ProseMirror h3,
+.nf-align-center .ProseMirror blockquote { text-align: center; }
 .nf-root .ProseMirror ul, .nf-root .ProseMirror ol { margin: 2px 0; padding-left: 22px; }
 .nf-root .ProseMirror li > p { margin: 0; }
 .nf-root .ProseMirror hr {
@@ -109,6 +126,9 @@ export const EDITOR_CSS = `
 .nf-sep { width: 1px; height: 20px; background: #FFFFFF1F; margin: 0 2px; }
 .nf-swatches { display: none; }
 .nf-swatches.open { display: flex; }
+.nf-formats { display: none; }
+.nf-formats.open { display: flex; }
+.nf-format-btn { min-width: 30px; font-size: 12px; font-weight: 700; }
 /* Con una imagen seleccionada, la barrita muestra SOLO los tamaños. */
 .nf-imgrow { display: none; }
 .nf-bubble.img-mode .nf-row:not(.nf-imgrow) { display: none; }

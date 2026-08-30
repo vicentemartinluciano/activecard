@@ -13,12 +13,15 @@ import { EDITOR_BODY_CSS, EDITOR_CSS } from "../src/lib/editorCss";
 import {
   activeStates,
   applyColor,
+  applyFormat,
   buildExtensions,
   BUBBLE_BUTTONS,
   COLOR_BUTTON,
   COLOR_KEYS,
   currentImageWidth,
   EDITOR_TEXT_COLORS,
+  FORMAT_BUTTON,
+  FORMAT_OPTIONS,
   handleImagePaste,
   IMAGE_BTN_SVG,
   IMAGE_SIZES,
@@ -75,8 +78,12 @@ const swatches = document.createElement("div");
 swatches.className = "nf-row nf-swatches";
 bubble.appendChild(swatches);
 
+const formats = document.createElement("div");
+formats.className = "nf-row nf-formats";
+bubble.appendChild(formats);
+
 const buttons = {};
-for (const def of [...BUBBLE_BUTTONS, COLOR_BUTTON]) {
+for (const def of [FORMAT_BUTTON, ...BUBBLE_BUTTONS, COLOR_BUTTON]) {
   if (def.key === "color") {
     const sep = document.createElement("div");
     sep.className = "nf-sep";
@@ -93,14 +100,39 @@ for (const def of [...BUBBLE_BUTTONS, COLOR_BUTTON]) {
   btn.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (def.key === "color") swatches.classList.toggle("open");
+    if (def.key === "color") {
+      swatches.classList.toggle("open");
+      formats.classList.remove("open");
+    } else if (def.key === "format") {
+      formats.classList.toggle("open");
+      swatches.classList.remove("open");
+    }
     else {
       runBubbleAction(editor, def.key);
       swatches.classList.remove("open");
+      formats.classList.remove("open");
     }
   });
   row.appendChild(btn);
   buttons[def.key] = btn;
+}
+
+const formatEls = {};
+for (const def of FORMAT_OPTIONS) {
+  const btn = document.createElement("button");
+  btn.className = "nf-btn nf-format-btn";
+  btn.type = "button";
+  btn.title = def.label;
+  btn.setAttribute("aria-label", def.label);
+  btn.textContent = def.html;
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    applyFormat(editor, def.key);
+    formats.classList.remove("open");
+  });
+  formats.appendChild(btn);
+  formatEls[def.key] = btn;
 }
 
 const swatchEls = {};
@@ -168,6 +200,10 @@ const editor = new Editor({
       buttons[def.key].classList.toggle("is-active", !!state[def.key]);
     }
     buttons.color.classList.toggle("is-active", !!state.colorKey);
+    buttons.format.classList.toggle("is-active", state.formatKey !== "paragraph");
+    for (const def of FORMAT_OPTIONS) {
+      formatEls[def.key].classList.toggle("is-active", state.formatKey === def.key);
+    }
     for (const key of COLOR_KEYS) {
       swatchEls[key].classList.toggle("is-active", state.colorKey === key);
     }
@@ -182,7 +218,10 @@ editor.registerPlugin(
     options: { placement: "top", offset: 8 },
     shouldShow: ({ editor: ed, from, to }) => {
       const visible = from !== to && !ed.state.selection.empty;
-      if (!visible) swatches.classList.remove("open");
+      if (!visible) {
+        swatches.classList.remove("open");
+        formats.classList.remove("open");
+      }
       return visible;
     },
   })

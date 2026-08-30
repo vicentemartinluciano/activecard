@@ -1,5 +1,11 @@
 import { describeBlock, htmlToMarks, marksToHtml } from "../richhtml";
-import { ALIGN_SENTINELS, IMG_SENTINEL, parseRich, toPlainText } from "../richtext";
+import {
+  ALIGN_SENTINELS,
+  BLOCK_SENTINELS,
+  IMG_SENTINEL,
+  parseRich,
+  toPlainText,
+} from "../richtext";
 
 // Criterio de equivalencia: dos textos de marcas son equivalentes si
 // parseRich los ve igual (mismos bloques, mismos spans con los mismos
@@ -15,6 +21,7 @@ function semantic(marcas) {
         italic: !!s.italic,
         underline: !!s.underline,
         highlight: !!s.highlight,
+        strike: !!s.strike,
         color: s.color || null,
       })),
   }));
@@ -33,6 +40,7 @@ describe("marcas ↔ HTML: round-trip por marca", () => {
     ["cursiva", "esto es *sutil* acá"],
     ["subrayado", "esto es __clave__ acá"],
     ["resaltado", "ojo con ==esto== acá"],
+    ["tachado", "esto ya está ~~descartado~~"],
     ["color", "marcá [[rojo:la excepción]] siempre"],
     ["lista", "- primero\n- segundo\n- tercero"],
     ["texto plano", "sin ninguna marca"],
@@ -121,6 +129,39 @@ describe("divisor (---) y lista numerada", () => {
 
   test("un número suelto en medio de una oración NO se vuelve lista", () => {
     expect(roundTrip("Fue en 1994. Un buen año")).toBe("Fue en 1994. Un buen año");
+  });
+});
+
+describe("formatos de bloque estilo Notion", () => {
+  const H1 = BLOCK_SENTINELS.heading1;
+  const H2 = BLOCK_SENTINELS.heading2;
+  const H3 = BLOCK_SENTINELS.heading3;
+  const Q = BLOCK_SENTINELS.quote;
+
+  test.each([
+    ["título 1", H1, "h1"],
+    ["título 2", H2, "h2"],
+    ["título 3", H3, "h3"],
+    ["cita", Q, "blockquote"],
+  ])("%s va a HTML semántico y vuelve", (_, sentinel, tag) => {
+    const marcas = `${sentinel}Texto con **énfasis**`;
+    expect(marksToHtml(marcas)).toBe(`<${tag}>Texto con <strong>énfasis</strong></${tag}>`);
+    expect(roundTrip(marcas)).toBe(marcas);
+  });
+
+  test("HTML de títulos y cita se conserva, en vez de degradarse a párrafo", () => {
+    expect(htmlToMarks("<h1>Título</h1><h2>Sección</h2><h3>Subsección</h3><blockquote>Cita</blockquote>"))
+      .toBe(`${H1}Título\n${H2}Sección\n${H3}Subsección\n${Q}Cita`);
+  });
+
+  test("el formato de bloque convive con alineación explícita", () => {
+    const marcas = `${ALIGN_SENTINELS.center}${H1}Título`;
+    expect(marksToHtml(marcas)).toBe('<h1 style="text-align: center">Título</h1>');
+    expect(roundTrip(marcas)).toBe(marcas);
+  });
+
+  test("toPlainText no expone los sentinels de bloque", () => {
+    expect(toPlainText(`${H2}Sección\n${Q}Una idea`)).toBe("Sección\nUna idea");
   });
 });
 
@@ -272,8 +313,7 @@ describe("HTML de TipTap real", () => {
 });
 
 describe("HTML ajeno degradado", () => {
-  test("títulos y tablas se degradan a bloques de texto", () => {
-    expect(htmlToMarks("<h1>Título</h1><p>cuerpo</p>")).toBe("Título\ncuerpo");
+  test("tablas se degradan a bloques de texto", () => {
     expect(htmlToMarks("<table><tr><td>a</td></tr><tr><td>b</td></tr></table>")).toBe("a\nb");
   });
 

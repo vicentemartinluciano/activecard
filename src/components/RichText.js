@@ -66,7 +66,8 @@ function spanStyle(span) {
   return [
     span.bold && styles.bold,
     span.italic && styles.italic,
-    span.underline && styles.underline,
+    span.underline && span.strike ? styles.underlineStrike : span.underline && styles.underline,
+    span.strike && !span.underline && styles.strike,
     span.highlight && styles.highlight,
     span.color && textColors[span.color] ? { color: textColors[span.color] } : null,
   ];
@@ -93,10 +94,15 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
         // Sin tocar → las listas van a la izquierda; el resto usa el default de
         // la cara (frente = centro, dorso = izquierda).
         const align = block.align || (isList ? "left" : defaultAlign);
+        const blockTextStyle = block.kind === "heading1" ? styles.heading1
+          : block.kind === "heading2" ? styles.heading2
+            : block.kind === "heading3" ? styles.heading3
+              : block.kind === "quote" ? styles.quoteText
+                : null;
 
         const line = (
           <Text
-            style={[style, align !== "left" && { textAlign: align }, isList && styles.liContent]}
+            style={[style, blockTextStyle, align !== "left" && { textAlign: align }, isList && styles.liContent]}
             key={i}
           >
             {block.spans.map((span, j) => (
@@ -117,6 +123,9 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
             </View>
           );
         }
+        if (block.kind === "quote") {
+          return <View key={i} style={styles.quoteWrap}>{line}</View>;
+        }
         return line;
       })}
     </View>
@@ -130,6 +139,8 @@ const styles = StyleSheet.create({
   bold: { ...font(700) },
   italic: { fontStyle: "italic" },
   underline: { textDecorationLine: "underline" },
+  strike: { textDecorationLine: "line-through" },
+  underlineStrike: { textDecorationLine: "underline line-through" },
   highlight: {
     backgroundColor: colors.highlight,
   },
@@ -145,6 +156,11 @@ const styles = StyleSheet.create({
   bullet: {
     marginTop: 1,
   },
+  heading1: { ...font(700), fontSize: 24, lineHeight: 30, marginVertical: 3 },
+  heading2: { ...font(700), fontSize: 20, lineHeight: 26, marginVertical: 2 },
+  heading3: { ...font(700), fontSize: 17, lineHeight: 23, marginVertical: 1 },
+  quoteWrap: { borderLeftWidth: 3, borderLeftColor: "#5B6897", paddingLeft: spacing.sm, marginVertical: spacing.xs },
+  quoteText: { color: colors.textMuted, fontStyle: "italic" },
   divider: {
     height: 1,
     alignSelf: "stretch",

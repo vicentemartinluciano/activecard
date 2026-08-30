@@ -7,6 +7,7 @@
 // así las tarjetas viejas y el render de estudio no cambian):
 //   - línea "---"        ↔ <hr>   (divisor)
 //   - líneas "N. texto"  ↔ <ol>   (lista numerada; la numeración se regenera)
+//   - títulos/cita       ↔ sentinel privado invisible al inicio de la línea
 //   - "→" es un carácter literal (el atajo "->" lo inserta el editor)
 //
 // Limitaciones heredadas (documentadas, no resolubles sin cambiar richtext.js):
@@ -16,7 +17,14 @@
 //   - texto literal con secuencias de marcador (ej. "2**3") se reinterpreta
 //     al recargar — el formato no tiene escape, igual que hoy.
 
-import { ALIGN_BY_CHAR, ALIGN_SENTINELS, IMG_SENTINEL, parseRich } from "./richtext";
+import {
+  ALIGN_BY_CHAR,
+  ALIGN_SENTINELS,
+  BLOCK_BY_CHAR,
+  BLOCK_SENTINELS,
+  IMG_SENTINEL,
+  parseRich,
+} from "./richtext";
 import { textColors } from "../theme";
 
 // ---------------------------------------------------------------------------
@@ -36,6 +44,7 @@ function spanToHtml(span) {
   if (span.bold) html = `<strong>${html}</strong>`;
   if (span.underline) html = `<u>${html}</u>`;
   if (span.highlight) html = `<mark>${html}</mark>`;
+  if (span.strike) html = `<s>${html}</s>`;
   if (span.color && textColors[span.color]) {
     html = `<span data-color="${span.color}" style="color: ${textColors[span.color]}">${html}</span>`;
   }
@@ -83,23 +92,30 @@ export function describeBlock(block) {
     spans = stripSpanChars(spans, 1);
   }
 
+  let kind = "p";
+  const blockChar = spans.length ? spans[0].text[0] : undefined;
+  if (blockChar && BLOCK_BY_CHAR[blockChar]) {
+    kind = BLOCK_BY_CHAR[blockChar];
+    spans = stripSpanChars(spans, 1);
+  }
+
   const plain = spans.map((s) => s.text).join("");
   // Imagen: sentinel + "<ancho%> " + data URI. Sin ancho (marcador viejo que
   // arranca directo con "data:") = 100 (a todo lo ancho).
-  if (plain.startsWith(IMG_SENTINEL)) {
+  if (kind === "p" && plain.startsWith(IMG_SENTINEL)) {
     const rest = plain.slice(IMG_SENTINEL.length);
     const m = /^(\d{1,3}) (data:[\s\S]*)$/.exec(rest);
     const width = m ? Number(m[1]) : 100;
     const src = m ? m[2] : rest;
     return { kind: "img", src, width, spans: [], align };
   }
-  if (plain.trim() === "---") return { kind: "hr", spans: [], align };
+  if (kind === "p" && plain.trim() === "---") return { kind: "hr", spans: [], align };
   const m = OL_RE.exec(plain);
-  if (m) {
+  if (kind === "p" && m) {
     // La numeración es un bloque de lista → sin alineación.
     return { kind: "ol", number: Number(m[1]), spans: stripSpanChars(spans, m[0].length), align: null };
   }
-  return { kind: "p", spans, align };
+  return { kind, spans, align };
 }
 
 // style="text-align:..." para un bloque. Se emite para cualquier alineación
@@ -145,7 +161,12 @@ export function marksToHtml(marcas) {
       continue;
     }
 
-    out.push(`<p${alignStyle(block.align)}>${spansToHtml(block.spans)}</p>`);
+    const tag = block.kind === "heading1" ? "h1"
+      : block.kind === "heading2" ? "h2"
+        : block.kind === "heading3" ? "h3"
+          : block.kind === "quote" ? "blockquote"
+            : "p";
+    out.push(`<${tag}${alignStyle(block.align)}>${spansToHtml(block.spans)}</${tag}>`);
     i++;
   }
   return out.join("");
@@ -185,7 +206,17 @@ function colorFromAttrs(attrs) {
   return null;
 }
 
-const MARK_TAGS = { strong: "bold", b: "bold", em: "italic", i: "italic", u: "underline", mark: "highlight" };
+const MARK_TAGS = {
+  strong: "bold",
+  b: "bold",
+  em: "italic",
+  i: "italic",
+  u: "underline",
+  mark: "highlight",
+  s: "strike",
+  del: "strike",
+  strike: "strike",
+};
 const BLOCK_TAGS = new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "tr"]);
 
 // src de un <img> (data URI). Soporta comillas dobles o simples.
@@ -287,7 +318,12 @@ export function htmlToMarks(html) {
         // <li><p>: el <p> reusa el bloque recién abierto por el <li>.
         if (wasLiJustOpened && cur && cur.spans.length === 0) continue;
         closeBlock();
-        openBlock("", alignFromAttrs(attrs));
+        const prefix = tag === "h1" ? "heading1"
+          : tag === "h2" ? "heading2"
+            : tag === "h3" ? "heading3"
+              : tag === "blockquote" ? "quote"
+                : "";
+        openBlock(prefix, alignFromAttrs(attrs));
         continue;
       }
       // Tags inline: los de marca aplican estilo; los desconocidos solo se
@@ -334,7 +370,7 @@ export function htmlToMarks(html) {
 // spans → marcas (serialización canónica)
 
 function flagsKey(s) {
-  return `${!!s.bold}|${!!s.italic}|${!!s.underline}|${!!s.highlight}|${s.color || ""}`;
+  return `${!!s.bold}|${!!s.italic}|${!!s.underline}|${!!s.highlight}|${!!s.strike}|${s.color || ""}`;
 }
 
 function mergeSpans(spans) {
@@ -349,7 +385,7 @@ function mergeSpans(spans) {
 }
 
 // Orden canónico (afuera → adentro): [[color: == __ ** *
-const RANK = { "==": 1, "__": 2, "**": 3, "*": 4 };
+const RANK = { "==": 1, "__": 2, "~~": 3, "**": 4, "*": 5 };
 const rankOf = (mark) => (mark.startsWith("color:") ? 0 : RANK[mark]);
 
 // Marcadores presentes en un span, en orden canónico.
@@ -361,13 +397,15 @@ function marksOf(span) {
   const bold = !!span.bold;
   const underline = !!span.underline;
   const highlight = !!span.highlight;
-  const hasSeparator = !!colorKey || highlight || underline;
+  const strike = !!span.strike;
+  const hasSeparator = !!colorKey || highlight || underline || strike;
   const italic = bold && span.italic && !hasSeparator ? false : !!span.italic;
 
   const out = [];
   if (colorKey) out.push(`color:${colorKey}`);
   if (highlight) out.push("==");
   if (underline) out.push("__");
+  if (strike) out.push("~~");
   if (bold) out.push("**");
   if (italic) out.push("*");
   return out;
@@ -435,8 +473,10 @@ function blocksToMarks(blocks) {
     const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));
     // Sentinel de alineación EXPLÍCITA solo en párrafos (las listas van sin
     // alineación). b.align null = "sin tocar" → sin sentinel.
-    const sentinel = !b.prefix && b.align ? ALIGN_SENTINELS[b.align] || "" : "";
-    return `${sentinel}${b.prefix || ""}${serializeSpans(items, [])}`;
+    const blockSentinel = BLOCK_SENTINELS[b.prefix] || "";
+    const textualPrefix = blockSentinel ? "" : b.prefix || "";
+    const sentinel = !textualPrefix && b.align ? ALIGN_SENTINELS[b.align] || "" : "";
+    return `${sentinel}${blockSentinel}${textualPrefix}${serializeSpans(items, [])}`;
   });
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
   return lines.join("\n");
