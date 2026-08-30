@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════
 #  Publica la versión web de ActiveCard en GitHub Pages.
-#  Corre sin el .env (está gitignoreado): las claves de Claude/Notion NO
+#  Corre sin el .env (está gitignoreado): las claves de OpenAI/Notion NO
 #  quedan embebidas en esta build pública — se cargan a mano en Ajustes.
 # ═══════════════════════════════════════════════════════════════
 name: Deploy web

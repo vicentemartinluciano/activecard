@@ -22,4 +22,4 @@ Los `.bat` de la carpeta `comandos AC/`:
 
 - `npm test` — tests (Jest)
 - `npm run lint` — ESLint
-- Contexto para Claude Code: `CLAUDE.md` + `docs/ARQUITECTURA.md`
+- Contexto para agentes: `AGENTS.md` + `docs/ARQUITECTURA.md`
