@@ -1,5 +1,6 @@
 import { getCard } from "../../db/cards";
 import { listDecks } from "../../db/decks";
+import { listFolders } from "../../db/folders";
 import { callOpenAIJson } from "../openai";
 import { runGymAssistant } from "../gymAssistant";
 
@@ -8,11 +9,13 @@ jest.mock("../../db/cards", () => ({
   listAllCardsForSearch: jest.fn(),
 }));
 jest.mock("../../db/decks", () => ({ listDecks: jest.fn() }));
+jest.mock("../../db/folders", () => ({ listFolders: jest.fn() }));
 jest.mock("../openai", () => ({ callOpenAIJson: jest.fn(), REASONING: { chat: "high" } }));
 
 beforeEach(() => {
   jest.clearAllMocks();
   listDecks.mockResolvedValue([{ id: 2, name: "Administración" }]);
+  listFolders.mockResolvedValue([]);
   getCard.mockImplementation(async (id) => id === 9 ? {
     id: 9,
     deck_id: 2,
@@ -76,4 +79,41 @@ test("envía las fuentes adjuntas en el formato multimodal de Responses API", as
     expect.objectContaining({ type: "input_file", filename: "apunte.pdf", file_data: "data:application/pdf;base64,UERG" }),
     expect.objectContaining({ type: "input_image", image_url: "data:image/png;base64,UE5H" }),
   ]));
+});
+
+test("acepta un mazo nuevo dentro de una carpeta real", async () => {
+  listFolders.mockResolvedValue([{ id: 3, name: "Marketing" }]);
+  callOpenAIJson.mockResolvedValue({
+    message: "Conviene separarlo en un mazo propio.",
+    action: {
+      type: "create_deck",
+      name: "Ofertas de valor",
+      folderId: 3,
+      cards: [{ front: "¿Qué aumenta el valor?", back: "El resultado soñado." }],
+    },
+  });
+
+  const result = await runGymAssistant({
+    messages: [{ role: "user", text: "Creame el mazo en Marketing" }],
+  });
+
+  expect(result.action.type).toBe("create_deck");
+  expect(result.action.folderId).toBe(3);
+  expect(callOpenAIJson.mock.calls[0][0].system).toContain("3: Marketing");
+});
+
+test("impide borrar desde una carpeta un mazo que no le pertenece", async () => {
+  listFolders.mockResolvedValue([{ id: 3, name: "Marketing" }]);
+  listDecks.mockResolvedValue([
+    { id: 2, name: "Ofertas", folder_id: 3 },
+    { id: 8, name: "Finanzas", folder_id: 4 },
+  ]);
+  callOpenAIJson.mockResolvedValue({
+    message: "Preparé la eliminación.",
+    action: { type: "delete_folder", folderId: 3, deleteDeckIds: [8] },
+  });
+
+  await expect(runGymAssistant({
+    messages: [{ role: "user", text: "Borrá Marketing" }],
+  })).rejects.toThrow(/mazo ajeno/);
 });

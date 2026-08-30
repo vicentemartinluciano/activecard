@@ -5,7 +5,8 @@ import { getDb } from "./client";
 export async function listDecks() {
   const db = await getDb();
   const decks = await db.getAllAsync(
-    `SELECT d.*, COUNT(c.id) AS card_count
+    `SELECT d.*, COUNT(c.id) AS card_count,
+            SUM(CASE WHEN c.source = 'hybrid' THEN 1 ELSE 0 END) AS idea_count
      FROM decks d LEFT JOIN cards c ON c.deck_id = d.id
      GROUP BY d.id ORDER BY d.name COLLATE NOCASE`
   );

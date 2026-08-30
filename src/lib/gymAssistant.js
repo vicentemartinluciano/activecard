@@ -1,5 +1,6 @@
 import { getCard, listAllCardsForSearch } from "../db/cards";
 import { listDecks } from "../db/decks";
+import { listFolders } from "../db/folders";
 import { callOpenAIJson, REASONING } from "./openai";
 import { GYM_ASSISTANT_SYSTEM } from "./prompts";
 import { filterDeckCards } from "./search";
@@ -10,7 +11,25 @@ const ACTIONS = new Set([
   "edit_card",
   "create_card",
   "delete_card",
+  "create_cards",
+  "create_deck",
+  "rename_deck",
+  "move_deck",
+  "delete_deck",
+  "create_folder",
+  "rename_folder",
+  "delete_folder",
 ]);
+
+const DECK_ACTIONS = new Set(["rename_deck", "move_deck", "delete_deck"]);
+const FOLDER_ACTIONS = new Set(["rename_folder", "delete_folder"]);
+
+function validCards(value) {
+  return Array.isArray(value) && value.length > 0 && value.length <= 120 && value.every((card) =>
+    typeof card?.front === "string" && card.front.trim() &&
+    typeof card?.back === "string" && card.back.trim()
+  );
+}
 
 const clip = (value, max = 900) => {
   const plain = toPlainText(value || "").trim();
@@ -40,6 +59,26 @@ export function validateGymTurn(result) {
   if (action.type === "create_card" && !Number.isInteger(Number(action.deckId))) {
     throw new Error("El mazo propuesto no es válido.");
   }
+  if (["create_cards", "create_deck"].includes(action.type) && action.cards != null && !validCards(action.cards)) {
+    throw new Error("Las tarjetas propuestas no son válidas.");
+  }
+  if (action.type === "create_cards" && (!Number.isInteger(Number(action.deckId)) || !validCards(action.cards))) {
+    throw new Error("La creación múltiple no es válida.");
+  }
+  if (["create_deck", "create_folder", "rename_deck", "rename_folder"].includes(action.type) &&
+      (typeof action.name !== "string" || !action.name.trim())) {
+    throw new Error("El nombre propuesto no es válido.");
+  }
+  if (DECK_ACTIONS.has(action.type) && !Number.isInteger(Number(action.deckId))) {
+    throw new Error("El mazo propuesto no es válido.");
+  }
+  if (FOLDER_ACTIONS.has(action.type) && !Number.isInteger(Number(action.folderId))) {
+    throw new Error("La carpeta propuesta no es válida.");
+  }
+  if (action.type === "delete_folder" && action.deleteDeckIds != null &&
+      (!Array.isArray(action.deleteDeckIds) || action.deleteDeckIds.some((id) => !Number.isInteger(Number(id))))) {
+    throw new Error("La selección de mazos a eliminar no es válida.");
+  }
   const safeAction = { ...action };
   delete safeAction.status;
   delete safeAction.createdCardId;
@@ -50,6 +89,8 @@ export function validateGymTurn(result) {
       cardId: action.cardId == null ? undefined : Number(action.cardId),
       deckId: action.deckId == null ? undefined : Number(action.deckId),
       originCardId: action.originCardId == null ? undefined : Number(action.originCardId),
+      folderId: action.folderId == null ? undefined : Number(action.folderId),
+      deleteDeckIds: action.deleteDeckIds?.map(Number),
     },
   };
 }
@@ -62,10 +103,17 @@ function serializeMessages(messages) {
           type: action.type,
           cardId: action.cardId,
           deckId: action.deckId,
+          folderId: action.folderId,
+          name: action.name,
           source: action.source,
           status: action.status,
           front: clip(action.front, 500),
           back: clip(action.back, 900),
+          cards: action.cards?.slice(0, 120).map((card) => ({
+            front: clip(card.front, 500),
+            back: clip(card.back, 900),
+          })),
+          deleteDeckIds: action.deleteDeckIds,
           reason: clip(action.reason, 300),
         }
       : null;
@@ -140,22 +188,25 @@ function sourceInput(sources) {
   return [{ role: "user", content }];
 }
 
-function buildContext(originCard, decks, attachedCards = [], extra = "") {
+function buildContext(originCard, decks, folders, attachedCards = [], extra = "") {
   const origin = originCard
     ? `\nTARJETA DE CONTEXTO:\nID ${originCard.id}, mazo ${originCard.deck_id}\nFrente: ${originCard.front}\nDorso: ${originCard.back}`
     : "\nLa charla empezó libre, sin tarjeta de origen.";
-  const catalog = decks.map((deck) => `- ${deck.id}: ${deck.name}`).join("\n");
+  const folderCatalog = folders.map((folder) => `- ${folder.id}: ${folder.name}`).join("\n");
+  const catalog = decks.map((deck) =>
+    `- ${deck.id}: ${deck.name}; carpeta=${deck.folder_id || "sin carpeta"}; tarjetas=${deck.card_count || 0}; ideas=${deck.idea_count || 0}`
+  ).join("\n");
   const attached = attachedCards.length
     ? `\n\nTARJETAS ADJUNTAS POR EL USUARIO:\n${attachedCards.map((item) =>
         `ID ${item.cardId}, mazo ${item.deckId}${item.deckName ? ` (${item.deckName})` : ""}\nFrente: ${clip(item.front, 900)}\nDorso: ${clip(item.back, 1800)}`
       ).join("\n\n")}`
     : "";
-  return `CATÁLOGO DE MAZOS:\n${catalog || "(sin mazos)"}${origin}${attached}${extra ? `\n\n${extra}` : ""}`;
+  return `CATÁLOGO DE CARPETAS:\n${folderCatalog || "(sin carpetas)"}\n\nCATÁLOGO DE MAZOS:\n${catalog || "(sin mazos)"}${origin}${attached}${extra ? `\n\n${extra}` : ""}`;
 }
 
-async function callTurn(messages, originCard, decks, attachedCards = [], attachedSources = [], extra = "", allowedCardIds = []) {
+async function callTurn(messages, originCard, decks, folders, attachedCards = [], attachedSources = [], extra = "", allowedCardIds = []) {
   const result = await callOpenAIJson({
-    system: `${GYM_ASSISTANT_SYSTEM}\n\n${buildContext(originCard, decks, attachedCards, extra)}`,
+    system: `${GYM_ASSISTANT_SYSTEM}\n\n${buildContext(originCard, decks, folders, attachedCards, extra)}`,
     messages: [...serializeMessages(messages), ...sourceInput(attachedSources)],
     maxTokens: 3200,
     reasoningEffort: REASONING.chat,
@@ -168,6 +219,24 @@ async function callTurn(messages, originCard, decks, attachedCards = [], attache
   if (action?.type === "create_card" && !decks.some((deck) => deck.id === action.deckId)) {
     throw new Error("La IA intentó usar un mazo que no estaba en el contexto.");
   }
+  if (["create_cards", "rename_deck", "move_deck", "delete_deck"].includes(action?.type) &&
+      !decks.some((deck) => deck.id === action.deckId)) {
+    throw new Error("La IA intentó usar un mazo que no estaba en el contexto.");
+  }
+  if (["rename_folder", "delete_folder"].includes(action?.type) &&
+      !folders.some((folder) => folder.id === action.folderId)) {
+    throw new Error("La IA intentó usar una carpeta que no estaba en el contexto.");
+  }
+  if (["create_deck", "move_deck"].includes(action?.type) && action.folderId != null &&
+      !folders.some((folder) => folder.id === action.folderId)) {
+    throw new Error("La IA intentó usar una carpeta que no estaba en el contexto.");
+  }
+  if (action?.type === "delete_folder") {
+    const children = new Set(decks.filter((deck) => Number(deck.folder_id) === action.folderId).map((deck) => deck.id));
+    if ((action.deleteDeckIds || []).some((deckId) => !children.has(deckId))) {
+      throw new Error("La IA intentó borrar un mazo ajeno a la carpeta.");
+    }
+  }
   if (action?.type === "create_card" && action.source === "hybrid" && action.originCardId !== originCard?.id) {
     throw new Error("La conexión propuesta no coincide con la tarjeta de origen.");
   }
@@ -175,14 +244,14 @@ async function callTurn(messages, originCard, decks, attachedCards = [], attache
 }
 
 export async function runGymAssistant({ originCard = null, messages }) {
-  const decks = await listDecks();
+  const [decks, folders] = await Promise.all([listDecks(), listFolders()]);
   const attachedCards = await collectAttachedCards(messages);
   const attachedSources = collectAttachedSources(messages);
   const allowedCardIds = [
     ...(originCard ? [originCard.id] : []),
     ...attachedCards.map((item) => item.cardId),
   ];
-  const first = await callTurn(messages, originCard, decks, attachedCards, attachedSources, "", allowedCardIds);
+  const first = await callTurn(messages, originCard, decks, folders, attachedCards, attachedSources, "", allowedCardIds);
   if (first.action?.type !== "search_cards") return first;
 
   const allCards = await listAllCardsForSearch();
@@ -218,6 +287,7 @@ export async function runGymAssistant({ originCard = null, messages }) {
     intent: first.action.intent,
     instruction: first.action.instruction,
     decks,
+    folders,
   });
 }
 
@@ -228,9 +298,14 @@ export async function resolveGymCardChoice({
   intent = "discuss",
   instruction = "",
   decks: providedDecks,
+  folders: providedFolders,
 }) {
-  const [card, decks] = await Promise.all([getCard(cardId), providedDecks || listDecks()]);
+  const [card, decks, folders] = await Promise.all([
+    getCard(cardId),
+    providedDecks || listDecks(),
+    providedFolders || listFolders(),
+  ]);
   if (!card) throw new Error("La tarjeta elegida ya no existe.");
   const extra = `TARJETA ELEGIDA PARA ${intent}:\nID ${card.id}, mazo ${card.deck_id}\nFrente: ${card.front}\nDorso: ${card.back}\nPedido original: ${instruction}\nAhora respondé o prepará la acción correspondiente usando este ID real.`;
-  return callTurn(messages, originCard, decks, [], collectAttachedSources(messages), extra, [card.id]);
+  return callTurn(messages, originCard, decks, folders, [], collectAttachedSources(messages), extra, [card.id]);
 }

@@ -15,7 +15,8 @@ import {
 
 import { createCard, deleteCard, getCard, updateCardText } from "../db/cards";
 import { saveConnection } from "../db/connections";
-import { getDeck } from "../db/decks";
+import { createDeck, deleteDeck, getDeck, listDecks, renameDeck, setDeckFolder } from "../db/decks";
+import { createFolder, deleteFolder, getFolder, renameFolder } from "../db/folders";
 import {
   addGymMessage,
   createGymChat,
@@ -86,7 +87,21 @@ function SourcePills({ items = [], onRemove }) {
   );
 }
 
-function ActionPreview({ message, onConfirm, onChoose, busy }) {
+const ACTION_LABELS = {
+  edit_card: "CAMBIO PROPUESTO",
+  create_card: "TARJETA PROPUESTA",
+  delete_card: "ELIMINACIÓN PROPUESTA",
+  create_cards: "TARJETAS PROPUESTAS",
+  create_deck: "MAZO PROPUESTO",
+  rename_deck: "CAMBIO DE MAZO",
+  move_deck: "UBICACIÓN PROPUESTA",
+  delete_deck: "ELIMINACIÓN DE MAZO",
+  create_folder: "CARPETA PROPUESTA",
+  rename_folder: "CAMBIO DE CARPETA",
+  delete_folder: "ELIMINACIÓN DE CARPETA",
+};
+
+function ActionPreview({ message, onConfirm, onChoose, onToggleDeleteDeck, busy }) {
   const action = message.metadata?.action;
   if (!action) return null;
   if (action.type === "choose_card") {
@@ -111,30 +126,79 @@ function ActionPreview({ message, onConfirm, onChoose, busy }) {
       </View>
     );
   }
-  if (!["edit_card", "create_card", "delete_card"].includes(action.type)) return null;
+  if (!ACTION_LABELS[action.type]) return null;
   const done = action.status === "done";
+  const destructive = ["delete_card", "delete_deck", "delete_folder"].includes(action.type);
+  const cards = action.cards || [];
   return (
     <View style={styles.actionCard}>
-      <Text style={styles.actionEyebrow}>
-        {action.type === "edit_card" ? "CAMBIO PROPUESTO" : action.type === "create_card" ? "TARJETA PROPUESTA" : "ELIMINACIÓN PROPUESTA"}
-      </Text>
+      <Text style={styles.actionEyebrow}>{ACTION_LABELS[action.type]}</Text>
       {action.before ? (
         <View style={styles.beforeBox}>
           <Text style={styles.miniLabel}>ANTES</Text>
-          <Text style={styles.previewText}>{toPlainText(action.before.front)}</Text>
-          <Text style={styles.previewMuted}>{toPlainText(action.before.back)}</Text>
+          <Text style={styles.previewText}>{toPlainText(action.before.front || action.before.name)}</Text>
+          {action.before.back ? <Text style={styles.previewMuted}>{toPlainText(action.before.back)}</Text> : null}
         </View>
       ) : null}
-      {action.type !== "delete_card" ? (
+      {["edit_card", "create_card"].includes(action.type) ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={styles.miniLabel}>{action.type === "edit_card" ? "DESPUÉS" : "FRENTE"}</Text>
           <Text style={styles.previewText}>{toPlainText(action.front)}</Text>
           <Text style={styles.previewMuted}>{toPlainText(action.back)}</Text>
         </View>
       ) : null}
+      {action.name ? (
+        <View style={{ gap: 3 }}>
+          <Text style={styles.miniLabel}>NOMBRE FINAL</Text>
+          <Text style={styles.previewText}>{action.name}</Text>
+          {action.locationLabel ? <Text style={styles.previewMuted}>{action.locationLabel}</Text> : null}
+        </View>
+      ) : null}
+      {action.type === "move_deck" ? (
+        <Text style={styles.previewText}>{action.locationLabel || "Sin carpeta"}</Text>
+      ) : null}
+      {action.locationLabel && !action.name && action.type !== "move_deck" ? (
+        <Text style={styles.previewMuted}>{action.locationLabel}</Text>
+      ) : null}
+      {cards.length ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={styles.miniLabel}>{cards.length} {cards.length === 1 ? "TARJETA" : "TARJETAS"}</Text>
+          {cards.slice(0, 6).map((card, index) => (
+            <View key={`${card.front}-${index}`} style={styles.proposedCard}>
+              <Text style={styles.previewText}>{toPlainText(card.front)}</Text>
+              <Text style={styles.previewMuted} numberOfLines={3}>{toPlainText(card.back)}</Text>
+            </View>
+          ))}
+          {cards.length > 6 ? <Text style={styles.previewMuted}>Y {cards.length - 6} más…</Text> : null}
+        </View>
+      ) : null}
+      {action.type === "delete_deck" ? (
+        <Text style={styles.previewMuted}>
+          {action.before?.card_count || 0} tarjetas · {action.before?.idea_count || 0} ideas
+        </Text>
+      ) : null}
+      {action.type === "delete_folder" ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={styles.previewMuted}>Marcá los mazos que también querés eliminar. Los demás quedarán sueltos.</Text>
+          {(action.decks || []).map((deck) => {
+            const selected = (action.deleteDeckIds || []).includes(deck.id);
+            return (
+              <Pressable key={deck.id} disabled={done || busy} onPress={() => onToggleDeleteDeck(message, deck.id)} style={styles.deleteChoice}>
+                <View style={[styles.deleteCheck, selected && styles.deleteCheckActive]}>
+                  {selected ? <Feather name="check" size={13} color="#FFFFFF" /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.optionTitle}>{deck.name}</Text>
+                  <Text style={styles.previewMuted}>{deck.card_count || 0} tarjetas · {deck.idea_count || 0} ideas</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
       <Button
-        label={done ? "Aplicado" : action.type === "delete_card" ? "Revisar eliminación" : "Confirmar"}
-        kind={action.type === "delete_card" ? "ghost" : "primary"}
+        label={done ? "Aplicado" : destructive ? "Revisar eliminación" : "Confirmar"}
+        kind={destructive ? "danger" : "primary"}
         disabled={done || busy}
         onPress={() => onConfirm(message)}
       />
@@ -162,14 +226,45 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [sourceAttachments, setSourceAttachments] = useState([]);
+  const [destructiveMessage, setDestructiveMessage] = useState(null);
+  const [destructiveText, setDestructiveText] = useState("");
   const scrollRef = useRef(null);
   const saveTimer = useRef(null);
 
   const hydrateAction = useCallback(async (turn) => {
     const action = turn.action;
-    if (!action || !["edit_card", "delete_card"].includes(action.type) || !action.cardId) return action;
-    const before = await getCard(action.cardId);
-    return before ? { ...action, before: { front: before.front, back: before.back, deck_id: before.deck_id } } : action;
+    if (!action) return action;
+    if (["edit_card", "delete_card"].includes(action.type) && action.cardId) {
+      const before = await getCard(action.cardId);
+      return before ? { ...action, before: { front: before.front, back: before.back, deck_id: before.deck_id } } : action;
+    }
+    if (["rename_deck", "move_deck", "delete_deck"].includes(action.type) && action.deckId) {
+      const [before, allDecks, folder] = await Promise.all([
+        getDeck(action.deckId),
+        listDecks(),
+        action.folderId ? getFolder(action.folderId) : null,
+      ]);
+      const summary = allDecks.find((deck) => deck.id === action.deckId);
+      return {
+        ...action,
+        before: before ? { ...before, card_count: summary?.card_count || 0, idea_count: summary?.idea_count || 0 } : null,
+        locationLabel: action.type === "move_deck" ? (folder ? `Carpeta: ${folder.name}` : "Sin carpeta") : undefined,
+      };
+    }
+    if (["rename_folder", "delete_folder"].includes(action.type) && action.folderId) {
+      const [before, allDecks] = await Promise.all([getFolder(action.folderId), listDecks()]);
+      const children = allDecks.filter((deck) => Number(deck.folder_id) === action.folderId);
+      return { ...action, before, decks: children };
+    }
+    if (action.type === "create_deck" && action.folderId) {
+      const folder = await getFolder(action.folderId);
+      return { ...action, locationLabel: folder ? `Carpeta: ${folder.name}` : "Sin carpeta" };
+    }
+    if (action.type === "create_cards" && action.deckId) {
+      const deck = await getDeck(action.deckId);
+      return { ...action, locationLabel: deck ? `Mazo: ${deck.name}` : "Mazo" };
+    }
+    return action;
   }, []);
 
   useEffect(() => {
@@ -329,11 +424,33 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
     }
   };
 
-  const confirmAction = async (message) => {
+  const saveAction = async (message, action) => {
+    await updateGymMessageMetadata(message.id, { action });
+    setMessages((current) => current.map((item) =>
+      item.id === message.id ? { ...item, metadata: { action } } : item
+    ));
+  };
+
+  const toggleDeleteDeck = async (message, deckId) => {
+    const action = message.metadata.action;
+    const selected = action.deleteDeckIds || [];
+    const next = selected.includes(deckId)
+      ? selected.filter((id) => id !== deckId)
+      : [...selected, deckId];
+    await saveAction(message, { ...action, deleteDeckIds: next });
+  };
+
+  const executeAction = async (message, { destructiveConfirmed = false } = {}) => {
     const action = message.metadata.action;
     if (!action || action.status === "done") return;
+    if (["delete_deck", "delete_folder"].includes(action.type) && !destructiveConfirmed) {
+      setDestructiveText("");
+      setDestructiveMessage(message);
+      return;
+    }
     setBusy(true);
     try {
+      const completedFields = {};
       if (action.type === "edit_card") {
         if (!(await getCard(action.cardId))) throw new Error("La tarjeta ya no existe.");
         await updateCardText(action.cardId, action.front, action.back);
@@ -346,7 +463,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
           source: action.source === "hybrid" ? "hybrid" : "manual",
           originCardId: action.source === "hybrid" ? action.originCardId || session.origin_card_id : null,
         });
-        action.createdCardId = createdId;
+        completedFields.createdCardId = createdId;
         if (action.source === "hybrid" && (action.originCardId || session.origin_card_id)) {
           await saveConnection({
             cardId: action.originCardId || session.origin_card_id,
@@ -355,21 +472,68 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
             hybridCardId: createdId,
           });
         }
+      } else if (action.type === "create_cards") {
+        if (!(await getDeck(action.deckId))) throw new Error("El mazo elegido ya no existe.");
+        completedFields.createdCardIds = [];
+        for (const proposal of action.cards) {
+          completedFields.createdCardIds.push(await createCard({
+            deckId: action.deckId,
+            front: proposal.front,
+            back: proposal.back,
+            source: "manual",
+          }));
+        }
+      } else if (action.type === "create_deck") {
+        if (action.folderId && !(await getFolder(action.folderId))) throw new Error("La carpeta elegida ya no existe.");
+        const deckId = await createDeck(action.name);
+        if (action.folderId) await setDeckFolder(deckId, action.folderId);
+        completedFields.createdDeckId = deckId;
+        completedFields.createdCardIds = [];
+        for (const proposal of action.cards || []) {
+          completedFields.createdCardIds.push(await createCard({
+            deckId,
+            front: proposal.front,
+            back: proposal.back,
+            source: "manual",
+          }));
+        }
+      } else if (action.type === "rename_deck") {
+        if (!(await getDeck(action.deckId))) throw new Error("El mazo ya no existe.");
+        await renameDeck(action.deckId, action.name);
+      } else if (action.type === "move_deck") {
+        if (!(await getDeck(action.deckId))) throw new Error("El mazo ya no existe.");
+        if (action.folderId && !(await getFolder(action.folderId))) throw new Error("La carpeta elegida ya no existe.");
+        await setDeckFolder(action.deckId, action.folderId || null);
+      } else if (action.type === "create_folder") {
+        completedFields.createdFolderId = await createFolder(action.name);
+      } else if (action.type === "rename_folder") {
+        if (!(await getFolder(action.folderId))) throw new Error("La carpeta ya no existe.");
+        await renameFolder(action.folderId, action.name);
       } else if (action.type === "delete_card") {
         if (!(await getCard(action.cardId))) throw new Error("La tarjeta ya no existe.");
         const ok = await confirmAsync("Eliminar esta tarjeta", "Esta acción no se puede deshacer.");
         if (!ok) return;
         await deleteCard(action.cardId);
+      } else if (action.type === "delete_deck") {
+        if (!(await getDeck(action.deckId))) throw new Error("El mazo ya no existe.");
+        await deleteDeck(action.deckId);
+      } else if (action.type === "delete_folder") {
+        if (!(await getFolder(action.folderId))) throw new Error("La carpeta ya no existe.");
+        const children = await listDecks();
+        const childIds = new Set(children.filter((deck) => Number(deck.folder_id) === action.folderId).map((deck) => deck.id));
+        const selected = (action.deleteDeckIds || []).filter((deckId) => childIds.has(deckId));
+        for (const deckId of selected) await deleteDeck(deckId);
+        await deleteFolder(action.folderId);
       }
-      const completed = { ...action, status: "done" };
-      await updateGymMessageMetadata(message.id, { action: completed });
-      setMessages((current) => current.map((item) => item.id === message.id ? { ...item, metadata: { action: completed } } : item));
+      await saveAction(message, { ...action, ...completedFields, status: "done" });
     } catch (e) {
       setError(e.message || String(e));
     } finally {
       setBusy(false);
     }
   };
+
+  const confirmAction = (message) => executeAction(message);
 
   if (!session) return <ActivityIndicator color={colors.accent} style={{ flex: 1 }} />;
 
@@ -387,6 +551,29 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
     if (onDone) onDone(result());
     else if (router.canGoBack()) router.back();
     else router.replace("/");
+  };
+
+  const destructiveAction = destructiveMessage?.metadata?.action;
+  const destructiveName = destructiveAction?.before?.name || "";
+  const destructiveDecks = destructiveAction?.type === "delete_folder"
+    ? (destructiveAction.decks || []).filter((deck) => (destructiveAction.deleteDeckIds || []).includes(deck.id))
+    : [];
+  const destructiveCounts = destructiveAction?.type === "delete_deck"
+    ? {
+        cards: destructiveAction.before?.card_count || 0,
+        ideas: destructiveAction.before?.idea_count || 0,
+      }
+    : destructiveDecks.reduce((totals, deck) => ({
+        cards: totals.cards + (deck.card_count || 0),
+        ideas: totals.ideas + (deck.idea_count || 0),
+      }), { cards: 0, ideas: 0 });
+
+  const confirmDestructive = async () => {
+    if (!destructiveMessage || destructiveText.trim() !== destructiveName) return;
+    const message = destructiveMessage;
+    setDestructiveMessage(null);
+    setDestructiveText("");
+    await executeAction(message, { destructiveConfirmed: true });
   };
 
   return (
@@ -447,7 +634,13 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
                     <Text style={styles.bubbleText}>{message.text}</Text>
                   )}
                 </View>
-                <ActionPreview message={message} onConfirm={confirmAction} onChoose={chooseCard} busy={busy} />
+                <ActionPreview
+                  message={message}
+                  onConfirm={confirmAction}
+                  onChoose={chooseCard}
+                  onToggleDeleteDeck={toggleDeleteDeck}
+                  busy={busy}
+                />
               </View>
             </View>
           );
@@ -498,6 +691,36 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
           { label: "Referenciar tarjetas", icon: "layers", onPress: () => setAttachmentSheetOpen(true) },
         ]}
       />
+      <ActionSheet
+        visible={!!destructiveMessage}
+        onClose={() => {
+          setDestructiveMessage(null);
+          setDestructiveText("");
+        }}
+        title="Confirmación necesaria"
+      >
+        <View style={styles.dangerSummary}>
+          <Feather name="alert-triangle" size={20} color={colors.danger} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={styles.previewText}>
+              {destructiveAction?.type === "delete_folder"
+                ? `Se borrará la carpeta y ${destructiveDecks.length} ${destructiveDecks.length === 1 ? "mazo" : "mazos"}.`
+                : "Se borrará el mazo completo."}
+            </Text>
+            <Text style={styles.previewMuted}>
+              Esto elimina {destructiveCounts.cards} tarjetas, incluidas {destructiveCounts.ideas} ideas. No se puede deshacer.
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.previewMuted}>Para confirmar, escribí exactamente: <Text style={styles.confirmName}>{destructiveName}</Text></Text>
+        <Field value={destructiveText} onChangeText={setDestructiveText} placeholder={destructiveName} autoCapitalize="none" />
+        <Button
+          label="Eliminar definitivamente"
+          kind="danger"
+          disabled={destructiveText.trim() !== destructiveName || busy}
+          onPress={confirmDestructive}
+        />
+      </ActionSheet>
       <CardAttachmentSheet
         visible={attachmentSheetOpen}
         onClose={() => setAttachmentSheetOpen(false)}
@@ -543,11 +766,17 @@ const styles = StyleSheet.create({
   actionCard: { gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(15,20,29,0.94)" },
   actionEyebrow: { ...type.small, ...font(700), color: "#00F2FE", fontSize: 10, letterSpacing: 0.8 },
   beforeBox: { gap: 3, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.025)" },
+  proposedCard: { gap: 2, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.025)" },
   miniLabel: { ...type.small, ...font(700), fontSize: 9, color: colors.textMuted },
   previewText: { ...type.body, ...font(600), fontSize: 14 },
   previewMuted: { ...type.small, color: colors.textMuted },
   optionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder },
   optionTitle: { ...type.body, ...font(600), fontSize: 14 },
+  deleteChoice: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
+  deleteCheck: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: colors.pillBorder, alignItems: "center", justifyContent: "center" },
+  deleteCheckActive: { backgroundColor: colors.danger, borderColor: colors.danger },
+  dangerSummary: { flexDirection: "row", gap: spacing.sm, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(229,72,77,0.08)", borderWidth: 1, borderColor: "rgba(229,72,77,0.25)" },
+  confirmName: { ...font(700), color: colors.text },
   error: { color: colors.danger, fontSize: 12 },
   attachmentRow: { gap: spacing.xs, paddingHorizontal: 1 },
   attachmentPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 190, paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: "rgba(65,190,240,0.28)", backgroundColor: "rgba(12,21,33,0.94)" },

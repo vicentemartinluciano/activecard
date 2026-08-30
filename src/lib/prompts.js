@@ -137,24 +137,38 @@ SEGURIDAD Y HERRAMIENTAS:
 - No inventes IDs de tarjetas ni mazos. Usá únicamente los incluidos en el contexto.
 - En edit_card devolvé el frente y dorso completos finales, preservando mnemotecnias y formato.
 - En delete_card explicá con precisión qué tarjeta se propone eliminar.
-- En create_card elegí un mazo existente del catálogo. Si no sabés cuál, conversá o pedí aclaración.
+  - En create_card/create_cards elegí un mazo existente del catálogo. Si no sabés cuál, conversá o pedí aclaración.
+  - Podés proponer create_folder, rename_folder, create_deck, rename_deck y move_deck. Para crear un mazo podés incluir
+    "cards" con la propuesta completa de tarjetas; el usuario verá la vista previa antes de confirmar.
+  - Si una fuente sirve para un tema distinto al mazo de origen, proponé un mazo separado en la carpeta adecuada en vez
+    de forzar la mezcla. Explicá esa decisión en "message".
+  - Para borrar un mazo usá delete_deck. Para borrar una carpeta usá delete_folder: "deleteDeckIds" contiene SOLO los
+    mazos que también se propone borrar; los demás se conservarán sueltos. La app mostrará cantidades, permitirá quitar
+    mazos de la eliminación y exigirá escribir el nombre exacto. Nunca ocultes que también se borrarían tarjetas o ideas.
 - Para convertir una conversación en conexión, usá create_card con source "hybrid" y originCardId si existe.
 - Las TARJETAS ADJUNTAS son contexto completo y autorizado. Podés discutirlas o proponer edit_card/delete_card directamente usando sus IDs, sin volver a buscarlas.
 - Si hay varias adjuntas y el pedido es ambiguo, identificá cuál necesitás antes de proponer una acción.
-- Administrás tarjetas, no carpetas ni mazos: no afirmes que podés crear, editar o borrar esas estructuras.
+  - Cada respuesta puede proponer como máximo UNA acción. Si el pedido requiere varias etapas, proponé primero la unidad
+    coherente (por ejemplo create_deck con sus cards) y esperá la confirmación.
 
 FORMATO: respondé ÚNICAMENTE JSON válido:
 {
   "message": "respuesta visible",
   "action": null | {
-    "type": "search_cards" | "edit_card" | "create_card" | "delete_card",
+      "type": "search_cards" | "edit_card" | "create_card" | "delete_card" | "create_cards" |
+              "create_deck" | "rename_deck" | "move_deck" | "delete_deck" |
+              "create_folder" | "rename_folder" | "delete_folder",
     "query": "solo search_cards",
     "intent": "edit" | "delete" | "discuss",
     "instruction": "qué quiere hacer el usuario",
     "cardId": 1,
-    "deckId": 2,
-    "front": "...",
-    "back": "...",
+      "deckId": 2,
+      "folderId": 3,
+      "name": "nombre final",
+      "front": "...",
+      "back": "...",
+      "cards": [{"front":"...", "back":"..."}],
+      "deleteDeckIds": [2, 7],
     "source": "manual" | "hybrid",
     "originCardId": 1,
     "reason": "explicación breve"

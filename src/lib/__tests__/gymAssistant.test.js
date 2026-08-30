@@ -41,3 +41,27 @@ test("normaliza ids numéricos antes de mostrar una propuesta", () => {
 test("rechaza respuestas sin mensaje visible", () => {
   expect(() => validateGymTurn({ action: null })).toThrow(/mensaje/);
 });
+
+test("acepta crear un mazo con una propuesta múltiple", () => {
+  const result = validateGymTurn({
+    message: "Este tema merece un mazo separado.",
+    action: {
+      type: "create_deck",
+      name: "Ofertas de valor",
+      folderId: "3",
+      cards: [
+        { front: "¿Qué aumenta el valor?", back: "El resultado soñado." },
+        { front: "¿Qué reduce el valor?", back: "El esfuerzo y el tiempo." },
+      ],
+    },
+  });
+  expect(result.action.folderId).toBe(3);
+  expect(result.action.cards).toHaveLength(2);
+});
+
+test("rechaza una eliminación de carpeta con IDs inválidos", () => {
+  expect(() => validateGymTurn({
+    message: "Preparé la eliminación.",
+    action: { type: "delete_folder", folderId: 3, deleteDeckIds: [4, "x"] },
+  })).toThrow(/selección de mazos/);
+});
