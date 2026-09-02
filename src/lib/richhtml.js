@@ -118,6 +118,24 @@ export function describeBlock(block) {
   return { kind, spans, align };
 }
 
+// La persistencia representa cada párrafo de una cita como una línea con su
+// sentinel. Para mostrarla, las líneas consecutivas deben volver a ser un solo
+// bloque visual, igual que el <blockquote> del editor.
+export function groupQuoteRuns(blocks) {
+  const grouped = [];
+  for (const block of blocks) {
+    const previous = grouped[grouped.length - 1];
+    if (block.kind === "quote" && previous?.kind === "quoteGroup") {
+      previous.blocks.push(block);
+    } else if (block.kind === "quote") {
+      grouped.push({ kind: "quoteGroup", blocks: [block] });
+    } else {
+      grouped.push(block);
+    }
+  }
+  return grouped;
+}
+
 // style="text-align:..." para un bloque. Se emite para cualquier alineación
 // EXPLÍCITA (incluida izquierda); align null → sin style.
 function alignStyle(align) {
@@ -161,11 +179,32 @@ export function marksToHtml(marcas) {
       continue;
     }
 
+    // TipTap modela una cita de varios párrafos como un blockquote que contiene
+    // varios <p>. Agrupar las líneas citadas consecutivas evita que al reabrir
+    // el editor aparezcan como citas separadas.
+    if (block.kind === "quote") {
+      const quotes = [];
+      while (i < blocks.length && blocks[i].kind === "quote") {
+        quotes.push(blocks[i]);
+        i++;
+      }
+      if (quotes.length === 1) {
+        const quote = quotes[0];
+        out.push(`<blockquote${alignStyle(quote.align)}>${spansToHtml(quote.spans)}</blockquote>`);
+      } else {
+        out.push(
+          `<blockquote>${quotes
+            .map((quote) => `<p${alignStyle(quote.align)}>${spansToHtml(quote.spans)}</p>`)
+            .join("")}</blockquote>`
+        );
+      }
+      continue;
+    }
+
     const tag = block.kind === "heading1" ? "h1"
       : block.kind === "heading2" ? "h2"
         : block.kind === "heading3" ? "h3"
-          : block.kind === "quote" ? "blockquote"
-            : "p";
+          : "p";
     out.push(`<${tag}${alignStyle(block.align)}>${spansToHtml(block.spans)}</${tag}>`);
     i++;
   }
@@ -253,6 +292,7 @@ export function htmlToMarks(html) {
   let cur = null;
   const stack = []; // pila de estilos inline: { tag, style }
   const listStack = []; // { type: 'ul'|'ol', count }
+  const quoteStack = []; // { align }; un blockquote puede contener varios <p>
   let liJustOpened = false;
 
   const curStyle = () => (stack.length ? stack[stack.length - 1].style : {});
@@ -315,8 +355,29 @@ export function htmlToMarks(html) {
         continue;
       }
       if (BLOCK_TAGS.has(tag)) {
+        if (tag === "blockquote") {
+          closeBlock();
+          const quote = { align: alignFromAttrs(attrs) };
+          quoteStack.push(quote);
+          // También soporta HTML compacto: <blockquote>texto</blockquote>.
+          openBlock("quote", quote.align);
+          continue;
+        }
         // <li><p>: el <p> reusa el bloque recién abierto por el <li>.
         if (wasLiJustOpened && cur && cur.spans.length === 0) continue;
+        const quote = quoteStack[quoteStack.length - 1];
+        if (quote) {
+          const align = alignFromAttrs(attrs) || quote.align;
+          // El primer <p> reutiliza el bloque vacío abierto por <blockquote>;
+          // los siguientes crean nuevas líneas, todas con formato de cita.
+          if (cur?.prefix === "quote" && cur.spans.length === 0) {
+            cur.align = align;
+          } else {
+            closeBlock();
+            openBlock("quote", align);
+          }
+          continue;
+        }
         closeBlock();
         const prefix = tag === "h1" ? "heading1"
           : tag === "h2" ? "heading2"
@@ -347,6 +408,11 @@ export function htmlToMarks(html) {
     }
     if (tag === "li" || tag === "br" || tag === "hr") {
       closeBlock();
+      continue;
+    }
+    if (tag === "blockquote") {
+      closeBlock();
+      quoteStack.pop();
       continue;
     }
     if (BLOCK_TAGS.has(tag)) {

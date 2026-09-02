@@ -1,4 +1,5 @@
 import {
+  ALIGN_SENTINELS,
   BLOCK_SENTINELS,
   parseRich,
   toPlainText,
@@ -102,6 +103,21 @@ describe("parseRich", () => {
   test("texto vacío o null no rompe", () => {
     expect(parseRich("")).toEqual([{ type: "p", spans: [] }]);
     expect(parseRich(null)).toEqual([{ type: "p", spans: [] }]);
+  });
+
+  test("repara la cita vacía separada del texto que guardaba el conversor anterior", () => {
+    const legacy = `${BLOCK_SENTINELS.quote}\nTexto citado`;
+    expect(parseRich(legacy)).toEqual([
+      { type: "p", spans: [{ text: `${BLOCK_SENTINELS.quote}Texto citado` }] },
+    ]);
+
+    const alignedLegacy = `${ALIGN_SENTINELS.center}${BLOCK_SENTINELS.quote}\nTexto centrado`;
+    expect(parseRich(alignedLegacy)).toEqual([
+      {
+        type: "p",
+        spans: [{ text: `${ALIGN_SENTINELS.center}${BLOCK_SENTINELS.quote}Texto centrado` }],
+      },
+    ]);
   });
 });
 

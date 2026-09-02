@@ -46,6 +46,7 @@ export const BLOCK_BY_CHAR = Object.fromEntries(
   Object.entries(BLOCK_SENTINELS).map(([key, value]) => [value, key])
 );
 const BLOCK_STRIP_RE = /^[\uE020-\uE023]/;
+const LEGACY_EMPTY_QUOTE_RE = /^([\uE000\uE001\uE002]?)\uE023$/;
 
 const COLOR_RE = /^\[\[([a-zA-Z]+):/;
 
@@ -112,6 +113,23 @@ function parseLine(line, inherited) {
 export function parseRich(text) {
   const raw = text == null ? "" : String(text);
   const lines = raw.split("\n");
+
+  // Compatibilidad con citas guardadas por el conversor anterior. TipTap
+  // entrega <blockquote><p>texto</p></blockquote> y antes se persistía como
+  // una cita vacía seguida por un párrafo normal. Al leer ese patrón exacto,
+  // reunimos la barra y el texto; la próxima edición ya lo guarda canónico.
+  for (let i = 0; i < lines.length - 1; i++) {
+    const legacy = LEGACY_EMPTY_QUOTE_RE.exec(lines[i]);
+    if (!legacy || !lines[i + 1]) continue;
+
+    const nextAlign = ALIGN_BY_CHAR[lines[i + 1][0]] ? lines[i + 1][0] : "";
+    const nextContent = nextAlign ? lines[i + 1].slice(1) : lines[i + 1];
+    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(IMG_SENTINEL)) continue;
+
+    lines[i + 1] = `${nextAlign || legacy[1]}${BLOCK_SENTINELS.quote}${nextContent}`;
+    lines.splice(i, 1);
+    i--;
+  }
   return lines.map((line) => {
     const isListItem = line.startsWith("- ");
     const content = isListItem ? line.slice(2) : line;

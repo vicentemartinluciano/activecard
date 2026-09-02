@@ -1,4 +1,4 @@
-import { describeBlock, htmlToMarks, marksToHtml } from "../richhtml";
+import { describeBlock, groupQuoteRuns, htmlToMarks, marksToHtml } from "../richhtml";
 import {
   ALIGN_SENTINELS,
   BLOCK_SENTINELS,
@@ -152,6 +152,30 @@ describe("formatos de bloque estilo Notion", () => {
   test("HTML de títulos y cita se conserva, en vez de degradarse a párrafo", () => {
     expect(htmlToMarks("<h1>Título</h1><h2>Sección</h2><h3>Subsección</h3><blockquote>Cita</blockquote>"))
       .toBe(`${H1}Título\n${H2}Sección\n${H3}Subsección\n${Q}Cita`);
+  });
+
+  test("una cita de varios párrafos se guarda y se reabre como un solo blockquote", () => {
+    const marcas = `${Q}Primera línea\n${Q}Segunda línea`;
+    const html = "<blockquote><p>Primera línea</p><p>Segunda línea</p></blockquote>";
+    expect(htmlToMarks(html)).toBe(marcas);
+    expect(marksToHtml(marcas)).toBe(html);
+    expect(roundTrip(marcas)).toBe(marcas);
+  });
+
+  test("una cita ya guardada con la línea vacía heredada se reabre unida", () => {
+    const legacy = `${Q}\nTexto citado`;
+    expect(marksToHtml(legacy)).toBe("<blockquote>Texto citado</blockquote>");
+    expect(describeBlock(parseRich(legacy)[0]).kind).toBe("quote");
+  });
+
+  test("las líneas citadas consecutivas se agrupan para el render final", () => {
+    const blocks = `${Q}Uno\n${Q}Dos\nTexto normal\n${Q}Tres`
+      .split("\n")
+      .map((line) => describeBlock(parseRich(line)[0]));
+    const grouped = groupQuoteRuns(blocks);
+    expect(grouped.map((block) => block.kind)).toEqual(["quoteGroup", "p", "quoteGroup"]);
+    expect(grouped[0].blocks).toHaveLength(2);
+    expect(grouped[2].blocks).toHaveLength(1);
   });
 
   test("el formato de bloque convive con alineación explícita", () => {

@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { describeBlock } from "../lib/richhtml";
+import { describeBlock, groupQuoteRuns } from "../lib/richhtml";
 import { parseRich } from "../lib/richtext";
 import { colors, font, radius, spacing, textColors } from "../theme";
 
@@ -77,10 +77,32 @@ function spanStyle(span) {
 // por cara — el dorso arranca centrado). Las listas nunca heredan el default
 // (siempre a la izquierda).
 export default function RichText({ text, style, containerStyle, defaultAlign = "left" }) {
-  const blocks = useMemo(() => parseRich(text).map(describeBlock), [text]);
+  const blocks = useMemo(() => groupQuoteRuns(parseRich(text).map(describeBlock)), [text]);
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {
+        if (block.kind === "quoteGroup") {
+          return (
+            <View key={i} style={styles.quoteWrap}>
+              {block.blocks.map((quote, j) => {
+                const align = quote.align || defaultAlign;
+                return (
+                  <Text
+                    key={j}
+                    style={[style, styles.quoteText, align !== "left" && { textAlign: align }]}
+                  >
+                    {quote.spans.map((span, k) => (
+                      <Text key={k} style={spanStyle(span)}>
+                        {span.text}
+                      </Text>
+                    ))}
+                  </Text>
+                );
+              })}
+            </View>
+          );
+        }
+
         if (block.kind === "hr") {
           return <View key={i} style={styles.divider} />;
         }
@@ -97,8 +119,7 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
         const blockTextStyle = block.kind === "heading1" ? styles.heading1
           : block.kind === "heading2" ? styles.heading2
             : block.kind === "heading3" ? styles.heading3
-              : block.kind === "quote" ? styles.quoteText
-                : null;
+              : null;
 
         const line = (
           <Text
@@ -122,9 +143,6 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
               {line}
             </View>
           );
-        }
-        if (block.kind === "quote") {
-          return <View key={i} style={styles.quoteWrap}>{line}</View>;
         }
         return line;
       })}
