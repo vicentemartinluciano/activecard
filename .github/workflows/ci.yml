@@ -43,7 +43,17 @@ jobs:
       - name: Instalar dependencias (limpio, como un usuario nuevo)
         run: npm ci
 
-      - name: Compatibilidad con Expo SDK
+      # Una OTA conserva el runtime del APK. Validar contra el mapa incluido
+      # en el SDK instalado evita exigir parches nativos nuevos para cambios JS.
+      - name: Compatibilidad con el Expo SDK instalado
+        env:
+          EXPO_OFFLINE: "1"
+        run: npx expo-doctor
+
+      # La recomendación remota se conserva visible para el próximo APK.
+      # No modifica el lockfile ni bloquea una OTA del runtime existente.
+      - name: Parches Expo disponibles (informativo)
+        continue-on-error: true
         run: npx expo-doctor
 
       - name: Corrector de código (ESLint)

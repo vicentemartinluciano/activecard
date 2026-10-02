@@ -53,6 +53,10 @@ Scripts para Martín:
 El criterio de lint de CI es el comando directo con `--max-warnings 0`, no solamente
 `npm run lint`.
 
+CI exige Expo Doctor contra el mapa del SDK instalado (`EXPO_OFFLINE=1`), y conserva
+el chequeo remoto de parches como aviso. Para una OTA, mantener las dependencias del
+APK vigente; revisar los parches nativos junto con el próximo APK.
+
 ## Invariantes de producto
 
 - FSRS usa tres notas: izquierda=`Again`, arriba=`Hard`, derecha=`Good`. No se muestra

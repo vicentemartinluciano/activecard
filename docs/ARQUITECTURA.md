@@ -1,6 +1,6 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-08-30
+Última actualización: 2026-10-02
 Versión nativa: 1.5.0
 
 ## Visión
@@ -448,6 +448,10 @@ absolutas en Android Fabric.
 - Cambios JS, prompts, estilos y migraciones compatibles: OTA.
 - Dependencia, plugin o permiso nativo nuevo: bump de `app.json.version`, cambio de
   `APP_VERSION` en el `.bat` y APK nuevo en el mismo commit.
+
+CI valida con Expo Doctor el mapa de dependencias del SDK instalado mediante
+`EXPO_OFFLINE=1`. El chequeo online de parches queda informativo para planificar el
+próximo APK; no exige actualizar módulos nativos para publicar una OTA compatible.
 
 ## Seguridad
 
