@@ -35,7 +35,7 @@ import {
 } from "../../../db/decks";
 import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
-import { getDeckRetention } from "../../../db/stats";
+import { getDeckRecallScore } from "../../../db/stats";
 import { getSetting, setSetting } from "../../../db/settings";
 import { toPlainText } from "../../../lib/richtext";
 import { filterDeckCards } from "../../../lib/search";
@@ -103,7 +103,7 @@ export default function DetalleMazo() {
   const [studySheet, setStudySheet] = useState(false);
   const [starsOnly, setStarsOnly] = useState(false);
   const [ordered, setOrdered] = useState(false);
-  const [retention, setRetention] = useState(null);
+  const [recallScore, setRecallScore] = useState(null);
   // Modo edición: todas las tarjetas abiertas, se editan sin entrar a cada una.
   // activeId es la única que monta editores de verdad (ver EditableCardRow).
   const [editMode, setEditMode] = useState(false);
@@ -144,7 +144,7 @@ export default function DetalleMazo() {
         setAllTags(await listTags());
         setFolders(await listFolders());
         setProgress(await getDeckDailyProgress(deckId));
-        setRetention(await getDeckRetention(deckId));
+        setRecallScore(await getDeckRecallScore(deckId));
       }
       setLoadError("");
     } catch {
@@ -407,8 +407,8 @@ export default function DetalleMazo() {
             <Card style={{ gap: spacing.sm }}>
               <View style={styles.progressHead}>
                 <Text style={type.label}>Progreso de hoy</Text>
-                {retention != null ? (
-                  <Pill label={`Retención ${retention}%`} color={colors.successBright} />
+                {recallScore != null ? (
+                  <Pill label={`Recuerdo ${recallScore}/100`} color={colors.successBright} />
                 ) : null}
               </View>
               <Text style={type.small}>

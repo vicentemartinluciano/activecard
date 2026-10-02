@@ -2,8 +2,8 @@
 // Todo lo que se ve acá sale de datos que la app ya venía guardando
 // (review_logs y cards) — no hizo falta migración ni tabla nueva.
 //
-// Orden decidido con Martín: retención primero (es el número que dice si el
-// sistema funciona), constancia al deslizar la misma card, después la carga que
+// Orden decidido con Martín: puntaje de recuerdo primero, constancia al
+// deslizar la misma card, después la carga que
 // viene y por último las tarjetas que se resisten.
 
 import { useFocusEffect, useRouter } from "expo-router";
@@ -12,7 +12,7 @@ import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-n
 
 import ActivityHeatmap from "../../components/ActivityHeatmap";
 import ForecastList from "../../components/ForecastList";
-import RetentionChart from "../../components/RetentionChart";
+import RecallScoreChart from "../../components/RecallScoreChart";
 import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import Stagger from "../../components/Stagger";
@@ -22,15 +22,15 @@ import {
   countWeakCards,
   getActivityMap,
   getForecast,
-  getRetentionSeries,
-  getRetentionSummary,
+  getRecallScoreSeries,
+  getRecallScoreSummary,
   listWeakCards,
 } from "../../db/stats";
 import { getStreak } from "../../db/streak";
 import { toPlainText } from "../../lib/richtext";
 import { colors, font, layout, spacing, tabular, type } from "../../theme";
 
-const PAGINAS = ["Retención", "Constancia"];
+const PAGINAS = ["Puntaje de recuerdo", "Constancia"];
 
 export default function Progreso() {
   const router = useRouter();
@@ -52,8 +52,8 @@ export default function Progreso() {
     useCallback(() => {
       let alive = true;
       Promise.all([
-        getRetentionSummary(),
-        getRetentionSeries(12),
+        getRecallScoreSummary(),
+        getRecallScoreSeries(12),
         getActivityMap(84),
         getForecast(7),
         listWeakCards(3),
@@ -105,7 +105,7 @@ export default function Progreso() {
   }
 
   const { resumen, serie, actividad, forecast, debiles, totalDebiles, racha, limits } = data;
-  const sinDatos = resumen.pct == null;
+  const sinDatos = resumen.score == null;
 
   return (
     <SectionSwipe index={3}>
@@ -120,12 +120,12 @@ export default function Progreso() {
           showsVerticalScrollIndicator={false}
         >
           <Stagger>
-            {/* Retención y constancia comparten card: se deslizan de costado.
+            {/* Puntaje y constancia comparten card: se deslizan de costado.
                 Así el gráfico tiene lugar para respirar sin comerse la pantalla. */}
             <Card>
               {/* El ancho se mide ACÁ y las páginas no se dibujan hasta tenerlo.
                   Antes se renderizaban con ancho automático y cada una se
-                  desbordaba sobre la otra: se veía el gráfico de retención
+                  desbordaba sobre la otra: se veía el gráfico de recuerdo
                   encima de la constancia. Cada página además recorta lo suyo. */}
               <View
                 style={styles.carruselMedida}
@@ -147,7 +147,7 @@ export default function Progreso() {
                   >
                     <View style={[styles.pagina, { width: anchoCard }]}>
                       <View style={styles.rowHead}>
-                        <Text style={type.label}>Retención</Text>
+                        <Text style={type.label}>Puntaje de recuerdo</Text>
                         {resumen.delta != null ? (
                           <Pill
                             icon={resumen.delta >= 0 ? "trending-up" : "trending-down"}
@@ -158,16 +158,23 @@ export default function Progreso() {
                       </View>
                       <View style={styles.bigRow}>
                         <Text style={styles.bigNum}>
-                          {sinDatos ? "–" : resumen.pct}
-                          <Text style={styles.bigUnit}>%</Text>
+                          {sinDatos ? "–" : resumen.score}
+                          <Text style={styles.bigUnit}>/100</Text>
                         </Text>
                         <Text style={type.small}>últimos 30 días</Text>
                       </View>
-                      <RetentionChart series={serie} anchoBase={anchoCard} />
+                      {resumen.delta != null ? (
+                        <Text style={type.small}>
+                          {resumen.delta === 0
+                            ? "Igual que en los 30 días anteriores."
+                            : `${Math.abs(resumen.delta)} puntos ${resumen.delta > 0 ? "más" : "menos"} que en los 30 días anteriores.`}
+                        </Text>
+                      ) : null}
+                      <RecallScoreChart series={serie} anchoBase={anchoCard} />
                       <Text style={type.small}>
                         {sinDatos
-                          ? "Cuando repases unas cuantas tarjetas vas a ver acá si el sistema te está funcionando."
-                          : `De cada 100 tarjetas que repasaste, ${resumen.pct} las recordaste bien.`}
+                          ? "Cuando repases, vas a ver acá tu puntaje de recuerdo."
+                          : "La sabía: 1 · Más o menos: 0,5 · No la sabía: 0."}
                       </Text>
                     </View>
 
@@ -286,7 +293,7 @@ const styles = StyleSheet.create({
   bigUnit: {
     fontSize: 17,
     ...font(700),
-    // Verde igual que el número: el "%" es parte de la cifra, no una acotación.
+    // La escala /100 forma parte de la cifra.
     color: colors.successBright,
   },
   dots: {

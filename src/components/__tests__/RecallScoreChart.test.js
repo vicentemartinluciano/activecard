@@ -1,4 +1,4 @@
-import { retentionScale, smoothPath } from "../RetentionChart";
+import { recallScoreScale, smoothPath } from "../RecallScoreChart";
 
 test("construye una curva SVG continua entre todos los puntos", () => {
   const path = smoothPath([
@@ -17,12 +17,12 @@ test("tolera una serie vacía o de un solo punto", () => {
   expect(smoothPath([{ x: 7, y: 20 }])).toBe("M 7 20");
 });
 
-test("abre la escala para distinguir los porcentajes menores a 50", () => {
-  const { ticks, yOf } = retentionScale([
-    { pct: null },
-    { pct: 0 },
-    { pct: 30 },
-    { pct: 100 },
+test("abre la escala para distinguir los puntajes menores a 50", () => {
+  const { ticks, yOf } = recallScoreScale([
+    { score: null },
+    { score: 0 },
+    { score: 30 },
+    { score: 100 },
   ]);
   expect(ticks).toEqual([100, 50, 0]);
   expect(yOf(0)).toBeGreaterThan(yOf(30));
@@ -33,9 +33,9 @@ test("abre la escala para distinguir los porcentajes menores a 50", () => {
 
 test("mantiene el detalle de 50–100 cuando todos los valores entran", () => {
   expect(
-    retentionScale([{ pct: null }, { pct: 50 }, { pct: 90 }]).ticks,
+    recallScoreScale([{ score: null }, { score: 50 }, { score: 90 }]).ticks,
   ).toEqual([100, 75, 50]);
-  expect(retentionScale([]).ticks).toEqual([100, 75, 50]);
+  expect(recallScoreScale([]).ticks).toEqual([100, 75, 50]);
 });
 
 test("el suavizado no inventa una caída entre dos semanas iguales", () => {

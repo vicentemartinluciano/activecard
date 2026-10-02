@@ -211,19 +211,23 @@ conservar orden manual o barajar. `debiles` es un ID virtual que usa `listWeakCa
 
 `db/stats.js` deriva sin tablas adicionales:
 
-- retención de 30 días y delta contra la ventana anterior;
+- puntaje de recuerdo de 30 días y delta contra la ventana anterior;
 - serie semanal de 12 semanas;
 - heatmap de 84 días;
 - forecast de siete días;
 - puntos débiles por `lapses`;
-- retención del mazo.
+- puntaje de recuerdo del mazo.
 
-Retención considera correcta cualquier nota distinta de `again`.
+El puntaje de recuerdo vale 1 por `good`, 0,5 por `hard` y 0 por `again`.
+Se divide la suma por la cantidad de respuestas y se lleva a una escala de 100,
+redondeada al entero más cercano. Cuenta cada respuesta de todos los modos.
+Resumen, delta, serie semanal e indicador del mazo usan los mismos pesos sobre
+los registros existentes, sin migración ni modificación del estado FSRS.
 
 El gráfico semanal destaca el último dato con repasos y muestra el promedio de
-las semanas con datos en una leyenda separada. Usa escala 50–100%, ampliada a
-0–100% si algún dato queda por debajo de 50. El número principal conserva su
-ventana de 30 días; el diseño del gráfico no modifica el cálculo de retención.
+las semanas con datos en una leyenda separada. Usa escala 50–100, ampliada a
+0–100 si algún dato queda por debajo de 50. El número principal conserva su
+ventana de 30 días. La UI muestra puntos sobre 100, no porcentaje de aciertos.
 
 ## Rich text y editor
 

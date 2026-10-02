@@ -60,6 +60,8 @@ El criterio de lint de CI es el comando directo con `--max-warnings 0`, no solam
 - `Hard` avanza. `Again` sigue pendiente hasta que la última nota diaria deje de ser
   `Again` y entra a la ronda de falladas.
 - Hay repaso diario y estudio por mazo; ambos actualizan el mismo estado FSRS.
+- El puntaje de recuerdo pondera `Good=1`, `Hard=0,5`, `Again=0` sobre 100;
+  resumen, delta, semanas y mazo usan ese criterio sin cambiar la programación FSRS.
 - El rayo del repaso abre el Gimnasio solo para esa tarjeta y esa vez.
 - El Gimnasio también funciona como chat general. Una charla nueva no se persiste hasta
   el primer envío.

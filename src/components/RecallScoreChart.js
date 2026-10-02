@@ -1,4 +1,4 @@
-// Curva semanal de retención, con referencias fuera del trazado.
+// Curva semanal del puntaje de recuerdo, con referencias fuera del trazado.
 import { useId, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, {
@@ -34,14 +34,16 @@ const MESES = [
   "dic",
 ];
 
-// Abre la escala cuando hace falta: un valor menor a 50 no debe parecer 50%.
-export function retentionScale(series = []) {
-  const min = series.some((item) => item.pct != null && item.pct < 50) ? 0 : 50;
+// Abre la escala cuando hace falta: un puntaje menor a 50 no debe parecer 50.
+export function recallScoreScale(series = []) {
+  const min = series.some((item) => item.score != null && item.score < 50)
+    ? 0
+    : 50;
   return {
     ticks: [100, (100 + min) / 2, min],
-    yOf: (pct) =>
+    yOf: (score) =>
       BASE_Y -
-      ((Math.max(min, Math.min(100, pct)) - min) / (100 - min)) *
+      ((Math.max(min, Math.min(100, score)) - min) / (100 - min)) *
         (PLOT_H - MARGEN_Y * 2),
   };
 }
@@ -71,16 +73,16 @@ export function smoothPath(points) {
   return path;
 }
 
-export default function RetentionChart({ series = [], anchoBase = 0 }) {
+export default function RecallScoreChart({ series = [], anchoBase = 0 }) {
   const [measured, setMeasured] = useState(0);
   const gradientId = useId().replace(/:/g, "");
-  const areaId = `retention-area-${gradientId}`;
-  const lineId = `retention-line-${gradientId}`;
+  const areaId = `recall-score-area-${gradientId}`;
+  const lineId = `recall-score-line-${gradientId}`;
   const width = measured > 0 ? measured : Math.max(0, anchoBase - AXIS_W);
   const pointsWithData = series
     .map((item, index) => ({ ...item, index }))
-    .filter((item) => item.pct != null);
-  const { ticks, yOf } = retentionScale(series);
+    .filter((item) => item.score != null);
+  const { ticks, yOf } = recallScoreScale(series);
   const usefulWidth = Math.max(0, width - MARGEN_X * 2);
   const step = series.length > 1 ? usefulWidth / (series.length - 1) : 0;
   const xOf = (index) =>
@@ -88,7 +90,7 @@ export default function RetentionChart({ series = [], anchoBase = 0 }) {
   const points = pointsWithData.map((point) => ({
     ...point,
     x: xOf(point.index),
-    y: yOf(point.pct),
+    y: yOf(point.score),
   }));
   const latest = points[points.length - 1];
   const linePath = smoothPath(points);
@@ -99,7 +101,7 @@ export default function RetentionChart({ series = [], anchoBase = 0 }) {
   const average =
     points.length > 0
       ? Math.round(
-          points.reduce((sum, point) => sum + point.pct, 0) / points.length,
+          points.reduce((sum, point) => sum + point.score, 0) / points.length,
         )
       : null;
 
@@ -119,7 +121,7 @@ export default function RetentionChart({ series = [], anchoBase = 0 }) {
       <EmptyState
         icon="activity"
         text={
-          "Tus repasos van a dibujar esta curva.\nCada semana vas a poder ver cómo evoluciona tu retención."
+          "Tus repasos van a dibujar esta curva.\nCada semana vas a poder ver cómo evoluciona tu puntaje de recuerdo."
         }
       />
     );
@@ -129,8 +131,9 @@ export default function RetentionChart({ series = [], anchoBase = 0 }) {
     <View
       style={styles.chart}
       accessible
-      accessibilityLabel={`Retención semanal. Última semana con repasos: ${latest.pct}%. Promedio de las semanas con repasos: ${average}%. Escala de ${ticks[2]} a 100%.`}
+      accessibilityLabel={`Puntaje de recuerdo semanal. Última semana con repasos: ${latest.score} sobre 100. Promedio de las semanas con repasos: ${average} sobre 100. Escala de ${ticks[2]} a 100.`}
     >
+      <Text style={styles.caption}>Evolución semanal · últimas 12 semanas</Text>
       <View style={styles.wrap}>
         <View style={styles.axisY}>
           {ticks.map((value) => (
@@ -142,7 +145,7 @@ export default function RetentionChart({ series = [], anchoBase = 0 }) {
                 { top: yOf(value) - 7 },
               ]}
             >
-              {value}%
+              {value}
             </Text>
           ))}
         </View>
@@ -285,13 +288,13 @@ export default function RetentionChart({ series = [], anchoBase = 0 }) {
         <View style={styles.legendItem}>
           <View style={styles.legendDot} />
           <Text style={styles.legendText}>
-            Último dato <Text style={styles.latestValue}>{latest.pct}%</Text>
+            Último dato <Text style={styles.latestValue}>{latest.score}</Text>
           </Text>
         </View>
         <View style={styles.legendItem}>
           <View style={styles.legendDash} />
           <Text style={styles.legendText}>
-            Promedio <Text style={styles.averageValue}>{average}%</Text>
+            Promedio semanal <Text style={styles.averageValue}>{average}</Text>
           </Text>
         </View>
       </View>
@@ -301,6 +304,12 @@ export default function RetentionChart({ series = [], anchoBase = 0 }) {
 
 const styles = StyleSheet.create({
   chart: { paddingTop: spacing.xs, gap: spacing.xs },
+  caption: {
+    fontSize: 11,
+    ...font(500),
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+  },
   wrap: { flexDirection: "row" },
   axisY: { width: AXIS_W, height: PLOT_H },
   axisYLabel: { position: "absolute", right: 6 },
