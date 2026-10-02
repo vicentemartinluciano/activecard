@@ -156,26 +156,20 @@ export default function Progreso() {
                           />
                         ) : null}
                       </View>
-                      <View style={styles.bigRow}>
+                      <View
+                        style={styles.bigRow}
+                        accessible
+                        accessibilityLabel={sinDatos
+                          ? "Todavía no hay repasos en los últimos 30 días."
+                          : `Puntaje de recuerdo ponderado: ${resumen.score}%. Últimos 30 días.${resumen.delta != null ? ` Diferencia respecto de los 30 días anteriores: ${resumen.delta} puntos porcentuales.` : ""}`}
+                      >
                         <Text style={styles.bigNum}>
                           {sinDatos ? "–" : resumen.score}
-                          <Text style={styles.bigUnit}>/100</Text>
+                          <Text style={styles.bigUnit}>%</Text>
                         </Text>
                         <Text style={type.small}>últimos 30 días</Text>
                       </View>
-                      {resumen.delta != null ? (
-                        <Text style={type.small}>
-                          {resumen.delta === 0
-                            ? "Igual que en los 30 días anteriores."
-                            : `${Math.abs(resumen.delta)} puntos ${resumen.delta > 0 ? "más" : "menos"} que en los 30 días anteriores.`}
-                        </Text>
-                      ) : null}
                       <RecallScoreChart series={serie} anchoBase={anchoCard} />
-                      <Text style={type.small}>
-                        {sinDatos
-                          ? "Cuando repases, vas a ver acá tu puntaje de recuerdo."
-                          : "La sabía: 1 · Más o menos: 0,5 · No la sabía: 0."}
-                      </Text>
                     </View>
 
                     <View style={[styles.pagina, { width: anchoCard }]}>
@@ -293,7 +287,7 @@ const styles = StyleSheet.create({
   bigUnit: {
     fontSize: 17,
     ...font(700),
-    // La escala /100 forma parte de la cifra.
+    // El porcentaje forma parte de la cifra.
     color: colors.successBright,
   },
   dots: {

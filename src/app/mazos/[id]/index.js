@@ -408,7 +408,7 @@ export default function DetalleMazo() {
               <View style={styles.progressHead}>
                 <Text style={type.label}>Progreso de hoy</Text>
                 {recallScore != null ? (
-                  <Pill label={`Recuerdo ${recallScore}/100`} color={colors.successBright} />
+                  <Pill label={`Recuerdo ${recallScore}%`} color={colors.successBright} />
                 ) : null}
               </View>
               <Text style={type.small}>

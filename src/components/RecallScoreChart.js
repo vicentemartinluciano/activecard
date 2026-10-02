@@ -131,9 +131,9 @@ export default function RecallScoreChart({ series = [], anchoBase = 0 }) {
     <View
       style={styles.chart}
       accessible
-      accessibilityLabel={`Puntaje de recuerdo semanal. Última semana con repasos: ${latest.score} sobre 100. Promedio de las semanas con repasos: ${average} sobre 100. Escala de ${ticks[2]} a 100.`}
+      accessibilityLabel={`Puntaje de recuerdo ponderado por semana. Última semana con repasos: ${latest.score}%. Promedio de las semanas con repasos: ${average}%. Escala de ${ticks[2]} a 100%.`}
     >
-      <Text style={styles.caption}>Evolución semanal · últimas 12 semanas</Text>
+      <Text style={styles.caption}>Por semana · 12 semanas</Text>
       <View style={styles.wrap}>
         <View style={styles.axisY}>
           {ticks.map((value) => (
@@ -145,7 +145,7 @@ export default function RecallScoreChart({ series = [], anchoBase = 0 }) {
                 { top: yOf(value) - 7 },
               ]}
             >
-              {value}
+              {value}%
             </Text>
           ))}
         </View>
@@ -286,15 +286,9 @@ export default function RecallScoreChart({ series = [], anchoBase = 0 }) {
       </View>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={styles.legendDot} />
-          <Text style={styles.legendText}>
-            Último dato <Text style={styles.latestValue}>{latest.score}</Text>
-          </Text>
-        </View>
-        <View style={styles.legendItem}>
           <View style={styles.legendDash} />
           <Text style={styles.legendText}>
-            Promedio semanal <Text style={styles.averageValue}>{average}</Text>
+            Promedio semanal <Text style={styles.averageValue}>{average}%</Text>
           </Text>
         </View>
       </View>
@@ -326,7 +320,7 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     columnGap: spacing.md,
     rowGap: spacing.sm,
     paddingVertical: spacing.sm,
@@ -334,12 +328,6 @@ const styles = StyleSheet.create({
     borderTopColor: colors.cardBorder,
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legendDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: LINE_COLOR,
-  },
   legendDash: {
     width: 10,
     borderTopWidth: 1,
@@ -352,6 +340,5 @@ const styles = StyleSheet.create({
     ...font(400),
     color: colors.textMuted,
   },
-  latestValue: { ...font(700), ...tabular, color: LINE_COLOR },
   averageValue: { ...font(600), ...tabular, color: colors.text },
 });

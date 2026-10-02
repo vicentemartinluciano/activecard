@@ -227,7 +227,10 @@ los registros existentes, sin migración ni modificación del estado FSRS.
 El gráfico semanal destaca el último dato con repasos y muestra el promedio de
 las semanas con datos en una leyenda separada. Usa escala 50–100, ampliada a
 0–100 si algún dato queda por debajo de 50. El número principal conserva su
-ventana de 30 días. La UI muestra puntos sobre 100, no porcentaje de aciertos.
+ventana de 30 días. La UI expresa el puntaje ponderado en %, conservando los
+pesos 1/0,5/0; no es un porcentaje binario de aciertos. La tarjeta muestra
+el valor principal, el delta y el gráfico con su promedio semanal, sin la
+fórmula ni la explicación duplicada de la comparación.
 
 ## Rich text y editor
 
