@@ -1,7 +1,5 @@
-// Curva semanal de retención. SVG permite un área continua, una línea suave y
-// puntos completos en los extremos sin depender de Views rotadas.
-
-import { useState } from "react";
+// Curva semanal de retención, con referencias fuera del trazado.
+import { useId, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, {
   Circle,
@@ -12,19 +10,40 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 
-import { colors, font, tabular, type } from "../theme";
+import { EmptyState } from "./ui";
+import { colors, font, gradients, spacing, tabular } from "../theme";
 
-const MARGEN_X = 7;
-const PLOT_H = 88;
-const AXIS_H = 18;
-const MIN_PCT = 50;
-const MAX_PCT = 100;
-const LINE_COLOR = "#4CC38A";
-const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MARGEN_X = 10;
+const MARGEN_Y = 12;
+const PLOT_H = 144;
+const AXIS_W = 36;
+const BASE_Y = PLOT_H - MARGEN_Y;
+const LINE_COLOR = gradients.progress[1];
+const MESES = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
 
-function yOf(pct) {
-  const clamped = Math.max(MIN_PCT, Math.min(MAX_PCT, pct));
-  return PLOT_H - ((clamped - MIN_PCT) / (MAX_PCT - MIN_PCT)) * PLOT_H;
+// Abre la escala cuando hace falta: un valor menor a 50 no debe parecer 50%.
+export function retentionScale(series = []) {
+  const min = series.some((item) => item.pct != null && item.pct < 50) ? 0 : 50;
+  return {
+    ticks: [100, (100 + min) / 2, min],
+    yOf: (pct) =>
+      BASE_Y -
+      ((Math.max(min, Math.min(100, pct)) - min) / (100 - min)) *
+        (PLOT_H - MARGEN_Y * 2),
+  };
 }
 
 export function smoothPath(points) {
@@ -36,48 +55,57 @@ export function smoothPath(points) {
     const p1 = points[i];
     const p2 = points[i + 1];
     const p3 = points[Math.min(points.length - 1, i + 2)];
+    // La curva no inventa picos entre dos valores semanales.
+    const clampY = (y) =>
+      Math.max(Math.min(p1.y, p2.y), Math.min(Math.max(p1.y, p2.y), y));
     const c1 = {
       x: p1.x + (p2.x - p0.x) / 6,
-      y: Math.max(0, Math.min(PLOT_H, p1.y + (p2.y - p0.y) / 6)),
+      y: clampY(p1.y + (p2.y - p0.y) / 6),
     };
     const c2 = {
       x: p2.x - (p3.x - p1.x) / 6,
-      y: Math.max(0, Math.min(PLOT_H, p2.y - (p3.y - p1.y) / 6)),
+      y: clampY(p2.y - (p3.y - p1.y) / 6),
     };
     path += ` C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`;
   }
   return path;
 }
 
-export default function RetentionChart({ series, anchoBase = 0 }) {
+export default function RetentionChart({ series = [], anchoBase = 0 }) {
   const [measured, setMeasured] = useState(0);
-  const width = measured > 0 ? measured : Math.max(0, anchoBase - 24);
-  const pointsWithData = (series || [])
+  const gradientId = useId().replace(/:/g, "");
+  const areaId = `retention-area-${gradientId}`;
+  const lineId = `retention-line-${gradientId}`;
+  const width = measured > 0 ? measured : Math.max(0, anchoBase - AXIS_W);
+  const pointsWithData = series
     .map((item, index) => ({ ...item, index }))
     .filter((item) => item.pct != null);
-
-  const count = series?.length || 0;
+  const { ticks, yOf } = retentionScale(series);
   const usefulWidth = Math.max(0, width - MARGEN_X * 2);
-  const step = count > 1 && usefulWidth > 0 ? usefulWidth / (count - 1) : 0;
-  const xOf = (index) => MARGEN_X + index * step;
+  const step = series.length > 1 ? usefulWidth / (series.length - 1) : 0;
+  const xOf = (index) =>
+    series.length === 1 ? width / 2 : MARGEN_X + index * step;
   const points = pointsWithData.map((point) => ({
     ...point,
     x: xOf(point.index),
     y: yOf(point.pct),
   }));
+  const latest = points[points.length - 1];
   const linePath = smoothPath(points);
   const areaPath =
     points.length > 1
-      ? `${linePath} L ${points[points.length - 1].x} ${PLOT_H} L ${points[0].x} ${PLOT_H} Z`
+      ? `${linePath} L ${latest.x} ${BASE_Y} L ${points[0].x} ${BASE_Y} Z`
       : "";
   const average =
     points.length > 0
-      ? Math.round(points.reduce((sum, point) => sum + point.pct, 0) / points.length)
+      ? Math.round(
+          points.reduce((sum, point) => sum + point.pct, 0) / points.length,
+        )
       : null;
 
   const labels = [];
   let lastMonth = null;
-  (series || []).forEach((item, index) => {
+  series.forEach((item, index) => {
     if (!item.weekStart) return;
     const month = Number(item.weekStart.slice(5, 7)) - 1;
     if (month !== lastMonth) {
@@ -86,17 +114,38 @@ export default function RetentionChart({ series, anchoBase = 0 }) {
     }
   });
 
+  if (!latest) {
+    return (
+      <EmptyState
+        icon="activity"
+        text={
+          "Tus repasos van a dibujar esta curva.\nCada semana vas a poder ver cómo evoluciona tu retención."
+        }
+      />
+    );
+  }
+
   return (
-    <View>
+    <View
+      style={styles.chart}
+      accessible
+      accessibilityLabel={`Retención semanal. Última semana con repasos: ${latest.pct}%. Promedio de las semanas con repasos: ${average}%. Escala de ${ticks[2]} a 100%.`}
+    >
       <View style={styles.wrap}>
         <View style={styles.axisY}>
-          {[MAX_PCT, 75, MIN_PCT].map((value) => (
-            <Text key={value} style={styles.axisLabel}>
-              {value}
+          {ticks.map((value) => (
+            <Text
+              key={value}
+              style={[
+                styles.axisLabel,
+                styles.axisYLabel,
+                { top: yOf(value) - 7 },
+              ]}
+            >
+              {value}%
             </Text>
           ))}
         </View>
-
         <View
           style={styles.plot}
           onLayout={(event) => {
@@ -105,145 +154,195 @@ export default function RetentionChart({ series, anchoBase = 0 }) {
           }}
         >
           {width > 0 ? (
-            <Svg width="100%" height={PLOT_H} style={StyleSheet.absoluteFill}>
+            <Svg
+              width="100%"
+              height={PLOT_H}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            >
               <Defs>
-                <SvgLinearGradient id="retention-area" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <Stop offset="0%" stopColor="rgba(76,195,138,0.30)" />
-                  <Stop offset="100%" stopColor="rgba(76,195,138,0)" />
+                <SvgLinearGradient
+                  id={areaId}
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
+                  <Stop
+                    offset="0%"
+                    stopColor={colors.successBright}
+                    stopOpacity={0.28}
+                  />
+                  <Stop
+                    offset="65%"
+                    stopColor={colors.successBright}
+                    stopOpacity={0.08}
+                  />
+                  <Stop
+                    offset="100%"
+                    stopColor={colors.successBright}
+                    stopOpacity={0}
+                  />
+                </SvgLinearGradient>
+                <SvgLinearGradient
+                  id={lineId}
+                  gradientUnits="userSpaceOnUse"
+                  x1={MARGEN_X}
+                  y1={0}
+                  x2={width - MARGEN_X}
+                  y2={0}
+                >
+                  <Stop offset="0%" stopColor={gradients.progress[0]} />
+                  <Stop offset="100%" stopColor={LINE_COLOR} />
                 </SvgLinearGradient>
               </Defs>
-
-              {[MAX_PCT, 75, MIN_PCT].map((value) => (
+              {ticks.map((value) => (
                 <Line
                   key={value}
-                  x1={0}
-                  x2={width}
+                  x1={MARGEN_X}
+                  x2={width - MARGEN_X}
                   y1={yOf(value)}
                   y2={yOf(value)}
-                  stroke={
-                    value === MIN_PCT
-                      ? "rgba(255,255,255,0.13)"
-                      : "rgba(255,255,255,0.07)"
-                  }
+                  stroke="rgba(255,255,255,0.08)"
                   strokeWidth={1}
+                  strokeDasharray={value === ticks[2] ? undefined : "2 5"}
                 />
               ))}
-
-              {areaPath ? <Path d={areaPath} fill="url(#retention-area)" /> : null}
-              {linePath ? (
-                <Path
-                  d={linePath}
-                  fill="none"
-                  stroke={LINE_COLOR}
-                  strokeWidth={2.2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {areaPath ? <Path d={areaPath} fill={`url(#${areaId})`} /> : null}
+              <Line
+                x1={MARGEN_X}
+                x2={width - MARGEN_X}
+                y1={yOf(average)}
+                y2={yOf(average)}
+                stroke={colors.textMuted}
+                strokeOpacity={0.55}
+                strokeWidth={1}
+                strokeDasharray="5 5"
+              />
+              <Line
+                x1={latest.x}
+                x2={latest.x}
+                y1={latest.y}
+                y2={BASE_Y}
+                stroke={LINE_COLOR}
+                strokeOpacity={0.25}
+                strokeDasharray="3 5"
+              />
+              <Path
+                d={linePath}
+                fill="none"
+                stroke={`url(#${lineId})`}
+                strokeWidth={2.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {points.slice(0, -1).map((point) => (
+                <Circle
+                  key={point.index}
+                  cx={point.x}
+                  cy={point.y}
+                  r={2.5}
+                  fill={colors.surfaceCard}
+                  stroke={colors.successBright}
+                  strokeWidth={1.5}
                 />
-              ) : null}
-
-              {average != null ? (
-                <Line
-                  x1={0}
-                  x2={width}
-                  y1={yOf(average)}
-                  y2={yOf(average)}
-                  stroke="rgba(139,139,152,0.5)"
-                  strokeWidth={1}
-                  strokeDasharray="4 4"
-                />
-              ) : null}
-
-              {points.map((point, index) => {
-                const latest = index === points.length - 1;
-                return (
-                  <Circle
-                    key={point.index}
-                    cx={point.x}
-                    cy={point.y}
-                    r={latest ? 4 : 2.8}
-                    fill={latest ? LINE_COLOR : colors.surfaceCard}
-                    stroke={LINE_COLOR}
-                    strokeWidth={latest ? 0 : 1.5}
-                  />
-                );
-              })}
+              ))}
+              <Circle
+                cx={latest.x}
+                cy={latest.y}
+                r={7}
+                fill={colors.surfaceCard}
+                stroke={LINE_COLOR}
+                strokeWidth={1}
+              />
+              <Circle cx={latest.x} cy={latest.y} r={3.5} fill={LINE_COLOR} />
             </Svg>
-          ) : null}
-
-          {average != null ? (
-            <Text style={[styles.averageLabel, { top: Math.max(0, yOf(average) - 7) }]}>
-              prom. {average}
-            </Text>
           ) : null}
         </View>
       </View>
-
       <View style={styles.axisX}>
         {width > 0
           ? labels.map((label) => (
               <Text
                 key={label.index}
-                style={[styles.axisLabel, styles.axisXLabel, { left: xOf(label.index) - 12 }]}
+                style={[
+                  styles.axisLabel,
+                  styles.axisXLabel,
+                  {
+                    left: Math.max(
+                      0,
+                      Math.min(width - 28, xOf(label.index) - 14),
+                    ),
+                  },
+                ]}
               >
                 {label.label}
               </Text>
             ))
           : null}
       </View>
-
-      {points.length === 0 ? (
-        <Text style={[type.small, styles.empty]}>
-          Todavía no hay repasos suficientes para dibujar la curva.
-        </Text>
-      ) : null}
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={styles.legendDot} />
+          <Text style={styles.legendText}>
+            Último dato <Text style={styles.latestValue}>{latest.pct}%</Text>
+          </Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={styles.legendDash} />
+          <Text style={styles.legendText}>
+            Promedio <Text style={styles.averageValue}>{average}%</Text>
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  axisY: {
-    width: 24,
-    height: PLOT_H,
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    paddingRight: 5,
-    marginTop: -5,
-  },
-  plot: {
-    flex: 1,
-    height: PLOT_H,
-  },
-  averageLabel: {
-    position: "absolute",
-    right: 0,
-    fontSize: 8.5,
-    ...font(600),
-    ...tabular,
-    color: colors.textMuted,
-    backgroundColor: colors.surfaceCard,
-    paddingHorizontal: 4,
-  },
-  axisX: {
-    height: AXIS_H,
-    marginLeft: 24,
-  },
+  chart: { paddingTop: spacing.xs, gap: spacing.xs },
+  wrap: { flexDirection: "row" },
+  axisY: { width: AXIS_W, height: PLOT_H },
+  axisYLabel: { position: "absolute", right: 6 },
+  plot: { flex: 1, height: PLOT_H },
+  axisX: { height: 22, marginLeft: AXIS_W },
   axisLabel: {
-    fontSize: 9,
+    fontSize: 10,
+    lineHeight: 14,
+    ...font(500),
     ...tabular,
     color: colors.textMuted,
   },
-  axisXLabel: {
-    position: "absolute",
-    top: 4,
-    width: 24,
-    textAlign: "center",
+  axisXLabel: { position: "absolute", width: 28, textAlign: "center" },
+  legend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    columnGap: spacing.md,
+    rowGap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
   },
-  empty: {
-    textAlign: "center",
-    marginTop: 4,
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: LINE_COLOR,
   },
+  legendDash: {
+    width: 10,
+    borderTopWidth: 1,
+    borderColor: colors.textMuted,
+    borderStyle: "dashed",
+  },
+  legendText: {
+    fontSize: 12,
+    lineHeight: 18,
+    ...font(400),
+    color: colors.textMuted,
+  },
+  latestValue: { ...font(700), ...tabular, color: LINE_COLOR },
+  averageValue: { ...font(600), ...tabular, color: colors.text },
 });

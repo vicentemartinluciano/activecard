@@ -220,6 +220,11 @@ conservar orden manual o barajar. `debiles` es un ID virtual que usa `listWeakCa
 
 Retención considera correcta cualquier nota distinta de `again`.
 
+El gráfico semanal destaca el último dato con repasos y muestra el promedio de
+las semanas con datos en una leyenda separada. Usa escala 50–100%, ampliada a
+0–100% si algún dato queda por debajo de 50. El número principal conserva su
+ventana de 30 días; el diseño del gráfico no modifica el cálculo de retención.
+
 ## Rich text y editor
 
 `cards.front/back` siguen siendo TEXT. El formato interno usa marcas y sentinels; TipTap
