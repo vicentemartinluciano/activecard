@@ -65,9 +65,10 @@ mostró 100 repasos y 50 nuevas. El mazo vacío «Prueba sincronización 08-10
 en revisión 9 (18:43:18 UTC), 326 entradas, 8 mazos y 159 tarjetas; el SHA-256 de
 `study_preferences/dailyLimits` coincide con `{"max_new":50,"max_reviews":100}`.
 Esto verifica ejecución nativa y publicación de límites, además de la limpieza de
-la prueba en la nube. La comprobación visual final de esos límites en la web espera
-respuesta de Martín: la pestaña original dejó de aceptar control automático incluso
-después de habilitarlo. Una pestaña adicional de diagnóstico produjo «Invalid VFS
+la prueba en la nube. Martín confirmó que la web muestra 100 repasos y 50 nuevas
+tras recargar su única pestaña y sincronizar. Esa comprobación final fue del usuario:
+la pestaña original dejó de aceptar control automático incluso después de habilitarlo.
+Una pestaña adicional de diagnóstico produjo «Invalid VFS
 state» al coexistir con la base web ya abierta y se cerró; no se borró almacenamiento.
 No se realizaron pruebas físicas de repasos offline ni conflictos concurrentes nuevos.
 La recuperación puntual de «La teoría de juegos» espera la elección de Martín;
