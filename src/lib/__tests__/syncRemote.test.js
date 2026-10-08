@@ -6,7 +6,7 @@ const owner = "00000000-0000-4000-8000-000000000001";
 const hash = async (text) => createHash("sha256").update(text).digest("hex");
 const auth = { refresh_token: "REFRESH-PRIVADO", access_token: "ACCESS-PRIVADO", expires_in: 3600, user: { id: owner, email: "privado@example.test", email_confirmed_at: "2026-10-07T15:00:00Z", is_anonymous: false } };
 const reply = (value, status = 200) => ({ status, ok: status >= 200 && status < 300, json: async () => value, text: async () => value });
-function server() {
+function server({ duplicateStatus = 409, duplicateBody = {} } = {}) {
   const blobs = new Map(); let snapshot = null;
   const fetcher = jest.fn(async (url, options) => {
     if (url.includes("/auth/v1/token")) return reply(auth);
@@ -20,7 +20,7 @@ function server() {
     }
     const id = url.split("/").at(-1);
     if (options.method === "POST") {
-      if (blobs.has(id)) return reply({}, 409);
+      if (blobs.has(id)) return reply(duplicateBody, duplicateStatus);
       blobs.set(id, options.body); return reply({}, 200);
     }
     return blobs.has(id) ? reply(blobs.get(id)) : reply({}, 404);
@@ -73,6 +73,43 @@ test("un fragmento alterado se rechaza antes de devolver contenido a SQLite", as
   const second = createSyncRemote({ fetcher: test.fetcher, store: test.store, hash });
   await second.login("correo", "contraseña");
   await expect(second.read()).rejects.toThrow("dañada");
+});
+
+test.each([
+  [400, { statusCode: "409", error: "Duplicate", message: "The resource already exists" }],
+  [400, { code: "ResourceAlreadyExists", message: "The resource already exists" }],
+  [400, { code: "KeyAlreadyExists", message: "The resource already exists" }],
+  [400, { message: "Asset Already Exists" }],
+  [409, {}],
+])("una primera subida interrumpida reutiliza un fragmento existente (%i, %j) verificándolo", async (duplicateStatus, duplicateBody) => {
+  const test = server({ duplicateStatus, duplicateBody });
+  const digest = await hash("[]");
+  test.blobs.set(digest, "[]"); // Subido antes del manifiesto por un intento anterior.
+  await test.remote.login("correo", "contraseña");
+  expect(await test.remote.commit(emptyDocument(), 0)).toEqual({ ok: true, revision: 1 });
+  const calls = test.fetcher.mock.calls;
+  const verification = calls.findIndex(([url, request]) => url.includes("/object/authenticated/") && request.method === "GET");
+  const publish = calls.findIndex(([url]) => url.endsWith("/activecard_commit"));
+  expect(verification).toBeGreaterThan(-1);
+  expect(publish).toBeGreaterThan(verification);
+  expect(test.blobs.size).toBe(1);
+  expect(calls.some(([, request]) => Object.hasOwn(request.headers, "x-upsert"))).toBe(false);
+});
+
+test.each([400, 409])("un duplicado HTTP %i con contenido alterado no publica el manifiesto", async (duplicateStatus) => {
+  const test = server({ duplicateStatus, duplicateBody: { error: "Duplicate" } });
+  test.blobs.set(await hash("[]"), "CONTENIDO ALTERADO");
+  await test.remote.login("correo", "contraseña");
+  await expect(test.remote.commit(emptyDocument(), 0)).rejects.toThrow("dañada");
+  expect(test.fetcher.mock.calls.some(([url]) => url.endsWith("/activecard_commit"))).toBe(false);
+});
+
+test("otro error HTTP 400 de Storage no se considera un duplicado", async () => {
+  const test = server({ duplicateStatus: 400, duplicateBody: { code: "InvalidMimeType", message: "Invalid mime type" } });
+  test.blobs.set(await hash("[]"), "[]");
+  await test.remote.login("correo", "contraseña");
+  await expect(test.remote.commit(emptyDocument(), 0)).rejects.toThrow("No pudimos completar");
+  expect(test.fetcher.mock.calls.some(([url]) => url.includes("/object/authenticated/") || url.endsWith("/activecard_commit"))).toBe(false);
 });
 test("un fallo de red no borra el token de sesión", async () => {
   const test = server(); test.store.readRefreshToken.mockResolvedValue(auth.refresh_token);

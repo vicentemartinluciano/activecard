@@ -57,7 +57,13 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
         headers: { apikey: PUBLIC_KEY, ...(access ? { Authorization: `Bearer ${access}` } : {}), ...(body !== undefined ? { "Content-Type": text ? "text/plain; charset=utf-8" : "application/json" } : {}) },
         ...(body !== undefined ? { body: text ? body : JSON.stringify(body) } : {}),
       });
-      if (existing && response.status === 409) return null;
+      if (existing && [400, 409].includes(response.status)) {
+        // Storage también devuelve duplicados como HTTP 400 (API legacy).
+        // Solo reutilizamos ese archivo después de descargarlo y verificar SHA-256.
+        let failure;
+        try { failure = await response.json(); } catch { failure = null; }
+        if (response.status === 409 || failure?.error === "Duplicate" || ["ResourceAlreadyExists", "KeyAlreadyExists"].includes(failure?.code) || failure?.message === "Asset Already Exists") return null;
+      }
       if (!response.ok) {
         if (response.status === 404) throw new Error("Falta habilitar la sincronización de ActiveCard en Supabase.");
         if ([400, 401].includes(response.status) && path.startsWith("/auth/")) throw new Error("No pudimos iniciar sesión. Revisá tu correo y contraseña de REANCLA.");
@@ -158,7 +164,8 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
             const digest = await hash(part);
             hashes.push(digest);
             if (!knownBlobs.has(digest)) {
-              await request(`/storage/v1/object/${BUCKET}/${auth.owner}/${digest}`, { method: "POST", body: part, text: true, access: auth.access, existing: true });
+              const uploaded = await request(`/storage/v1/object/${BUCKET}/${auth.owner}/${digest}`, { method: "POST", body: part, text: true, access: auth.access, existing: true });
+              if (uploaded === null) await getBlob(digest, auth);
               check(auth.epoch);
               knownBlobs.add(digest);
               if (cachedBlobs.size < 128) cachedBlobs.set(digest, part);

@@ -13,9 +13,9 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- APK instalada vigente: 1.6.0 (SecureStore + Crypto). Martín confirmó que abre y conserva sus mazos y tarjetas; login y sincronización entre dispositivos todavía no verificados.
+- APK instalada vigente: 1.6.0 (SecureStore + Crypto). Martín confirmó que abre y conserva sus mazos y tarjetas. Login Android accede a la cuenta; primera subida detenida por un duplicado legacy de Storage. Corrección preparada; sincronización entre dispositivos todavía no verificada.
 - Package: `com.marti.activecard`.
-- Datos locales en SQLite; cuenta/sync privada implementada con Supabase. Migración remota y permisos verificados el 7 de octubre; login y sincronización real pendientes. Ver `docs/SINCRONIZACION.md`.
+- Datos locales en SQLite; cuenta/sync privada implementada con Supabase. Migración remota y permisos verificados el 7 de octubre; primera subida y sincronización real pendientes. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 

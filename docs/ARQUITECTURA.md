@@ -2,7 +2,8 @@
 
 Última actualización: 2026-10-07
 APK instalada: 1.6.0. Martín confirmó apertura y conservación de mazos y tarjetas;
-login y sincronización entre dispositivos todavía no verificados.
+login Android accede a la cuenta; primera subida y sincronización entre dispositivos
+todavía no completadas.
 
 ## Visión
 
