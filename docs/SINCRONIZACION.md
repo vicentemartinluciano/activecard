@@ -33,8 +33,8 @@ runtime 1.6.0: grupo `48fb5383-43c1-490e-a834-4c6e56289208`, update
 `add80281f0773b300c6f991069017ea1bfdf88ae`. CI `37723671903` y Deploy web
 `37723671955` terminaron bien; 386 tests en 41 suites, lint y verificaciones
 SQLite/Postgres aprobados. Publicación OTA confirmada; lectura y publicación de la
-biblioteca remota verificadas el 8 de octubre. La instalación actual de la OTA tras
-la reinstalación requiere comprobación. No declarar cerrado el ciclo entre dispositivos.
+biblioteca remota verificadas el 8 de octubre. Esta OTA fue reemplazada por las
+publicaciones posteriores descritas abajo. No declarar cerrado todo el ciclo de pruebas.
 
 La mejora de transferencia y progreso se publicó el 8 de octubre: `preview`, Android,
 runtime 1.6.0, grupo `286633cf-98fb-4f90-b463-7b217e9249ca`, update
@@ -51,6 +51,27 @@ una copia de conflicto de las 14:37 en Android. Conservar esa alternativa permit
 recuperar solo el texto sin reemplazar los otros datos. Los límites eran locales
 (100/50 en Android y 40/15 en web); Martín aprobó compartirlos. El RPC de preferencias
 se ejecutó correctamente el 8 de octubre, preservando políticas y permisos.
+
+La corrección de límites compartidos se publicó desde `main` limpia y sincronizada,
+commit `1d10852390b163cfdb155d0de9f06dea5f8ea63a` (PR #8), en `preview`, Android,
+runtime 1.6.0. Grupo `314e1ebd-5b4e-4847-b2ad-538aa3f61be8`, update
+`01a11cca-640d-788e-9739-bad068c5698b`, publicado a las 18:33 UTC del 8/10.
+CI `37823400218` y Deploy web `37823400345` exitosos; 393 pruebas en 41 suites,
+lint sin avisos, integraciones SQLite/Postgres y exportación Android aprobados.
+El Galaxy A15 descargó ese ID de actualización, volvió a abrirse y mostró la nueva
+descripción con límites diarios; a las 15:44:09 locales llegó a «Al día». Carga diaria
+mostró 100 repasos y 50 nuevas. El mazo vacío «Prueba sincronización 08-10
+1503-Android» se borró con autorización explícita de Martín. El manifiesto real quedó
+en revisión 9 (18:43:18 UTC), 326 entradas, 8 mazos y 159 tarjetas; el SHA-256 de
+`study_preferences/dailyLimits` coincide con `{"max_new":50,"max_reviews":100}`.
+Esto verifica ejecución nativa y publicación de límites, además de la limpieza de
+la prueba en la nube. La comprobación visual final de esos límites en la web espera
+respuesta de Martín: la pestaña original dejó de aceptar control automático incluso
+después de habilitarlo. Una pestaña adicional de diagnóstico produjo «Invalid VFS
+state» al coexistir con la base web ya abierta y se cerró; no se borró almacenamiento.
+No se realizaron pruebas físicas de repasos offline ni conflictos concurrentes nuevos.
+La recuperación puntual de «La teoría de juegos» espera la elección de Martín;
+no se reemplazó «Creo que» ni se restauró toda la biblioteca.
 
 Para recibir la corrección, abrir ActiveCard con internet, esperar la descarga y
 volver a abrirla. En Ajustes tocar Sincronizar ahora y esperar «Al día» antes de
@@ -188,7 +209,7 @@ npx expo-doctor
 npx expo export --platform android --clear
 ```
 
-SQLite real verifica migración v7→v8, IDs, relaciones, adjuntos, claves excluidas,
+SQLite real verifica migración v7→v9, límites diarios, IDs, relaciones, adjuntos, claves excluidas,
 comparación antes de aplicar, recuperación y respaldo v4. Postgres embebido verifica
 cuenta única, RLS de tablas/archivos, escrituras inmutables, archivos existentes,
 CAS, replay idempotente y bloqueo de otra cuenta. Jest cubre merges, archivo antes
