@@ -387,7 +387,7 @@ export default function DetalleMazo() {
   );
 
   return (
-    <Screen style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 20 } : undefined}>
+    <Screen style={Platform.OS === 'web' ? { maxWidth: '100%', paddingHorizontal: 20 } : undefined}>
       <Stack.Screen
         options={{
           headerShown: Platform.OS !== 'web',
