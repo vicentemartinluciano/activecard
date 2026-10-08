@@ -221,8 +221,8 @@ export default function EditorTarjeta() {
         {existing?.suspended ? (
           <Pill icon="pause-circle" label="Suspendida" color={colors.textMuted} />
         ) : null}
-        <View style={{ flexDirection: Platform.OS === 'web' ? 'row' : 'column', flexWrap: 'wrap', gap: spacing.md }}>
-        <View style={{ gap: spacing.sm, flexGrow: 1, flexShrink: 1, flexBasis: Platform.OS === 'web' ? 320 : undefined, minWidth: 0 }}>
+        <View style={styles.editorFields}>
+        <View style={styles.editorField}>
           <Text style={type.small}>Frente (pregunta)</Text>
           <NotionField
             value={front}
@@ -231,7 +231,7 @@ export default function EditorTarjeta() {
             defaultAlign="center"
           />
         </View>
-        <View style={{ gap: spacing.sm, flexGrow: 1, flexShrink: 1, flexBasis: Platform.OS === 'web' ? 320 : undefined, minWidth: 0 }}>
+        <View style={styles.editorField}>
           <Text style={type.small}>Dorso (respuesta)</Text>
           <NotionField
             value={back}
@@ -338,6 +338,20 @@ export default function EditorTarjeta() {
 }
 
 const styles = StyleSheet.create({
+  // El wrap y las bases flex son para las columnas web. En Yoga nativo,
+  // envolver una columna impide que los campos se estiren al ancho disponible.
+  editorFields: {
+    gap: spacing.md,
+    ...(Platform.OS === 'web'
+      ? { flexDirection: 'row', flexWrap: 'wrap' }
+      : { flexDirection: 'column', alignItems: 'stretch', width: '100%' }),
+  },
+  editorField: {
+    gap: spacing.sm,
+    ...(Platform.OS === 'web'
+      ? { flexGrow: 1, flexShrink: 1, flexBasis: 320, minWidth: 0 }
+      : { width: '100%' }),
+  },
   metrics: {
     gap: spacing.sm,
   },
