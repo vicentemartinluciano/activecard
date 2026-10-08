@@ -10,6 +10,7 @@ import FlipCard from "../components/FlipCard";
 import ProgressBar from "../components/ProgressBar";
 import Skeleton from "../components/Skeleton";
 import SwipeCard from "../components/SwipeCard";
+import useStudyKeyboard from "../components/useStudyKeyboard";
 import { Button, EmptyState, Pill, Screen } from "../components/ui";
 import { getCard, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
@@ -166,6 +167,7 @@ export default function Repaso() {
   );
 
   const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
+  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && index < round.length && phase === 'card', flipped, flip: () => setFlipped((value) => !value), grade });
   useEffect(() => {
     if (!sessionComplete) return;
     syncReviewReminder().catch(() => {});
@@ -302,24 +304,29 @@ export default function Repaso() {
 
       <View style={styles.grade}>
         <Pressable
+          accessibilityRole="button" accessibilityLabel="No la recordé"
           onPress={() => grade("again")}
           style={({ pressed }) => [styles.circle, styles.circleNo, pressed && { opacity: 0.7 }]}
         >
           <Feather name="x" size={26} color={ratingColors.again} />
         </Pressable>
         <Pressable
+          accessibilityRole="button" accessibilityLabel="Más o menos"
           onPress={() => grade("hard")}
           style={({ pressed }) => [styles.circle, styles.circleMid, pressed && { opacity: 0.7 }]}
         >
           <Feather name="minus" size={26} color={ratingColors.hard} />
         </Pressable>
         <Pressable
+          accessibilityRole="button" accessibilityLabel="La recordé"
           onPress={() => grade("good")}
           style={({ pressed }) => [styles.circle, styles.circleYes, pressed && { opacity: 0.7 }]}
         >
           <Feather name="check" size={26} color={ratingColors.good} />
         </Pressable>
       </View>
+      {Platform.OS === 'web' && <Text style={[type.small, { textAlign: 'center', fontSize: 11 }]}>Espacio: girar · 1: no la recordé · 2: más o menos · 3: la recordé</Text>}
+      {!!keyboardError && <Text style={{ color: colors.danger, textAlign: 'center' }}>{keyboardError}</Text>}
       {gymArmed ? (
         <Text style={[type.small, styles.hint]}>
           ⚡ Al calificar esta tarjeta se abre el Gimnasio Mental.

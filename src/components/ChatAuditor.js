@@ -598,13 +598,13 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
           <Feather name="arrow-left" size={23} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Gimnasio Mental</Text>
+          <Text style={styles.title}>{Platform.OS === "web" ? "Gimnasio" : "Gimnasio Mental"}</Text>
           <Text style={styles.saved}>Conversá, investigá y trabajá con tus tarjetas</Text>
         </View>
-        <Pressable onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Historial de conversaciones" onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
           <Feather name="clock" size={20} color={colors.text} />
         </Pressable>
-        <Pressable onPress={() => router.push("/gimnasio/chat")} style={styles.iconButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Nueva conversación" onPress={() => router.push("/gimnasio/chat")} style={styles.iconButton}>
           <Feather name="edit-3" size={20} color={colors.text} />
         </Pressable>
       </View>
@@ -684,9 +684,12 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
             >
               <Feather name="plus" size={21} color={colors.text} />
             </Pressable>
-            <Field value={input} onChangeText={changeInput} placeholder="" multiline editable={!active} style={styles.field} />
+            <Field value={input} onChangeText={changeInput} accessibilityLabel="Mensaje al Gimnasio" placeholder="" multiline editable={!active} style={styles.field}
+              onKeyPress={Platform.OS === "web" ? (event) => {
+                if (event.nativeEvent.key === "Enter" && (event.nativeEvent.ctrlKey || event.nativeEvent.metaKey) && !busy && !active) { event.preventDefault(); send(); }
+              } : undefined} />
             {micButton}
-            <Pressable onPress={send} disabled={(!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active} style={[styles.send, ((!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active) && { opacity: 0.35 }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Enviar mensaje" onPress={send} disabled={(!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active} style={[styles.send, ((!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active) && { opacity: 0.35 }]}>
               <Feather name="send" size={19} color="#fff" />
             </Pressable>
           </View>
@@ -759,7 +762,7 @@ const styles = StyleSheet.create({
   contextPill: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(62,99,221,0.42)", backgroundColor: "rgba(12,18,31,0.78)" },
   contextText: { ...type.small, ...font(600), color: colors.text, flexShrink: 1 },
   chat: { flex: 1 },
-  chatContent: { gap: spacing.md, paddingVertical: spacing.sm },
+  chatContent: { gap: spacing.md, paddingVertical: spacing.sm, ...(Platform.OS === "web" ? { width: '100%', maxWidth: 880, alignSelf: 'center', flexGrow: 1, paddingTop: 32 } : {}) },
   welcome: { alignItems: "flex-start", gap: spacing.sm, width: "100%" },
   welcomeText: { ...type.body, color: colors.textMuted, lineHeight: 22 },
   assistantWrap: { alignItems: "flex-start", gap: spacing.xs, alignSelf: "stretch" },
@@ -795,7 +798,7 @@ const styles = StyleSheet.create({
   attachmentCopy: { flex: 1, gap: 1 },
   attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 11 },
   attachmentDeck: { ...type.small, fontSize: 9, color: colors.textMuted },
-  composer: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: 1, padding: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(20,24,34,0.96)" },
+  composer: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: 1, padding: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(20,24,34,0.96)", ...(Platform.OS === 'web' ? { width: '100%', maxWidth: 880, alignSelf: 'center', marginBottom: 16 } : {}) },
   attachButton: { width: 34, height: 38, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   field: { flex: 1, minHeight: 38, maxHeight: 96, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 6 },
   send: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },

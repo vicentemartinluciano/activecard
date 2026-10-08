@@ -8,7 +8,7 @@
 
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import ActivityHeatmap from "../../components/ActivityHeatmap";
 import ForecastList from "../../components/ForecastList";
@@ -32,6 +32,10 @@ import { colors, font, layout, spacing, tabular, type } from "../../theme";
 
 const PAGINAS = ["Puntaje de recuerdo", "Constancia"];
 
+function MetricPages({ children, ...props }) {
+  return Platform.OS === 'web' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 24 }}>{children}</View> : <ScrollView {...props}>{children}</ScrollView>;
+}
+
 export default function Progreso() {
   const router = useRouter();
   const [data, setData] = useState(null);
@@ -47,6 +51,7 @@ export default function Progreso() {
   const [anchoMedido, setAnchoMedido] = useState(0);
   const anchoCard = anchoMedido > 0 ? anchoMedido : Math.max(0, anchoDisponible);
   const setAnchoCard = setAnchoMedido;
+  const metricWidth = Platform.OS === 'web' && anchoCard >= 650 ? Math.floor((anchoCard - 26) / 2) : anchoCard;
 
   useFocusEffect(
     useCallback(() => {
@@ -130,12 +135,12 @@ export default function Progreso() {
               <View
                 style={styles.carruselMedida}
                 onLayout={(e) => {
-                  const w = Math.round(e.nativeEvent.layout.width);
+                  const w = Platform.OS === 'web' ? Math.floor(e.nativeEvent.layout.width) : Math.round(e.nativeEvent.layout.width);
                   if (w > 0) setAnchoCard(w);
                 }}
               >
                 {anchoCard > 0 ? (
-                  <ScrollView
+                  <MetricPages
                     horizontal
                     pagingEnabled
                     showsHorizontalScrollIndicator={false}
@@ -145,7 +150,7 @@ export default function Progreso() {
                     }}
                     scrollEventThrottle={32}
                   >
-                    <View style={[styles.pagina, { width: anchoCard }]}>
+                    <View style={[styles.pagina, { width: metricWidth }]}>
                       <View style={styles.rowHead}>
                         <Text style={type.label}>Puntaje de recuerdo</Text>
                         {resumen.delta != null ? (
@@ -169,10 +174,10 @@ export default function Progreso() {
                         </Text>
                         <Text style={type.small}>últimos 30 días</Text>
                       </View>
-                      <RecallScoreChart series={serie} anchoBase={anchoCard} />
+                      <RecallScoreChart series={serie} anchoBase={metricWidth} />
                     </View>
 
-                    <View style={[styles.pagina, { width: anchoCard }]}>
+                    <View style={[styles.pagina, { width: metricWidth }]}>
                       <View style={styles.rowHead}>
                         <Text style={type.label}>Constancia</Text>
                         {racha && racha.days > 0 ? (
@@ -185,11 +190,11 @@ export default function Progreso() {
                       </View>
                       <ActivityHeatmap activity={actividad} />
                     </View>
-                  </ScrollView>
+                  </MetricPages>
                 ) : null}
               </View>
 
-              <View style={styles.dots}>
+              <View style={[styles.dots, Platform.OS === 'web' && { display: 'none' }]}>
                 {PAGINAS.map((p, i) => (
                   <View key={p} style={[styles.dot, i === pagina && styles.dotOn]} />
                 ))}

@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
 import GlowPressable from "../../components/GlowPressable";
@@ -50,11 +50,11 @@ export default function Crear() {
         ¿Qué querés crear hoy?
       </Text>
 
-      <View style={{ gap: spacing.md }}>
+      <View style={{ gap: spacing.md, ...(Platform.OS === 'web' ? { flexDirection: 'row', flexWrap: 'wrap' } : {}) }}>
         {/* Excepción al patrón Card: GlowPressable directo, porque las cards
             encienden el halo con hovered (web) / pressed (nativo) y Card no
             expone esos estados. El resto de la app sigue usando Card. */}
-        <Stagger>
+        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 300 } : undefined}>
         {OPTIONS.map((opt) => (
           <GlowPressable
             key={opt.key}

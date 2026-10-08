@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import GlowPressable from "../../components/GlowPressable";
@@ -145,7 +145,8 @@ export default function Inicio() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        <Stagger>
+        <View style={Platform.OS === 'web' ? { flexDirection: 'row', flexWrap: 'wrap', gap: 28, paddingTop: 24 } : undefined}>
+        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexBasis: 380, minWidth: 0 } : undefined}>
         {/* El hero: una luz gira por el borde de forma permanente (BorderLight)
             y el halo cobalto se enciende al tocar la tarjeta O al apretar el
             botón de adentro — de ahí el `active`, porque el press del botón no
@@ -249,6 +250,7 @@ export default function Inicio() {
           </View>
         ) : null}
         </Stagger>
+        </View>
       </ScrollView>
       </View>
       <Toast

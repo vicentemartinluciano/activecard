@@ -45,6 +45,7 @@ export function Card({ children, onPress, level = "base", style, onLayout }) {
   if (onPress) {
     return (
       <Pressable
+        accessibilityRole="button"
         onPress={onPress}
         onLayout={onLayout}
         style={({ pressed }) => [...base, pressed && { opacity: 0.7 }]}
@@ -104,17 +105,19 @@ export function Button({
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const pressIn = () => {
-    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
+    Animated.spring(scale, { toValue: 0.96, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: 0 }).start();
     onPressIn?.();
   };
   const pressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }).start();
+    Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 4 }).start();
     onPressOut?.();
   };
 
   return (
     <Animated.View style={[{ transform: [{ scale }] }, style]}>
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !!disabled }}
         onPress={onPress}
         onPressIn={pressIn}
         onPressOut={pressOut}
@@ -252,6 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignItems: "center",
     justifyContent: "center",
+    ...(Platform.OS === 'web' ? { borderRadius: 8, paddingVertical: 10 } : {}),
   },
   buttonPrimary: {
     backgroundColor: colors.accent,

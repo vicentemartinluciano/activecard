@@ -15,6 +15,7 @@ import ProgressBar from "../../../components/ProgressBar";
 import Stagger from "../../../components/Stagger";
 import Toast from "../../../components/Toast";
 import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
+import { useDesktopBeforeNavigate } from "../../../components/DesktopShell";
 import {
   listCardsByDeck,
   setCardPositions,
@@ -200,6 +201,8 @@ export default function DetalleMazo() {
     }
   }, []);
 
+  useDesktopBeforeNavigate(commitDraft);
+
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (event) => {
       if (!editMode || activeId == null || allowNavigationRef.current) return;
@@ -374,6 +377,7 @@ export default function DetalleMazo() {
     <Screen>
       <Stack.Screen
         options={{
+          headerShown: Platform.OS !== 'web',
           title: editMode ? `Editando · ${deck.name}` : deck.name,
           headerRight: () =>
             editMode ? (
@@ -388,6 +392,14 @@ export default function DetalleMazo() {
         }}
       />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+        {Platform.OS === "web" && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 20 }}>
+          <Text style={[type.heading, { flex: 1, fontSize: 28 }]}>{deck.name}</Text>
+          <Button label={editMode ? 'Terminar edición' : 'Editar tarjetas'} onPress={editMode ? exitEditMode : () => {
+            allowNavigationRef.current = false; setEditError(''); setEditMode(true); activeIdRef.current = null; setActiveId(null);
+          }} />
+          <Button label="Estudiar" kind="primary" onPress={() => setStudySheet(true)} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Opciones del mazo" onPress={() => setMenuOpen(true)} style={{ padding: 10 }}><Feather name="more-horizontal" size={20} color={colors.textMuted} /></Pressable>
+        </View>}
         <View style={{ gap: spacing.md }}>
           <Stagger>
           {editingName ? (
@@ -395,13 +407,13 @@ export default function DetalleMazo() {
               <Field value={name} onChangeText={setName} style={{ flex: 1 }} autoFocus />
               <Button label="Guardar" kind="primary" onPress={saveName} />
             </View>
-          ) : (
+          ) : Platform.OS !== "web" ? (
             <HeroButton
               label="ESTUDIAR AHORA"
               onPress={() => setStudySheet(true)}
               style={{ marginTop: 22, marginBottom: 20 }}
             />
-          )}
+          ) : null}
 
           {progress && progress.total > 0 ? (
             <Card style={{ gap: spacing.sm }}>

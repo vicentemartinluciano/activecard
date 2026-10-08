@@ -1,6 +1,6 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-02
+Última actualización: 2026-10-07
 Versión nativa: 1.5.0
 
 ## Visión
@@ -25,6 +25,11 @@ Notion opcional: lib/notion.js → Notion API
 No existe backend propio, autenticación, cuenta de usuario ni sincronización automática.
 Android y web tienen bases locales independientes. Los respaldos JSON permiten mover
 datos de forma explícita.
+
+La web tiene un shell de escritorio persistente: barra de secciones, índice de
+carpetas/mazos con fijado y vista previa por hover y contenido independiente. Ver
+`WEB-ESCRITORIO.md` para el diseño aprobado y el alcance separado de la futura cuenta
+privada y sincronización con conversaciones del Gimnasio.
 
 ## Stack
 
