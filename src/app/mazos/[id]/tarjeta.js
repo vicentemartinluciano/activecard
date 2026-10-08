@@ -207,7 +207,7 @@ export default function EditorTarjeta() {
   };
 
   return (
-    <Screen style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 20 } : undefined}>
+    <Screen style={Platform.OS === 'web' ? { maxWidth: '100%', paddingHorizontal: 20 } : undefined}>
       <Stack.Screen options={{ title: existing ? "Editar tarjeta" : "Nueva tarjeta" }} />
       {/* Android usa adjustResize nativo fuera de Modals; el behavior padding es para iOS. */}
       <KeyboardAvoidingView

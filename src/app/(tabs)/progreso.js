@@ -114,7 +114,7 @@ export default function Progreso() {
 
   return (
     <SectionSwipe index={3}>
-      <Screen safeTop style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 32 } : undefined}>
+      <Screen safeTop style={Platform.OS === 'web' ? { maxWidth: '100%', paddingHorizontal: 32 } : undefined}>
         <View style={styles.appbar}>
           <Text style={styles.titulo}>Progreso</Text>
           <Pill label="Últimos 3 meses" />
