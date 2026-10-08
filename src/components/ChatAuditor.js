@@ -233,6 +233,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [composerFocused, setComposerFocused] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -605,11 +606,11 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
     >
       <StarField />
       <View style={styles.header}>
-        <Pressable onPress={close} style={styles.backButton} hitSlop={8}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar Gimnasio" onPress={close} style={styles.backButton} hitSlop={8}>
           <Feather name="arrow-left" size={23} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{Platform.OS === "web" ? "Gimnasio" : "Gimnasio Mental"}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><BrainMark size={26} /><Text style={styles.title}>Gimnasio</Text></View>
           <Text style={styles.saved}>Conversá, investigá y trabajá con tus tarjetas</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Historial de conversaciones" onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
@@ -675,6 +676,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
           </View>
         ) : null}
       </ScrollView>
+      <View style={styles.footer}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <AttachmentPills
         items={attachments}
@@ -686,16 +688,20 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       />
       <VoiceInput value={input} onChangeText={changeInput}>
         {({ micButton, active }) => (
-          <View style={styles.composer}>
+          <View dataSet={Platform.OS === 'web' ? { gymComposer: 'true' } : undefined} style={[styles.composer, composerFocused && styles.composerExpanded]}
+            onBlur={Platform.OS === 'web' ? (event) => { if (!event.currentTarget.contains(event.relatedTarget)) setComposerFocused(false); } : undefined}>
             <Pressable
+              accessibilityRole="button" accessibilityLabel="Añadir al chat"
               onPress={() => setAddMenuOpen(true)}
               disabled={active || busy}
-              style={[styles.attachButton, (active || busy) && { opacity: 0.35 }]}
+              style={[styles.attachButton, composerFocused && styles.attachButtonExpanded, (active || busy) && { opacity: 0.35 }]}
               hitSlop={6}
             >
               <Feather name="plus" size={21} color={colors.text} />
             </Pressable>
-            <Field value={input} onChangeText={changeInput} accessibilityLabel="Mensaje al Gimnasio" placeholder="" multiline editable={!active} style={styles.field}
+            <Field value={input} onChangeText={changeInput} accessibilityLabel="Mensaje al Gimnasio" placeholder={composerFocused ? 'Escribí lo que querés trabajar…' : 'Conversá con el Gimnasio…'} multiline editable={!active} style={[styles.field, composerFocused && styles.fieldExpanded]}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={Platform.OS !== 'web' ? () => setComposerFocused(false) : undefined}
               onKeyPress={Platform.OS === "web" ? (event) => {
                 if (event.nativeEvent.key === "Enter" && (event.nativeEvent.ctrlKey || event.nativeEvent.metaKey) && !busy && !active) { event.preventDefault(); send(); }
               } : undefined} />
@@ -706,6 +712,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
           </View>
         )}
       </VoiceInput>
+      </View>
       <ActionSheet
         visible={addMenuOpen}
         onClose={() => setAddMenuOpen(false)}
@@ -765,7 +772,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: spacing.sm, overflow: "hidden" },
   rootKeyboard: { paddingBottom: spacing.md },
-  header: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
+  header: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
   backButton: { width: 34, height: 38, alignItems: "center", justifyContent: "center" },
   title: { ...type.heading, fontSize: 23 },
   saved: { ...type.small, fontSize: 11 },
@@ -782,8 +789,8 @@ const styles = StyleSheet.create({
   userMessageContent: { maxWidth: "88%", gap: spacing.xs, alignItems: "stretch" },
   avatar: { width: 34, height: 34, marginLeft: 5, alignItems: "center", justifyContent: "center" },
   bubble: { paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md },
-  assistantBubble: { width: "100%", backgroundColor: "rgba(20,22,29,0.94)", borderWidth: 1, borderColor: "rgba(91,104,151,0.23)", borderTopLeftRadius: radius.md, borderBottomLeftRadius: 6 },
-  userBubble: { backgroundColor: "rgba(28,37,72,0.9)", borderWidth: 1, borderColor: "rgba(92,116,209,0.34)", borderBottomRightRadius: 5 },
+  assistantBubble: { width: "100%", paddingHorizontal: 4, paddingVertical: 4, backgroundColor: "transparent" },
+  userBubble: { backgroundColor: "rgba(24,31,46,0.94)", borderWidth: 1, borderColor: "rgba(94,119,172,0.27)", borderBottomRightRadius: 5 },
   bubbleText: { ...type.body, fontSize: 15, lineHeight: 22 },
   richBubble: { gap: 7 },
   busyBubble: { width: 54, minHeight: 44, alignItems: "center", justifyContent: "center" },
@@ -809,8 +816,12 @@ const styles = StyleSheet.create({
   attachmentCopy: { flex: 1, gap: 1 },
   attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 11 },
   attachmentDeck: { ...type.small, fontSize: 9, color: colors.textMuted },
-  composer: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginHorizontal: 1, padding: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(20,24,34,0.96)", ...(Platform.OS === 'web' ? { width: '100%', maxWidth: 880, alignSelf: 'center', marginBottom: 16 } : {}) },
+  footer: { gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.sm, backgroundColor: colors.bg, width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 880, alignSelf: 'center', marginBottom: 16 } : {}) },
+  composer: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 48, width: '88%', alignSelf: 'center', marginHorizontal: 1, padding: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: 'rgba(92,113,153,0.18)', backgroundColor: 'rgba(17,22,31,0.97)' },
+  composerExpanded: { width: '100%', minHeight: 112, alignItems: 'flex-end', borderRadius: radius.lg, borderColor: 'rgba(96,122,176,0.28)', backgroundColor: 'rgba(19,25,36,0.98)' },
   attachButton: { width: 34, height: 38, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  field: { flex: 1, minHeight: 38, maxHeight: 96, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 6 },
-  send: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
+  attachButtonExpanded: { marginRight: 'auto', marginTop: 60 },
+  field: { flex: 1, height: 38, minHeight: 38, maxHeight: 38, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 6 },
+  fieldExpanded: { position: 'absolute', top: 8, left: 14, right: 14, height: 50, minHeight: 50, maxHeight: 50, paddingHorizontal: 0, paddingVertical: 4 },
+  send: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#344B70', alignItems: "center", justifyContent: "center" },
 });

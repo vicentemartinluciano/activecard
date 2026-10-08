@@ -21,7 +21,7 @@ export default function DesktopLibraryHome({ folders, decks, cards, tags, progre
     </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       {[[decks.length, 'mazos'], [cards.length, 'tarjetas'], [folders.length, 'carpetas']].map(([value, label]) => <Card key={label} style={{ flex: 1, minWidth: 110, gap: 6 }}>
-        <Text style={{ ...font(700), color: colors.text, fontSize: 28 }}>{value}</Text><Text style={type.small}>{label}</Text>
+        <Text style={{ ...font(700), color: colors.text, fontSize: 36 }}>{value}</Text><Text style={type.body}>{label}</Text>
       </Card>)}
     </View>
     <Field accessibilityLabel="Buscar en toda la biblioteca" placeholder="Buscar carpetas, mazos o texto de una tarjeta" value={query} onChangeText={setQuery} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
@@ -33,10 +33,10 @@ export default function DesktopLibraryHome({ folders, decks, cards, tags, progre
       {!results.folders.length && !results.decks.length && !results.cards.length && <Text style={type.small}>Sin coincidencias.</Text>}
     </View> : <View style={{ gap: 12 }}>
       <Text style={type.label}>MAZOS</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{visibleDecks.map((deck) => <Card key={deck.id} onPress={() => router.navigate(`/mazos/${deck.id}`)} style={{ flexGrow: 1, flexShrink: 1, flexBasis: 260, gap: 12 }}>
-        <Feather name={deck.icon || 'layers'} size={22} color={colors.accentText} />
-        <Text style={[type.body, font(600)]}>{deck.name}</Text>
-        <Text style={type.small}>{deck.card_count} tarjetas · {progressByDeck[deck.id]?.pct || 0}% repasado hoy</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20 }}>{visibleDecks.map((deck) => <Card key={deck.id} onPress={() => router.navigate(`/mazos/${deck.id}`)} style={{ flexGrow: 1, flexShrink: 1, flexBasis: 320, minHeight: 180, gap: 18 }}>
+        <Feather name={deck.icon || 'layers'} size={28} color={colors.accentText} />
+        <Text style={[type.body, font(600), { fontSize: 19, lineHeight: 28 }]}>{deck.name}</Text>
+        <Text style={[type.small, { fontSize: 14 }]}>{deck.card_count} tarjetas · {progressByDeck[deck.id]?.pct || 0}% repasado hoy</Text>
       </Card>)}</View>
       {!decks.length && <Button label="Crear tu primer mazo" kind="primary" onPress={() => router.navigate('/crear')} />}
     </View>}

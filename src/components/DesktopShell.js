@@ -32,13 +32,29 @@ function RailButton({ label, icon, active, onPress, pending = false }) {
   return <View style={styles.railItem}>
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }}
       accessibilityHint={pending ? 'Hay cambios de otro dispositivo para incorporar en Ajustes' : undefined}
-      onPress={onPress} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      onPress={onPress} onFocus={(event) => setFocused(!!event.currentTarget?.matches?.(':focus-visible'))} onBlur={() => setFocused(false)}
+      onPointerDown={() => setFocused(false)}
       onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}
-      style={({ pressed }) => [styles.railButton, { backgroundColor: hovered || pressed ? colors.surfaceHigh : 'transparent', borderBottomColor: focused ? colors.accentText : 'transparent' }]}>
-      <Feather pointerEvents="none" name={icon} size={20} color={active ? colors.accentText : colors.textMuted} />
+      style={({ pressed }) => [styles.railButton, { backgroundColor: hovered || pressed ? colors.surfaceHigh : 'transparent', outlineStyle: focused ? 'solid' : 'none', outlineWidth: 2, outlineColor: colors.accentText, outlineOffset: -4 }]}>
+      <Feather pointerEvents="none" name={icon} size={26} color={active ? colors.accentText : colors.textMuted} />
       {pending && <View pointerEvents="none" style={{ position: 'absolute', right: 6, top: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentText }} />}
     </Pressable>
     {(hovered || focused) && <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{pending ? `${label} · incorporar cambios` : label}</Text></View>}
+  </View>;
+}
+
+function FolderRow({ folder, isOpen, toggle, open }) {
+  const [active, setActive] = useState(false);
+  return <View style={styles.folderRow} onPointerEnter={() => setActive(true)} onPointerLeave={() => setActive(false)}
+    onFocus={() => setActive(true)} onBlur={(event) => { if (!event.currentTarget?.contains?.(event.relatedTarget)) setActive(false); }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${isOpen ? 'Plegar' : 'Desplegar'} carpeta ${folder.name}`} accessibilityState={{ expanded: isOpen }}
+      onPress={toggle} style={styles.chevron}>
+      <Feather pointerEvents="none" name={isOpen ? 'chevron-down' : 'chevron-right'} size={18} color={colors.textMuted} style={{ opacity: active ? 1 : 0 }} />
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Abrir carpeta ${folder.name}`} title={folder.name} onPress={open}
+      style={({ hovered }) => [styles.folderName, hovered && { backgroundColor: colors.surfaceHigh }]}>
+      <Feather pointerEvents="none" name="folder" size={20} color={colors.textMuted} /><Text numberOfLines={1} style={styles.treeText}>{folder.name}</Text>
+    </Pressable>
   </View>;
 }
 
@@ -108,8 +124,8 @@ function DesktopWorkspace({ children }) {
   };
   const deckRow = (deck, child = false) => <Pressable key={deck.id} title={deck.name}
     accessibilityRole="button" accessibilityLabel={`Abrir mazo ${deck.name}`} accessibilityState={{ selected: selectedId === deck.id }}
-    onPress={() => open(`/mazos/${deck.id}`)} style={({ hovered }) => [styles.treeRow, { paddingLeft: child ? 38 : 14, backgroundColor: hovered || selectedId === deck.id ? colors.surfaceHigh : 'transparent' }]}>
-    <Feather pointerEvents="none" name="layers" size={15} color={selectedId === deck.id ? colors.accentText : colors.textMuted} />
+    onPress={() => open(`/mazos/${deck.id}`)} style={({ hovered }) => [styles.treeRow, { paddingLeft: child ? 42 : 16, backgroundColor: hovered || selectedId === deck.id ? colors.surfaceHigh : 'transparent' }]}>
+    <Feather pointerEvents="none" name="layers" size={19} color={selectedId === deck.id ? colors.accentText : colors.textMuted} />
     <Text numberOfLines={1} style={[styles.treeText, selectedId === deck.id && { color: colors.text }]}>{deck.name}</Text>
     <Text style={styles.count}>{deck.card_count}</Text>
   </Pressable>;
@@ -133,16 +149,7 @@ function DesktopWorkspace({ children }) {
           {tree.folders.map((folder) => {
             const isOpen = !!query.trim() || !!expanded[folder.id];
             return <View key={folder.id}>
-              <View style={styles.folderRow}>
-                <Pressable accessibilityRole="button" accessibilityLabel={`${isOpen ? 'Plegar' : 'Desplegar'} carpeta ${folder.name}`} accessibilityState={{ expanded: isOpen }}
-                  onPress={() => setExpanded((value) => ({ ...value, [folder.id]: !value[folder.id] }))} style={styles.chevron}>
-                  <Feather pointerEvents="none" name={isOpen ? 'chevron-down' : 'chevron-right'} size={14} color={colors.textMuted} />
-                </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel={`Abrir carpeta ${folder.name}`} title={folder.name} onPress={() => open(`/carpetas/${folder.id}`)}
-                  style={({ hovered }) => [styles.folderName, hovered && { backgroundColor: colors.surfaceHigh }]}>
-                  <Feather pointerEvents="none" name="folder" size={15} color={colors.textMuted} /><Text numberOfLines={1} style={styles.treeText}>{folder.name}</Text>
-                </Pressable>
-              </View>
+              <FolderRow folder={folder} isOpen={isOpen} toggle={() => setExpanded((value) => ({ ...value, [folder.id]: !value[folder.id] }))} open={() => open(`/carpetas/${folder.id}`)} />
               {isOpen && (folder.children.length ? folder.children.map((deck) => deckRow(deck, true)) : <Text style={styles.emptyFolder}>Sin mazos</Text>)}
             </View>;
           })}
@@ -176,25 +183,25 @@ export default function DesktopShell({ children }) {
 
 const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row', backgroundColor: colors.bg },
-  rail: { width: DESKTOP_RAIL_WIDTH, alignItems: 'center', paddingVertical: 18, borderRightWidth: 1, borderRightColor: colors.border, zIndex: 50 },
-  brand: { width: 38, height: 38 },
-  sections: { flex: 1, justifyContent: 'center', gap: 14 },
-  railItem: { position: 'relative' },
-  railButton: { width: 38, height: 38, borderRadius: 8, borderBottomWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  tooltip: { position: 'absolute', left: 47, top: 7, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 5, backgroundColor: colors.surfaceHigh },
-  tooltipText: { ...font(600), color: colors.text, fontSize: 12, whiteSpace: 'nowrap' },
+  rail: { width: DESKTOP_RAIL_WIDTH, alignItems: 'center', borderRightWidth: 1, borderRightColor: colors.border, zIndex: 50 },
+  brand: { width: 44, height: 44, marginVertical: 18 },
+  sections: { flex: 5, minHeight: 0, width: '100%' },
+  railItem: { position: 'relative', flex: 1, minHeight: 56, width: '100%', justifyContent: 'center', borderTopWidth: 1, borderTopColor: colors.border },
+  railButton: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  tooltip: { position: 'absolute', left: DESKTOP_RAIL_WIDTH + 8, top: '50%', transform: [{ translateY: -16 }], paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: colors.surfaceHigh },
+  tooltipText: { ...font(600), color: colors.text, fontSize: 14, whiteSpace: 'nowrap' },
   index: { position: 'absolute', left: 0, width: DESKTOP_INDEX_WIDTH, backgroundColor: colors.surface, borderRightWidth: 1, borderRightColor: colors.border },
   floating: { borderRadius: 10, boxShadow: '8px 0 24px rgba(0,0,0,0.3)' },
   indexHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 16, paddingRight: 8, height: 52 },
-  indexTitle: { ...font(600), color: colors.text, fontSize: 13 },
+  indexTitle: { ...font(600), color: colors.text, fontSize: 16 },
   smallButton: { width: 34, height: 34, borderRadius: 5, justifyContent: 'center', alignItems: 'center' },
-  search: { marginHorizontal: 12, marginBottom: 14, fontSize: 12, paddingHorizontal: 10, paddingVertical: 8 },
-  treeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 36, gap: 8, paddingRight: 14 },
-  treeText: { ...font(), color: colors.textMuted, fontSize: 12, flex: 1 },
-  count: { ...font(), color: colors.textMuted, fontSize: 10 },
+  search: { marginHorizontal: 12, marginBottom: 14, fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  treeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
+  treeText: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, flex: 1 },
+  count: { ...font(), color: colors.textMuted, fontSize: 12 },
   folderRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6 },
-  chevron: { width: 26, height: 36, justifyContent: 'center', alignItems: 'center' },
-  folderName: { flex: 1, flexDirection: 'row', minHeight: 36, alignItems: 'center', gap: 8, paddingRight: 14, borderRadius: 5 },
+  chevron: { width: 30, height: 46, justifyContent: 'center', alignItems: 'center' },
+  folderName: { flex: 1, flexDirection: 'row', minHeight: 46, alignItems: 'center', gap: 10, paddingRight: 16, borderRadius: 5 },
   emptyFolder: { ...font(), color: colors.textMuted, fontSize: 11, paddingLeft: 38, paddingVertical: 8 },
   error: { ...font(), color: colors.textMuted, fontSize: 12, padding: 16 },
   edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
