@@ -65,7 +65,14 @@ export async function callOpenAI({
       body: JSON.stringify({
         model,
         instructions: system,
-        input: messages,
+        // JSON mode validates input messages separately from instructions.
+        // Keep this contract in trusted input even when the user's text has no JSON.
+        input: json
+          ? [
+              { role: "developer", content: "Respondé únicamente con un objeto JSON válido, según el formato indicado en las instrucciones." },
+              ...messages,
+            ]
+          : messages,
         max_output_tokens: maxTokens,
         reasoning: { effort: reasoningEffort },
         text: {
