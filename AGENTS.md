@@ -15,7 +15,7 @@ analiza fuentes y propone acciones sobre la biblioteca.
 - Android principal: Samsung Galaxy A15.
 - APK instalada vigente: 1.5.0. Código candidato: 1.6.0 (SecureStore + Crypto; requiere APK nueva).
 - Package: `com.marti.activecard`.
-- Datos locales en SQLite; cuenta/sync privada implementada con Supabase, pendiente de activación remota y prueba real. Ver `docs/SINCRONIZACION.md`.
+- Datos locales en SQLite; cuenta/sync privada implementada con Supabase. Migración remota y permisos verificados el 7 de octubre; login y sincronización real pendientes. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 
