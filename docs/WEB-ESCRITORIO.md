@@ -6,11 +6,14 @@ La web funciona como un espacio de trabajo inspirado en REANCLA. Todas las secci
 siguen disponibles: Inicio, Biblioteca, Crear, Gimnasio, Progreso y Ajustes. Android
 conserva sus pestañas y sus gestos.
 
-- Barra izquierda de 64 px con el logo de ActiveCard de 38 px e iconos de 20 px dentro
-  de controles de 38 px. El destino seleccionado cambia de color; los nombres aparecen
-  al pasar el mouse o enfocar.
-- Biblioteca tiene un índice de 240 px: carpetas desplegables, mazos hijos y mazos
+- Barra izquierda de 76 px con logo de 44 px e iconos de 26 px. Las cinco secciones
+  distribuyen el espacio vertical y Ajustes ocupa su franja inferior. El destino
+  seleccionado cambia de color; los nombres aparecen al pasar el mouse o enfocar con
+  teclado, y un clic de mouse no deja el nombre ni un borde inferior persistentes.
+- Biblioteca tiene un índice de 280 px: carpetas desplegables, mazos hijos y mazos
   sueltos en la raíz. Buscar un mazo encuentra también los hijos de carpetas plegadas.
+  Sus filas miden al menos 46 px, con texto de 14 px; la flecha de una carpeta aparece
+  al pasar por su fila o al navegar con teclado.
 - El índice se puede fijar u ocultar. Su tirador lateral aparece únicamente al pasar
   el mouse o recibir foco. Con el índice oculto, pasar por su botón abre una vista
   flotante; no reduce el contenido. Escape y un clic fuera cierran la vista previa.
@@ -23,12 +26,42 @@ conserva sus pestañas y sus gestos.
   Descartar cambios permite abandonar expresamente un borrador incompleto. Una
   tarjeta creada al navegar conserva su identidad si se vuelve al editor con Atrás.
 - El Gimnasio abre el chat directamente. El reloj lleva al historial; no existe un
-  panel de historial permanente. El fondo estrellado sigue siendo el de la app.
-- Inicio y Crear distribuyen sus contenidos según el ancho. Progreso muestra recuerdo
-  y constancia juntos cuando caben, y en filas en ventanas angostas.
+  panel de historial permanente. Encabezado, respuestas sin recuadro, burbuja del
+  usuario y compositor expansible siguen la interfaz del Mentor de REANCLA tanto en
+  web como en Android. El fondo estrellado sigue siendo el de la app.
+- Inicio y Crear distribuyen sus contenidos según el ancho. Progreso usa todo el ancho
+  para recuerdo y muestra constancia debajo; el trazado web tiene 260 px de alto.
+  El área de contenido llega a 1440 px y la tarjeta de estudio a 800 px, según el
+  espacio disponible. Los controles y superficies web tienen más espacio interior.
 - En el estudio, Espacio gira la tarjeta. Una vez vista la respuesta, 1/izquierda
   califica Again, 2/arriba Hard y 3/derecha Good. Los atajos no actúan en campos de
   texto, durante composición, con modificadores ni al mantener una tecla apretada.
+  Con mouse, un clic gira; un doble clic manteniendo el segundo permite arrastrar
+  izquierda/arriba/derecha. Soltar bajo el umbral o cancelar devuelve la tarjeta sin
+  calificar. Estrella, lápiz y rayo no arman el arrastre. Los textos de atajos debajo
+  se quitaron; los atajos y botones siguen disponibles. Android conserva su swipe.
+
+## Ajuste aprobado el 8 de octubre de 2026
+
+- **Objetivo:** dar más espacio y legibilidad al escritorio y trasladar la interfaz
+  del Mentor de REANCLA al Gimnasio.
+- **Usuario:** Martín, en su web privada y Android; el cambio del Gimnasio cubre ambos.
+- **Flujo:** navegar por secciones, abrir carpetas/mazos desde el índice, editar o
+  estudiar tarjetas, conversar y consultar historial, revisar progreso.
+- **Entradas:** pedido de Martín, componentes de REANCLA y datos existentes de prueba.
+- **Salida:** barra distribuida, índice y superficies más grandes, tarjeta de estudio
+  amplia, nuevo gesto de mouse, Gimnasio coherente entre dispositivos y gráfico legible.
+- **Reglas:** mantener FSRS, teclado, funciones del Gimnasio y confirmación de acciones;
+  aplicar los tamaños de escritorio solo en web y conservar el fondo estrellado.
+- **Excepciones:** ventanas pequeñas, navegación con teclado, contenido largo, edición
+  pendiente, arrastre cancelado y pulsación sobre controles internos.
+- **Calidad:** tooltip desaparece al salir después de un clic; flecha oculta sin hover;
+  gestos producen un solo repaso; chat conserva borradores, adjuntos y acciones;
+  gráfico aprovecha su panel sin recorte ni cambio de porcentajes.
+- **Ambigüedades resueltas:** Martín confirmó el segundo clic mantenido, la estructura
+  del Mentor y que el gráfico resultaba pequeño (no denunció superposición).
+- **Siguiente verificación:** probar navegación, gesto y chat en navegador; exportar
+  Android y comprobar el Gimnasio en el dispositivo antes de acreditar QA nativa.
 
 ## Implementación
 
@@ -54,7 +87,8 @@ las mismas condiciones de encabezados que GitHub Pages. `.desktop-preview` no se
 Martín confirmó usar el mismo correo, contraseña y proyecto de Supabase que REANCLA,
 con tablas y permisos de ActiveCard separados y acceso privado únicamente para él.
 Se incluyen carpetas, mazos, etiquetas, tarjetas, imágenes, repasos, progreso e ideas,
-además de conversaciones del Gimnasio. Las claves y configuraciones locales no viajan.
+además de conversaciones del Gimnasio. Los límites diarios se comparten desde el 8/10;
+las claves y el resto de configuraciones locales no viajan.
 
 El criterio de REANCLA incluye un estado común, revisiones esperadas para impedir que
 un dispositivo pise al otro y copias recuperables de ambas alternativas antes de

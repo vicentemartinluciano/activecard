@@ -88,7 +88,7 @@ export default function FlipCard({
               texto (en Android el orden de render gana; sin esto el ScrollView
               los tapaba). Absolutos en la esquina superior derecha. */}
           {onToggleStar ? (
-            <Pressable onPress={onToggleStar} hitSlop={10} style={styles.star}>
+            <Pressable dataSet={{ studyAction: 'star' }} onPress={onToggleStar} hitSlop={10} style={styles.star}>
               {starred ? (
                 <FontAwesome name="star" size={20} color="#FFC53D" />
               ) : (
@@ -97,7 +97,7 @@ export default function FlipCard({
             </Pressable>
           ) : null}
           {onToggleGym ? (
-            <Pressable onPress={onToggleGym} hitSlop={10} style={styles.gym}>
+            <Pressable dataSet={{ studyAction: 'gym' }} onPress={onToggleGym} hitSlop={10} style={styles.gym}>
               <Feather
                 name="zap"
                 size={20}
@@ -110,7 +110,7 @@ export default function FlipCard({
               van a la derecha). Abre el editor de la tarjeta sin salir del
               estudio. Mismo patrón absoluto: el tap no dispara flip ni swipe. */}
           {onEdit ? (
-            <Pressable onPress={onEdit} hitSlop={10} style={styles.edit}>
+            <Pressable dataSet={{ studyAction: 'edit' }} onPress={onEdit} hitSlop={10} style={styles.edit}>
               <Feather name="edit-2" size={20} color={colors.textMuted} style={{ opacity: 0.35 }} />
             </Pressable>
           ) : null}

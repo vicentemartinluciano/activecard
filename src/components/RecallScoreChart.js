@@ -1,6 +1,6 @@
 // Curva semanal del puntaje de recuerdo, con referencias fuera del trazado.
 import { useId, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import Svg, {
   Circle,
   Defs,
@@ -15,8 +15,8 @@ import { colors, font, gradients, spacing, tabular } from "../theme";
 
 const MARGEN_X = 10;
 const MARGEN_Y = 12;
-const PLOT_H = 144;
-const AXIS_W = 36;
+const PLOT_H = Platform.OS === 'web' ? 260 : 144;
+const AXIS_W = Platform.OS === 'web' ? 48 : 36;
 const BASE_Y = PLOT_H - MARGEN_Y;
 const LINE_COLOR = gradients.progress[1];
 const MESES = [
@@ -299,7 +299,7 @@ export default function RecallScoreChart({ series = [], anchoBase = 0 }) {
 const styles = StyleSheet.create({
   chart: { paddingTop: spacing.xs, gap: spacing.xs },
   caption: {
-    fontSize: 11,
+    fontSize: Platform.OS === 'web' ? 14 : 11,
     ...font(500),
     color: colors.textMuted,
     marginBottom: spacing.xs,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   plot: { flex: 1, height: PLOT_H },
   axisX: { height: 22, marginLeft: AXIS_W },
   axisLabel: {
-    fontSize: 10,
+    fontSize: Platform.OS === 'web' ? 12 : 10,
     lineHeight: 14,
     ...font(500),
     ...tabular,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   legendText: {
-    fontSize: 12,
+    fontSize: Platform.OS === 'web' ? 14 : 12,
     lineHeight: 18,
     ...font(400),
     color: colors.textMuted,

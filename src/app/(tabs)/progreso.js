@@ -33,7 +33,7 @@ import { colors, font, layout, spacing, tabular, type } from "../../theme";
 const PAGINAS = ["Puntaje de recuerdo", "Constancia"];
 
 function MetricPages({ children, ...props }) {
-  return Platform.OS === 'web' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 24 }}>{children}</View> : <ScrollView {...props}>{children}</ScrollView>;
+  return Platform.OS === 'web' ? <View style={{ gap: 32, width: '100%' }}>{children}</View> : <ScrollView {...props}>{children}</ScrollView>;
 }
 
 export default function Progreso() {
@@ -51,7 +51,7 @@ export default function Progreso() {
   const [anchoMedido, setAnchoMedido] = useState(0);
   const anchoCard = anchoMedido > 0 ? anchoMedido : Math.max(0, anchoDisponible);
   const setAnchoCard = setAnchoMedido;
-  const metricWidth = Platform.OS === 'web' && anchoCard >= 650 ? Math.floor((anchoCard - 26) / 2) : anchoCard;
+  const metricWidth = anchoCard;
 
   useFocusEffect(
     useCallback(() => {

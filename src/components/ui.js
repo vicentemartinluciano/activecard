@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignItems: "center",
     justifyContent: "center",
-    ...(Platform.OS === 'web' ? { borderRadius: 8, paddingVertical: 10 } : {}),
+    ...(Platform.OS === 'web' ? { borderRadius: 10, paddingVertical: 14, paddingHorizontal: 22, minHeight: 48 } : {}),
   },
   buttonPrimary: {
     backgroundColor: colors.accent,
@@ -311,6 +311,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: spacing.md,
+    ...(Platform.OS === 'web' ? { padding: 24 } : {}),
   },
   cardHigh: {
     backgroundColor: colors.surfaceHigh,

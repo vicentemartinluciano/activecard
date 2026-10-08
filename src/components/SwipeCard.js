@@ -3,9 +3,10 @@
 // Animated de RN core (compatible con Android y web, sin worklets).
 
 import { useRef } from "react";
-import { Animated, PanResponder, StyleSheet, Text, useWindowDimensions } from "react-native";
+import { Animated, PanResponder, Platform, StyleSheet, Text, useWindowDimensions } from "react-native";
 
 import { colors, font, radius, ratingColors } from "../theme";
+import { createStudyMouseDrag } from '../lib/studyMouseDrag';
 
 const SWIPE_THRESHOLD = 90;
 
@@ -70,6 +71,8 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
   const { width, height } = useWindowDimensions();
   const pan = useRef(new Animated.ValueXY()).current;
   const frameRef = useRef(null);
+  const flying = useRef(false);
+  const mouse = useRef(null);
 
   // En Android/Fabric una capa absoluta sobre FlipCard se separaba de la
   // tarjeta al rotar: terminaba viéndose como una raya luminosa abajo. Acá
@@ -78,7 +81,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
   const paintFrame = (gesture) => {
     const horizontal = Math.abs(gesture.dx) >= Math.abs(gesture.dy);
     const magnitude = horizontal ? Math.abs(gesture.dx) : Math.max(0, -gesture.dy);
-    if (magnitude < 3 || (!horizontal && !onSwipeUp)) {
+    if (magnitude < 3 || (!horizontal && !latest.current.onSwipeUp)) {
       frameRef.current?.setNativeProps({ style: { borderColor: "transparent" } });
       return;
     }
@@ -107,6 +110,8 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
   // con driver JS, y mezclar ambos drivers sobre un mismo nodo animado deja el
   // gesto en estado inconsistente en Android new-arch.
   const flyOut = (direction) => {
+    if (flying.current) return;
+    flying.current = true;
     Animated.timing(pan, {
       toValue: { x: direction * latest.current.width * 1.2, y: 0 },
       duration: 200,
@@ -114,6 +119,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
     }).start(() => {
       pan.setValue({ x: 0, y: 0 });
       clearFrame();
+      flying.current = false;
       if (direction > 0) latest.current.onSwipeRight();
       else latest.current.onSwipeLeft();
     });
@@ -121,6 +127,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
 
   // Vuelo hacia arriba = "Más o menos" (Hard). Solo se dispara si hay callback.
   const flyUp = () => {
+    if (flying.current) return;
     if (!latest.current.onSwipeUp) {
       clearFrame();
       Animated.timing(pan, {
@@ -130,6 +137,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
       }).start();
       return;
     }
+    flying.current = true;
     Animated.timing(pan, {
       toValue: { x: 0, y: -latest.current.height * 1.2 },
       duration: 200,
@@ -137,9 +145,17 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
     }).start(() => {
       pan.setValue({ x: 0, y: 0 });
       clearFrame();
+      flying.current = false;
       latest.current.onSwipeUp();
     });
   };
+
+  if (!mouse.current) mouse.current = createStudyMouseDrag({
+    isBusy: () => flying.current,
+    move: (gesture) => { pan.setValue({ x: gesture.dx, y: gesture.dy }); paintFrame(gesture); },
+    release: (direction) => { if (direction === 'hard') flyUp(); else flyOut(direction === 'good' ? 1 : -1); },
+    cancel: () => { clearFrame(); Animated.timing(pan, { toValue: { x: 0, y: 0 }, duration: 130, useNativeDriver: false }).start(); },
+  });
 
   const responder = useRef(
     PanResponder.create({
@@ -149,8 +165,9 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
       // tiene contenido, se queda él con el gesto vertical (y el botón azul
       // queda como camino confiable). Hacia abajo nunca lo tomamos.
       onMoveShouldSetPanResponder: (_, g) =>
-        (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy)) ||
-        (g.dy < -12 && Math.abs(g.dy) > Math.abs(g.dx)),
+        !flying.current && !(Platform.OS === 'web' && mouse.current.isMouse) && (
+          (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy)) ||
+          (g.dy < -12 && Math.abs(g.dy) > Math.abs(g.dx))),
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
         listener: (_, gesture) => paintFrame(gesture),
@@ -193,7 +210,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
     middle: middleOpacity,
   } = swipeOpacities(pan);
 
-  return (
+  const card = (
     <Animated.View
       ref={frameRef}
       {...responder.panHandlers}
@@ -224,6 +241,9 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
       {children}
     </Animated.View>
   );
+  return Platform.OS === 'web'
+    ? <div data-study-drag="true" {...mouse.current.handlers} style={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, userSelect: 'none' }}>{card}</div>
+    : card;
 }
 
 const styles = StyleSheet.create({

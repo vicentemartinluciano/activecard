@@ -1,9 +1,10 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Button, Card, confirmAsync, EmptyState, Screen } from "../../components/ui";
+import { Card, confirmAsync, EmptyState, Screen } from "../../components/ui";
+import BrainMark from '../../components/BrainMark';
 import { deleteGymChat, listGymChats } from "../../db/gymChats";
 import { colors, font, spacing, type } from "../../theme";
 
@@ -27,9 +28,20 @@ export default function HistorialGimnasio() {
   };
 
   return (
-    <Screen>
-      <Stack.Screen options={{ title: "Charlas" }} />
-      <Button label="Nueva charla" kind="primary" onPress={() => router.push("/gimnasio/chat")} />
+    <Screen style={Platform.OS === 'web' ? { maxWidth: 880, padding: 24 } : undefined}>
+      <Stack.Screen options={{ title: "Charlas", headerShown: false }} />
+      <View style={styles.header}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Volver al Gimnasio" onPress={() => router.back()} style={styles.headerButton}>
+          <Feather name="arrow-left" size={23} color={colors.text} />
+        </Pressable>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><BrainMark size={26} /><Text style={styles.headerTitle}>Gimnasio</Text></View>
+          <Text style={styles.subtitle}>Historial de conversaciones</Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Nueva conversación" onPress={() => router.push('/gimnasio/chat')} style={styles.headerButton}>
+          <Feather name="edit-3" size={20} color={colors.text} />
+        </Pressable>
+      </View>
       <FlatList
         data={chats}
         keyExtractor={(item) => String(item.id)}
@@ -60,8 +72,12 @@ export default function HistorialGimnasio() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 },
+  headerTitle: { ...type.heading, fontSize: 23 },
+  subtitle: { ...type.small, fontSize: 11 },
+  row: { minHeight: 78, padding: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   title: { ...type.body, ...font(600) },
-  date: { ...type.small, fontSize: 10 },
+  date: { ...type.small, fontSize: 11 },
   trash: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
 });

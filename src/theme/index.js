@@ -73,10 +73,9 @@ export const spacing = {
 // que ahí va más ancha; en el navegador de un celular sigue mandando el
 // width:100% del contenedor, así que no cambia nada.
 export const layout = {
-  maxWidth: Platform.OS === "web" ? 1200 : 480,
-  // El carril de estudio va más angosto que el resto de la app: a 840 la
-  // tarjeta queda muy ancha para su alto y el texto se lee incómodo.
-  studyMaxWidth: Platform.OS === "web" ? 560 : 480,
+  maxWidth: Platform.OS === "web" ? 1440 : 480,
+  // La tarjeta aprovecha el escritorio sin convertir el texto en una línea de monitor.
+  studyMaxWidth: Platform.OS === "web" ? 800 : 480,
 };
 
 // Semántica: lg = contenedores Card principales, md = filas/superficies internas,

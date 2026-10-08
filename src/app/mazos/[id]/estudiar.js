@@ -358,7 +358,6 @@ export default function Estudiar() {
           <Feather name="check" size={26} color={ratingColors.good} />
         </Pressable>
       </View>
-      {Platform.OS === 'web' && <Text style={[type.small, { textAlign: 'center', fontSize: 11 }]}>Espacio: girar · 1: no la recordé · 2: más o menos · 3: la recordé</Text>}
       {!!keyboardError && <Text style={{ color: colors.danger, textAlign: 'center' }}>{keyboardError}</Text>}
     </Screen>
   );
