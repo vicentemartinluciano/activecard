@@ -4,6 +4,10 @@ import { buildBackup } from "./backup";
 import { COLUMNS, REFERENCES, documentFromBackup, mapMetadata, same, validateDocument } from "./syncDocument";
 
 const snapshots = new WeakMap();
+async function syncBackup(tx) {
+  const backup = await buildBackup(tx);
+  return { ...backup, study_preferences: await tx.getAllAsync("SELECT * FROM study_preferences") };
+}
 export async function readLocalSync(owner) {
   const db = await getDb();
   return withDbTransaction(db, async (tx) => {
@@ -13,9 +17,10 @@ export async function readLocalSync(owner) {
     const bound = await tx.getFirstAsync("SELECT value FROM sync_state WHERE key = 'owner'");
     if (bound && bound.value !== owner) throw new Error("Esta biblioteca está vinculada a otra cuenta. Cerrá sesión para conservar sus datos.");
     const checkpoint = await tx.getFirstAsync("SELECT value FROM sync_state WHERE key = ?", [`checkpoint:${owner}`]);
-    const backup = await buildBackup(tx);
+    const backup = await syncBackup(tx);
     const document = documentFromBackup(backup);
     const previous = checkpoint ? JSON.parse(checkpoint.value) : null;
+    if (previous) previous.document = validateDocument(previous.document);
     const result = { backup, document, checkpoint: previous, clean: Boolean(previous && same(document, previous.document)) };
     if (revision !== null) snapshots.set(db, { owner, revision, result });
     return result;
@@ -29,7 +34,7 @@ async function installDocument(tx, doc, current) {
     let nextId = current[table].reduce((maximum, row) => Math.max(maximum, row.id), 0);
     maps[table] = new Map(Object.keys(doc[table]).sort().map((id) => [id, previous.get(id) || ++nextId]));
   }
-  for (const table of ["gym_messages", "gym_chats", "connections", "review_logs", "deck_tags", "cards", "tags", "decks", "folders"]) await tx.execAsync(`DELETE FROM ${table}`);
+  for (const table of ["gym_messages", "gym_chats", "connections", "review_logs", "deck_tags", "cards", "tags", "decks", "folders", "study_preferences"]) await tx.execAsync(`DELETE FROM ${table}`);
   for (const [table, columns] of Object.entries(COLUMNS)) {
     for (const [id, row] of Object.entries(doc[table])) {
       const values = columns.map((column) => REFERENCES[column] ? maps[REFERENCES[column]].get(row[column]) ?? null : row[column]);
@@ -49,7 +54,7 @@ export async function applyLocalSync(owner, expected, merged, remote, conflicts,
   const db = await getDb();
   return withDbTransaction(db, async (tx) => {
     if (!canApply()) return false;
-    const backup = await buildBackup(tx);
+    const backup = await syncBackup(tx);
     if (!canApply() || !same(documentFromBackup(backup), expected)) return false;
     await archive(tx, owner, backup, remote, conflicts.length ? `${conflicts.length} conflictos; se conserva la alternativa local` : "Antes de incorporar cambios de otro dispositivo");
     await installDocument(tx, merged, backup);
@@ -77,8 +82,9 @@ export async function restoreRecovery(owner, id) {
   await withDbTransaction(db, async (tx) => {
     const row = await tx.getFirstAsync("SELECT local_backup FROM sync_recovery WHERE id = ? AND owner = ?", [id, owner]);
     if (!row) throw new Error("No se encontró esa copia de recuperación.");
-    const backup = await buildBackup(tx);
-    const target = documentFromBackup(JSON.parse(row.local_backup));
+    const backup = await syncBackup(tx);
+    const saved = JSON.parse(row.local_backup);
+    const target = documentFromBackup({ ...saved, study_preferences: saved.study_preferences || backup.study_preferences });
     await archive(tx, owner, backup, target, "Antes de restaurar una copia de recuperación");
     await installDocument(tx, target, backup);
   });

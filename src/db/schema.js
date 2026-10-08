@@ -214,6 +214,23 @@ export const MIGRATIONS = [
   CREATE TABLE sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE sync_recovery (id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, created_at TEXT NOT NULL, reason TEXT NOT NULL, local_backup TEXT NOT NULL, remote_document TEXT NOT NULL);
   `,
+  // v9 — solo los límites diarios son configuración compartida; las claves
+  // y el resto de settings siguen siendo propios del dispositivo.
+  `
+  CREATE TABLE study_preferences (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    sync_id TEXT NOT NULL UNIQUE CHECK (sync_id = 'dailyLimits'),
+    max_reviews INTEGER NOT NULL CHECK (max_reviews BETWEEN 0 AND 100),
+    max_new INTEGER NOT NULL CHECK (max_new BETWEEN 0 AND 50)
+  );
+  INSERT INTO study_preferences VALUES (1, 'dailyLimits',
+    COALESCE((SELECT CASE WHEN json_valid(value) THEN
+      CASE WHEN json_type(value, '$.maxReviews') = 'integer' AND json_extract(value, '$.maxReviews') BETWEEN 0 AND 100
+        THEN json_extract(value, '$.maxReviews') END END FROM settings WHERE key = 'dailyLimits'), 40),
+    COALESCE((SELECT CASE WHEN json_valid(value) THEN
+      CASE WHEN json_type(value, '$.maxNew') = 'integer' AND json_extract(value, '$.maxNew') BETWEEN 0 AND 50
+        THEN json_extract(value, '$.maxNew') END END FROM settings WHERE key = 'dailyLimits'), 15));
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

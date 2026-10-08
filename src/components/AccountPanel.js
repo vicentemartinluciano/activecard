@@ -28,7 +28,7 @@ export default function AccountPanel() {
   };
   return <Card style={{ gap: spacing.md }}>
     <Text style={type.heading}>Cuenta privada</Text>
-    <Text style={type.small}>Biblioteca, imágenes, repasos, progreso y conversaciones del Gimnasio entre tu PC y Android.</Text>
+    <Text style={type.small}>Biblioteca, imágenes, repasos, progreso, límites diarios y conversaciones del Gimnasio entre tu PC y Android.</Text>
     {status.user ? <>
       <Text style={type.body}>{status.user.email}</Text>
       <Text style={[type.small, status.error && { color: colors.danger }]} accessibilityLiveRegion="polite">{error || status.message}</Text>
