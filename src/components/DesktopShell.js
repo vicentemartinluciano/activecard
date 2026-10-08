@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   indexHeading: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 12 },
   smallButton: { width: 34, height: 34, borderRadius: 5, justifyContent: 'center', alignItems: 'center' },
   search: { flex: 1, minWidth: 0, fontSize: 13, paddingHorizontal: 10, paddingVertical: 10 },
-  treeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
+  treeRow: { width: '100%', flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
   treeText: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, flex: 1 },
   count: { ...font(), color: colors.textMuted, fontSize: 12 },
   folderRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6 },
