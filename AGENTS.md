@@ -13,9 +13,9 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- APK instalada vigente: 1.6.0 (SecureStore + Crypto). Martín confirmó que abre y conserva sus mazos y tarjetas. Login Android accede a la cuenta; el fix del duplicado legacy de Storage se publicó por OTA `preview` 1.6.0. Primera subida corregida y sincronización entre dispositivos todavía no verificadas.
+- APK vigente: 1.6.0 (SecureStore + Crypto). Tras confirmar que abría con sus datos, Martín la desinstaló y reinstaló el 8/10: perdió la clave local de OpenAI; conservación/recuperación actual en Android pendiente de confirmar. La nube tiene revisión 1 con 101 tarjetas, 4 mazos y 93 repasos; la web llegó a «Al día». Falta comprobar el ciclo entre dispositivos.
 - Package: `com.marti.activecard`.
-- Datos locales en SQLite; cuenta/sync privada implementada con Supabase. Migración remota y permisos verificados el 7 de octubre; primera subida y sincronización real pendientes. Ver `docs/SINCRONIZACION.md`.
+- Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 

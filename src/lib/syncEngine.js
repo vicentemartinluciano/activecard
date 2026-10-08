@@ -17,12 +17,16 @@ export function createSyncEngine({ remote, local = localStorage, canApply = () =
     if (running) return running;
     const expected = epoch;
     const owner = user.id;
+    const stage = (message) => { if (expected === epoch) report({ message }); };
+    const progress = (action) => (done, total) => stage(`${action}: ${done} de ${total} registros…`);
     running = (async () => {
       report({ busy: true, error: null, message: "Sincronizando…" });
       try {
         for (let attempt = 0; attempt < 4; attempt++) {
+          stage("Leyendo los cambios de este dispositivo…");
           const captured = await local.readLocalSync(owner);
-          const cloud = await remote.read();
+          stage("Consultando la cuenta…");
+          const cloud = await remote.read(progress("Descargando"));
           check(expected);
           if (captured.clean && captured.checkpoint?.revision === cloud.revision) {
             report({ pending: false, syncedAt: new Date().toISOString(), message: "Al día" });
@@ -32,16 +36,21 @@ export function createSyncEngine({ remote, local = localStorage, canApply = () =
           if (!same(merged.document, captured.document)) {
             if (!canApply()) { report({ pending: true, message: "Hay cambios de otro dispositivo. Abrí Ajustes para incorporarlos sin interrumpir tu trabajo." }); return; }
             check(expected);
+            stage("Guardando los cambios y la copia de recuperación…");
             if (!await local.applyLocalSync(owner, captured.document, merged.document, cloud.document, merged.conflicts, canApply)) continue;
             report({ dataRevision: ++dataRevision });
           }
           check(expected);
           if (!same(merged.document, cloud.document)) {
-            const result = await remote.commit(merged.document, cloud.revision);
+            const result = await remote.commit(merged.document, cloud.revision, progress("Subiendo"));
             check(expected);
             if (!result.ok) continue;
+            stage("Guardando el estado de sincronización…");
             await local.saveCheckpoint(owner, merged.document, result.revision);
-          } else await local.saveCheckpoint(owner, merged.document, cloud.revision);
+          } else {
+            stage("Guardando el estado de sincronización…");
+            await local.saveCheckpoint(owner, merged.document, cloud.revision);
+          }
           check(expected);
           report({ pending: false, syncedAt: new Date().toISOString(), message: merged.conflicts.length ? "Sincronizado. Las alternativas locales quedaron en Recuperación." : "Al día" });
           return;

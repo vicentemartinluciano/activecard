@@ -7,11 +7,13 @@ REANCLA y el mismo correo/contraseña; ActiveCard tiene tablas, archivos y sesio
 propios. La migración remota se ejecutó el 7 de octubre con confirmación de Martín:
 cuenta única, RLS, bucket privado y privilegios de las RPC verificados en el proyecto
 real. Las políticas de Storage solo habilitan lectura e inserción para el dueño;
-no hay políticas adicionales que amplíen ese acceso. La primera publicación de la
-biblioteca todavía no se completó; hay fragmentos subidos por el intento Android.
-El APK 1.6.0 terminó de compilar y Martín confirmó su instalación: abre y conserva
-sus mazos y tarjetas. Incluye SecureStore y Crypto. El login Android accedió a la
-cuenta; la primera subida y la prueba entre dispositivos siguen pendientes.
+no hay políticas adicionales que amplíen ese acceso. El 8 de octubre se verificó la
+primera publicación remota: revisión 1, 209 registros, 101 tarjetas, 4 mazos, 3 carpetas
+y 93 repasos. La web conectada llegó a «Al día» durante el diagnóstico de una espera
+larga en sincronización. No se verificó todavía el ciclo Android → web → Android.
+El APK 1.6.0 incluye SecureStore y Crypto. Martín primero confirmó que abría con sus
+datos, pero luego lo desinstaló/reinstaló y perdió la clave local de OpenAI. La
+conservación/recuperación actual de la biblioteca Android requiere su confirmación.
 
 Build EAS `d985993f-0dfd-40fb-a351-2cb8843550af`, desde el commit
 `7219aa1fcfa84a6a0d50c4c6b3fd03501136cc35`, con CI y publicación web exitosos.
@@ -25,9 +27,9 @@ runtime 1.6.0: grupo `48fb5383-43c1-490e-a834-4c6e56289208`, update
 `01a1199d-8bcd-7671-8abd-c04a82ba08ae`, commit
 `add80281f0773b300c6f991069017ea1bfdf88ae`. CI `37723671903` y Deploy web
 `37723671955` terminaron bien; 386 tests en 41 suites, lint y verificaciones
-SQLite/Postgres aprobados. Publicación OTA confirmada; instalación de la OTA y
-primera subida corregida en el teléfono todavía pendientes. No declarar operativa
-la sincronización hasta completar las pruebas entre dispositivos.
+SQLite/Postgres aprobados. Publicación OTA confirmada; lectura y publicación de la
+biblioteca remota verificadas el 8 de octubre. La instalación actual de la OTA tras
+la reinstalación requiere comprobación. No declarar cerrado el ciclo entre dispositivos.
 
 Para recibir la corrección, abrir ActiveCard con internet, esperar la descarga y
 volver a abrirla. En Ajustes tocar Sincronizar ahora y esperar «Al día» antes de
@@ -37,6 +39,8 @@ La web de escritorio ya se publicó en GitHub Pages. Para el APK nuevo se elimin
 los fallbacks de claves públicas del build: OpenAI y Notion se ingresan en Ajustes
 en cada dispositivo. Las claves ya guardadas localmente se conservan; un token que
 solo venía incrustado en el APK anterior debe ingresarse una vez en Ajustes.
+Desinstalar borra la configuración local, incluidas las claves. Los respaldos y la
+cuenta no las recuperan: reingresar una copia propia o crear una clave nueva.
 
 ## Datos y seguridad
 
@@ -77,6 +81,12 @@ respetando pares Unicode. El nombre de cada archivo es su SHA-256. Se reutilizan
 fragmentos existentes y se verifica el hash al descargar. El manifiesto contiene
 solo identidades y hashes; un RPC publica ese manifiesto con revisión esperada (CAS),
 verifica que todos sus archivos existan y permite reintentar el mismo cambio.
+
+Las transferencias procesan hasta cuatro filas simultáneas y comparten solicitudes
+de fragmentos idénticos en vuelo. El estado muestra la fase y los registros terminados.
+El límite de 25 segundos cubre la solicitud y la lectura del cuerpo, incluso si el
+fetch no responde a AbortController. Ante un fallo se esperan las solicitudes ya
+iniciadas y no se publica un manifiesto parcial; la biblioteca local se conserva.
 
 Hay un límite de 256 Mi caracteres por documento y 1,8 millones por manifiesto. Un
 exceso o falta de espacio se informa conservando los datos locales. No se descartan

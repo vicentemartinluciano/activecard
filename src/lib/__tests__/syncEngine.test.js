@@ -61,3 +61,19 @@ test("reconecta automáticamente una sesión que arrancó sin conexión", async 
   expect(test.statuses.at(-1).user.id).toBe("owner");
   expect(test.statuses.some((status) => status.message === "Al día")).toBe(true);
 });
+
+test("informa el avance de transferencia y libera los botones tras un error", async () => {
+  const test = setup();
+  test.remote.read.mockImplementation(async (progress) => {
+    progress(3, 20);
+    throw new Error("La cuenta tardó demasiado en responder.");
+  });
+  await test.engine.login("correo", "contraseña");
+  expect(test.statuses.some(({ message }) => message === "Descargando: 3 de 20 registros…")).toBe(true);
+  expect(test.statuses.at(-1).busy).toBe(false);
+  expect(test.local.applyLocalSync).not.toHaveBeenCalled();
+  test.remote.read.mockResolvedValue({ document: doc("Inicial"), revision: 1 });
+  await test.engine.sync();
+  expect(test.remote.commit).toHaveBeenCalledTimes(1);
+  expect(test.statuses.some(({ message }) => message === "Al día")).toBe(true);
+});
