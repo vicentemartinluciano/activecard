@@ -461,6 +461,9 @@ próximo APK; no exige actualizar módulos nativos para publicar una OTA compati
 ## Seguridad
 
 - `.env` ignorado.
+- Las claves de OpenAI y Notion se leen exclusivamente desde Ajustes del dispositivo,
+  sin fallback a `EXPO_PUBLIC_*`. La OTA 1.5.0 incorpora esta protección ya vigente
+  en el código candidato 1.6.0; ambas conexiones pueden configurarse en Android y web.
 - Variables posibles: gateway URL/token, OpenAI key y Notion token.
 - Las claves no entran en respaldos.
 - Una clave `EXPO_PUBLIC_*` puede extraerse del bundle; una distribución comercial debe

@@ -61,9 +61,7 @@ export default function Ajustes() {
       setReminder(prefs);
       setReminderTime(prefs.time);
     }
-    if (Platform.OS === "web") {
-      setNotionTokenInput(getNotionToken() || "");
-    }
+    setNotionTokenInput(getNotionToken() || "");
   }, []);
 
   const refresh = useCallback(() => {
@@ -141,7 +139,7 @@ export default function Ajustes() {
 
   const saveKeys = async () => {
     await setOpenAIKey(openAIKey);
-    if (Platform.OS === "web") await setNotionToken(notionToken);
+    await setNotionToken(notionToken);
     setKeysStatus("Guardadas ✓");
     setTimeout(() => setKeysStatus(null), 2500);
   };
@@ -386,18 +384,14 @@ export default function Ajustes() {
             autoCorrect={false}
             secureTextEntry
           />
-          {Platform.OS === "web" ? (
-            <>
-            <Text style={type.small}>Token de Notion</Text>
-            <Field
-              value={notionToken}
-              onChangeText={setNotionTokenInput}
-              placeholder="ntn_…"
-              autoCapitalize="none"
-              secureTextEntry
-            />
-            </>
-          ) : null}
+          <Text style={type.small}>Token de Notion</Text>
+          <Field
+            value={notionToken}
+            onChangeText={setNotionTokenInput}
+            placeholder="ntn_…"
+            autoCapitalize="none"
+            secureTextEntry
+          />
           <Button label="Guardar conexión" kind="primary" onPress={saveKeys} />
           {keysStatus ? <Text style={type.small}>{keysStatus}</Text> : null}
         </Card>
