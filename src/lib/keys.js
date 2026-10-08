@@ -1,7 +1,6 @@
-// Claves de API en runtime. En el APK llegan embebidas por env (EXPO_PUBLIC_*)
-// al construir. En la web pública NO se embeben (el build de GitHub Pages
-// corre sin .env) — ahí el usuario las pega una vez en Ajustes y quedan
-// guardadas en la DB local del navegador (tabla settings).
+// Claves de API ingresadas en Ajustes y guardadas en settings de este dispositivo.
+// Nunca leerlas de EXPO_PUBLIC_*: Expo incrusta esas variables en el cliente.
+// No entran en los respaldos ni en la sincronización.
 //
 // getOpenAIKey()/getNotionToken() son síncronas (las usa el cliente de IA y
 // notion.js dentro de un fetch, sin poder esperar una promesa) por eso se
@@ -20,11 +19,11 @@ export async function initKeys() {
 }
 
 export function getOpenAIKey() {
-  return cache.openai || process.env.EXPO_PUBLIC_OPENAI_API_KEY || null;
+  return cache.openai || null;
 }
 
 export function getNotionToken() {
-  return cache.notion || process.env.EXPO_PUBLIC_NOTION_TOKEN || null;
+  return cache.notion || null;
 }
 
 export async function setOpenAIKey(value) {
