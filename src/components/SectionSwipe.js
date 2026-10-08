@@ -5,7 +5,7 @@
 // (failOffsetY), así no roba el scroll de las listas.
 
 import { useRouter } from "expo-router";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
@@ -25,6 +25,7 @@ export default function SectionSwipe({ index, children }) {
       if (e.translationX <= -60 && e.velocityX < 0) runOnJS(go)(1);
       else if (e.translationX >= 60 && e.velocityX > 0) runOnJS(go)(-1);
     });
+  if (Platform.OS === "web") return <View style={{ flex: 1 }}>{children}</View>;
   return (
     <GestureDetector gesture={pan}>
       <View style={{ flex: 1 }}>{children}</View>

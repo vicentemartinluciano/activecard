@@ -153,6 +153,67 @@ export const MIGRATIONS = [
   CREATE INDEX IF NOT EXISTS idx_gym_messages_chat
     ON gym_messages(chat_id, created_at ASC, id ASC);
   `,
+  // v8 — identidades entre dispositivos y recuperación de sincronización.
+  `
+  ALTER TABLE folders ADD COLUMN sync_id TEXT;
+  UPDATE folders SET sync_id = 'legacy:folders:' || id || ':' || created_at;
+  CREATE UNIQUE INDEX idx_folders_sync_id ON folders(sync_id);
+  CREATE TRIGGER folders_sync_identity AFTER INSERT ON folders
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE folders SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  ALTER TABLE decks ADD COLUMN sync_id TEXT;
+  UPDATE decks SET sync_id = 'legacy:decks:' || id || ':' || created_at;
+  CREATE UNIQUE INDEX idx_decks_sync_id ON decks(sync_id);
+  CREATE TRIGGER decks_sync_identity AFTER INSERT ON decks
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE decks SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  ALTER TABLE tags ADD COLUMN sync_id TEXT;
+  UPDATE tags SET sync_id = 'legacy:tags:' || id || ':' || name;
+  CREATE UNIQUE INDEX idx_tags_sync_id ON tags(sync_id);
+  CREATE TRIGGER tags_sync_identity AFTER INSERT ON tags
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE tags SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  ALTER TABLE cards ADD COLUMN sync_id TEXT;
+  UPDATE cards SET sync_id = 'legacy:cards:' || id || ':' || created_at;
+  CREATE UNIQUE INDEX idx_cards_sync_id ON cards(sync_id);
+  CREATE TRIGGER cards_sync_identity AFTER INSERT ON cards
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE cards SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  ALTER TABLE review_logs ADD COLUMN sync_id TEXT;
+  UPDATE review_logs SET sync_id = 'legacy:review_logs:' || id || ':' || reviewed_at;
+  CREATE UNIQUE INDEX idx_review_logs_sync_id ON review_logs(sync_id);
+  CREATE TRIGGER review_logs_sync_identity AFTER INSERT ON review_logs
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE review_logs SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  ALTER TABLE connections ADD COLUMN sync_id TEXT;
+  UPDATE connections SET sync_id = 'legacy:connections:' || id || ':' || created_at;
+  CREATE UNIQUE INDEX idx_connections_sync_id ON connections(sync_id);
+  CREATE TRIGGER connections_sync_identity AFTER INSERT ON connections
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE connections SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  ALTER TABLE gym_chats ADD COLUMN sync_id TEXT;
+  UPDATE gym_chats SET sync_id = 'legacy:gym_chats:' || id || ':' || created_at;
+  CREATE UNIQUE INDEX idx_gym_chats_sync_id ON gym_chats(sync_id);
+  CREATE TRIGGER gym_chats_sync_identity AFTER INSERT ON gym_chats
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE gym_chats SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  ALTER TABLE gym_messages ADD COLUMN sync_id TEXT;
+  UPDATE gym_messages SET sync_id = 'legacy:gym_messages:' || id || ':' || created_at;
+  CREATE UNIQUE INDEX idx_gym_messages_sync_id ON gym_messages(sync_id);
+  CREATE TRIGGER gym_messages_sync_identity AFTER INSERT ON gym_messages
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE gym_messages SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+  CREATE TABLE sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  CREATE TABLE sync_recovery (id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, created_at TEXT NOT NULL, reason TEXT NOT NULL, local_backup TEXT NOT NULL, remote_document TEXT NOT NULL);
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

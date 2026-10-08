@@ -13,9 +13,9 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- Versión nativa vigente: 1.5.0.
+- APK instalada vigente: 1.5.0. Código candidato: 1.6.0 (SecureStore + Crypto; requiere APK nueva).
 - Package: `com.marti.activecard`.
-- Datos locales en SQLite; sin cuenta, backend ni sincronización automática.
+- Datos locales en SQLite; cuenta/sync privada implementada con Supabase. Migración remota y permisos verificados el 7 de octubre; login y sincronización real pendientes. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 
@@ -48,7 +48,7 @@ Scripts para Martín:
 
 - `comandos AC/INICIAR-APP.bat`: desarrollo con caché limpia.
 - `comandos AC/ACTUALIZAR-APP.bat`: OTA compatible al canal `preview`.
-- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.5.0.
+- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK candidata 1.6.0.
 
 El criterio de lint de CI es el comando directo con `--max-warnings 0`, no solamente
 `npm run lint`.
@@ -75,22 +75,23 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - Las ideas son tarjetas reales con `source='hybrid'`; el Gimnasio es una vista derivada.
 - Crear mazos, carpetas o contenido se centraliza en la pestaña Crear.
 - Biblioteca consulta, busca, filtra y organiza.
-- Los datos viven localmente; no agregar sync o backend sin una decisión explícita.
+- Los datos viven localmente. Martín aprobó sync privada con el acceso/proyecto de REANCLA, datos separados y conversaciones incluidas. No ampliar ese alcance sin una decisión explícita.
 - Por ahora no implementar multiproveedor ni “cualquier API”. OpenAI/Luna es la decisión
   vigente; una eventual versión comercial se evaluará desde un gateway propio.
 
 ## Arquitectura crítica
 
 - SQLite usa exclusivamente la API async. Migraciones append-only en `db/schema.js`;
-  esquema actual v7.
+  esquema actual v8 (identidades de sincronización y recuperación).
 - `FSRS_COLS` en `db/cards.js` es la fuente única del estado programado.
+- Las operaciones SQLite pasan por `transactions.js`; usar `withDbTransaction` para operaciones atómicas y su conexión de callback. No abrir BEGIN/COMMIT sobre la conexión administrada.
 - Fechas se guardan en UTC y se agrupan por día local en JavaScript.
 - El editor guarda marcas dentro de `cards.front/back`; TipTap es solo la interfaz.
 - Android usa TipTap en WebView y web usa TipTap sobre React DOM.
 - Tras modificar el editor compartido o `editor-web/`, regenerar y commitear
   `assets/editor/editorHtml.js`.
 - Las imágenes viven inline como data URI comprimidas y entran en el respaldo.
-- Respaldo vigente v3; `settings` y claves nunca se exportan.
+- Respaldo vigente v4; restaura v1–v3 y conserva identidades; `settings` y claves nunca se exportan.
 - Importación: reemplazo total o suma selectiva con deduplicación y remapeo de IDs.
 - Voz Android: reconocimiento en vivo del sistema + Whisper local como respaldo.
 - Recordatorio local desactivado por defecto; solo se programa si quedan pendientes.

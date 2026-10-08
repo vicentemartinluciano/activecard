@@ -2,7 +2,7 @@
   "expo": {
     "name": "ActiveCard",
     "slug": "activecard",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "activecard",
@@ -53,6 +53,7 @@
         }
       ],
       "expo-sqlite",
+      "expo-secure-store",
       "expo-sharing",
       [
         "expo-notifications",

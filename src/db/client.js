@@ -5,6 +5,7 @@
 import { openDatabaseAsync } from "expo-sqlite";
 
 import { migrate } from "./schema";
+import { manageDatabase } from "./transactions";
 
 let dbPromise = null;
 
@@ -38,7 +39,7 @@ export function getDb() {
       const db = await openWithRetry();
       await db.execAsync("PRAGMA foreign_keys = ON");
       await migrate(db);
-      return db;
+      return manageDatabase(db);
     })();
     // Si la apertura falla, no dejar cacheado el rechazo: el próximo getDb()
     // debe poder reintentar (p. ej. cuando el lock de OPFS ya se liberó).

@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator } from "react-native";
+import { ActivityIndicator, Platform } from "react-native";
 
 import ChatAuditor from "../../components/ChatAuditor";
 import { Screen } from "../../components/ui";
@@ -27,7 +27,7 @@ export default function ChatGimnasio() {
   }, [cardId]);
 
   return (
-    <Screen>
+    <Screen style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 24, paddingTop: 20 } : undefined}>
       <Stack.Screen options={{ title: "Gimnasio Mental", headerShown: false }} />
       {loading ? <ActivityIndicator color={colors.accent} style={{ flex: 1 }} /> : (
         <ChatAuditor card={card} chatId={id ? Number(id) : null} />

@@ -11,6 +11,7 @@ function fakeDb() {
   return {
     cards,
     reviewLogs,
+    async execAsync() {},
     async runAsync(sql, params = []) {
       if (sql.startsWith("INSERT INTO cards")) {
         const cols = /\(([^)]+)\)\s*VALUES/.exec(sql)[1].split(",").map((c) => c.trim());

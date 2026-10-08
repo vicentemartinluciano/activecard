@@ -1,13 +1,13 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-02
-Versión nativa: 1.5.0
+Última actualización: 2026-10-07
+APK instalada: 1.5.0; código candidato: 1.6.0
 
 ## Visión
 
 ActiveCard es una app Expo/React Native offline-first. La interfaz llama directamente a
-repositorios SQLite y a funciones de dominio. Solo la generación, el Gimnasio Mental y
-la lectura directa de Notion salen del dispositivo.
+repositorios SQLite y a funciones de dominio. La generación, el Gimnasio Mental,
+Notion y la sincronización opcional salen del dispositivo.
 
 ```text
 expo-router
@@ -22,9 +22,15 @@ IA opcional: lib/openai.js → gateway opcional u OpenAI Responses API
 Notion opcional: lib/notion.js → Notion API
 ```
 
-No existe backend propio, autenticación, cuenta de usuario ni sincronización automática.
-Android y web tienen bases locales independientes. Los respaldos JSON permiten mover
-datos de forma explícita.
+La cuenta privada usa Auth y Storage de Supabase en el proyecto de REANCLA, con tablas
+y permisos propios. SQLite sigue funcionando offline. La migración remota y sus
+permisos se verificaron el 7 de octubre. Falta probar el login y Android ↔ web antes
+de declararla operativa. Ver `SINCRONIZACION.md` para el protocolo y los pasos de activación.
+
+La web tiene un shell de escritorio persistente: barra de secciones, índice de
+carpetas/mazos con fijado y vista previa por hover y contenido independiente. Ver
+`WEB-ESCRITORIO.md` para el diseño aprobado y `SINCRONIZACION.md` para la cuenta
+privada y sincronización con conversaciones del Gimnasio.
 
 ## Stack
 
@@ -109,7 +115,7 @@ locks transitorios de OPFS y una promesa rechazada nunca queda cacheada.
 
 ## SQLite
 
-Migraciones append-only en `db/schema.js`. Esquema actual: v7.
+Migraciones append-only en `db/schema.js`. Esquema actual: v8. Agrega `sync_id`, `sync_state` y `sync_recovery` sin modificar migraciones anteriores.
 
 ### Tablas
 
@@ -362,7 +368,7 @@ WAV persistido con Whisper Base q5_1 local.
 
 ## Respaldo
 
-Formato vigente: v3.
+Formato vigente: v4; conserva identidades de sincronización y permite restaurar v1, v2 y v3.
 
 ```text
 folders, decks, tags, deck_tags, cards, review_logs,

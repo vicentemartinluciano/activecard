@@ -1,0 +1,58 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { PGlite } from "@electric-sql/pglite";
+
+const db = new PGlite();
+const owner = "00000000-0000-4000-8000-000000000001";
+const other = "00000000-0000-4000-8000-000000000002";
+const change = "00000000-0000-4000-8000-000000000101";
+const digest = "a".repeat(64);
+await db.exec(`create schema auth; create schema storage;
+create role anon nologin; create role authenticated nologin;
+create table auth.users(id uuid primary key, email_confirmed_at timestamptz, is_anonymous boolean default false);
+create function auth.uid() returns uuid language sql stable as 'select nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';
+create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+create table storage.objects(id bigint generated always as identity primary key,bucket_id text,name text);
+alter table storage.objects enable row level security;
+grant usage on schema public,auth,storage to anon,authenticated;
+grant select,insert,update,delete on storage.objects to authenticated;
+grant usage on sequence storage.objects_id_seq to authenticated;
+insert into auth.users values('${owner}',now(),false);`);
+await db.exec(await readFile(new URL("../supabase/migrations/202610070001_activecard_private_sync.sql", import.meta.url), "utf8"));
+await db.exec(`insert into auth.users values('${other}',now(),false);`);
+const identity = async (role, id = "") => {
+  await db.exec(`reset role; set role ${role}`);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]);
+};
+const commit = async (manifest, revision = 0, id = change) => (await db.query("select public.activecard_commit($1::jsonb,$2::bigint,$3::uuid) as value", [JSON.stringify(manifest), revision, id])).rows[0].value;
+const manifest = { schema: 1, entries: [["folders", "folder", [digest]]] };
+try {
+  await identity("anon");
+  await assert.rejects(() => db.query("select * from public.activecard_sync"), /permission denied/);
+  await assert.rejects(() => commit(manifest), /permission denied/);
+  await identity("authenticated", other);
+  assert.equal((await db.query("select public.activecard_access() as allowed")).rows[0].allowed, false);
+  await assert.rejects(() => commit(manifest), /Private account required/);
+  await assert.rejects(() => db.query("insert into storage.objects(bucket_id,name) values('activecard-private',$1)", [`${other}/${digest}`]), /row-level security/);
+  await identity("authenticated", owner);
+  await assert.rejects(() => db.query("select * from public.activecard_owner"), /permission denied/);
+  await assert.rejects(() => commit(manifest), /Missing content/);
+  await db.query("insert into storage.objects(bucket_id,name) values('activecard-private',$1)", [`${owner}/${digest}`]);
+  await assert.rejects(() => db.query("insert into storage.objects(bucket_id,name) values('activecard-private',$1)", [`${other}/${digest}`]), /row-level security/);
+  assert.deepEqual(await commit(manifest), { ok: true, revision: 1 });
+  assert.deepEqual(await commit(manifest), { ok: true, revision: 1 });
+  await assert.rejects(() => commit({ schema: 1, entries: [] }), /identifier reused/);
+  const change2 = "00000000-0000-4000-8000-000000000102";
+  assert.deepEqual(await commit(manifest, 0, change2), { ok: false, revision: 1 });
+  assert.deepEqual(await commit(manifest, 1, change2), { ok: true, revision: 2 });
+  await assert.rejects(() => db.query("update public.activecard_sync set revision = 99"), /permission denied/);
+  await assert.rejects(() => commit({ ...manifest, settings: {} }, 2), /Invalid manifest/);
+  await assert.rejects(() => commit({ schema: 1, entries: [...manifest.entries, ...manifest.entries] }, 2), /Duplicate entry/);
+  assert.equal((await db.query("select count(*)::int as n from storage.objects")).rows[0].n, 1);
+  await db.exec("update storage.objects set name='changed'; delete from storage.objects;");
+  assert.equal((await db.query("select count(*)::int as n from storage.objects")).rows[0].n, 1);
+  await identity("authenticated", other);
+  assert.equal((await db.query("select count(*)::int as n from public.activecard_sync")).rows[0].n, 0);
+  assert.equal((await db.query("select count(*)::int as n from storage.objects")).rows[0].n, 0);
+  console.log("OK: cuenta única, aislamiento, archivos inmutables, contenido completo, CAS e idempotencia verificados en Postgres.");
+} finally { await db.close(); }

@@ -14,8 +14,8 @@ import { getDb } from "./client";
 const DONE_TODAY_SQL = `
   SELECT rl.card_id FROM review_logs rl
   WHERE rl.mode = 'quizlet' AND rl.reviewed_at >= ? AND rl.rating != 'again'
-    AND rl.id = (SELECT MAX(id) FROM review_logs
-                 WHERE card_id = rl.card_id AND mode = 'quizlet' AND reviewed_at >= ?)
+    AND rl.id = (SELECT id FROM review_logs
+                 WHERE card_id = rl.card_id AND mode = 'quizlet' AND reviewed_at >= ? ORDER BY reviewed_at DESC, id DESC LIMIT 1)
 `;
 
 export async function getDeckDailyProgress(deckId, now = new Date()) {

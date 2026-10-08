@@ -90,7 +90,7 @@ describe("migraciones de esquema", () => {
   });
 
   test("la migración v7 agrega charlas y mensajes persistentes", () => {
-    expect(MIGRATIONS).toHaveLength(7);
+    expect(MIGRATIONS).toHaveLength(8);
     expect(MIGRATIONS[6]).toContain("CREATE TABLE IF NOT EXISTS gym_chats");
     expect(MIGRATIONS[6]).toContain("CREATE TABLE IF NOT EXISTS gym_messages");
     expect(MIGRATIONS[6]).toContain("REFERENCES gym_chats(id) ON DELETE CASCADE");

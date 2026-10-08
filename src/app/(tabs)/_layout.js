@@ -1,11 +1,13 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Tabs } from "expo-router";
+import { Platform } from "react-native";
 
 import { colors, font } from "../../theme";
 
 export default function TabsLayout() {
   return (
     <Tabs
+      tabBar={Platform.OS === "web" ? () => null : undefined}
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,

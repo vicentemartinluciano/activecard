@@ -73,7 +73,7 @@ export const spacing = {
 // que ahí va más ancha; en el navegador de un celular sigue mandando el
 // width:100% del contenedor, así que no cambia nada.
 export const layout = {
-  maxWidth: Platform.OS === "web" ? 840 : 480,
+  maxWidth: Platform.OS === "web" ? 1200 : 480,
   // El carril de estudio va más angosto que el resto de la app: a 840 la
   // tarjeta queda muy ancha para su alto y el texto se lee incómodo.
   studyMaxWidth: Platform.OS === "web" ? 560 : 480,

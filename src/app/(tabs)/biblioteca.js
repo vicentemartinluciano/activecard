@@ -1,9 +1,10 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import DeckListItem from "../../components/DeckListItem";
+import DesktopLibraryHome from "../../components/DesktopLibraryHome";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
@@ -88,6 +89,8 @@ export default function Biblioteca() {
     : null;
   const deckNameById = {};
   for (const d of decks) deckNameById[d.id] = d.name;
+
+  if (Platform.OS === "web" && loaded) return <DesktopLibraryHome folders={folders} decks={decks} cards={allCards} tags={tags} progressByDeck={progressByDeck} />;
 
   if (!loaded) {
     return (

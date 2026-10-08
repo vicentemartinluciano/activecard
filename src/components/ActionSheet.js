@@ -69,12 +69,14 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "#00000099",
-    justifyContent: "flex-end",
+    justifyContent: Platform.OS === 'web' ? "center" : "flex-end",
+    ...(Platform.OS === 'web' ? { padding: spacing.md } : {}),
   },
   sheet: {
     backgroundColor: colors.surfaceCard,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
+    ...(Platform.OS === 'web' ? { borderRadius: radius.lg } : {}),
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: spacing.lg,

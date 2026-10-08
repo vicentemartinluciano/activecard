@@ -34,6 +34,8 @@ function fakeDb(initialTables = {}) {
   };
 }
 
+const withoutSync = (rows) => rows.map((row) => { const result = { ...row }; delete result.sync_id; return result; });
+
 const NOW = new Date("2026-07-11T12:00:00Z");
 
 describe("buildBackup", () => {
@@ -44,7 +46,7 @@ describe("buildBackup", () => {
     });
     const backup = await buildBackup(db, NOW);
     expect(backup.app).toBe("activecard");
-    expect(backup.version).toBe(3);
+    expect(backup.version).toBe(4);
     expect(backup.exportedAt).toBe(NOW.toISOString());
     expect(backup.decks).toEqual([{ id: 1, name: "Administración", created_at: "x" }]);
     expect(backup.cards).toEqual([{ id: 1, deck_id: 1, front: "f", back: "b" }]);
@@ -116,8 +118,8 @@ describe("restoreBackup", () => {
   test("reemplaza los datos actuales por los del respaldo", async () => {
     const db = fakeDb({ decks: [{ id: 99, name: "Mazo viejo", created_at: "y" }] });
     const counts = await restoreBackup(db, validBackup);
-    expect(db.tables.decks).toEqual(validBackup.decks);
-    expect(db.tables.cards).toEqual(validBackup.cards);
+    expect(withoutSync(db.tables.decks)).toEqual(validBackup.decks);
+    expect(withoutSync(db.tables.cards)).toEqual(validBackup.cards);
     expect(counts).toEqual({
       folders: 0,
       decks: 1,
@@ -140,13 +142,13 @@ describe("restoreBackup", () => {
     const counts = await restoreBackup(db, v1);
     expect(counts.folders).toBe(0);
     expect(db.tables.folders).toEqual([]);
-    expect(db.tables.decks).toEqual(validBackup.decks);
+    expect(withoutSync(db.tables.decks)).toEqual(validBackup.decks);
   });
 
   test("un respaldo v2 anterior a suspended sigue insertando sus tarjetas", async () => {
     const db = fakeDb();
     await restoreBackup(db, validBackup);
-    expect(db.tables.cards).toEqual(validBackup.cards);
+    expect(withoutSync(db.tables.cards)).toEqual(validBackup.cards);
     expect(db.tables.cards[0]).not.toHaveProperty("suspended");
   });
 
@@ -160,9 +162,9 @@ describe("restoreBackup", () => {
     const target = fakeDb();
     const counts = await restoreBackup(target, backup);
     expect(counts.folders).toBe(1);
-    expect(target.tables.folders).toEqual(source.tables.folders);
-    expect(target.tables.decks).toEqual(source.tables.decks);
-    expect(target.tables.cards).toEqual(source.tables.cards);
+    expect(withoutSync(target.tables.folders)).toEqual(source.tables.folders);
+    expect(withoutSync(target.tables.decks)).toEqual(source.tables.decks);
+    expect(withoutSync(target.tables.cards)).toEqual(source.tables.cards);
   });
 
   test("rechaza folders no-array en un respaldo v2", async () => {

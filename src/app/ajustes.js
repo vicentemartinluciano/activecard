@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
 import ActionSheet from "../components/ActionSheet";
+import AccountPanel from "../components/AccountPanel";
 import Collapsible from "../components/Collapsible";
 import PercentSlider from "../components/PercentSlider";
 import Stagger from "../components/Stagger";
@@ -249,6 +250,7 @@ export default function Ajustes() {
     <Screen>
       <Stack.Screen options={{ title: "Ajustes" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
+        <AccountPanel />
         <Stagger style={{ marginBottom: 0 }}>
         <Collapsible
           icon="calendar"
@@ -347,7 +349,8 @@ export default function Ajustes() {
           <Text style={styles.sectionTitle}>Respaldo</Text>
           <Text style={type.small}>
             Exportá un archivo con todos tus mazos, tarjetas y conexiones. Sirve como backup y
-            para pasar datos entre el celular y la versión web (no se sincronizan solos).
+            para recuperar tus datos o trasladarlos manualmente. Con tu cuenta conectada,
+            la sincronización entre el celular y la web se hace automáticamente.
           </Text>
           {Platform.OS !== "web" ? (
             <Text style={type.small}>

@@ -34,7 +34,7 @@ test("el progreso de un mazo excluye tarjetas suspendidas", async () => {
   expect(calls.every(({ sql }) => sql.includes("suspended = 0"))).toBe(true);
   const doneQuery = calls.find(({ sql }) => sql.includes("review_logs"));
   expect(doneQuery.sql).toContain("rl.rating != 'again'");
-  expect(doneQuery.sql).toContain("SELECT MAX(id)");
+  expect(doneQuery.sql).toContain("ORDER BY reviewed_at DESC, id DESC LIMIT 1");
   expect(doneQuery.params[0]).toBe(doneQuery.params[1]);
 });
 
