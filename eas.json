@@ -10,9 +10,9 @@
       "environment": "preview",
       "env": {
         "EXPO_NO_DOTENV": "1",
-        "EXPO_PUBLIC_OPENAI_API_KEY": "",
-        "EXPO_PUBLIC_NOTION_TOKEN": "",
-        "EXPO_PUBLIC_ANTHROPIC_API_KEY": ""
+        "EXPO_PUBLIC_OPENAI_API_KEY": "DISABLED_USE_DEVICE_SETTINGS",
+        "EXPO_PUBLIC_NOTION_TOKEN": "DISABLED_USE_DEVICE_SETTINGS",
+        "EXPO_PUBLIC_ANTHROPIC_API_KEY": "DISABLED_USE_DEVICE_SETTINGS"
       },
       "android": {
         "buildType": "apk"
@@ -22,9 +22,9 @@
       "channel": "production",
       "env": {
         "EXPO_NO_DOTENV": "1",
-        "EXPO_PUBLIC_OPENAI_API_KEY": "",
-        "EXPO_PUBLIC_NOTION_TOKEN": "",
-        "EXPO_PUBLIC_ANTHROPIC_API_KEY": ""
+        "EXPO_PUBLIC_OPENAI_API_KEY": "DISABLED_USE_DEVICE_SETTINGS",
+        "EXPO_PUBLIC_NOTION_TOKEN": "DISABLED_USE_DEVICE_SETTINGS",
+        "EXPO_PUBLIC_ANTHROPIC_API_KEY": "DISABLED_USE_DEVICE_SETTINGS"
       },
       "android": {
         "buildType": "app-bundle"
