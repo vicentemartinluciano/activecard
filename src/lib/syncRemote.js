@@ -9,6 +9,24 @@ const BUCKET = "activecard-private";
 const CHUNK = 256 * 1024;
 const MAX_DOCUMENT = 256 * 1024 * 1024;
 const hashText = (text) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, text);
+// Cuatro filas a la vez evitan cientos de viajes consecutivos sin cargar toda
+// la biblioteca en memoria. Si una falla, esperamos las que ya están en vuelo.
+async function transfer(rows, task, progress) {
+  let next = 0;
+  let completed = 0;
+  let failure;
+  progress(0, rows.length);
+  await Promise.all(Array.from({ length: Math.min(4, rows.length) }, async () => {
+    while (!failure && next < rows.length) {
+      const index = next++;
+      try {
+        await task(rows[index], index);
+        progress(++completed, rows.length);
+      } catch (error) { failure ||= error; }
+    }
+  }));
+  if (failure) throw failure;
+}
 export function splitText(text) {
   const chunks = [];
   for (let offset = 0; offset < text.length;) {
@@ -41,6 +59,8 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
   let storageTail = Promise.resolve();
   const cachedBlobs = new Map();
   const knownBlobs = new Set();
+  const downloads = new Map();
+  const uploads = new Map();
   let lastCloud = null;
   const persist = (token, epoch) => {
     const result = storageTail.then(() => epoch === generation ? store.saveRefreshToken(token, remember) : undefined);
@@ -49,29 +69,36 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
   };
   async function request(path, { body, method = "GET", access = null, text = false, existing = false } = {}) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 25000);
-    let response;
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error("La cuenta tardó demasiado en responder. Tus datos siguen guardados; podés reintentar."));
+      }, 25000);
+    });
     try {
-      response = await fetcher(`${SYNC_URL}${path}`, {
-        method, signal: controller.signal,
-        headers: { apikey: PUBLIC_KEY, ...(access ? { Authorization: `Bearer ${access}` } : {}), ...(body !== undefined ? { "Content-Type": text ? "text/plain; charset=utf-8" : "application/json" } : {}) },
-        ...(body !== undefined ? { body: text ? body : JSON.stringify(body) } : {}),
-      });
-      if (existing && [400, 409].includes(response.status)) {
-        // Storage también devuelve duplicados como HTTP 400 (API legacy).
-        // Solo reutilizamos ese archivo después de descargarlo y verificar SHA-256.
-        let failure;
-        try { failure = await response.json(); } catch { failure = null; }
-        if (response.status === 409 || failure?.error === "Duplicate" || ["ResourceAlreadyExists", "KeyAlreadyExists"].includes(failure?.code) || failure?.message === "Asset Already Exists") return null;
-      }
-      if (!response.ok) {
-        if (response.status === 404) throw new Error("Falta habilitar la sincronización de ActiveCard en Supabase.");
-        if ([400, 401].includes(response.status) && path.startsWith("/auth/")) throw new Error("No pudimos iniciar sesión. Revisá tu correo y contraseña de REANCLA.");
-        if ([401, 403].includes(response.status)) throw new Error("La sesión no tiene acceso a la cuenta privada de ActiveCard.");
-        if ([413, 507].includes(response.status)) throw new Error("El almacenamiento está lleno o este contenido supera su límite. Tus cambios siguen guardados en este dispositivo.");
-        throw new Error("No pudimos completar la sincronización. Los cambios locales siguen guardados.");
-      }
-      return text ? await response.text() : await response.json();
+      return await Promise.race([timeout, (async () => {
+        const response = await fetcher(`${SYNC_URL}${path}`, {
+          method, signal: controller.signal,
+          headers: { apikey: PUBLIC_KEY, ...(access ? { Authorization: `Bearer ${access}` } : {}), ...(body !== undefined ? { "Content-Type": text ? "text/plain; charset=utf-8" : "application/json" } : {}) },
+          ...(body !== undefined ? { body: text ? body : JSON.stringify(body) } : {}),
+        });
+        if (existing && [400, 409].includes(response.status)) {
+          // Storage también devuelve duplicados como HTTP 400 (API legacy).
+          // Solo reutilizamos ese archivo después de descargarlo y verificar SHA-256.
+          let failure;
+          try { failure = await response.json(); } catch { failure = null; }
+          if (response.status === 409 || failure?.error === "Duplicate" || ["ResourceAlreadyExists", "KeyAlreadyExists"].includes(failure?.code) || failure?.message === "Asset Already Exists") return null;
+        }
+        if (!response.ok) {
+          if (response.status === 404) throw new Error("Falta habilitar la sincronización de ActiveCard en Supabase.");
+          if ([400, 401].includes(response.status) && path.startsWith("/auth/")) throw new Error("No pudimos iniciar sesión. Revisá tu correo y contraseña de REANCLA.");
+          if ([401, 403].includes(response.status)) throw new Error("La sesión no tiene acceso a la cuenta privada de ActiveCard.");
+          if ([413, 507].includes(response.status)) throw new Error("El almacenamiento está lleno o este contenido supera su límite. Tus cambios siguen guardados en este dispositivo.");
+          throw new Error("No pudimos completar la sincronización. Los cambios locales siguen guardados.");
+        }
+        return text ? await response.text() : await response.json();
+      })()]);
     } catch (error) {
       if (error.name === "AbortError" || error instanceof TypeError) throw new Error("Sin conexión con la cuenta. Podés seguir usando ActiveCard; reintentaremos la sincronización.");
       throw error;
@@ -102,13 +129,33 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
   const check = (epoch) => { if (epoch !== generation || !session) throw new Error("La sesión se cerró."); };
   async function getBlob(id, auth) {
     if (cachedBlobs.has(id)) return cachedBlobs.get(id);
-    const text = await request(`/storage/v1/object/authenticated/${BUCKET}/${auth.owner}/${id}`, { access: auth.access, text: true });
-    check(auth.epoch);
-    if (text.length > CHUNK || await hash(text) !== id) throw new Error("Una parte del contenido está dañada. No se modificaron los datos locales.");
-    knownBlobs.add(id);
-    // Cache acotada; las imágenes grandes no quedan duplicadas indefinidamente.
-    if (cachedBlobs.size < 128) cachedBlobs.set(id, text);
-    return text;
+    if (downloads.has(id)) return downloads.get(id);
+    const pending = (async () => {
+      const text = await request(`/storage/v1/object/authenticated/${BUCKET}/${auth.owner}/${id}`, { access: auth.access, text: true });
+      check(auth.epoch);
+      if (text.length > CHUNK || await hash(text) !== id) throw new Error("Una parte del contenido está dañada. No se modificaron los datos locales.");
+      knownBlobs.add(id);
+      // Cache acotada; las imágenes grandes no quedan duplicadas indefinidamente.
+      if (cachedBlobs.size < 128) cachedBlobs.set(id, text);
+      return text;
+    })();
+    downloads.set(id, pending);
+    try { return await pending; }
+    finally { downloads.delete(id); }
+  }
+  async function putBlob(digest, part, auth) {
+    if (knownBlobs.has(digest)) return;
+    if (uploads.has(digest)) return uploads.get(digest);
+    const pending = (async () => {
+      const uploaded = await request(`/storage/v1/object/${BUCKET}/${auth.owner}/${digest}`, { method: "POST", body: part, text: true, access: auth.access, existing: true });
+      if (uploaded === null) await getBlob(digest, auth);
+      check(auth.epoch);
+      knownBlobs.add(digest);
+      if (cachedBlobs.size < 128) cachedBlobs.set(digest, part);
+    })();
+    uploads.set(digest, pending);
+    try { return await pending; }
+    finally { uploads.delete(digest); }
   }
   return {
     async login(email, password, keepSession = false) {
@@ -123,7 +170,7 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       return token ? refresh(token) : null;
     },
     async logout() { const epoch = ++generation; session = null; cachedBlobs.clear(); knownBlobs.clear(); lastCloud = null; await persist(null, epoch); },
-    async read() {
+    async read(progress = () => {}) {
       const auth = await credentials();
       const rows = await request("/rest/v1/activecard_sync?select=revision,manifest", { access: auth.access });
       check(auth.epoch);
@@ -135,7 +182,7 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       if (lastCloud?.owner === auth.owner && lastCloud.revision === revision && canonical(lastCloud.manifest) === canonical(manifest)) return { revision, document: lastCloud.document };
       const document = emptyDocument();
       let total = 0;
-      for (const [table, id, hashes] of manifest.entries) {
+      await transfer(manifest.entries, async ([table, id, hashes]) => {
         let serialized = "";
         for (const part of hashes) { serialized += await getBlob(part, auth);  }
         total += serialized.length;
@@ -143,37 +190,33 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
         const row = JSON.parse(serialized);
         if (table === "deck_tags") document.deck_tags = row;
         else Object.defineProperty(document[table], id, { value: row, enumerable: true, configurable: true, writable: true });
-      }
+      }, progress);
       validateDocument(document);
       lastCloud = { owner: auth.owner, revision, manifest, document };
       return { revision, document };
     },
-    async commit(document, revision) {
+    async commit(document, revision, progress = () => {}) {
       validateDocument(document);
       const auth = await credentials();
       const entries = [];
       let total = 0;
+      const records = [];
       for (const table of [...Object.keys(COLUMNS), "deck_tags"]) {
         const rows = table === "deck_tags" ? [["links", document.deck_tags]] : Object.entries(document[table]).sort(([a], [b]) => a.localeCompare(b));
-        for (const [id, row] of rows) {
-          const text = canonical(row);
-          total += text.length;
-          if (total > MAX_DOCUMENT) throw new Error("El contenido excede el límite de sincronización. Todo sigue guardado localmente.");
-          const hashes = [];
-          for (const part of splitText(text)) {
-            const digest = await hash(part);
-            hashes.push(digest);
-            if (!knownBlobs.has(digest)) {
-              const uploaded = await request(`/storage/v1/object/${BUCKET}/${auth.owner}/${digest}`, { method: "POST", body: part, text: true, access: auth.access, existing: true });
-              if (uploaded === null) await getBlob(digest, auth);
-              check(auth.epoch);
-              knownBlobs.add(digest);
-              if (cachedBlobs.size < 128) cachedBlobs.set(digest, part);
-            }
-          }
-          entries.push([table, id, hashes]);
-        }
+        for (const [id, row] of rows) records.push([table, id, row]);
       }
+      await transfer(records, async ([table, id, row], index) => {
+        const text = canonical(row);
+        total += text.length;
+        if (total > MAX_DOCUMENT) throw new Error("El contenido excede el límite de sincronización. Todo sigue guardado localmente.");
+        const hashes = [];
+        for (const part of splitText(text)) {
+          const digest = await hash(part);
+          hashes.push(digest);
+          await putBlob(digest, part, auth);
+        }
+        entries[index] = [table, id, hashes];
+      }, progress);
       const manifest = validateManifest({ schema: 1, entries });
       const result = await request("/rest/v1/rpc/activecard_commit", { method: "POST", body: { p_manifest: manifest, p_expected_revision: revision, p_change_id: uuid() }, access: auth.access });
       check(auth.epoch);

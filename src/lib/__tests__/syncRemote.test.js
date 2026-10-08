@@ -124,3 +124,72 @@ test("partir texto conserva emojis completos y rechaza rutas/manifiestos malicio
   expect(() => validateManifest({ schema: 1, entries: [["cards", "id", ["../../secreto"]]] })).toThrow();
   expect(() => validateManifest({ schema: 1, entries: [], settings: {} })).toThrow();
 });
+
+test("descarga hasta cuatro filas juntas, conserva el documento y muestra avance", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const doc = emptyDocument();
+  for (let i = 0; i < 9; i++) doc.folders[`folder-${i}`] = { name: `Carpeta ${i}`, created_at: "2026-10-07T15:00:00Z" };
+  await test.remote.commit(doc, 0);
+  const serve = test.fetcher.getMockImplementation();
+  let active = 0, maximum = 0;
+  test.fetcher.mockImplementation(async (url, options) => {
+    if (!url.includes("/object/authenticated/")) return serve(url, options);
+    active++; maximum = Math.max(maximum, active);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    active--;
+    return serve(url, options);
+  });
+  const second = createSyncRemote({ fetcher: test.fetcher, store: test.store, hash });
+  await second.login("correo", "contraseña");
+  const progress = jest.fn();
+  expect((await second.read(progress)).document).toEqual(doc);
+  expect(maximum).toBe(4);
+  expect(active).toBe(0);
+  expect(progress.mock.calls.map(([done]) => done)).toEqual(Array.from({ length: 11 }, (_, i) => i));
+  expect(progress).toHaveBeenLastCalledWith(10, 10);
+});
+
+test("subidas simultáneas reutilizan un mismo fragmento en vuelo sin duplicarlo", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const doc = emptyDocument();
+  for (let i = 0; i < 5; i++) doc.folders[`folder-${i}`] = { name: "Mismo contenido", created_at: "2026-10-07T15:00:00Z" };
+  const serve = test.fetcher.getMockImplementation();
+  test.fetcher.mockImplementation(async (url, options) => {
+    if (url.includes("/storage/") && options.method === "POST") await new Promise((resolve) => setTimeout(resolve, 5));
+    return serve(url, options);
+  });
+  await test.remote.commit(doc, 0);
+  expect(test.fetcher.mock.calls.filter(([url, request]) => url.includes("/storage/") && request.method === "POST")).toHaveLength(2);
+});
+
+test("un fetch que ignora AbortController libera el intento por timeout", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  jest.useFakeTimers();
+  try {
+    test.fetcher.mockImplementationOnce(() => new Promise(() => {}));
+    const reading = test.remote.read();
+    const result = expect(reading).rejects.toThrow("tardó demasiado");
+    await jest.advanceTimersByTimeAsync(25000);
+    await result;
+    expect(test.store.saveRefreshToken).toHaveBeenCalledTimes(1);
+  } finally { jest.useRealTimers(); }
+});
+
+test("si falla una transferencia espera las demás y no publica una biblioteca parcial", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const doc = emptyDocument();
+  for (let i = 0; i < 9; i++) doc.folders[`folder-${i}`] = { name: `Carpeta ${i}`, created_at: "2026-10-07T15:00:00Z" };
+  const serve = test.fetcher.getMockImplementation();
+  let active = 0, uploads = 0;
+  test.fetcher.mockImplementation(async (url, options) => {
+    if (!url.includes("/storage/") || options.method !== "POST") return serve(url, options);
+    const current = ++uploads; active++;
+    await new Promise((resolve) => setTimeout(resolve, current === 1 ? 1 : 10));
+    active--;
+    return current === 1 ? reply({}, 500) : serve(url, options);
+  });
+  await expect(test.remote.commit(doc, 0)).rejects.toThrow("No pudimos completar");
+  expect(active).toBe(0);
+  expect(uploads).toBe(4);
+  expect(test.fetcher.mock.calls.some(([url]) => url.endsWith("/activecard_commit"))).toBe(false);
+});
