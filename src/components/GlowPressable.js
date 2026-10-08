@@ -24,10 +24,14 @@ export default function GlowPressable({
   halo = glow.halo,
   disabled,
   active = false,
+  accessibilityRole,
+  accessibilityLabel,
   children,
 }) {
   return (
     <Pressable
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled}

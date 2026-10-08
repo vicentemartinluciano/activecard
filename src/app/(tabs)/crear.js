@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
 import GlowPressable from "../../components/GlowPressable";
@@ -19,6 +19,12 @@ const OPTIONS = [
   { key: "mazo", emoji: "✏️", title: "Nuevo Mazo Manual", description: 'Armá un mazo y escribí sus tarjetas con el editor.' },
   { key: "carpeta", emoji: "📁", title: "Crear Nueva Carpeta", description: 'Agrupá tus mazos por materia, tema o proyecto.' },
 ];
+
+function CreationArea({ children }) {
+  return Platform.OS === 'web'
+    ? <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>{children}</ScrollView>
+    : <View style={{ flex: 1 }}>{children}</View>;
+}
 
 // Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
 export default function Crear() {
@@ -45,6 +51,7 @@ export default function Crear() {
   return (
     <SectionSwipe index={1}>
     <Screen safeTop style={Platform.OS === 'web' ? { padding: 32 } : undefined}>
+      <CreationArea>
       <View style={{ flex: 1, justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center', paddingTop: Platform.OS === 'web' ? 20 : 0 }}>
       <Text style={[type.title, { textAlign: Platform.OS === 'web' ? 'left' : 'center', marginBottom: spacing.lg, ...(Platform.OS === 'web' ? { fontSize: 32 } : {}) }]}>
         ¿Qué querés crear hoy?
@@ -57,6 +64,8 @@ export default function Crear() {
         <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 300 } : undefined}>
         {OPTIONS.map((opt) => (
           <GlowPressable
+            accessibilityRole="button"
+            accessibilityLabel={opt.title}
             key={opt.key}
             onPress={() => handlePress(opt.key)}
             style={styles.row}
@@ -78,6 +87,7 @@ export default function Crear() {
         </Stagger>
       </View>
       </View>
+      </CreationArea>
 
       <ActionSheet
         visible={createStep !== null}
