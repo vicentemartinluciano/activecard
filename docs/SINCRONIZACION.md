@@ -7,14 +7,21 @@ REANCLA y el mismo correo/contraseña; ActiveCard tiene tablas, archivos y sesio
 propios. La migración remota se ejecutó el 7 de octubre con confirmación de Martín:
 cuenta única, RLS, bucket privado y privilegios de las RPC verificados en el proyecto
 real. Las políticas de Storage solo habilitan lectura e inserción para el dueño;
-no hay políticas adicionales que amplíen ese acceso. Todavía no se subieron datos.
+no hay políticas adicionales que amplíen ese acceso. La primera publicación de la
+biblioteca todavía no se completó; hay fragmentos subidos por el intento Android.
 El APK 1.6.0 terminó de compilar y Martín confirmó su instalación: abre y conserva
-sus mazos y tarjetas. Incluye SecureStore y Crypto. El login real y la prueba entre
-dispositivos siguen pendientes; este resultado no acredita la sincronización.
+sus mazos y tarjetas. Incluye SecureStore y Crypto. El login Android accedió a la
+cuenta; la primera subida y la prueba entre dispositivos siguen pendientes.
 
 Build EAS `d985993f-0dfd-40fb-a351-2cb8843550af`, desde el commit
 `7219aa1fcfa84a6a0d50c4c6b3fd03501136cc35`, con CI y publicación web exitosos.
 SHA-256 del APK: `587985580d6a33816f1253ad3f769aa1c9fb4235048541e2be89e0fc8f1e7c2d`.
+El primer login Android accedió a la cuenta, pero la subida se detuvo con HTTP 400
+por un objeto ya existente (`idx_objects_current_version`, SQLSTATE 23505 en los
+registros reales). El cliente ahora reconoce los duplicados legacy de Storage y
+verifica el SHA-256 del objeto antes de reutilizarlo; no habilita sobrescritura ni
+amplía permisos. Esta corrección requiere publicar una OTA compatible con 1.6.0
+y repetir la prueba física antes de declarar operativa la sincronización.
 
 La web de escritorio ya se publicó en GitHub Pages. Para el APK nuevo se eliminaron
 los fallbacks de claves públicas del build: OpenAI y Notion se ingresan en Ajustes
