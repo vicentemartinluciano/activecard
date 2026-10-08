@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import ErrorBoundary from "../components/ErrorBoundary";
 import DesktopShell from "../components/DesktopShell";
+import CloudSyncProvider from "../components/CloudSyncProvider";
 import { autoBackupIfDue } from "../lib/backupIO";
 import { initKeys } from "../lib/keys";
 import {
@@ -74,6 +75,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style="light" />
       <ErrorBoundary>
+      <CloudSyncProvider>
       <DesktopShell>
       <Stack
         screenOptions={{
@@ -87,6 +89,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
       </DesktopShell>
+      </CloudSyncProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );

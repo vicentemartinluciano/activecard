@@ -38,7 +38,7 @@ export async function listGymChats() {
   return db.getAllAsync(
     `SELECT gc.*, c.front AS origin_front, d.name AS origin_deck_name,
             (SELECT text FROM gym_messages gm WHERE gm.chat_id = gc.id
-             ORDER BY gm.id DESC LIMIT 1) AS last_message
+             ORDER BY gm.created_at DESC, gm.id DESC LIMIT 1) AS last_message
      FROM gym_chats gc
      LEFT JOIN cards c ON c.id = gc.origin_card_id
      LEFT JOIN decks d ON d.id = c.deck_id

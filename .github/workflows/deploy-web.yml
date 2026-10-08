@@ -37,6 +37,8 @@ jobs:
         run: npm ci
 
       - name: Exportar la app como sitio estático
+        env:
+          EXPO_NO_DOTENV: "1"
         run: npx expo export -p web
 
       - name: Fallback de SPA para rutas profundas (GitHub Pages no tiene rewrites)

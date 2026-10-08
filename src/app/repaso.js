@@ -11,6 +11,7 @@ import ProgressBar from "../components/ProgressBar";
 import Skeleton from "../components/Skeleton";
 import SwipeCard from "../components/SwipeCard";
 import useStudyKeyboard from "../components/useStudyKeyboard";
+import { useSyncRefresh } from "../components/useSyncRefresh";
 import { Button, EmptyState, Pill, Screen } from "../components/ui";
 import { getCard, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../db/cards";
 import { getDailyQueue } from "../db/reviewQueue";
@@ -58,6 +59,8 @@ export default function Repaso() {
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
   // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
   const pendingEditIdRef = useRef(null);
+  const [syncReload, setSyncReload] = useState(0);
+  useSyncRefresh(useCallback(() => { setStatus("loading"); setSyncReload((value) => value + 1); }, []));
 
   const startRound = useCallback((cards) => {
     setRound(cards);
@@ -81,7 +84,7 @@ export default function Repaso() {
     return () => {
       alive = false;
     };
-  }, [startRound]);
+  }, [startRound, syncReload]);
 
   const next = () => {
     setPhase("card");

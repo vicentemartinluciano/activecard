@@ -10,6 +10,7 @@ import ProgressBar from "../../../components/ProgressBar";
 import Skeleton from "../../../components/Skeleton";
 import SwipeCard from "../../../components/SwipeCard";
 import useStudyKeyboard from "../../../components/useStudyKeyboard";
+import { useSyncRefresh } from "../../../components/useSyncRefresh";
 import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
 import { getCard, listCardsByDeck, reviewCard, setCardStarred, snapshotFsrs, undoReview } from "../../../db/cards";
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
@@ -68,6 +69,8 @@ export default function Estudiar() {
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
   // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
   const pendingEditIdRef = useRef(null);
+  const [syncReload, setSyncReload] = useState(0);
+  useSyncRefresh(useCallback(() => { setStatus("loading"); setSyncReload((value) => value + 1); }, []));
 
   // keepOrder: respeta el orden manual (position) en vez de barajar.
   const startRound = useCallback((cards, keepOrder = false) => {
@@ -116,7 +119,7 @@ export default function Estudiar() {
     return () => {
       alive = false;
     };
-  }, [deckId, startRound, starsOnly, inMyOrder, esDebiles]);
+  }, [deckId, startRound, starsOnly, inMyOrder, esDebiles, syncReload]);
 
   const grade = async (rating) => {
     const card = round[index];

@@ -60,6 +60,8 @@ un dispositivo pise al otro y copias recuperables de ambas alternativas antes de
 resolver conflictos. La integración de FSRS debe mantener coherentes sus estados y
 su historial; no basta con unir registros y elegir una programación al azar.
 
+La implementación de cuenta y sync está documentada en `SINCRONIZACION.md`.
+
 La adaptación visual no demuestra que la cuenta o la sincronización estén operativas.
 Su cierre requiere migración remota, permisos verificados, inicio de sesión en ambos
 dispositivos, Android → web → Android, recuperación offline y conflictos reales.
@@ -78,6 +80,6 @@ un recuerdo ponderado de 50%. Se verificaron gráficos en columnas a 1280 px y e
 contenido de progreso/editor a 736 y 320 px sin desbordamiento horizontal. No hubo
 errores de consola en estas interacciones.
 
-La suite local pasó 350 tests en 36 suites. Expo Doctor offline pasó 21/21 controles;
+La suite local pasó 372 tests en 40 suites. Expo Doctor offline pasó 21/21 controles;
 ESLint con cero warnings y los exports web/Android pasaron. La exportación Android
 no acredita una prueba física sobre el Galaxy A15.

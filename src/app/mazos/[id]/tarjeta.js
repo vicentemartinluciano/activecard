@@ -12,6 +12,7 @@ import {
 import Collapsible from "../../../components/Collapsible";
 import { useDesktopBeforeNavigate } from "../../../components/DesktopShell";
 import NotionField from "../../../components/NotionField";
+import { useSyncRefresh } from "../../../components/useSyncRefresh";
 import Toast from "../../../components/Toast";
 import { Button, Chip, confirmAsync, Pill, Screen } from "../../../components/ui";
 import {
@@ -61,6 +62,8 @@ export default function EditorTarjeta() {
   const [decks, setDecks] = useState([]);
   const [recentReviews, setRecentReviews] = useState([]);
   const [error, setError] = useState("");
+  const [syncReload, setSyncReload] = useState(0);
+  useSyncRefresh(useCallback(() => setSyncReload((value) => value + 1), []));
   const dirty = front !== (existing?.front || '') || back !== (existing?.back || '');
   useFocusEffect(useCallback(() => { allowNavigation.current = false; }, []));
 
@@ -71,7 +74,7 @@ export default function EditorTarjeta() {
     savingNavigation.current = true;
     try {
       if (existing) {
-        await updateCardText(existing.id, front, back, { markReviewed: true });
+        await updateCardText(existing.id, front, back, { markReviewed: true, expected: existing });
         setExisting({ ...existing, front, back });
       } else {
         const createdId = await createCard({ deckId, front, back, source: 'manual' });
@@ -103,13 +106,16 @@ export default function EditorTarjeta() {
 
   useEffect(() => {
     let alive = true;
+    if (syncReload > 0 && dirty) { setError("La biblioteca se actualizó. Conservamos tu edición; revisá la tarjeta antes de guardarla."); return; }
+    const targetId = cardId || (syncReload > 0 ? existing?.id : null);
     Promise.all([
-      cardId ? getCard(Number(cardId)) : Promise.resolve(null),
+      targetId ? getCard(Number(targetId)) : Promise.resolve(null),
       listDecks(),
-      cardId ? listRecentReviews(Number(cardId), 5) : Promise.resolve([]),
+      targetId ? listRecentReviews(Number(targetId), 5) : Promise.resolve([]),
     ])
       .then(([card, allDecks, reviews]) => {
         if (!alive) return;
+        if (targetId && !card) { setError("Esta tarjeta se eliminó en otro dispositivo. La copia anterior está en Recuperación."); return; }
         setDecks(allDecks);
         setRecentReviews(reviews);
         if (card) {
@@ -125,14 +131,16 @@ export default function EditorTarjeta() {
     return () => {
       alive = false;
     };
-  }, [cardId]);
+  // dirty se evalúa al recibir una nueva biblioteca; escribir no recarga el editor.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardId, syncReload]);
 
   const save = async () => {
     if (!front.trim() || !back.trim() || saving) return;
     setSaving(true);
     try {
       if (existing) {
-        await updateCardText(existing.id, front, back, { markReviewed: true });
+        await updateCardText(existing.id, front, back, { markReviewed: true, expected: existing });
       } else {
         await createCard({ deckId, front, back, source: "manual" });
       }
@@ -179,7 +187,7 @@ export default function EditorTarjeta() {
     }
     setSaving(true);
     try {
-      await updateCardText(existing.id, front, back, { markReviewed: true });
+      await updateCardText(existing.id, front, back, { markReviewed: true, expected: existing });
       await setCardDeck(existing.id, targetDeckId);
       allowNavigation.current = true;
       router.replace(`/mazos/${targetDeckId}`);

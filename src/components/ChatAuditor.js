@@ -1,6 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSyncHold, useSyncRefresh } from "./useSyncRefresh";
 import {
   ActivityIndicator,
   Keyboard,
@@ -240,6 +241,16 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   const [destructiveText, setDestructiveText] = useState("");
   const scrollRef = useRef(null);
   const saveTimer = useRef(null);
+  useSyncHold(busy);
+  useSyncRefresh(useCallback(() => {
+    if (!session?.id) return; // La nueva charla sin enviar conserva su borrador.
+    Promise.all([getGymChat(session.id), listGymMessages(session.id)]).then(([chat, rows]) => {
+      clearTimeout(saveTimer.current);
+      if (!chat) { setError("Esta conversación se eliminó en otro dispositivo. Tu texto sigue disponible."); setSession({ id: null, title: "Nueva charla", origin_card_id: null, draft_text: "" }); setMessages([]); return; }
+      setSession(chat); setMessages(rows); setInput(chat.draft_text || "");
+      setDestructiveMessage(null); setDestructiveText("");
+    }).catch(() => setError("No pudimos actualizar esta conversación."));
+  }, [session]));
 
   const hydrateAction = useCallback(async (turn) => {
     const action = turn.action;

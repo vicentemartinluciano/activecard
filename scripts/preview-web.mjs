@@ -21,8 +21,6 @@ http.createServer(async (request, response) => {
     const body = await readFile(file);
     response.writeHead(200, {
       'Content-Type': types[path.extname(file)] || 'application/octet-stream',
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'credentialless',
       'Cache-Control': 'no-store',
     });
     response.end(body);

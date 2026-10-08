@@ -62,5 +62,12 @@ jobs:
       - name: Tests de la lógica (Jest)
         run: npx jest --ci
 
+      - name: Sincronización en SQLite y Postgres reales
+        run: |
+          node scripts/verify-sync-sqlite.mjs
+          node scripts/verify-sync-sql.mjs
+
       - name: Export Android de control
+        env:
+          EXPO_NO_DOTENV: "1"
         run: npx expo export --platform android --clear

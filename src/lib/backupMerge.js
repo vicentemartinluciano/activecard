@@ -1,3 +1,4 @@
+import { withDbTransaction } from "../db/transactions";
 import { buildBackup, normalizeBackup } from "./backup";
 
 const cleanName = (value) => String(value || "").trim().toLocaleLowerCase("es");
@@ -135,6 +136,7 @@ export async function prepareAdditiveImport(db, incomingBackup) {
 }
 
 async function insertRow(db, table, row) {
+  row = without(row, "sync_id");
   const cols = Object.keys(row);
   const placeholders = cols.map(() => "?").join(", ");
   const result = await db.runAsync(
@@ -248,8 +250,7 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
   );
   const counts = { folders: 0, decks: 0, cards: 0, review_logs: 0, connections: 0, gym_chats: 0, gym_messages: 0 };
 
-  await db.execAsync("BEGIN");
-  try {
+  await withDbTransaction(db, async (db) => {
     for (const folder of incoming.folders) {
       if (!neededFolderIds.has(Number(folder.id))) continue;
       const newId = await insertRow(db, "folders", {
@@ -364,10 +365,6 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
       }
       currentChatKeys.add(key);
     }
-    await db.execAsync("COMMIT");
-  } catch (error) {
-    await db.execAsync("ROLLBACK");
-    throw error;
-  }
+  });
   return counts;
 }

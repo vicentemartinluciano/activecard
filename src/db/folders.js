@@ -1,3 +1,4 @@
+import { withDbTransaction } from "./transactions";
 // Repositorio de carpetas (API asíncrona). Una carpeta agrupa mazos:
 // cada mazo pertenece a 0 o 1 carpeta (decks.folder_id).
 
@@ -36,13 +37,8 @@ export async function renameFolder(id, name) {
 // transacción para que no queden mazos apuntando a una carpeta inexistente.
 export async function deleteFolder(id) {
   const db = await getDb();
-  await db.execAsync("BEGIN");
-  try {
+  await withDbTransaction(db, async (db) => {
     await db.runAsync("UPDATE decks SET folder_id = NULL WHERE folder_id = ?", [id]);
     await db.runAsync("DELETE FROM folders WHERE id = ?", [id]);
-    await db.execAsync("COMMIT");
-  } catch (e) {
-    await db.execAsync("ROLLBACK");
-    throw e;
-  }
+  });
 }

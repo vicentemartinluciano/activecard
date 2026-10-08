@@ -1,3 +1,4 @@
+import { withDbConnection, withDbTransaction } from "../db/transactions";
 // Respaldo manual de datos (export/import): JSON con todo el contenido del
 // usuario (mazos, tarjetas, conexiones). NO incluye `settings` — ahí viven
 // las claves de API, que no deben viajar en un archivo que se comparte.
@@ -5,7 +6,7 @@
 export const BACKUP_APP = "activecard";
 // v2 agrega la tabla folders. Los respaldos v1 (sin folders) siguen siendo
 // restaurables: se normalizan a folders vacío.
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 
 // folders primero: aunque folder_id no tiene FK real, insertar padres antes
 // que hijos es la convención del restore.
@@ -91,6 +92,7 @@ function filterMessageSources(rows, sourceKeys) {
 }
 
 export async function buildBackup(db, now = new Date(), { sourceKeys } = {}) {
+  return withDbConnection(db, async (db) => {
   const data = {};
   for (const table of TABLES) {
     data[table] = await db.getAllAsync(`SELECT * FROM ${table}`);
@@ -102,6 +104,7 @@ export async function buildBackup(db, now = new Date(), { sourceKeys } = {}) {
     exportedAt: now.toISOString(),
     ...data,
   };
+  });
 }
 
 export function validateBackup(backup) {
@@ -111,7 +114,7 @@ export function validateBackup(backup) {
   if (backup.app !== BACKUP_APP) {
     throw new Error("Este archivo no es un respaldo de ActiveCard.");
   }
-  if (![1, 2, BACKUP_VERSION].includes(backup.version)) {
+  if (![1, 2, 3, BACKUP_VERSION].includes(backup.version)) {
     throw new Error(`Versión de respaldo no soportada (${backup.version}).`);
   }
   for (const table of TABLES) {
@@ -139,26 +142,22 @@ export function normalizeBackup(backup) {
 export async function restoreBackup(db, backup) {
   const data = normalizeBackup(backup);
 
-  await db.execAsync("BEGIN");
-  try {
+  await withDbTransaction(db, async (db) => {
     for (const table of DELETE_ORDER) {
       await db.execAsync(`DELETE FROM ${table}`);
     }
     for (const table of TABLES) {
       for (const row of data[table]) {
-        const cols = Object.keys(row);
+        const restored = table === "deck_tags" || row.sync_id ? row : { ...row, sync_id: `legacy:${table}:${row.id}:${row.reviewed_at || row.created_at || row.name}` };
+        const cols = Object.keys(restored);
         const placeholders = cols.map(() => "?").join(", ");
         await db.runAsync(
           `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders})`,
-          cols.map((c) => row[c])
+          cols.map((c) => restored[c])
         );
       }
     }
-    await db.execAsync("COMMIT");
-  } catch (e) {
-    await db.execAsync("ROLLBACK");
-    throw e;
-  }
+  });
 
   const counts = {};
   for (const table of TABLES) counts[table] = data[table].length;

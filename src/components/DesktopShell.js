@@ -8,6 +8,7 @@ import { listFolders } from '../db/folders';
 import { DESKTOP_INDEX_WIDTH, DESKTOP_RAIL_WIDTH, desktopSection, hasLibraryIndex, libraryTree } from '../lib/desktopLayout';
 import { colors, font } from '../theme';
 import { Field } from './ui';
+import { useCloudSync } from './CloudSyncProvider';
 
 const sections = [
   ['inicio', 'Inicio', 'home', '/'],
@@ -25,23 +26,26 @@ export function useDesktopBeforeNavigate(save) {
   useFocusEffect(useCallback(() => register?.(save), [register, save]));
 }
 
-function RailButton({ label, icon, active, onPress }) {
+function RailButton({ label, icon, active, onPress, pending = false }) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
   return <View style={styles.railItem}>
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }}
+      accessibilityHint={pending ? 'Hay cambios de otro dispositivo para incorporar en Ajustes' : undefined}
       onPress={onPress} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
       onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}
       style={({ pressed }) => [styles.railButton, { backgroundColor: hovered || pressed ? colors.surfaceHigh : 'transparent', borderBottomColor: focused ? colors.accentText : 'transparent' }]}>
       <Feather pointerEvents="none" name={icon} size={20} color={active ? colors.accentText : colors.textMuted} />
+      {pending && <View pointerEvents="none" style={{ position: 'absolute', right: 6, top: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentText }} />}
     </Pressable>
-    {(hovered || focused) && <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{label}</Text></View>}
+    {(hovered || focused) && <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{pending ? `${label} · incorporar cambios` : label}</Text></View>}
   </View>;
 }
 
 function DesktopWorkspace({ children }) {
   const router = useRouter();
   const path = usePathname();
+  const syncStatus = useCloudSync()?.status;
   const { width } = useWindowDimensions();
   const [pinned, setPinned] = useState(true);
   const [preview, setPreview] = useState(false);
@@ -113,7 +117,7 @@ function DesktopWorkspace({ children }) {
     <View style={styles.rail}>
       <Text accessibilityLabel="ActiveCard" style={styles.brand}>A</Text>
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
-      <RailButton label="Ajustes" icon="settings" active={section === 'ajustes'} onPress={() => open('/ajustes')} />
+      <RailButton label="Ajustes" icon="settings" active={section === 'ajustes'} pending={syncStatus?.pending} onPress={() => open('/ajustes')} />
     </View>
     <View style={{ width: library && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30 }}>
       {library && <View dataSet={{ libraryIndex: 'true' }} testID="desktop-library-index"

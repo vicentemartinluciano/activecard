@@ -1,9 +1,10 @@
+import { withDbTransaction } from "./transactions";
 // Repositorio de tarjetas: CRUD + estado FSRS + registro de repasos (async).
 
 import { newCardState, rate } from "../lib/scheduler";
 import { getDb } from "./client";
 
-const FSRS_COLS = [
+export const FSRS_COLS = [
   "due",
   "stability",
   "difficulty",
@@ -48,8 +49,9 @@ export async function createCard({ deckId, front, back, source = "manual", origi
   return res.lastInsertRowId;
 }
 
-export async function updateCardText(id, front, back, { markReviewed = false } = {}) {
+export async function updateCardText(id, front, back, { markReviewed = false, expected = null } = {}) {
   const db = await getDb();
+  const write = async (db) => {
   if (markReviewed) {
     await db.runAsync(
       `UPDATE cards SET front = ?, back = ?,
@@ -64,6 +66,13 @@ export async function updateCardText(id, front, back, { markReviewed = false } =
       id,
     ]);
   }
+  };
+  if (!expected) return write(db);
+  return withDbTransaction(db, async (tx) => {
+    const current = await tx.getFirstAsync("SELECT front, back FROM cards WHERE id = ?", [id]);
+    if (!current || current.front !== expected.front || current.back !== expected.back) throw new Error("La tarjeta cambió en otro dispositivo. Conservá tu edición y volvé a cargar la tarjeta antes de guardarla.");
+    return write(tx);
+  });
 }
 
 export async function deleteCard(id) {
@@ -143,8 +152,7 @@ export async function listRecentReviews(cardId, limit = 5) {
 // Persiste el orden manual: position = índice + 1 según orderedIds.
 export async function setCardPositions(deckId, orderedIds) {
   const db = await getDb();
-  await db.execAsync("BEGIN");
-  try {
+  await withDbTransaction(db, async (db) => {
     for (let i = 0; i < orderedIds.length; i++) {
       await db.runAsync("UPDATE cards SET position = ? WHERE id = ? AND deck_id = ?", [
         i + 1,
@@ -152,11 +160,7 @@ export async function setCardPositions(deckId, orderedIds) {
         deckId,
       ]);
     }
-    await db.execAsync("COMMIT");
-  } catch (e) {
-    await db.execAsync("ROLLBACK");
-    throw e;
-  }
+  });
 }
 
 export async function listAllCards() {
@@ -249,7 +253,7 @@ export async function listRetryTodayIds(sinceIso) {
   const rows = await db.getAllAsync(
     `SELECT card_id FROM review_logs rl
      WHERE rl.reviewed_at >= ? AND rl.rating = 'again'
-       AND rl.id = (SELECT MAX(id) FROM review_logs WHERE card_id = rl.card_id AND reviewed_at >= ?)`,
+       AND rl.id = (SELECT id FROM review_logs WHERE card_id = rl.card_id AND reviewed_at >= ? ORDER BY reviewed_at DESC, id DESC LIMIT 1)`,
     [sinceIso, sinceIso]
   );
   return rows.map((r) => r.card_id);
@@ -264,20 +268,22 @@ export async function countDueCards(limitIso) {
   return row ? row.n : 0;
 }
 
-// Califica una tarjeta ('good' | 'again'), persiste el nuevo estado FSRS
+// Califica una tarjeta ('good' | 'hard' | 'again'), persiste el nuevo estado FSRS
 // y deja registro en review_logs. mode: 'daily' | 'quizlet'.
 export async function reviewCard(card, rating, mode, now = new Date()) {
   const db = await getDb();
   const next = rate(card, rating, now);
-  await db.runAsync(
-    `UPDATE cards SET ${FSRS_COLS.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`,
-    [...FSRS_COLS.map((c) => next[c]), card.id]
-  );
-  const logRes = await db.runAsync(
-    "INSERT INTO review_logs (card_id, rating, mode, reviewed_at) VALUES (?, ?, ?, ?)",
-    [card.id, rating, mode, now.toISOString()]
-  );
-  return { ...card, ...next, logId: logRes.lastInsertRowId };
+  return withDbTransaction(db, async (db) => {
+    await db.runAsync(
+      `UPDATE cards SET ${FSRS_COLS.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`,
+      [...FSRS_COLS.map((c) => next[c]), card.id]
+    );
+    const logRes = await db.runAsync(
+      "INSERT INTO review_logs (card_id, rating, mode, reviewed_at) VALUES (?, ?, ?, ?)",
+      [card.id, rating, mode, now.toISOString()]
+    );
+    return { ...card, ...next, logId: logRes.lastInsertRowId };
+  });
 }
 
 // Snapshot del estado FSRS de una tarjeta, para poder restaurarlo con undoReview.
@@ -290,9 +296,11 @@ export function snapshotFsrs(card) {
 // tarjetas híbridas NUNCA se tocan acá.
 export async function undoReview(cardId, prevFields, logId) {
   const db = await getDb();
-  await db.runAsync(
-    `UPDATE cards SET ${FSRS_COLS.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`,
-    [...FSRS_COLS.map((c) => prevFields[c]), cardId]
-  );
-  await db.runAsync("DELETE FROM review_logs WHERE id = ?", [logId]);
+  return withDbTransaction(db, async (db) => {
+    await db.runAsync(
+      `UPDATE cards SET ${FSRS_COLS.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`,
+      [...FSRS_COLS.map((c) => prevFields[c]), cardId]
+    );
+    await db.runAsync("DELETE FROM review_logs WHERE id = ?", [logId]);
+  });
 }
