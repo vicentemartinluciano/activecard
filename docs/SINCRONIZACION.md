@@ -20,8 +20,18 @@ El primer login Android accedió a la cuenta, pero la subida se detuvo con HTTP 
 por un objeto ya existente (`idx_objects_current_version`, SQLSTATE 23505 en los
 registros reales). El cliente ahora reconoce los duplicados legacy de Storage y
 verifica el SHA-256 del objeto antes de reutilizarlo; no habilita sobrescritura ni
-amplía permisos. Esta corrección requiere publicar una OTA compatible con 1.6.0
-y repetir la prueba física antes de declarar operativa la sincronización.
+amplía permisos. La corrección se publicó el 8 de octubre en `preview`, Android,
+runtime 1.6.0: grupo `48fb5383-43c1-490e-a834-4c6e56289208`, update
+`01a1199d-8bcd-7671-8abd-c04a82ba08ae`, commit
+`add80281f0773b300c6f991069017ea1bfdf88ae`. CI `37723671903` y Deploy web
+`37723671955` terminaron bien; 386 tests en 41 suites, lint y verificaciones
+SQLite/Postgres aprobados. Publicación OTA confirmada; instalación de la OTA y
+primera subida corregida en el teléfono todavía pendientes. No declarar operativa
+la sincronización hasta completar las pruebas entre dispositivos.
+
+Para recibir la corrección, abrir ActiveCard con internet, esperar la descarga y
+volver a abrirla. En Ajustes tocar Sincronizar ahora y esperar «Al día» antes de
+conectar la web con la misma cuenta. El contenido local se conserva.
 
 La web de escritorio ya se publicó en GitHub Pages. Para el APK nuevo se eliminaron
 los fallbacks de claves públicas del build: OpenAI y Notion se ingresan en Ajustes
