@@ -117,7 +117,7 @@ locks transitorios de OPFS y una promesa rechazada nunca queda cacheada.
 
 ## SQLite
 
-Migraciones append-only en `db/schema.js`. Esquema actual: v8. Agrega `sync_id`, `sync_state` y `sync_recovery` sin modificar migraciones anteriores.
+Migraciones append-only en `db/schema.js`. Esquema actual: v9. v8 agrega `sync_id`, `sync_state` y `sync_recovery`; v9 lleva exclusivamente los límites diarios a `study_preferences`, conservando los valores locales anteriores. No modifica migraciones anteriores.
 
 ### Tablas
 
@@ -166,6 +166,13 @@ metadata guarda adjuntos y acciones propuestas/aplicadas.
 #### `settings`
 
 Preferencias y secretos locales. No forma parte del respaldo.
+
+#### `study_preferences`
+
+Una única fila `dailyLimits` comparte los máximos diarios de repasos y nuevas tarjetas.
+La migración v9 conserva los valores de `settings.dailyLimits`; la API de configuración
+redirige esa clave a la tabla compartida. El resto de `settings` sigue local. Solo las
+copias internas de sincronización incluyen esta fila; el respaldo manual v4 no cambia.
 
 #### `priorities`
 

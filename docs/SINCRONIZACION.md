@@ -10,10 +10,15 @@ real. Las políticas de Storage solo habilitan lectura e inserción para el due�
 no hay políticas adicionales que amplíen ese acceso. El 8 de octubre se verificó la
 primera publicación remota: revisión 1, 209 registros, 101 tarjetas, 4 mazos, 3 carpetas
 y 93 repasos. La web conectada llegó a «Al día» durante el diagnóstico de una espera
-larga en sincronización. No se verificó todavía el ciclo Android → web → Android.
+larga en sincronización. Más tarde se inspeccionó el Galaxy A15 conectado: cuenta
+conectada, «Al día» y biblioteca conservada. Un mazo vacío creado en la web apareció
+en Android; su renombrado en Android llegó a la web al incorporar cambios en Ajustes.
+El respaldo web del diagnóstico contiene 8 mazos, 159 tarjetas, 134 repasos,
+3 conversaciones y 7 mensajes. Esto comprueba transferencia de mazos en ambos sentidos;
+las pruebas de repaso offline y conflictos concurrentes reales siguen pendientes.
 El APK 1.6.0 incluye SecureStore y Crypto. Martín primero confirmó que abría con sus
 datos, pero luego lo desinstaló/reinstaló y perdió la clave local de OpenAI. La
-conservación/recuperación actual de la biblioteca Android requiere su confirmación.
+conservación actual de la biblioteca se comprobó en el teléfono conectado.
 
 Build EAS `d985993f-0dfd-40fb-a351-2cb8843550af`, desde el commit
 `7219aa1fcfa84a6a0d50c4c6b3fd03501136cc35`, con CI y publicación web exitosos.
@@ -37,7 +42,15 @@ runtime 1.6.0, grupo `286633cf-98fb-4f90-b463-7b217e9249ca`, update
 `d37a292c0bd5ea8f2991215235eb4b3c0c6e6e9d` (PR #7). CI `37763806423` y
 Deploy web `37763806582` exitosos; 391 pruebas en 41 suites. El endpoint de EAS
 entregó HTTP 200 con ese ID/runtime/grupo y el hash del bundle Android local.
-Publicación y disponibilidad verificadas; recepción en el teléfono pendiente.
+Publicación y disponibilidad verificadas; el teléfono mostró las fases y el avance de
+descarga incorporados por esa actualización durante la prueba del 8 de octubre.
+
+La tarjeta «La teoría de juegos» conserva «Creo que» en ambos dispositivos. Un mensaje
+del Gimnasio de las 14:31 figura aplicado y contiene la explicación propuesta; existe
+una copia de conflicto de las 14:37 en Android. Conservar esa alternativa permite
+recuperar solo el texto sin reemplazar los otros datos. Los límites eran locales
+(100/50 en Android y 40/15 en web); Martín aprobó compartirlos. El RPC de preferencias
+se ejecutó correctamente el 8 de octubre, preservando políticas y permisos.
 
 Para recibir la corrección, abrir ActiveCard con internet, esperar la descarga y
 volver a abrirla. En Ajustes tocar Sincronizar ahora y esperar «Al día» antes de
@@ -57,7 +70,18 @@ sincronizan carpetas, mazos, etiquetas, tarjetas, imágenes inline, programació
 repasos, conexiones/ideas y conversaciones con mensajes, borradores persistidos y
 adjuntos. Una charla nueva sigue siendo efímera hasta el primer envío.
 
-`settings`, preferencias, claves OpenAI/Notion, contraseña y tokens no entran en el
+Los límites diarios de repasos y tarjetas nuevas se comparten en `study_preferences`,
+una única fila validada `dailyLimits`, por decisión de Martín el 8 de octubre.
+La migración SQLite v9 conserva los valores de cada dispositivo; su primer encuentro
+usa el mismo criterio de conflicto y recuperación que el resto de entidades.
+Los checkpoints anteriores se normalizan sin preferencias. Restaurar una copia vieja
+conserva los límites actuales; las nuevas copias internas sí contienen esos límites.
+El respaldo manual v4 continúa sin incluir configuración. La migración remota
+`202610080001_activecard_study_preferences.sql` agrega esa entidad al RPC existente,
+sin modificar dueño, políticas ni privilegios. Los clientes anteriores deben actualizarse
+antes de leer un manifiesto con preferencias; rechazan esa entidad y no sobrescriben la nube.
+
+`settings`, las demás preferencias, claves OpenAI/Notion, contraseña y tokens no entran en el
 documento, los respaldos ni las copias de recuperación. Solo el refresh token se
 guarda: SecureStore en Android; sessionStorage en web, o localStorage cuando el
 usuario elige Recordar sesión. La contraseña se limpia del formulario al finalizar.

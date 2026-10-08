@@ -5,7 +5,7 @@ import { build } from "esbuild";
 const require = createRequire(import.meta.url);
 const Module = require("node:module");
 const compiled = await build({
-  stdin: { contents: `export { migrate, MIGRATIONS } from './src/db/schema'; export { manageDatabase, withDbTransaction } from './src/db/transactions'; export { reviewCard } from './src/db/cards'; export { listGymChats } from './src/db/gymChats'; export { buildBackup, restoreBackup } from './src/lib/backup'; export * from './src/lib/syncLocal'; export * from './src/lib/syncDocument';`, resolveDir: process.cwd() },
+  stdin: { contents: `export { migrate, MIGRATIONS } from './src/db/schema'; export { getSetting, setSetting } from './src/db/settings'; export { manageDatabase, withDbTransaction } from './src/db/transactions'; export { reviewCard } from './src/db/cards'; export { listGymChats } from './src/db/gymChats'; export { buildBackup, restoreBackup } from './src/lib/backup'; export * from './src/lib/syncLocal'; export * from './src/lib/syncDocument';`, resolveDir: process.cwd() },
   bundle: true, write: false, platform: "node", format: "cjs",
   plugins: [{ name: "test-connection", setup(builder) {
     builder.onResolve({ filter: /(?:^|\/)client$/ }, () => ({ path: "connection", namespace: "test" }));
@@ -34,8 +34,12 @@ try {
   await raw.runAsync("INSERT INTO decks(id,name,created_at,folder_id) VALUES(1,'Mazo',?,1)", [now]);
   await raw.runAsync("INSERT INTO cards(id,deck_id,front,back,created_at,due) VALUES(1,1,'Pregunta','Respuesta',?,?)", [now, now]);
   await raw.runAsync("INSERT INTO settings(key,value) VALUES('openAIKey','NO-DEBE-SINCRONIZARSE')");
+  await raw.runAsync("INSERT INTO settings(key,value) VALUES('dailyLimits',?)", [JSON.stringify({ maxReviews: 100, maxNew: 50 })]);
   await api.migrate(raw);
+  assert.equal((await raw.getFirstAsync("PRAGMA user_version")).user_version, 9);
   const first = await api.readLocalSync(owner);
+  assert.deepEqual(first.document.study_preferences.dailyLimits, { max_reviews: 100, max_new: 50 });
+  assert.deepEqual(await api.getSetting("dailyLimits"), { maxReviews: 100, maxNew: 50 });
   assert.equal(first.document.cards[`legacy:cards:1:${now}`].front, "Pregunta");
   assert.equal(JSON.stringify(first.document).includes("NO-DEBE"), false);
   await globalThis.activecardTestDb.runAsync("INSERT INTO folders(name,created_at) VALUES('Nueva',?)", [now]);
@@ -43,6 +47,7 @@ try {
   assert.match(identity.sync_id, /^[a-f0-9]{32}$/);
   const local = await api.readLocalSync(owner);
   const cloud = structuredClone(local.document);
+  cloud.study_preferences.dailyLimits = { max_reviews: 80, max_new: 20 };
   const cardKey = Object.keys(cloud.cards)[0];
   cloud.cards[cardKey].front = "Pregunta desde Android";
   cloud.gym_chats.chat = { title: "Charla", draft_text: "Borrador", origin_card_id: cardKey, created_at: now, updated_at: now };
@@ -63,6 +68,11 @@ try {
   assert.deepEqual(after.document, cloud);
   assert.equal(await api.applyLocalSync(owner, local.document, cloud, cloud, []), false);
   await api.saveCheckpoint(owner, cloud, 1);
+  await api.setSetting("dailyLimits", { maxReviews: 80, maxNew: 25 });
+  assert.equal((await api.readLocalSync(owner)).clean, false);
+  assert.deepEqual(await api.getSetting("dailyLimits"), { maxReviews: 80, maxNew: 25 });
+  await assert.rejects(() => api.setSetting("dailyLimits", { maxReviews: 100, maxNew: 51 }), /no son válidos/);
+  await api.setSetting("dailyLimits", { maxReviews: 80, maxNew: 20 });
   await assert.rejects(() => api.readLocalSync("another-owner"), /otra cuenta/);
   const copies = await api.listRecoveries(owner);
   assert.equal(copies.length, 1);
@@ -71,7 +81,8 @@ try {
   assert.equal((await api.listRecoveries(owner)).length, 2);
   const backup = await api.buildBackup(raw);
   await api.restoreBackup(globalThis.activecardTestDb, backup);
-  assert.deepEqual((await api.readLocalSync(owner)).document, api.documentFromBackup(backup));
+  assert.equal(Object.hasOwn(backup, "study_preferences"), false);
+  assert.deepEqual((await api.readLocalSync(owner)).document, api.documentFromBackup({ ...backup, study_preferences: await raw.getAllAsync("SELECT * FROM study_preferences") }));
   const beforeReview = await raw.getFirstAsync("SELECT * FROM cards WHERE id=1");
   await raw.execAsync("CREATE TRIGGER fail_review BEFORE INSERT ON review_logs BEGIN SELECT RAISE(ABORT, 'fallo de registro'); END;");
   await assert.rejects(() => api.reviewCard(beforeReview, "hard", "daily", new Date(now)), /fallo de registro/);
@@ -82,5 +93,5 @@ try {
   await raw.runAsync("INSERT INTO gym_messages(id,chat_id,role,text,created_at) VALUES(2,1,'user','Anterior',?)", [now]);
   await raw.runAsync("INSERT INTO gym_messages(id,chat_id,role,text,created_at) VALUES(1,1,'assistant','Más reciente',?)", ["2026-10-07T16:00:00.000Z"]);
   assert.equal((await api.listGymChats())[0].last_message, "Más reciente");
-  console.log("OK: migración v7→v8, identidades, aislamiento de claves, relaciones, adjuntos, recuperación y respaldo v4 verificados en SQLite real.");
+  console.log("OK: migración v7→v9, límites conservados y compartidos, caché invalidada, identidades, claves locales, relaciones, recuperación y respaldo v4 en SQLite real.");
 } finally { sqlite.close(); delete globalThis.activecardTestDb; }

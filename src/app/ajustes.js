@@ -7,6 +7,7 @@ import AccountPanel from "../components/AccountPanel";
 import Collapsible from "../components/Collapsible";
 import PercentSlider from "../components/PercentSlider";
 import Stagger from "../components/Stagger";
+import { useSyncRefresh } from "../components/useSyncRefresh";
 import { Button, Card, confirmAsync, Field, Screen } from "../components/ui";
 import { listDecks, updateDeckPriority } from "../db/decks";
 import { DEFAULT_LIMITS, getDailyLimits } from "../db/reviewQueue";
@@ -70,6 +71,10 @@ export default function Ajustes() {
   }, [load]);
 
   useFocusEffect(refresh);
+  useSyncRefresh(useCallback(async () => {
+    setDecks(await listDecks());
+    setLimits(await getDailyLimits());
+  }, []));
 
   const changePriority = async (deckId, priority) => {
     await updateDeckPriority(deckId, priority);

@@ -21,6 +21,30 @@ test("rechaza tablas, columnas, relaciones y números fuera del contrato", () =>
   const number = clone(doc); number.cards.card.reps = Infinity;
   expect(() => validateDocument(number)).toThrow();
 });
+test("los límites diarios se combinan sin incluir claves ni configuración local", () => {
+  const base = document();
+  base.study_preferences.dailyLimits = { max_reviews: 40, max_new: 15 };
+  const local = clone(base); const remote = clone(base);
+  local.study_preferences.dailyLimits = { max_reviews: 100, max_new: 50 };
+  remote.cards.card.back = "Edición del Gimnasio";
+  const merged = mergeDocuments(base, local, remote);
+  expect(merged.conflicts).toEqual([]);
+  expect(merged.document.study_preferences).toEqual(local.study_preferences);
+  expect(merged.document.cards.card.back).toBe("Edición del Gimnasio");
+  remote.study_preferences.dailyLimits.max_new = 20;
+  expect(mergeDocuments(base, local, remote).conflicts).toEqual([JSON.stringify(["study_preferences", "dailyLimits"])]);
+  const invalid = clone(local); invalid.study_preferences.dailyLimits.max_new = 51;
+  expect(() => validateDocument(invalid)).toThrow();
+  invalid.study_preferences = { openAIKey: { max_reviews: 40, max_new: 15 } };
+  expect(() => validateDocument(invalid)).toThrow();
+});
+test("los checkpoints anteriores incorporan límites sin modificar los documentos originales", () => {
+  const legacy = document(); delete legacy.study_preferences;
+  const local = document(); local.study_preferences.dailyLimits = { max_reviews: 100, max_new: 50 };
+  const merged = mergeDocuments(legacy, local, legacy);
+  expect(merged.document.study_preferences).toEqual(local.study_preferences);
+  expect(legacy.study_preferences).toBeUndefined();
+});
 test("combina ediciones de entidades distintas y conserva eliminaciones", () => {
   const base = document(); const local = clone(base); const remote = clone(base);
   local.decks.deck.name = "Nombre PC"; remote.cards.card.front = "Pregunta Android";

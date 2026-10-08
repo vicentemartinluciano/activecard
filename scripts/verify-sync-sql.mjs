@@ -19,6 +19,7 @@ grant select,insert,update,delete on storage.objects to authenticated;
 grant usage on sequence storage.objects_id_seq to authenticated;
 insert into auth.users values('${owner}',now(),false);`);
 await db.exec(await readFile(new URL("../supabase/migrations/202610070001_activecard_private_sync.sql", import.meta.url), "utf8"));
+await db.exec(await readFile(new URL("../supabase/migrations/202610080001_activecard_study_preferences.sql", import.meta.url), "utf8"));
 await db.exec(`insert into auth.users values('${other}',now(),false);`);
 const identity = async (role, id = "") => {
   await db.exec(`reset role; set role ${role}`);
@@ -45,6 +46,9 @@ try {
   const change2 = "00000000-0000-4000-8000-000000000102";
   assert.deepEqual(await commit(manifest, 0, change2), { ok: false, revision: 1 });
   assert.deepEqual(await commit(manifest, 1, change2), { ok: true, revision: 2 });
+  await assert.rejects(() => commit({ schema: 1, entries: [["study_preferences", "openAIKey", [digest]]] }, 2), /Invalid preferences/);
+  const change3 = "00000000-0000-4000-8000-000000000103";
+  assert.deepEqual(await commit({ schema: 1, entries: [...manifest.entries, ["study_preferences", "dailyLimits", [digest]]] }, 2, change3), { ok: true, revision: 3 });
   await assert.rejects(() => db.query("update public.activecard_sync set revision = 99"), /permission denied/);
   await assert.rejects(() => commit({ ...manifest, settings: {} }, 2), /Invalid manifest/);
   await assert.rejects(() => commit({ schema: 1, entries: [...manifest.entries, ...manifest.entries] }, 2), /Duplicate entry/);

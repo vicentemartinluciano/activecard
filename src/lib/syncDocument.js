@@ -1,6 +1,7 @@
 import { FSRS_COLS } from "../db/cards";
 
 export const COLUMNS = {
+  study_preferences: ["max_reviews", "max_new"],
   folders: ["name", "created_at"],
   decks: ["name", "created_at", "priority", "icon", "folder_id"],
   tags: ["name"],
@@ -15,7 +16,7 @@ export const REFERENCES = {
   origin_card_id: "cards", hybrid_card_id: "cards", chat_id: "gym_chats",
 };
 const REQUIRED = new Set(["deck_id", "card_id", "chat_id"]);
-const NUMBERS = new Set([...FSRS_COLS.filter((c) => !["due", "last_review"].includes(c)), "priority", "position", "starred", "suspended"]);
+const NUMBERS = new Set([...FSRS_COLS.filter((c) => !["due", "last_review"].includes(c)), "priority", "position", "starred", "suspended", "max_reviews", "max_new"]);
 const NULLABLE = new Set(["folder_id", "origin_card_id", "hybrid_card_id", "last_review", "icon", "position", "transcript", "metadata"]);
 export const canonical = (value) => JSON.stringify(value, (_, item) => {
   if (item && typeof item === "object" && !Array.isArray(item)) return Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]));
@@ -74,6 +75,8 @@ export function documentFromBackup(backup) {
 }
 export function validateDocument(doc) {
   const fail = () => { throw new Error("El contenido de sincronización no es válido. Tus datos locales siguen conservados."); };
+  // Los checkpoints y copias anteriores no tenían preferencias compartidas.
+  if (doc && !Object.hasOwn(doc, "study_preferences")) doc = { ...doc, study_preferences: {} };
   if (!doc || doc.schema !== 1 || Object.keys(doc).sort().join() !== Object.keys(emptyDocument()).sort().join()) fail();
   for (const [table, columns] of Object.entries(COLUMNS)) {
     const rows = doc[table];
@@ -93,6 +96,7 @@ export function validateDocument(doc) {
         if (row[column] !== null && !Number.isFinite(Date.parse(row[column]))) fail();
       }
       if (table === "cards" && (!["manual", "ai", "hybrid"].includes(row.source) || ![0, 1].includes(row.starred) || ![0, 1].includes(row.suspended) || ![0, 1, 2, 3].includes(row.state))) fail();
+      if (table === "study_preferences" && (id !== "dailyLimits" || !Number.isInteger(row.max_reviews) || row.max_reviews > 100 || !Number.isInteger(row.max_new) || row.max_new > 50)) fail();
       if (table === "review_logs" && (!["again", "hard", "good"].includes(row.rating) || !["daily", "quizlet"].includes(row.mode))) fail();
       if (table === "gym_messages") {
         if (!["user", "assistant", "system"].includes(row.role)) fail();
@@ -122,7 +126,7 @@ function units(doc) {
   const messages = grouped(doc.gym_messages, "chat_id");
   const links = {};
   for (const link of doc.deck_tags) (links[link[0]] ||= []).push(link);
-  for (const table of ["folders", "decks", "tags", "cards", "gym_chats"]) {
+  for (const table of ["study_preferences", "folders", "decks", "tags", "cards", "gym_chats"]) {
     for (const [id, row] of Object.entries(doc[table])) {
       const unit = { row };
       if (table === "decks") unit.links = links[id] || [];
@@ -137,7 +141,7 @@ function units(doc) {
   return result;
 }
 export function mergeDocuments(base, local, remote) {
-  [base, local, remote].forEach(validateDocument);
+  [base, local, remote] = [base, local, remote].map(validateDocument);
   const [b, l, r] = [base, local, remote].map(units);
   const result = emptyDocument();
   const conflicts = [];

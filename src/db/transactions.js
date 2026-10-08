@@ -1,7 +1,7 @@
 // Todas las operaciones de una conexión administrada pasan por una misma cola.
 // El callback de una transacción recibe la conexión cruda, sin volver a encolarse.
 const managers = new WeakMap();
-const changesContent = (sql) => /\b(?:INSERT|UPDATE|DELETE|REPLACE|ALTER)\b/i.test(String(sql)) && /\b(?:folders|decks|tags|deck_tags|cards|review_logs|connections|gym_chats|gym_messages)\b/i.test(String(sql));
+const changesContent = (sql) => /\b(?:INSERT|UPDATE|DELETE|REPLACE|ALTER)\b/i.test(String(sql)) && /\b(?:folders|decks|tags|deck_tags|cards|review_logs|connections|gym_chats|gym_messages|study_preferences)\b/i.test(String(sql));
 export const getDatabaseRevision = (db) => managers.get(db)?.revision ?? null;
 export function withDbConnection(db, task) {
   const manager = managers.get(db);

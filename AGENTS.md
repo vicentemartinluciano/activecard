@@ -13,7 +13,7 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- APK vigente: 1.6.0 (SecureStore + Crypto). Tras confirmar que abría con sus datos, Martín la desinstaló y reinstaló el 8/10: perdió la clave local de OpenAI; conservación/recuperación actual en Android pendiente de confirmar. La nube tiene revisión 1 con 101 tarjetas, 4 mazos y 93 repasos; la web llegó a «Al día». Falta comprobar el ciclo entre dispositivos.
+- APK vigente: 1.6.0 (SecureStore + Crypto). Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El respaldo web contiene 8 mazos, 159 tarjetas y 134 repasos. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; no restaurar toda la biblioteca para recuperar una sola tarjeta. Límites diarios compartidos aprobados por Martín; verificar recepción de su nueva OTA.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
@@ -82,7 +82,7 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 ## Arquitectura crítica
 
 - SQLite usa exclusivamente la API async. Migraciones append-only en `db/schema.js`;
-  esquema actual v8 (identidades de sincronización y recuperación).
+  esquema actual v9 (identidades, recuperación y límites diarios compartidos en `study_preferences`). Las claves y el resto de `settings` siguen locales.
 - `FSRS_COLS` en `db/cards.js` es la fuente única del estado programado.
 - Las operaciones SQLite pasan por `transactions.js`; usar `withDbTransaction` para operaciones atómicas y su conexión de callback. No abrir BEGIN/COMMIT sobre la conexión administrada.
 - Fechas se guardan en UTC y se agrupan por día local en JavaScript.
