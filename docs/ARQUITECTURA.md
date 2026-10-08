@@ -288,6 +288,11 @@ En Android su proporción sale de `Image.onLoad`, no de `Image.getSize`.
 - `store: false`;
 - gateway opcional para Android.
 
+En modo JSON, el cliente agrega una instrucción `developer` explícita dentro de
+`input`. Responses valida la presencia de JSON en los mensajes; escribirlo solamente
+en `instructions` puede provocar un 400 antes de generar la respuesta. El historial y
+los adjuntos se conservan sin cambios.
+
 No existe abstracción multiproveedor. La decisión vigente es conservar un solo proveedor
 hasta que una necesidad comercial justifique gateway, routing y adaptadores.
 
