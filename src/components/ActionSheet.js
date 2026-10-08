@@ -7,7 +7,18 @@ import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View } from "re
 
 import { colors, radius, spacing, type } from "../theme";
 
-export default function ActionSheet({ visible, onClose, title, options = [], children }) {
+export default function ActionSheet({ visible, onClose, title, options = [], children, anchorRef }) {
+  const anchored = Platform.OS === 'web' && !!anchorRef;
+  const [anchor, setAnchor] = useState(null);
+  useEffect(() => {
+    if (!visible || !anchored) return;
+    const rect = anchorRef.current?.getBoundingClientRect?.();
+    if (rect) setAnchor({ left: Math.max(12, Math.min(rect.left, window.innerWidth - 292)), bottom: Math.max(12, window.innerHeight - rect.top + 8) });
+    const dismiss = (event) => { if (event.type === 'resize' || event.key === 'Escape') onClose(); };
+    window.addEventListener('resize', dismiss);
+    window.addEventListener('keydown', dismiss);
+    return () => { window.removeEventListener('resize', dismiss); window.removeEventListener('keydown', dismiss); };
+  }, [visible, anchored, anchorRef, onClose]);
   // El Modal de Android no se ajusta al teclado (adjustResize no aplica dentro
   // de Modals): subimos el sheet a mano con la altura reportada del teclado.
   // En web los listeners no disparan y kbHeight queda 0 — inofensivo.
@@ -35,12 +46,13 @@ export default function ActionSheet({ visible, onClose, title, options = [], chi
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { marginBottom: kbHeight }]} onPress={() => {}}>
-          <View style={styles.handle} />
-          {title ? <Text style={styles.title}>{title}</Text> : null}
+      <Pressable style={[styles.backdrop, anchored && { backgroundColor: 'transparent', padding: 0 }]} onPress={onClose}>
+        <Pressable accessibilityRole={anchored ? 'menu' : undefined} style={[styles.sheet, { marginBottom: kbHeight }, anchored && { position: 'absolute', width: 280, padding: 16, borderRadius: 16, backgroundColor: '#111217', boxShadow: '0 8px 28px rgba(0,0,0,0.45)', ...anchor }]} onPress={() => {}}>
+          {!anchored && <View style={styles.handle} />}
+          {title ? <Text style={[styles.title, anchored && { fontSize: 13, color: colors.textMuted, marginBottom: 4 }]}>{title}</Text> : null}
           {options.map((opt) => (
             <Pressable
+              accessibilityRole={anchored ? 'menuitem' : 'button'}
               key={opt.label}
               style={({ pressed }) => [styles.option, pressed && { opacity: 0.7 }]}
               onPress={() => {

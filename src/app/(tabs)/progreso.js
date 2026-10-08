@@ -114,7 +114,7 @@ export default function Progreso() {
 
   return (
     <SectionSwipe index={3}>
-      <Screen safeTop>
+      <Screen safeTop style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 32 } : undefined}>
         <View style={styles.appbar}>
           <Text style={styles.titulo}>Progreso</Text>
           <Pill label="Últimos 3 meses" />
@@ -177,7 +177,7 @@ export default function Progreso() {
                       <RecallScoreChart series={serie} anchoBase={metricWidth} />
                     </View>
 
-                    <View style={[styles.pagina, { width: metricWidth }]}>
+                    <View style={[styles.pagina, { width: metricWidth }, Platform.OS === 'web' && { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 24 }]}>
                       <View style={styles.rowHead}>
                         <Text style={type.label}>Constancia</Text>
                         {racha && racha.days > 0 ? (

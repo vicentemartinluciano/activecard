@@ -118,12 +118,12 @@ export default function RecallScoreChart({ series = [], anchoBase = 0 }) {
 
   if (!latest) {
     return (
-      <EmptyState
+      <View style={Platform.OS === 'web' ? { width: '100%', minHeight: PLOT_H, justifyContent: 'center' } : undefined}><EmptyState
         icon="activity"
         text={
           "Tus repasos van a dibujar esta curva.\nCada semana vas a poder ver cómo evoluciona tu puntaje de recuerdo."
         }
-      />
+      /></View>
     );
   }
 

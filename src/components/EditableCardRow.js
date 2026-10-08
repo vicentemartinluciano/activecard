@@ -10,7 +10,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import NotionField from "./NotionField";
 import RichText from "./RichText";
@@ -106,12 +106,14 @@ export default memo(EditableCardRow);
 
 const styles = StyleSheet.create({
   row: {
+    minWidth: 0,
     backgroundColor: colors.surfaceHigh,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderRadius: 15,
     padding: spacing.sm + 4,
     gap: spacing.sm,
+    ...(Platform.OS === 'web' ? { padding: 20, gap: 16 } : {}),
   },
   rowActive: {
     borderColor: "rgba(62,99,221,0.55)",
@@ -156,11 +158,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     ...font(600),
     lineHeight: 20,
+    ...(Platform.OS === 'web' ? { fontSize: 17, lineHeight: 25 } : {}),
   },
   boxText: {
     ...type.body,
     fontSize: 13,
     color: colors.textMuted,
     lineHeight: 19,
+    ...(Platform.OS === 'web' ? { fontSize: 15, lineHeight: 23 } : {}),
   },
 });

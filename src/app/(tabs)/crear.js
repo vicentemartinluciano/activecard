@@ -15,9 +15,9 @@ import { colors, font, gradients, radius, spacing, type } from "../../theme";
 // Los emojis se quedan: decisión de Martín (se propuso pasarlos a Feather y lo
 // rechazó). Las tres opciones reaccionan IGUAL — ninguna es "la destacada".
 const OPTIONS = [
-  { key: "ia", emoji: "🤖", title: "Generar Mazo con IA" },
-  { key: "mazo", emoji: "✏️", title: "Nuevo Mazo Manual" },
-  { key: "carpeta", emoji: "📁", title: "Crear Nueva Carpeta" },
+  { key: "ia", emoji: "🤖", title: "Generar Mazo con IA", description: 'Convertí tus fuentes y apuntes en propuestas de tarjetas para revisar.' },
+  { key: "mazo", emoji: "✏️", title: "Nuevo Mazo Manual", description: 'Armá un mazo y escribí sus tarjetas con el editor.' },
+  { key: "carpeta", emoji: "📁", title: "Crear Nueva Carpeta", description: 'Agrupá tus mazos por materia, tema o proyecto.' },
 ];
 
 // Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
@@ -44,9 +44,9 @@ export default function Crear() {
 
   return (
     <SectionSwipe index={1}>
-    <Screen safeTop>
-      <View style={{ flex: 1, justifyContent: "center" }}>
-      <Text style={[type.title, { textAlign: "center", marginBottom: spacing.lg }]}>
+    <Screen safeTop style={Platform.OS === 'web' ? { padding: 32 } : undefined}>
+      <View style={{ flex: 1, justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center', paddingTop: Platform.OS === 'web' ? 20 : 0 }}>
+      <Text style={[type.title, { textAlign: Platform.OS === 'web' ? 'left' : 'center', marginBottom: spacing.lg, ...(Platform.OS === 'web' ? { fontSize: 32 } : {}) }]}>
         ¿Qué querés crear hoy?
       </Text>
 
@@ -70,7 +70,8 @@ export default function Crear() {
               <View style={styles.emojiBox}>
                 <Text style={{ fontSize: 26 }}>{opt.emoji}</Text>
               </View>
-              <Text style={[type.body, { ...font(800), fontSize: 18 }]}>{opt.title}</Text>
+              <Text style={[type.body, { ...font(800), fontSize: Platform.OS === 'web' ? 22 : 18 }]}>{opt.title}</Text>
+              {Platform.OS === 'web' && <Text style={[type.body, { color: colors.textMuted, lineHeight: 26 }]}>{opt.description}</Text>}
             </LinearGradient>
           </GlowPressable>
         ))}
@@ -114,6 +115,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     paddingHorizontal: spacing.md + 4,
+    ...(Platform.OS === 'web' ? { minHeight: 300, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', padding: 28, gap: 24 } : {}),
   },
   emojiBox: {
     width: 54,

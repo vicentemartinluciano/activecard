@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useFocusEffect, usePathname, useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { listDecks } from '../db/decks';
 import { listFolders } from '../db/folders';
@@ -26,17 +26,17 @@ export function useDesktopBeforeNavigate(save) {
   useFocusEffect(useCallback(() => register?.(save), [register, save]));
 }
 
-function RailButton({ label, icon, active, onPress, pending = false }) {
+function RailButton({ label, icon, active, onPress, pending = false, separator = false }) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
-  return <View style={styles.railItem}>
+  return <View style={[styles.railItem, separator && styles.settingsSeparator]}>
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }}
       accessibilityHint={pending ? 'Hay cambios de otro dispositivo para incorporar en Ajustes' : undefined}
       onPress={onPress} onFocus={(event) => setFocused(!!event.currentTarget?.matches?.(':focus-visible'))} onBlur={() => setFocused(false)}
       onPointerDown={() => setFocused(false)}
       onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}
       style={({ pressed }) => [styles.railButton, { backgroundColor: hovered || pressed ? colors.surfaceHigh : 'transparent', outlineStyle: focused ? 'solid' : 'none', outlineWidth: 2, outlineColor: colors.accentText, outlineOffset: -4 }]}>
-      <Feather pointerEvents="none" name={icon} size={26} color={active ? colors.accentText : colors.textMuted} />
+      <Feather pointerEvents="none" name={icon} size={26} color={active || hovered || focused ? colors.accentText : colors.textMuted} />
       {pending && <View pointerEvents="none" style={{ position: 'absolute', right: 6, top: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentText }} />}
     </Pressable>
     {(hovered || focused) && <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{pending ? `${label} · incorporar cambios` : label}</Text></View>}
@@ -49,7 +49,7 @@ function FolderRow({ folder, isOpen, toggle, open }) {
     onFocus={() => setActive(true)} onBlur={(event) => { if (!event.currentTarget?.contains?.(event.relatedTarget)) setActive(false); }}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${isOpen ? 'Plegar' : 'Desplegar'} carpeta ${folder.name}`} accessibilityState={{ expanded: isOpen }}
       onPress={toggle} style={styles.chevron}>
-      <Feather pointerEvents="none" name={isOpen ? 'chevron-down' : 'chevron-right'} size={18} color={colors.textMuted} style={{ opacity: active ? 1 : 0 }} />
+      <Feather pointerEvents="none" name="chevron-right" size={18} color={colors.textMuted} style={{ opacity: active ? 1 : 0, transform: [{ rotate: isOpen ? '90deg' : '0deg' }], transition: 'opacity 160ms ease, transform 180ms ease' }} />
     </Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel={`Abrir carpeta ${folder.name}`} title={folder.name} onPress={open}
       style={({ hovered }) => [styles.folderName, hovered && { backgroundColor: colors.surfaceHigh }]}>
@@ -106,7 +106,9 @@ function DesktopWorkspace({ children }) {
     return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', dismiss); };
   }, [preview, closePreview]);
   const selectedId = Number(path.match(/^\/mazos\/(\d+)/)?.[1]);
-  const selectedFolder = decks.find((deck) => deck.id === selectedId)?.folder_id;
+  const selectedDeck = decks.find((deck) => deck.id === selectedId);
+  const selectedFolder = selectedDeck?.folder_id || Number(path.match(/^\/carpetas\/(\d+)/)?.[1]);
+  const currentFolder = folders.find((folder) => folder.id === selectedFolder);
   useEffect(() => { if (selectedFolder) setExpanded((value) => ({ ...value, [selectedFolder]: true })); }, [selectedFolder]);
   const section = desktopSection(path);
   const library = hasLibraryIndex(path);
@@ -131,26 +133,28 @@ function DesktopWorkspace({ children }) {
   </Pressable>;
   return <View style={styles.shell}>
     <View style={styles.rail}>
-      <Image accessibilityLabel="ActiveCard" source={require('../../assets/images/splash-icon.png')} resizeMode="contain" style={styles.brand} />
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
-      <RailButton label="Ajustes" icon="settings" active={section === 'ajustes'} pending={syncStatus?.pending} onPress={() => open('/ajustes')} />
+      <RailButton separator label="Ajustes" icon="settings" active={section === 'ajustes'} pending={syncStatus?.pending} onPress={() => open('/ajustes')} />
     </View>
-    <View style={{ width: library && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30 }}>
+    <View style={{ width: library && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
       {library && <View dataSet={{ libraryIndex: 'true' }} testID="desktop-library-index"
         onPointerEnter={() => { clearTimeout(timer.current); refresh(); }} onPointerLeave={leavePreview}
-        // display:none removes hidden links from keyboard navigation; the navigator below stays mounted.
-        style={[styles.index, { display: shown ? 'flex' : 'none', top: floating ? 48 : 0, bottom: floating ? 12 : 0 }, floating && styles.floating]}>
-        <View style={styles.indexHeading}><Text style={styles.indexTitle}>Biblioteca</Text>
+        // visibility also removes hidden links from keyboard navigation.
+        pointerEvents={shown ? 'auto' : 'none'}
+        style={[styles.index, { visibility: shown ? 'visible' : 'hidden', opacity: shown ? 1 : 0, transform: [{ translateX: shown ? 0 : -16 }], transition: `opacity 180ms ease, transform 220ms ease, visibility 0s ${shown ? '0s' : '220ms'}`, top: floating ? 48 : 0, bottom: floating ? 12 : 0 }, floating && styles.floating]}>
+        <View style={styles.indexHeading}>
+          <Field accessibilityLabel="Buscar carpetas y mazos" value={query} onChangeText={setQuery} placeholder="Buscar en el índice" style={styles.search} />
           <Pressable accessibilityRole="button" accessibilityLabel="Crear contenido" onPress={() => open('/crear')} style={styles.smallButton}><Feather name="plus" size={17} color={colors.textMuted} /></Pressable>
         </View>
-        <Field accessibilityLabel="Buscar carpetas y mazos" value={query} onChangeText={setQuery} placeholder="Buscar en el índice" style={styles.search} />
         <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {error ? <Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.error}>{error} Reintentar</Text></Pressable> : null}
           {tree.folders.map((folder) => {
             const isOpen = !!query.trim() || !!expanded[folder.id];
             return <View key={folder.id}>
               <FolderRow folder={folder} isOpen={isOpen} toggle={() => setExpanded((value) => ({ ...value, [folder.id]: !value[folder.id] }))} open={() => open(`/carpetas/${folder.id}`)} />
-              {isOpen && (folder.children.length ? folder.children.map((deck) => deckRow(deck, true)) : <Text style={styles.emptyFolder}>Sin mazos</Text>)}
+              <div aria-hidden={!isOpen} inert={!isOpen} style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 200ms ease', visibility: isOpen ? 'visible' : 'hidden' }}>
+                <div style={{ overflow: 'hidden', minHeight: 0 }}>{folder.children.length ? folder.children.map((deck) => deckRow(deck, true)) : <Text style={styles.emptyFolder}>Sin mazos</Text>}</div>
+              </div>
             </View>;
           })}
           {tree.loose.map((deck) => deckRow(deck))}
@@ -170,7 +174,11 @@ function DesktopWorkspace({ children }) {
           onPress={() => { closePreview(); setPinned((value) => !value); }} style={({ hovered }) => [styles.smallButton, hovered && { backgroundColor: colors.surfaceHigh }]}>
           <Feather pointerEvents="none" name="sidebar" size={17} color={colors.textMuted} />
         </Pressable>
-        <Text numberOfLines={1} style={styles.trail}>{selectedFolder ? `${folders.find((folder) => folder.id === selectedFolder)?.name || 'Biblioteca'} / ` : ''}{decks.find((deck) => deck.id === selectedId)?.name || 'Biblioteca'}</Text>
+        <View accessibilityLabel="Ubicación en la biblioteca" style={styles.breadcrumbs}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca')} style={styles.crumb}><Text style={styles.trail}>Biblioteca</Text></Pressable>
+          {currentFolder && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${currentFolder.name}`} onPress={() => open(`/carpetas/${currentFolder.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{currentFolder.name}</Text></Pressable></>}
+          {selectedDeck && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a mazo ${selectedDeck.name}`} onPress={() => open(`/mazos/${selectedDeck.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{selectedDeck.name}</Text></Pressable></>}
+        </View>
       </View>}
       <View style={styles.navigator}><DesktopNavigationContext.Provider value={register}>{children}</DesktopNavigationContext.Provider></View>
     </View>
@@ -184,18 +192,17 @@ export default function DesktopShell({ children }) {
 const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row', backgroundColor: colors.bg },
   rail: { width: DESKTOP_RAIL_WIDTH, alignItems: 'center', borderRightWidth: 1, borderRightColor: colors.border, zIndex: 50 },
-  brand: { width: 44, height: 44, marginVertical: 18 },
   sections: { flex: 5, minHeight: 0, width: '100%' },
-  railItem: { position: 'relative', flex: 1, minHeight: 56, width: '100%', justifyContent: 'center', borderTopWidth: 1, borderTopColor: colors.border },
+  railItem: { position: 'relative', flex: 1, minHeight: 56, width: '100%', justifyContent: 'center' },
+  settingsSeparator: { borderTopWidth: 1, borderTopColor: colors.border },
   railButton: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
   tooltip: { position: 'absolute', left: DESKTOP_RAIL_WIDTH + 8, top: '50%', transform: [{ translateY: -16 }], paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: colors.surfaceHigh },
   tooltipText: { ...font(600), color: colors.text, fontSize: 14, whiteSpace: 'nowrap' },
   index: { position: 'absolute', left: 0, width: DESKTOP_INDEX_WIDTH, backgroundColor: colors.surface, borderRightWidth: 1, borderRightColor: colors.border },
   floating: { borderRadius: 10, boxShadow: '8px 0 24px rgba(0,0,0,0.3)' },
-  indexHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 16, paddingRight: 8, height: 52 },
-  indexTitle: { ...font(600), color: colors.text, fontSize: 16 },
+  indexHeading: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 12 },
   smallButton: { width: 34, height: 34, borderRadius: 5, justifyContent: 'center', alignItems: 'center' },
-  search: { marginHorizontal: 12, marginBottom: 14, fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  search: { flex: 1, minWidth: 0, fontSize: 13, paddingHorizontal: 10, paddingVertical: 10 },
   treeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
   treeText: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, flex: 1 },
   count: { ...font(), color: colors.textMuted, fontSize: 12 },
@@ -207,6 +214,8 @@ const styles = StyleSheet.create({
   edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, minHeight: 0 },
   toolbar: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  trail: { ...font(), color: colors.textMuted, fontSize: 12, flex: 1 },
+  breadcrumbs: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  crumb: { flexShrink: 1, minWidth: 0, paddingHorizontal: 4, paddingVertical: 8 },
+  trail: { ...font(), color: colors.textMuted, fontSize: 13 },
   navigator: { flex: 1, minWidth: 0, minHeight: 0 },
 });
