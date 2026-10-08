@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useFocusEffect, usePathname, useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { listDecks } from '../db/decks';
 import { listFolders } from '../db/folders';
@@ -115,7 +115,7 @@ function DesktopWorkspace({ children }) {
   </Pressable>;
   return <View style={styles.shell}>
     <View style={styles.rail}>
-      <Text accessibilityLabel="ActiveCard" style={styles.brand}>A</Text>
+      <Image accessibilityLabel="ActiveCard" source={require('../../assets/images/splash-icon.png')} resizeMode="contain" style={styles.brand} />
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
       <RailButton label="Ajustes" icon="settings" active={section === 'ajustes'} pending={syncStatus?.pending} onPress={() => open('/ajustes')} />
     </View>
@@ -177,7 +177,7 @@ export default function DesktopShell({ children }) {
 const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row', backgroundColor: colors.bg },
   rail: { width: DESKTOP_RAIL_WIDTH, alignItems: 'center', paddingVertical: 18, borderRightWidth: 1, borderRightColor: colors.border, zIndex: 50 },
-  brand: { ...font(800), color: colors.accentText, fontSize: 20, height: 38 },
+  brand: { width: 38, height: 38 },
   sections: { flex: 1, justifyContent: 'center', gap: 14 },
   railItem: { position: 'relative' },
   railButton: { width: 38, height: 38, borderRadius: 8, borderBottomWidth: 1, alignItems: 'center', justifyContent: 'center' },

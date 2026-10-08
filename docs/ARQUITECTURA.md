@@ -23,9 +23,9 @@ Notion opcional: lib/notion.js → Notion API
 ```
 
 La cuenta privada usa Auth y Storage de Supabase en el proyecto de REANCLA, con tablas
-y permisos propios. SQLite sigue funcionando offline. La implementación requiere
-activar la migración remota y probar el login y Android ↔ web antes de declararla
-operativa. Ver `SINCRONIZACION.md` para el protocolo y los pasos de activación.
+y permisos propios. SQLite sigue funcionando offline. La migración remota y sus
+permisos se verificaron el 7 de octubre. Falta probar el login y Android ↔ web antes
+de declararla operativa. Ver `SINCRONIZACION.md` para el protocolo y los pasos de activación.
 
 La web tiene un shell de escritorio persistente: barra de secciones, índice de
 carpetas/mazos con fijado y vista previa por hover y contenido independiente. Ver

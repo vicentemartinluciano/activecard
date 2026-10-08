@@ -6,8 +6,9 @@ La web funciona como un espacio de trabajo inspirado en REANCLA. Todas las secci
 siguen disponibles: Inicio, Biblioteca, Crear, Gimnasio, Progreso y Ajustes. Android
 conserva sus pestañas y sus gestos.
 
-- Barra izquierda de 64 px, iconos de 20 px dentro de controles de 38 px. El destino
-  seleccionado cambia de color; los nombres aparecen al pasar el mouse o enfocar.
+- Barra izquierda de 64 px con el logo de ActiveCard de 38 px e iconos de 20 px dentro
+  de controles de 38 px. El destino seleccionado cambia de color; los nombres aparecen
+  al pasar el mouse o enfocar.
 - Biblioteca tiene un índice de 240 px: carpetas desplegables, mazos hijos y mazos
   sueltos en la raíz. Buscar un mazo encuentra también los hijos de carpetas plegadas.
 - El índice se puede fijar u ocultar. Su tirador lateral aparece únicamente al pasar
@@ -45,8 +46,8 @@ node scripts/preview-web.mjs
 ```
 
 Abrir `http://localhost:8125/activecard/biblioteca`. Esa URL usa una base SQLite
-distinta de GitHub Pages. El servidor escucha únicamente en la máquina local y agrega
-los encabezados que requiere SQLite web. `.desktop-preview` no se commitea.
+distinta de GitHub Pages. El servidor escucha únicamente en la máquina local y usa
+las mismas condiciones de encabezados que GitHub Pages. `.desktop-preview` no se commitea.
 
 ## Cuenta y sincronización: alcance aprobado
 
@@ -63,8 +64,9 @@ su historial; no basta con unir registros y elegir una programación al azar.
 La implementación de cuenta y sync está documentada en `SINCRONIZACION.md`.
 
 La adaptación visual no demuestra que la cuenta o la sincronización estén operativas.
-Su cierre requiere migración remota, permisos verificados, inicio de sesión en ambos
-dispositivos, Android → web → Android, recuperación offline y conflictos reales.
+La migración remota y los permisos se verificaron el 7 de octubre. Su cierre requiere
+inicio de sesión en ambos dispositivos, Android → web → Android, recuperación offline
+y conflictos reales.
 
 ## Verificación del escritorio
 

@@ -4,9 +4,13 @@
 
 Implementación preparada el 7 de octubre de 2026. Usa el proyecto de Supabase de
 REANCLA y el mismo correo/contraseña; ActiveCard tiene tablas, archivos y sesiones
-propios. La migración remota, el login real y la prueba entre dispositivos siguen
-siendo pasos de activación. La APK instalada sigue siendo 1.5.0; el código prepara
-1.6.0 porque SecureStore y Crypto requieren un nuevo binario.
+propios. La migración remota se ejecutó el 7 de octubre con confirmación de Martín:
+cuenta única, RLS, bucket privado y privilegios de las RPC verificados en el proyecto
+real. Las políticas de Storage solo habilitan lectura e inserción para el dueño;
+no hay políticas adicionales que amplíen ese acceso. Todavía no se subieron datos.
+El login real y la prueba entre dispositivos siguen pendientes. La APK instalada
+sigue siendo 1.5.0; el código prepara 1.6.0 porque SecureStore y Crypto requieren
+un nuevo binario.
 
 ## Datos y seguridad
 
