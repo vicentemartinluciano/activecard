@@ -57,13 +57,11 @@ export default function Ajustes() {
     setUserName(await getSetting("userName", "Martín"));
     setLastAuto(await getSetting("lastAutoBackup", null));
     setOpenAIKeyInput(getOpenAIKey() || "");
+    setNotionTokenInput(getNotionToken() || "");
     if (Platform.OS !== "web") {
       const prefs = await getReminderPrefs();
       setReminder(prefs);
       setReminderTime(prefs.time);
-    }
-    if (Platform.OS === "web") {
-      setNotionTokenInput(getNotionToken() || "");
     }
   }, []);
 
@@ -142,7 +140,7 @@ export default function Ajustes() {
 
   const saveKeys = async () => {
     await setOpenAIKey(openAIKey);
-    if (Platform.OS === "web") await setNotionToken(notionToken);
+    await setNotionToken(notionToken);
     setKeysStatus("Guardadas ✓");
     setTimeout(() => setKeysStatus(null), 2500);
   };
@@ -378,7 +376,7 @@ export default function Ajustes() {
           <Text style={type.small}>
             {Platform.OS === "web"
               ? "Las claves quedan guardadas solo en este navegador."
-              : "Pegá tu clave de OpenAI una vez. Queda solo en este teléfono y no se incluye en los respaldos."}
+              : "Las claves quedan solo en este teléfono y no se incluyen en los respaldos ni en la sincronización."}
           </Text>
           <Text style={type.small}>Clave de OpenAI</Text>
           <Field
@@ -389,18 +387,15 @@ export default function Ajustes() {
             autoCorrect={false}
             secureTextEntry
           />
-          {Platform.OS === "web" ? (
-            <>
-            <Text style={type.small}>Token de Notion</Text>
-            <Field
-              value={notionToken}
-              onChangeText={setNotionTokenInput}
-              placeholder="ntn_…"
-              autoCapitalize="none"
-              secureTextEntry
-            />
-            </>
-          ) : null}
+          <Text style={type.small}>Token de Notion</Text>
+          <Field
+            value={notionToken}
+            onChangeText={setNotionTokenInput}
+            placeholder="ntn_…"
+            autoCapitalize="none"
+            autoCorrect={false}
+            secureTextEntry
+          />
           <Button label="Guardar conexión" kind="primary" onPress={saveKeys} />
           {keysStatus ? <Text style={type.small}>{keysStatus}</Text> : null}
         </Card>

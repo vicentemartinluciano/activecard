@@ -31,9 +31,7 @@ async function notionFetch(path) {
   const token = getNotionToken();
   if (!token) {
     throw new Error(
-      Platform.OS === "web"
-        ? "Falta el token de Notion. Pegalo en Ajustes (abajo del todo, sección de claves)."
-        : "Falta el token de Notion. Configuralo en el archivo .env (EXPO_PUBLIC_NOTION_TOKEN)."
+      "Falta el token de Notion. Pegalo en Ajustes, en Conexión con la IA."
     );
   }
   let res;

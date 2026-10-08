@@ -462,8 +462,11 @@ próximo APK; no exige actualizar módulos nativos para publicar una OTA compati
 ## Seguridad
 
 - `.env` ignorado.
-- Variables posibles: gateway URL/token, OpenAI key y Notion token.
-- Las claves no entran en respaldos.
+- OpenAI y Notion se configuran en Ajustes en Android y web; no se leen de variables
+  públicas del build. Las claves locales existentes se conservan al actualizar.
+- Los perfiles EAS deshabilitan dotenv y vacían las variables antiguas de OpenAI,
+  Notion y Anthropic, aunque sigan configuradas en el entorno remoto.
+- Las claves no entran en respaldos ni sincronización.
 - Una clave `EXPO_PUBLIC_*` puede extraerse del bundle; una distribución comercial debe
   usar gateway, autenticación, cuotas y observabilidad.
 - Adjuntos son contenido no confiable.

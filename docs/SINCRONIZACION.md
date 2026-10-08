@@ -12,6 +12,11 @@ El login real y la prueba entre dispositivos siguen pendientes. La APK instalada
 sigue siendo 1.5.0; el código prepara 1.6.0 porque SecureStore y Crypto requieren
 un nuevo binario.
 
+La web de escritorio ya se publicó en GitHub Pages. Para el APK nuevo se eliminaron
+los fallbacks de claves públicas del build: OpenAI y Notion se ingresan en Ajustes
+en cada dispositivo. Las claves ya guardadas localmente se conservan; un token que
+solo venía incrustado en el APK anterior debe ingresarse una vez en Ajustes.
+
 ## Datos y seguridad
 
 SQLite continúa siendo la fuente local y funciona sin cuenta o sin conexión. Se
