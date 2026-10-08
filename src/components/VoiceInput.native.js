@@ -104,7 +104,7 @@ function VoiceDots({ active }) {
   );
 }
 
-export default function VoiceInput({ value, onChangeText, children }) {
+export default function VoiceInput({ value, onChangeText, children, buttonStyle }) {
   const [state, setState] = useState("idle"); // idle | recording | paused | processing
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState("");
@@ -558,8 +558,8 @@ export default function VoiceInput({ value, onChangeText, children }) {
   const micButton = active ? (
     <View style={styles.micPlaceholder} />
   ) : (
-    <Pressable accessibilityLabel="Dictar por voz" onPress={begin} style={styles.mic}>
-      <Feather name="mic" size={18} color="#00F2FE" />
+    <Pressable accessibilityRole="button" accessibilityLabel="Dictar por voz" onPress={begin} style={[styles.mic, buttonStyle]}>
+      <Feather name="mic" size={18} color={buttonStyle ? colors.text : '#00F2FE'} />
     </Pressable>
   );
 

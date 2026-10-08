@@ -234,6 +234,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
   const [error, setError] = useState("");
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [composerFocused, setComposerFocused] = useState(false);
+  const addButtonRef = useRef(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -633,14 +634,6 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        {messages.length === 0 ? (
-          <View style={styles.welcome}>
-            <View style={styles.avatar}><BrainMark size={34} /></View>
-            <View style={[styles.bubble, styles.assistantBubble]}>
-              <Text style={styles.welcomeText}>Podemos pensar cualquier tema o trabajar con tus tarjetas. Decime qué necesitás.</Text>
-            </View>
-          </View>
-        ) : null}
         {messages.map((message, index) => {
           const startsAssistantGroup = message.role === "assistant" && messages[index - 1]?.role !== "assistant";
           return (
@@ -686,13 +679,14 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
         items={sourceAttachments}
         onRemove={(index) => setSourceAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
       />
-      <VoiceInput value={input} onChangeText={changeInput}>
+      <VoiceInput value={input} onChangeText={changeInput} buttonStyle={styles.voiceButton}>
         {({ micButton, active }) => (
           <View dataSet={Platform.OS === 'web' ? { gymComposer: 'true' } : undefined} style={[styles.composer, composerFocused && styles.composerExpanded]}
-            onBlur={Platform.OS === 'web' ? (event) => { if (!event.currentTarget.contains(event.relatedTarget)) setComposerFocused(false); } : undefined}>
+            onBlur={Platform.OS === 'web' ? (event) => { if (!addMenuOpen && !event.currentTarget.contains(event.relatedTarget)) setComposerFocused(false); } : undefined}>
             <Pressable
+              ref={addButtonRef}
               accessibilityRole="button" accessibilityLabel="Añadir al chat"
-              onPress={() => setAddMenuOpen(true)}
+              onPress={() => setAddMenuOpen((value) => !value)}
               disabled={active || busy}
               style={[styles.attachButton, composerFocused && styles.attachButtonExpanded, (active || busy) && { opacity: 0.35 }]}
               hitSlop={6}
@@ -714,6 +708,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
       </VoiceInput>
       </View>
       <ActionSheet
+        anchorRef={addButtonRef}
         visible={addMenuOpen}
         onClose={() => setAddMenuOpen(false)}
         title="Añadir al chat"
@@ -770,7 +765,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, gap: spacing.sm, overflow: "hidden" },
+  root: { flex: 1, gap: spacing.sm, overflow: "hidden", backgroundColor: colors.bg },
   rootKeyboard: { paddingBottom: spacing.md },
   header: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
   backButton: { width: 34, height: 38, alignItems: "center", justifyContent: "center" },
@@ -781,8 +776,6 @@ const styles = StyleSheet.create({
   contextText: { ...type.small, ...font(600), color: colors.text, flexShrink: 1 },
   chat: { flex: 1 },
   chatContent: { gap: spacing.md, paddingVertical: spacing.sm, ...(Platform.OS === "web" ? { width: '100%', maxWidth: 880, alignSelf: 'center', flexGrow: 1, paddingTop: 32 } : {}) },
-  welcome: { alignItems: "flex-start", gap: spacing.sm, width: "100%" },
-  welcomeText: { ...type.body, color: colors.textMuted, lineHeight: 22 },
   assistantWrap: { alignItems: "flex-start", gap: spacing.xs, alignSelf: "stretch" },
   userWrap: { alignSelf: "stretch", alignItems: "flex-end" },
   assistantMessageContent: { width: "100%", gap: spacing.xs },
@@ -790,7 +783,7 @@ const styles = StyleSheet.create({
   avatar: { width: 34, height: 34, marginLeft: 5, alignItems: "center", justifyContent: "center" },
   bubble: { paddingHorizontal: spacing.md, paddingVertical: 12, borderRadius: radius.md },
   assistantBubble: { width: "100%", paddingHorizontal: 4, paddingVertical: 4, backgroundColor: "transparent" },
-  userBubble: { backgroundColor: "rgba(24,31,46,0.94)", borderWidth: 1, borderColor: "rgba(94,119,172,0.27)", borderBottomRightRadius: 5 },
+  userBubble: { backgroundColor: '#13151C', borderWidth: 1, borderColor: '#20232D', borderBottomRightRadius: 5 },
   bubbleText: { ...type.body, fontSize: 15, lineHeight: 22 },
   richBubble: { gap: 7 },
   busyBubble: { width: 54, minHeight: 44, alignItems: "center", justifyContent: "center" },
@@ -816,12 +809,13 @@ const styles = StyleSheet.create({
   attachmentCopy: { flex: 1, gap: 1 },
   attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 11 },
   attachmentDeck: { ...type.small, fontSize: 9, color: colors.textMuted },
-  footer: { gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.sm, backgroundColor: colors.bg, width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 880, alignSelf: 'center', marginBottom: 16 } : {}) },
-  composer: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 48, width: '88%', alignSelf: 'center', marginHorizontal: 1, padding: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: 'rgba(92,113,153,0.18)', backgroundColor: 'rgba(17,22,31,0.97)' },
-  composerExpanded: { width: '100%', minHeight: 112, alignItems: 'flex-end', borderRadius: radius.lg, borderColor: 'rgba(96,122,176,0.28)', backgroundColor: 'rgba(19,25,36,0.98)' },
-  attachButton: { width: 34, height: 38, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  attachButtonExpanded: { marginRight: 'auto', marginTop: 60 },
-  field: { flex: 1, height: 38, minHeight: 38, maxHeight: 38, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 6 },
-  fieldExpanded: { position: 'absolute', top: 8, left: 14, right: 14, height: 50, minHeight: 50, maxHeight: 50, paddingHorizontal: 0, paddingVertical: 4 },
-  send: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#344B70', alignItems: "center", justifyContent: "center" },
+  footer: { gap: spacing.sm, paddingVertical: spacing.sm, backgroundColor: 'transparent', width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 880, alignSelf: 'center', marginBottom: 8 } : {}) },
+  composer: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 60, width: '100%', alignSelf: 'center', padding: 8, borderRadius: 28, borderWidth: 1, borderColor: '#1E2028', backgroundColor: '#101115' },
+  composerExpanded: { minHeight: 140, alignItems: 'flex-end', borderRadius: 24 },
+  attachButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  attachButtonExpanded: { marginRight: 'auto', marginTop: 80 },
+  voiceButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 0, backgroundColor: 'transparent' },
+  field: { flex: 1, height: 40, minHeight: 40, maxHeight: 40, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 8, paddingHorizontal: 4, ...(Platform.OS === 'web' ? { outlineStyle: 'none', boxShadow: 'none' } : {}) },
+  fieldExpanded: { position: 'absolute', top: 12, left: 16, right: 16, height: 66, minHeight: 66, maxHeight: 66, paddingHorizontal: 0, paddingVertical: 4 },
+  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#25304A', alignItems: "center", justifyContent: "center" },
 });

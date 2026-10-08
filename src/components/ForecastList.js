@@ -9,7 +9,7 @@
 // anticipación te deja adelantar trabajo en vez de enterarte cuando lo tenés
 // encima.
 
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { colors, font, tabular, type } from "../theme";
 
@@ -33,7 +33,7 @@ export default function ForecastList({ forecast = [], limit }) {
           const over = limit ? d.count > limit : false;
           const ratio = d.count / maxCount;
           return (
-            <View key={d.day} style={styles.row}>
+            <View key={d.day} style={[styles.row, Platform.OS === 'web' && i === 0 && { backgroundColor: '#181C29', borderRadius: 10 }]}>
               {/* Día + número: "mié 30" ubica mucho mejor que solo el día
                   suelto cuando estás mirando la semana que viene. */}
               <Text style={[styles.dayLabel, i === 0 && styles.dayLabelHoy]}>
@@ -61,12 +61,12 @@ export default function ForecastList({ forecast = [], limit }) {
 
       {total === 0 ? (
         // Siete ceros sin explicación se leen como "esto está roto".
-        <Text style={type.small}>
+        <Text style={[type.small, Platform.OS === 'web' && { fontSize: 14, lineHeight: 22 }]}>
           No hay nada agendado para los próximos días. Cuando estudies tarjetas nuevas van a
           empezar a aparecer acá.
         </Text>
       ) : limit ? (
-        <Text style={type.small}>
+        <Text style={[type.small, Platform.OS === 'web' && { fontSize: 14, lineHeight: 22 }]}>
           La rayita es tu tope de <Text style={styles.fuerte}>{limit}</Text>.
           {excedido ? (
             <Text>
@@ -88,11 +88,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
+    ...(Platform.OS === 'web' ? { minHeight: 44, gap: 20, paddingHorizontal: 12 } : {}),
   },
   dayLabel: {
     ...type.small,
     ...tabular,
     width: 46,
+    ...(Platform.OS === 'web' ? { width: 64, fontSize: 14 } : {}),
   },
   dayLabelHoy: {
     color: colors.text,
@@ -105,6 +107,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF08",
     overflow: "hidden",
     justifyContent: "center",
+    ...(Platform.OS === 'web' ? { height: 8, borderRadius: 4 } : {}),
   },
   fill: {
     height: "100%",
@@ -127,6 +130,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     width: 26,
     textAlign: "right",
+    ...(Platform.OS === 'web' ? { width: 40, fontSize: 16 } : {}),
   },
   countOver: {
     color: "#FF8A8E",

@@ -35,6 +35,7 @@ export default function Inicio() {
   const [stats, setStats] = useState(null);
   const [streak, setStreak] = useState(null);
   const [inProgressDecks, setInProgressDecks] = useState([]);
+  const [recentDecks, setRecentDecks] = useState([]);
   const [userName, setUserName] = useState("");
   const [error, setError] = useState(null);
   const [loaded, setLoaded] = useState(false); // false solo hasta el primer fetch exitoso
@@ -81,8 +82,9 @@ export default function Inicio() {
             .filter((d) => d.progress && d.progress.pct > 0 && d.progress.pct < 100)
             .slice(0, 3);
           setInProgressDecks(withProgress);
+          setRecentDecks([...decks].sort((a, b) => String(b.last_studied_at || b.created_at).localeCompare(String(a.last_studied_at || a.created_at)) || b.id - a.id).slice(0, 3));
         })
-        .catch(() => alive && setInProgressDecks([]));
+        .catch(() => { if (alive) { setInProgressDecks([]); setRecentDecks([]); } });
 
       return () => {
         alive = false;
@@ -146,7 +148,8 @@ export default function Inicio() {
 
       <ScrollView contentContainerStyle={styles.body}>
         <View style={Platform.OS === 'web' ? { flexDirection: 'row', flexWrap: 'wrap', gap: 28, paddingTop: 24 } : undefined}>
-        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexBasis: 380, minWidth: 0 } : undefined}>
+        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 460, minWidth: 0 } : undefined}>
+        <View>
         {/* El hero: una luz gira por el borde de forma permanente (BorderLight)
             y el halo cobalto se enciende al tocar la tarjeta O al apretar el
             botón de adentro — de ahí el `active`, porque el press del botón no
@@ -218,8 +221,9 @@ export default function Inicio() {
             />
           </LinearGradient>
         </GlowPressable>
-
-        {inProgressDecks.length > 0 ? (
+        </View>
+        <View style={{ gap: 28 }}>
+        {inProgressDecks.length > 0 || Platform.OS === 'web' ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={type.label}>EN PROGRESO</Text>
@@ -227,6 +231,7 @@ export default function Inicio() {
                 <Text style={styles.sectionLink}>Ver todos</Text>
               </Pressable>
             </View>
+            {inProgressDecks.length === 0 && <Text style={type.small}>Los mazos que empieces a repasar aparecerán acá.</Text>}
             {inProgressDecks.map((d) => (
               <Card
                 key={d.id}
@@ -249,6 +254,14 @@ export default function Inicio() {
             ))}
           </View>
         ) : null}
+        {Platform.OS === 'web' && <View style={styles.section}>
+          <View style={styles.sectionHeader}><Text style={type.label}>MAZOS RECIENTES</Text><Pressable accessibilityRole="button" onPress={() => router.push('/biblioteca')}><Text style={styles.sectionLink}>Ver todos</Text></Pressable></View>
+          {recentDecks.map((deck) => <Card key={deck.id} onPress={() => router.push(`/mazos/${deck.id}`)} style={styles.deckRow}>
+            <Feather name={deck.icon || 'layers'} size={24} color={colors.accentText} /><View style={{ flex: 1 }}><Text style={styles.deckName}>{deck.name}</Text><Text style={type.small}>{deck.card_count} tarjetas</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
+          </Card>)}
+          {!recentDecks.length && <Text style={type.small}>Creá tu primer mazo para empezar.</Text>}
+        </View>}
+        </View>
         </Stagger>
         </View>
       </ScrollView>
@@ -332,6 +345,7 @@ const styles = StyleSheet.create({
   heroOuter: {
     marginTop: spacing.lg,
     borderRadius: radius.lg,
+    ...(Platform.OS === 'web' ? { marginTop: 0 } : {}),
   },
   hero: {
     borderRadius: radius.lg,
@@ -339,6 +353,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     gap: spacing.sm,
     alignItems: "flex-start",
+    ...(Platform.OS === 'web' ? { minHeight: 360, padding: 32, justifyContent: 'center', gap: 20 } : {}),
   },
   heroTitle: {
     fontSize: 26,
@@ -369,6 +384,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     // Punto medio entre el botón chico de antes y uno a todo el ancho.
     width: "74%",
+    ...(Platform.OS === 'web' ? { width: '100%' } : {}),
   },
   heroDone: {
     fontSize: 26,

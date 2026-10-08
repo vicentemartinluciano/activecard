@@ -6,12 +6,16 @@ La web funciona como un espacio de trabajo inspirado en REANCLA. Todas las secci
 siguen disponibles: Inicio, Biblioteca, Crear, Gimnasio, Progreso y Ajustes. Android
 conserva sus pestañas y sus gestos.
 
-- Barra izquierda de 76 px con logo de 44 px e iconos de 26 px. Las cinco secciones
+- Barra izquierda de 76 px sin logo e iconos de 26 px. Las cinco secciones
   distribuyen el espacio vertical y Ajustes ocupa su franja inferior. El destino
-  seleccionado cambia de color; los nombres aparecen al pasar el mouse o enfocar con
+  seleccionado y el icono bajo el cursor cambian a azul. Solo Ajustes tiene una línea
+  separadora; los nombres aparecen al pasar el mouse o enfocar con
   teclado, y un clic de mouse no deja el nombre ni un borde inferior persistentes.
 - Biblioteca tiene un índice de 280 px: carpetas desplegables, mazos hijos y mazos
-  sueltos en la raíz. Buscar un mazo encuentra también los hijos de carpetas plegadas.
+  sueltos en la raíz. Su encabezado es el buscador, con creación a su derecha. Abrir y plegar el índice
+  o sus carpetas tiene transición; la ruta superior permite volver a Biblioteca,
+  carpeta o mazo y respeta el guardado de la edición.
+  Buscar un mazo encuentra también los hijos de carpetas plegadas.
   Sus filas miden al menos 46 px, con texto de 14 px; la flecha de una carpeta aparece
   al pasar por su fila o al navegar con teclado.
 - El índice se puede fijar u ocultar. Su tirador lateral aparece únicamente al pasar
@@ -19,7 +23,10 @@ conserva sus pestañas y sus gestos.
   flotante; no reduce el contenido. Escape y un clic fuera cierran la vista previa.
 - El navegador y el editor siguen montados al ocultar o desplegar el índice.
 - A la derecha se abre el mazo con sus controles Editar tarjetas y Estudiar. El editor
-  individual distribuye frente y dorso en columnas cuando caben.
+  individual distribuye frente y dorso en columnas cuando caben. El mazo alterna entre
+  lista y dos columnas de tarjetas, conserva la elección local y la aplica también
+  en edición. Si no caben dos columnas, muestra una. El contenido y los editores usan
+  el ancho disponible; Progreso de hoy tiene mayor altura en escritorio.
 - La barra lateral guarda una edición válida antes de navegar. Una edición incompleta
   o un fallo de escritura conserva la pantalla y muestra el motivo. El navegador
   advierte antes de cerrar o recargar una tarjeta con cambios pendientes.
@@ -28,9 +35,17 @@ conserva sus pestañas y sus gestos.
 - El Gimnasio abre el chat directamente. El reloj lleva al historial; no existe un
   panel de historial permanente. Encabezado, respuestas sin recuadro, burbuja del
   usuario y compositor expansible siguen la interfaz del Mentor de REANCLA tanto en
-  web como en Android. El fondo estrellado sigue siendo el de la app.
-- Inicio y Crear distribuyen sus contenidos según el ancho. Progreso usa todo el ancho
-  para recuerdo y muestra constancia debajo; el trazado web tiene 260 px de alto.
+  web como en Android. El fondo estrellado es más oscuro y el pie transparente evita
+  un rectángulo detrás del campo. No hay saludo inicial; los controles del campo son
+  uniformes y el textarea web no muestra un marco propio. En web, el menú de adjuntos
+  es un desplegable anclado al botón; Android conserva el sheet.
+- Inicio distribuye repaso a la izquierda y mazos en progreso/recientes a la derecha,
+  apilados si no caben. Los recientes se ordenan por último repaso o fecha de creación.
+  Crear ofrece tres superficies amplias con descripción, alineadas arriba.
+  Progreso usa todo el ancho
+  para recuerdo y muestra constancia debajo, limitada a 348 px para no estirar las
+  celdas; el trazado web tiene 260 px de alto. Lo que viene conserva barras horizontales
+  con filas y cifras más legibles, y distingue el día actual.
   El área de contenido llega a 1440 px y la tarjeta de estudio a 800 px, según el
   espacio disponible. Los controles y superficies web tienen más espacio interior.
 - En el estudio, Espacio gira la tarjeta. Una vez vista la respuesta, 1/izquierda

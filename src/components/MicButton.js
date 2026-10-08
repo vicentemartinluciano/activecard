@@ -8,10 +8,11 @@ import {
 } from "@jamsch/expo-speech-recognition";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
+import Feather from '@expo/vector-icons/Feather';
 
 import { colors, radius } from "../theme";
 
-export default function MicButton({ onTranscript }) {
+export default function MicButton({ onTranscript, style }) {
   const [recording, setRecording] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
 
@@ -48,15 +49,17 @@ export default function MicButton({ onTranscript }) {
 
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={toggle}
       style={({ pressed }) => [
         styles.button,
+        style,
         recording && styles.recording,
         pressed && { opacity: 0.7 },
       ]}
       accessibilityLabel={recording ? "Detener dictado" : "Dictar por voz"}
     >
-      <Text style={styles.icon}>{recording ? "■" : "🎙"}</Text>
+      {style ? <Feather name={recording ? 'square' : 'mic'} size={18} color={colors.text} /> : <Text style={styles.icon}>{recording ? "■" : "🎙"}</Text>}
     </Pressable>
   );
 }

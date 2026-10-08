@@ -4,7 +4,7 @@
 // Convive con la racha a propósito: la racha castiga (perdés un día y volvés a
 // cero) justo cuando más importa no abandonar. Acá el hueco no borra el resto.
 
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { localDayKey } from "../db/stats";
 import { colors, font, tabular, type } from "../theme";
@@ -41,7 +41,7 @@ export default function ActivityHeatmap({ activity = {}, now = new Date() }) {
   const columnas = Array.from({ length: SEMANAS }, (_, w) => celdas.slice(w * 7, w * 7 + 7));
 
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 12, width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 348 } : {}) }}>
       <View style={styles.grid}>
         {columnas.map((semana, w) => (
           <View key={w} style={styles.col}>
@@ -53,7 +53,7 @@ export default function ActivityHeatmap({ activity = {}, now = new Date() }) {
       </View>
 
       <View style={styles.legend}>
-        <Text style={[type.small, { flex: 1 }]}>
+        <Text style={[type.small, { flex: 1 }, Platform.OS === 'web' && { flexBasis: '100%', fontSize: 13 }]}>
           Estudiaste <Text style={styles.fuerte}>{conActividad}</Text> de los últimos{" "}
           <Text style={styles.fuerte}>{DIAS}</Text> días
         </Text>
@@ -85,6 +85,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    ...(Platform.OS === 'web' ? { flexWrap: 'wrap', rowGap: 12 } : {}),
   },
   legendCell: {
     width: 8,

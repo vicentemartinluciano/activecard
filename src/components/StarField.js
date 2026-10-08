@@ -61,12 +61,12 @@ export default function StarField() {
 const styles = StyleSheet.create({
   halo: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(13,31,65,0.16)",
+    backgroundColor: "rgba(13,20,35,0.05)",
   },
   star: {
     position: "absolute",
     borderRadius: 2,
-    backgroundColor: "rgba(170,205,255,0.42)",
+    backgroundColor: "rgba(170,185,215,0.3)",
   },
   shooting: {
     position: "absolute",

@@ -108,6 +108,8 @@ export default function DetalleMazo() {
   // Modo edición: todas las tarjetas abiertas, se editan sin entrar a cada una.
   // activeId es la única que monta editores de verdad (ver EditableCardRow).
   const [editMode, setEditMode] = useState(false);
+  const [twoColumns, setTwoColumns] = useState(false);
+  const [cardsWidth, setCardsWidth] = useState(0);
   const [activeId, setActiveId] = useState(null);
   const [draft, setDraft] = useState({ front: "", back: "" });
   const [editError, setEditError] = useState("");
@@ -161,6 +163,7 @@ export default function DetalleMazo() {
 
   // Última elección del sheet de estudio (persistida en settings).
   useEffect(() => {
+    if (Platform.OS === 'web') getSetting('desktopDeckColumns', 1).then((columns) => setTwoColumns(columns === 2));
     getSetting("studyPrefs", { starsOnly: false, ordered: false }).then((p) => {
       setStarsOnly(!!p.starsOnly);
       setOrdered(!!p.ordered);
@@ -280,6 +283,16 @@ export default function DetalleMazo() {
   const starredCount = cards.filter((c) => c.starred).length;
   const visibleCards = filterDeckCards(cards, cardQuery, cardFilter);
   const filteringCards = !!cardQuery.trim() || cardFilter != null;
+  const gridColumns = twoColumns && cardsWidth >= 740 ? 2 : 1;
+  const cardGrid = (children) => Platform.OS === 'web'
+    ? <View onLayout={(event) => setCardsWidth(event.nativeEvent.layout.width)}><div data-deck-columns={gridColumns} style={{ display: 'grid', gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`, gap: 20, alignItems: 'start' }}>{children}</div></View>
+    : <View style={{ gap: spacing.sm }}>{children}</View>;
+  const toggleColumns = async () => {
+    const next = !twoColumns;
+    setTwoColumns(next);
+    try { await setSetting('desktopDeckColumns', next ? 2 : 1); }
+    catch { setEditError('No pudimos recordar la vista elegida.'); }
+  };
 
   const toggleTag = async (tagId) => {
     const next = deckTagIds.includes(tagId)
@@ -374,7 +387,7 @@ export default function DetalleMazo() {
   );
 
   return (
-    <Screen>
+    <Screen style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 20 } : undefined}>
       <Stack.Screen
         options={{
           headerShown: Platform.OS !== 'web',
@@ -394,6 +407,9 @@ export default function DetalleMazo() {
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         {Platform.OS === "web" && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 20 }}>
           <Text style={[type.heading, { flex: 1, fontSize: 28 }]}>{deck.name}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={twoColumns ? 'Mostrar tarjetas en lista' : 'Mostrar tarjetas en dos columnas'} accessibilityState={{ selected: twoColumns }} onPress={toggleColumns} style={({ hovered }) => ({ width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered || twoColumns ? colors.surfaceHigh : 'transparent' })}>
+            <Feather name={twoColumns ? 'list' : 'columns'} size={21} color={twoColumns ? colors.accentText : colors.textMuted} />
+          </Pressable>
           <Button label={editMode ? 'Terminar edición' : 'Editar tarjetas'} onPress={editMode ? exitEditMode : () => {
             allowNavigationRef.current = false; setEditError(''); setEditMode(true); activeIdRef.current = null; setActiveId(null);
           }} />
@@ -416,7 +432,7 @@ export default function DetalleMazo() {
           ) : null}
 
           {progress && progress.total > 0 ? (
-            <Card style={{ gap: spacing.sm }}>
+            <Card style={{ gap: spacing.sm, ...(Platform.OS === 'web' ? { minHeight: 144, justifyContent: 'center', paddingVertical: 28 } : {}) }}>
               <View style={styles.progressHead}>
                 <Text style={type.label}>Progreso de hoy</Text>
                 {recallScore != null ? (
@@ -566,8 +582,7 @@ export default function DetalleMazo() {
           ) : editMode ? (
             // En modo edición la lista va plana: el drag & drop y los editores
             // no pueden convivir (uno necesita long-press, el otro el foco).
-            <View style={{ gap: spacing.sm }}>
-              {visibleCards.map((item, i) => (
+            cardGrid(visibleCards.map((item, i) => (
                 <EditableCardRow
                   key={item.id}
                   card={item}
@@ -580,14 +595,11 @@ export default function DetalleMazo() {
                   onToggleStar={toggleStar}
                   onToggleSuspended={toggleSuspended}
                 />
-              ))}
-            </View>
+              )))
           ) : Platform.OS === "web" || filteringCards ? (
             // El drag & drop es para el teléfono y solo sobre la lista completa:
             // reordenar un subconjunto filtrado generaría posiciones ambiguas.
-            <View style={{ gap: spacing.sm }}>
-              {visibleCards.map((item) => <View key={item.id}>{cardRow(item)}</View>)}
-            </View>
+            cardGrid(visibleCards.map((item) => <View key={item.id}>{cardRow(item)}</View>))
           ) : (
             <Sortable.Grid
               columns={1}
@@ -710,10 +722,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    ...(Platform.OS === 'web' ? { minHeight: 128, gap: 20 } : {}),
   },
   cardFront: {
     ...type.body,
     ...font(500),
+    ...(Platform.OS === 'web' ? { fontSize: 18, lineHeight: 26 } : {}),
   },
   cardPills: {
     flexDirection: "row",
