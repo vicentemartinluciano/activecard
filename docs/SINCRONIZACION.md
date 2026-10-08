@@ -31,6 +31,14 @@ SQLite/Postgres aprobados. Publicación OTA confirmada; lectura y publicación d
 biblioteca remota verificadas el 8 de octubre. La instalación actual de la OTA tras
 la reinstalación requiere comprobación. No declarar cerrado el ciclo entre dispositivos.
 
+La mejora de transferencia y progreso se publicó el 8 de octubre: `preview`, Android,
+runtime 1.6.0, grupo `286633cf-98fb-4f90-b463-7b217e9249ca`, update
+`01a11b13-cea3-73bf-a43b-aa8808bf0d99`, fuente
+`d37a292c0bd5ea8f2991215235eb4b3c0c6e6e9d` (PR #7). CI `37763806423` y
+Deploy web `37763806582` exitosos; 391 pruebas en 41 suites. El endpoint de EAS
+entregó HTTP 200 con ese ID/runtime/grupo y el hash del bundle Android local.
+Publicación y disponibilidad verificadas; recepción en el teléfono pendiente.
+
 Para recibir la corrección, abrir ActiveCard con internet, esperar la descarga y
 volver a abrirla. En Ajustes tocar Sincronizar ahora y esperar «Al día» antes de
 conectar la web con la misma cuenta. El contenido local se conserva.
