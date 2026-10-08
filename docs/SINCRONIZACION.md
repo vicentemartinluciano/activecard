@@ -8,9 +8,13 @@ propios. La migración remota se ejecutó el 7 de octubre con confirmación de M
 cuenta única, RLS, bucket privado y privilegios de las RPC verificados en el proyecto
 real. Las políticas de Storage solo habilitan lectura e inserción para el dueño;
 no hay políticas adicionales que amplíen ese acceso. Todavía no se subieron datos.
-El login real y la prueba entre dispositivos siguen pendientes. La APK instalada
-sigue siendo 1.5.0; el código prepara 1.6.0 porque SecureStore y Crypto requieren
-un nuevo binario.
+El APK 1.6.0 terminó de compilar y Martín confirmó su instalación: abre y conserva
+sus mazos y tarjetas. Incluye SecureStore y Crypto. El login real y la prueba entre
+dispositivos siguen pendientes; este resultado no acredita la sincronización.
+
+Build EAS `d985993f-0dfd-40fb-a351-2cb8843550af`, desde el commit
+`7219aa1fcfa84a6a0d50c4c6b3fd03501136cc35`, con CI y publicación web exitosos.
+SHA-256 del APK: `587985580d6a33816f1253ad3f769aa1c9fb4235048541e2be89e0fc8f1e7c2d`.
 
 La web de escritorio ya se publicó en GitHub Pages. Para el APK nuevo se eliminaron
 los fallbacks de claves públicas del build: OpenAI y Notion se ingresan en Ajustes
@@ -103,7 +107,9 @@ y el contenido sin cambios se cachean para no releer imágenes o volver a descar
    confirmado; si hay varios, elegir el UUID de Martín explícitamente antes de ejecutar.
    No modifica las tablas de REANCLA ni sus usuarios.
 3. Publicar la web con CI verde. Construir APK 1.6.0 desde `main` limpia y sincronizada.
-4. Instalar sobre la anterior, sin desinstalar. Iniciar sesión en Ajustes en ambos lados.
+4. Instalar sobre la anterior, sin desinstalar. Iniciar sesión primero en Ajustes de
+   Android y esperar que termine de subir la biblioteca; luego conectar la web con
+   el mismo acceso de REANCLA.
 5. Probar Android → web → Android, una edición offline, un conflicto de texto, dos
    repasos offline, borrado frente a edición y una conversación con adjunto. Comprobar
    Recuperación y el próximo repaso después del conflicto.

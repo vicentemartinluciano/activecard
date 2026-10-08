@@ -1,7 +1,8 @@
 # Arquitectura de ActiveCard
 
 Última actualización: 2026-10-07
-APK instalada: 1.5.0; código candidato: 1.6.0
+APK instalada: 1.6.0. Martín confirmó apertura y conservación de mazos y tarjetas;
+login y sincronización entre dispositivos todavía no verificados.
 
 ## Visión
 

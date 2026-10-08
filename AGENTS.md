@@ -13,7 +13,7 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- APK instalada vigente: 1.5.0. Código candidato: 1.6.0 (SecureStore + Crypto; requiere APK nueva).
+- APK instalada vigente: 1.6.0 (SecureStore + Crypto). Martín confirmó que abre y conserva sus mazos y tarjetas; login y sincronización entre dispositivos todavía no verificados.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada implementada con Supabase. Migración remota y permisos verificados el 7 de octubre; login y sincronización real pendientes. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
@@ -48,7 +48,7 @@ Scripts para Martín:
 
 - `comandos AC/INICIAR-APP.bat`: desarrollo con caché limpia.
 - `comandos AC/ACTUALIZAR-APP.bat`: OTA compatible al canal `preview`.
-- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK candidata 1.6.0.
+- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.6.0.
 
 El criterio de lint de CI es el comando directo con `--max-warnings 0`, no solamente
 `npm run lint`.
