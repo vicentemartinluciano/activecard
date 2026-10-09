@@ -362,7 +362,7 @@ export default function DetalleMazo() {
             <Pill icon="pause-circle" label="Suspendida" color={colors.textMuted} />
           ) : null}
         </View>
-        <Text style={type.small} numberOfLines={1}>
+        <Text style={[type.small, Platform.OS === 'web' && { fontSize: 16, lineHeight: 24 }]} numberOfLines={2}>
           {toPlainText(item.back)}
         </Text>
       </View>
@@ -432,17 +432,17 @@ export default function DetalleMazo() {
           ) : null}
 
           {progress && progress.total > 0 ? (
-            <Card style={{ gap: spacing.sm, ...(Platform.OS === 'web' ? { minHeight: 144, justifyContent: 'center', paddingVertical: 28 } : {}) }}>
+            <Card style={{ gap: spacing.sm, ...(Platform.OS === 'web' ? { minHeight: 160, justifyContent: 'center', padding: 28, gap: 16 } : {}) }}>
               <View style={styles.progressHead}>
-                <Text style={type.label}>Progreso de hoy</Text>
+                <Text style={[type.label, Platform.OS === 'web' && { fontSize: 15, letterSpacing: 1.2 }]}>Progreso de hoy</Text>
                 {recallScore != null ? (
-                  <Pill label={`Recuerdo ${recallScore}%`} color={colors.successBright} />
+                  <Pill label={`Recuerdo ${recallScore}%`} color={colors.successBright} labelStyle={Platform.OS === 'web' ? { fontSize: 14 } : undefined} style={Platform.OS === 'web' ? { paddingHorizontal: 14, paddingVertical: 8 } : undefined} />
                 ) : null}
               </View>
-              <Text style={type.small}>
+              <Text style={[type.small, Platform.OS === 'web' && { fontSize: 18, lineHeight: 27 }]}>
                 {progress.reviewedToday}/{progress.total} tarjetas repasadas
               </Text>
-              <ProgressBar pct={progress.pct} gradient={gradients.progress} glowStyle={glow.green} />
+              <ProgressBar pct={progress.pct} gradient={gradients.progress} glowStyle={glow.green} style={Platform.OS === 'web' ? { height: 14, marginTop: 4 } : undefined} />
             </Card>
           ) : null}
 
@@ -722,12 +722,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    ...(Platform.OS === 'web' ? { minHeight: 128, gap: 20 } : {}),
+    ...(Platform.OS === 'web' ? { minHeight: 180, padding: 28, gap: 24 } : {}),
   },
   cardFront: {
     ...type.body,
     ...font(500),
-    ...(Platform.OS === 'web' ? { fontSize: 18, lineHeight: 26 } : {}),
+    ...(Platform.OS === 'web' ? { fontSize: 22, lineHeight: 31 } : {}),
   },
   cardPills: {
     flexDirection: "row",

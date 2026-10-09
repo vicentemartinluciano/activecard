@@ -62,11 +62,11 @@ export function Card({ children, onPress, level = "base", style, onLayout }) {
 }
 
 // Píldora semi-transparente para tags, contadores y badges.
-export function Pill({ label, icon, color = colors.textMuted, onPress, style }) {
+export function Pill({ label, icon, color = colors.textMuted, onPress, style, labelStyle }) {
   const content = (
     <>
       {icon ? <Feather name={icon} size={12} color={color} /> : null}
-      <Text style={[styles.pillLabel, { color }]}>{label}</Text>
+      <Text style={[styles.pillLabel, { color }, labelStyle]}>{label}</Text>
     </>
   );
   if (onPress) {

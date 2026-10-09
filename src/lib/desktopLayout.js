@@ -1,4 +1,4 @@
-export const DESKTOP_RAIL_WIDTH = 76;
+export const DESKTOP_RAIL_WIDTH = 60;
 export const DESKTOP_INDEX_WIDTH = 280;
 
 export function desktopSection(path) {
