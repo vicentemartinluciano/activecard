@@ -7,7 +7,7 @@ module.exports = defineConfig([
   expoConfig,
   {
     // assets/editor: bundle del editor GENERADO por scripts/build-editor.mjs.
-    ignores: ["dist/*", ".desktop-preview/**", ".expo/*", "assets/editor/*"],
+    ignores: ["dist/*", ".desktop-preview*/**", ".web-ci/**", ".expo/*", "assets/editor/*"],
   },
   {
     rules: {

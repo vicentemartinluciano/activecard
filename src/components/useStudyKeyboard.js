@@ -3,16 +3,16 @@ import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { studyKeyAction } from '../lib/studyKeyboard';
 
-export default function useStudyKeyboard({ enabled, flipped, flip, grade }) {
+export default function useStudyKeyboard({ enabled, flipped, flip, grade, isBusy }) {
   const handlers = useRef(null);
-  handlers.current = { enabled, flipped, flip, grade };
+  handlers.current = { enabled, flipped, flip, grade, isBusy };
   const pending = useRef(false);
   const [error, setError] = useState('');
   useFocusEffect(useCallback(() => {
     if (Platform.OS !== 'web') return;
     const keydown = (event) => {
       const current = handlers.current;
-      if (!current.enabled || pending.current || event.target.closest?.('input, textarea, select, button, a, [contenteditable="true"]')) return;
+      if (!current.enabled || pending.current || current.isBusy?.() || event.target.closest?.('input, textarea, select, button, a, [contenteditable="true"]')) return;
       const action = studyKeyAction(event, current.flipped);
       if (!action) return;
       event.preventDefault();

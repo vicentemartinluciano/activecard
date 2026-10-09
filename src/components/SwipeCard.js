@@ -2,11 +2,12 @@
 // a la izquierda = no la sabía, hacia arriba = más o menos. PanResponder +
 // Animated de RN core (compatible con Android y web, sin worklets).
 
-import { useRef } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Animated, PanResponder, Platform, StyleSheet, Text, useWindowDimensions } from "react-native";
 
 import { colors, font, radius, ratingColors } from "../theme";
-import { createStudyMouseDrag } from '../lib/studyMouseDrag';
+import { createStudyMouseDrag, studyDragDirection } from '../lib/studyMouseDrag';
+import { createStudyMotion } from '../lib/studyMotion';
 
 const SWIPE_THRESHOLD = 90;
 
@@ -67,12 +68,22 @@ export function swipeOpacities(pan, threshold = SWIPE_THRESHOLD) {
   };
 }
 
-export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipeUp }) {
+export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeRight, onSwipeUp }) {
   const { width, height } = useWindowDimensions();
   const pan = useRef(new Animated.ValueXY()).current;
   const frameRef = useRef(null);
-  const flying = useRef(false);
+  const motion = useRef(null);
   const mouse = useRef(null);
+  const [armed, setArmed] = useState(false);
+  const [error, setError] = useState('');
+  const [borderColor, setBorderColor] = useState('transparent');
+
+  const updateFrame = (color) => {
+    // RN Web entrega un elemento DOM, sin setNativeProps. El intento de usar
+    // esa API cortaba move/cancel después de mover la tarjeta: quedaba trabada.
+    if (Platform.OS === 'web') setBorderColor(color);
+    else frameRef.current?.setNativeProps?.({ style: { borderColor: color } });
+  };
 
   // En Android/Fabric una capa absoluta sobre FlipCard se separaba de la
   // tarjeta al rotar: terminaba viéndose como una raya luminosa abajo. Acá
@@ -82,7 +93,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
     const horizontal = Math.abs(gesture.dx) >= Math.abs(gesture.dy);
     const magnitude = horizontal ? Math.abs(gesture.dx) : Math.max(0, -gesture.dy);
     if (magnitude < 3 || (!horizontal && !latest.current.onSwipeUp)) {
-      frameRef.current?.setNativeProps({ style: { borderColor: "transparent" } });
+      updateFrame('transparent');
       return;
     }
     const color = horizontal
@@ -91,14 +102,14 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
     const alpha = Math.round((0.35 + Math.min(1, magnitude / SWIPE_THRESHOLD) * 0.65) * 255)
       .toString(16)
       .padStart(2, "0");
-    frameRef.current?.setNativeProps({ style: { borderColor: `${color}${alpha}` } });
+    updateFrame(`${color}${alpha}`);
   };
 
   const clearFrame = () => {
-    frameRef.current?.setNativeProps({ style: { borderColor: "transparent" } });
+    updateFrame('transparent');
   };
 
-  // El PanResponder se crea UNA sola vez por montaje y captura el flyOut del
+  // El PanResponder se crea UNA sola vez por montaje y captura el vuelo del
   // primer render. Sin estos refs, el swipe llamaba a callbacks VIEJOS: si
   // armabas el rayo ⚡ y calificabas deslizando, corría un grade() con
   // gymArmed=false y el Gimnasio nunca se abría. Los refs siempre apuntan a
@@ -106,98 +117,79 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
   const latest = useRef({ onSwipeLeft, onSwipeRight, onSwipeUp, width, height });
   latest.current = { onSwipeLeft, onSwipeRight, onSwipeUp, width, height };
 
-  // useNativeDriver false a propósito: onPanResponderMove maneja el MISMO `pan`
-  // con driver JS, y mezclar ambos drivers sobre un mismo nodo animado deja el
-  // gesto en estado inconsistente en Android new-arch.
-  const flyOut = (direction) => {
-    if (flying.current) return;
-    flying.current = true;
-    Animated.timing(pan, {
-      toValue: { x: direction * latest.current.width * 1.2, y: 0 },
-      duration: 200,
-      useNativeDriver: false,
-    }).start(() => {
-      pan.setValue({ x: 0, y: 0 });
-      clearFrame();
-      flying.current = false;
-      if (direction > 0) latest.current.onSwipeRight();
-      else latest.current.onSwipeLeft();
+  // Un único dueño de la posición evita que PanResponder y Pointer Events
+  // escriban el mismo Animated.Value en web después de soltar el gesto.
+  if (!motion.current) motion.current = createStudyMotion({
+    animate: (toValue, duration, done) => {
+      const animation = Animated.timing(pan, { toValue, duration, useNativeDriver: false });
+      animation.start(done);
+      return animation;
+    },
+    setPosition: (point) => pan.setValue(point),
+    paint: paintFrame,
+    clear: clearFrame,
+    getTarget: (rating) => rating === 'hard'
+      ? { x: 0, y: -latest.current.height * 1.2 }
+      : { x: (rating === 'good' ? 1 : -1) * latest.current.width * 1.2, y: 0 },
+    getGrade: (rating) => ({ again: latest.current.onSwipeLeft, hard: latest.current.onSwipeUp, good: latest.current.onSwipeRight })[rating],
+  });
+  const swipe = (rating) => {
+    setError('');
+    return motion.current.swipe(rating).catch((cause) => {
+      setError('No pudimos guardar el repaso. Volvé a intentar.');
+      throw cause;
     });
   };
-
-  // Vuelo hacia arriba = "Más o menos" (Hard). Solo se dispara si hay callback.
-  const flyUp = () => {
-    if (flying.current) return;
-    if (!latest.current.onSwipeUp) {
-      clearFrame();
-      Animated.timing(pan, {
-        toValue: { x: 0, y: 0 },
-        duration: 130,
-        useNativeDriver: false,
-      }).start();
-      return;
-    }
-    flying.current = true;
-    Animated.timing(pan, {
-      toValue: { x: 0, y: -latest.current.height * 1.2 },
-      duration: 200,
-      useNativeDriver: false,
-    }).start(() => {
-      pan.setValue({ x: 0, y: 0 });
-      clearFrame();
-      flying.current = false;
-      latest.current.onSwipeUp();
-    });
-  };
+  const release = (rating) => { swipe(rating).catch(() => {}); };
+  useImperativeHandle(ref, () => ({ swipe, isBusy: motion.current.isBusy }));
+  useEffect(() => {
+    motion.current.reset();
+    mouse.current?.reset();
+    setError('');
+    return () => { motion.current.reset(); };
+  }, [cardId]);
 
   if (!mouse.current) mouse.current = createStudyMouseDrag({
-    isBusy: () => flying.current,
-    move: (gesture) => { pan.setValue({ x: gesture.dx, y: gesture.dy }); paintFrame(gesture); },
-    release: (direction) => { if (direction === 'hard') flyUp(); else flyOut(direction === 'good' ? 1 : -1); },
-    cancel: () => { clearFrame(); Animated.timing(pan, { toValue: { x: 0, y: 0 }, duration: 130, useNativeDriver: false }).start(); },
+    isBusy: motion.current.isBusy,
+    move: motion.current.move,
+    release,
+    cancel: motion.current.cancel,
+    onArmedChange: setArmed,
   });
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const cancel = () => mouse.current.reset();
+    const escape = (event) => { if (event.key === 'Escape') cancel(); };
+    const hidden = () => { if (document.hidden) cancel(); };
+    window.addEventListener('blur', cancel);
+    document.addEventListener('visibilitychange', hidden);
+    document.addEventListener('keydown', escape);
+    return () => {
+      window.removeEventListener('blur', cancel);
+      document.removeEventListener('visibilitychange', hidden);
+      document.removeEventListener('keydown', escape);
+    };
+  }, []);
 
-  const responder = useRef(
-    PanResponder.create({
-      // Tomar el gesto con arrastre horizontal real (para no robarle el tap al
-      // flip) o con arrastre vertical hacia ARRIBA dominante. El hacia arriba
-      // solo llega acá cuando el dorso no scrollea: si el ScrollView interno
-      // tiene contenido, se queda él con el gesto vertical (y el botón azul
-      // queda como camino confiable). Hacia abajo nunca lo tomamos.
-      onMoveShouldSetPanResponder: (_, g) =>
-        !flying.current && !(Platform.OS === 'web' && mouse.current.isMouse) && (
-          (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy)) ||
-          (g.dy < -12 && Math.abs(g.dy) > Math.abs(g.dx))),
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-        listener: (_, gesture) => paintFrame(gesture),
-      }),
-      onPanResponderRelease: (_, g) => {
-        if (g.dx > SWIPE_THRESHOLD) flyOut(1);
-        else if (g.dx < -SWIPE_THRESHOLD) flyOut(-1);
-        else if (g.dy < -SWIPE_THRESHOLD) flyUp();
-        else {
-          // El color se apaga al soltar, no cuando termina el retorno. Con el
-          // spring anterior la tarjeta quedaba inclinada y coloreada casi un
-          // segundo aunque el swipe se hubiera cancelado.
-          clearFrame();
-          Animated.timing(pan, {
-            toValue: { x: 0, y: 0 },
-            duration: 130,
-            useNativeDriver: false,
-          }).start();
-        }
-      },
-      onPanResponderTerminate: () => {
-        clearFrame();
-        Animated.timing(pan, {
-          toValue: { x: 0, y: 0 },
-          duration: 130,
-          useNativeDriver: false,
-        }).start();
-      },
-    })
-  ).current;
+  const responder = useRef(null);
+  if (!responder.current) responder.current = PanResponder.create({
+    // Tomar el gesto con arrastre horizontal real (para no robarle el tap al
+    // flip) o con arrastre vertical hacia ARRIBA dominante. El hacia arriba
+    // solo llega acá cuando el dorso no scrollea: si el ScrollView interno
+    // tiene contenido, se queda él con el gesto vertical (y el botón azul
+    // queda como camino confiable). Hacia abajo nunca lo tomamos.
+    onMoveShouldSetPanResponder: (_, g) =>
+      !motion.current.isBusy() && (
+        (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy)) ||
+        (g.dy < -12 && Math.abs(g.dy) > Math.abs(g.dx))),
+    onPanResponderMove: (_, gesture) => motion.current.move(gesture),
+    onPanResponderRelease: (_, gesture) => {
+      const direction = studyDragDirection(gesture.dx, gesture.dy);
+      if (direction) release(direction);
+      else motion.current.cancel();
+    },
+    onPanResponderTerminate: () => motion.current.cancel(),
+  });
 
   const rotate = pan.x.interpolate({
     inputRange: [-width, 0, width],
@@ -213,9 +205,10 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
   const card = (
     <Animated.View
       ref={frameRef}
-      {...responder.panHandlers}
+      {...(Platform.OS === 'web' ? {} : responder.current.panHandlers)}
       style={[
         styles.container,
+        Platform.OS === 'web' && { borderColor },
         { transform: [{ translateX: pan.x }, { translateY: pan.y }, { rotate }] },
       ]}
     >
@@ -242,7 +235,7 @@ export default function SwipeCard({ children, onSwipeLeft, onSwipeRight, onSwipe
     </Animated.View>
   );
   return Platform.OS === 'web'
-    ? <div data-study-drag="true" {...mouse.current.handlers} style={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, userSelect: 'none' }}>{card}</div>
+    ? <div data-study-drag="true" {...mouse.current.handlers} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, userSelect: 'none', touchAction: armed ? 'none' : 'pan-y', cursor: armed ? 'grabbing' : 'auto' }}>{card}{!!error && <Text style={{ color: colors.danger }}>{error}</Text>}</div>
     : card;
 }
 

@@ -61,9 +61,12 @@ conserva sus pestañas y sus gestos.
 - En el estudio, Espacio gira la tarjeta. Una vez vista la respuesta, 1/izquierda
   califica Again, 2/arriba Hard y 3/derecha Good. Los atajos no actúan en campos de
   texto, durante composición, con modificadores ni al mantener una tecla apretada.
-  Con mouse, un clic gira; un doble clic manteniendo el segundo permite arrastrar
-  izquierda/arriba/derecha. Soltar bajo el umbral o cancelar devuelve la tarjeta sin
-  calificar. Estrella, lápiz y rayo no arman el arrastre. Los textos de atajos debajo
+  Dos toques activan el arrastre sin mantener apretado el segundo. Con mouse se
+  mueve sin botones y otro toque suelta; con tacto se apoya de nuevo y se arrastra.
+  Soltar bajo el umbral, Escape, salir de la tarjeta o perder el foco devuelve al
+  centro sin calificar. Flechas y números usan el mismo vuelo, borde y señales de
+  color que el arrastre; el bloqueo dura hasta guardar la nota. Estrella, lápiz y
+  rayo no arman el arrastre. Los textos de atajos debajo
   se quitaron; los atajos y botones siguen disponibles. Android conserva su swipe.
 
 ## Ajuste aprobado el 8 de octubre de 2026
@@ -83,7 +86,8 @@ conserva sus pestañas y sus gestos.
 - **Calidad:** tooltip desaparece al salir después de un clic; flecha oculta sin hover;
   gestos producen un solo repaso; chat conserva borradores, adjuntos y acciones;
   gráfico aprovecha su panel sin recorte ni cambio de porcentajes.
-- **Ambigüedades resueltas:** Martín confirmó el segundo clic mantenido, la estructura
+- **Ambigüedades resueltas:** El 9/10 Martín reemplazó el segundo clic mantenido por
+  dos toques que activan el arrastre sin mantener. También confirmó la estructura
   del Mentor y que el gráfico resultaba pequeño (no denunció superposición).
 - **Siguiente verificación:** probar navegación, gesto y chat en navegador; exportar
   Android y comprobar el Gimnasio en el dispositivo antes de acreditar QA nativa.
@@ -147,3 +151,18 @@ no acredita una prueba física sobre el Galaxy A15.
 # Estado de sincronización en Ajustes
 
 El centro del engranaje de la barra lateral se muestra verde después de confirmar una sincronización y comprobar que la biblioteca local coincide con su checkpoint. Vuelve a neutro al guardar cambios locales, mientras sincroniza, ante un error o cuando quedan cambios remotos pendientes. El tooltip informa ese estado; las claves locales no cuentan como cambios compartidos.
+
+
+## Corrección del estudio del 9 de octubre de 2026
+
+El borde web se actualiza de forma declarativa: el nodo DOM no ofrece
+`setNativeProps`, y esa llamada interrumpía el retorno de la tarjeta. Pointer Events
+controla la posición en web y PanResponder la controla en Android. Ambos usan el
+mismo motor de vuelo, cancelación y bloqueo hasta guardar.
+
+En Chrome se probaron componentes reales con tarjetas ficticias, sin SQLite ni
+cuenta: doble toque completo, movimiento sin botones, retorno desde 40 px sin nota,
+Escape sin nota y vuelos de las tres flechas con señales roja, azul y verde. El test
+de montaje cubre un nodo sin `setNativeProps`; los tests del motor cubren retorno,
+interrupciones, cambio de tarjeta y error al guardar. Esta prueba no acredita QA
+física en Android ni altera los repasos privados de Martín.

@@ -59,6 +59,7 @@ export default function Repaso() {
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
   // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
   const pendingEditIdRef = useRef(null);
+  const swipeRef = useRef(null);
   const [syncReload, setSyncReload] = useState(0);
   useSyncRefresh(useCallback(() => { setStatus("loading"); setSyncReload((value) => value + 1); }, []));
 
@@ -170,7 +171,7 @@ export default function Repaso() {
   );
 
   const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
-  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && index < round.length && phase === 'card', flipped, flip: () => setFlipped((value) => !value), grade });
+  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && index < round.length && phase === 'card', flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
   useEffect(() => {
     if (!sessionComplete) return;
     syncReviewReminder().catch(() => {});
@@ -282,6 +283,8 @@ export default function Repaso() {
 
       <View style={{ flex: 1, marginVertical: spacing.sm }}>
         <SwipeCard
+          ref={swipeRef}
+          cardId={card.id}
           onSwipeLeft={() => grade("again")}
           onSwipeRight={() => grade("good")}
           onSwipeUp={() => grade("hard")}
@@ -308,21 +311,21 @@ export default function Repaso() {
       <View style={styles.grade}>
         <Pressable
           accessibilityRole="button" accessibilityLabel="No la recordé"
-          onPress={() => grade("again")}
+          onPress={() => Platform.OS === "web" ? swipeRef.current?.swipe("again").catch(() => {}) : grade("again")}
           style={({ pressed }) => [styles.circle, styles.circleNo, pressed && { opacity: 0.7 }]}
         >
           <Feather name="x" size={26} color={ratingColors.again} />
         </Pressable>
         <Pressable
           accessibilityRole="button" accessibilityLabel="Más o menos"
-          onPress={() => grade("hard")}
+          onPress={() => Platform.OS === "web" ? swipeRef.current?.swipe("hard").catch(() => {}) : grade("hard")}
           style={({ pressed }) => [styles.circle, styles.circleMid, pressed && { opacity: 0.7 }]}
         >
           <Feather name="minus" size={26} color={ratingColors.hard} />
         </Pressable>
         <Pressable
           accessibilityRole="button" accessibilityLabel="La recordé"
-          onPress={() => grade("good")}
+          onPress={() => Platform.OS === "web" ? swipeRef.current?.swipe("good").catch(() => {}) : grade("good")}
           style={({ pressed }) => [styles.circle, styles.circleYes, pressed && { opacity: 0.7 }]}
         >
           <Feather name="check" size={26} color={ratingColors.good} />
