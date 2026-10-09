@@ -41,7 +41,7 @@ export default function ActivityHeatmap({ activity = {}, now = new Date() }) {
   const columnas = Array.from({ length: SEMANAS }, (_, w) => celdas.slice(w * 7, w * 7 + 7));
 
   return (
-    <View style={{ gap: 12, width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 348 } : {}) }}>
+    <View style={{ gap: Platform.OS === 'web' ? 16 : 12, width: '100%' }}>
       <View style={styles.grid}>
         {columnas.map((semana, w) => (
           <View key={w} style={styles.col}>
@@ -53,7 +53,7 @@ export default function ActivityHeatmap({ activity = {}, now = new Date() }) {
       </View>
 
       <View style={styles.legend}>
-        <Text style={[type.small, { flex: 1 }, Platform.OS === 'web' && { flexBasis: '100%', fontSize: 13 }]}>
+        <Text style={[type.small, { flex: 1 }, Platform.OS === 'web' && { fontSize: 14, lineHeight: 22 }]}>
           Estudiaste <Text style={styles.fuerte}>{conActividad}</Text> de los últimos{" "}
           <Text style={styles.fuerte}>{DIAS}</Text> días
         </Text>
@@ -71,14 +71,16 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: "row",
     gap: 3,
+    ...(Platform.OS === 'web' ? { height: 260, gap: 6 } : {}),
   },
   col: {
     flex: 1,
     gap: 3,
+    ...(Platform.OS === 'web' ? { gap: 6 } : {}),
   },
   cell: {
     width: "100%",
-    aspectRatio: 1,
+    ...(Platform.OS === 'web' ? { flex: 1, minHeight: 0 } : { aspectRatio: 1 }),
     borderRadius: 2.5,
   },
   legend: {

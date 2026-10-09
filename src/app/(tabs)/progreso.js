@@ -13,6 +13,7 @@ import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } fro
 import ActivityHeatmap from "../../components/ActivityHeatmap";
 import ForecastList from "../../components/ForecastList";
 import RecallScoreChart from "../../components/RecallScoreChart";
+import MetricCarousel from "../../components/MetricCarousel";
 import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import Stagger from "../../components/Stagger";
@@ -31,10 +32,6 @@ import { toPlainText } from "../../lib/richtext";
 import { colors, font, layout, spacing, tabular, type } from "../../theme";
 
 const PAGINAS = ["Puntaje de recuerdo", "Constancia"];
-
-function MetricPages({ children, ...props }) {
-  return Platform.OS === 'web' ? <View style={{ gap: 32, width: '100%' }}>{children}</View> : <ScrollView {...props}>{children}</ScrollView>;
-}
 
 export default function Progreso() {
   const router = useRouter();
@@ -140,15 +137,10 @@ export default function Progreso() {
                 }}
               >
                 {anchoCard > 0 ? (
-                  <MetricPages
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onScroll={(e) => {
-                      const w = e.nativeEvent.layoutMeasurement.width;
-                      if (w > 0) setPagina(Math.round(e.nativeEvent.contentOffset.x / w));
-                    }}
-                    scrollEventThrottle={32}
+                  <MetricCarousel
+                    pageWidth={metricWidth}
+                    page={pagina}
+                    onPageChange={setPagina}
                   >
                     <View style={[styles.pagina, { width: metricWidth }]}>
                       <View style={styles.rowHead}>
@@ -177,7 +169,7 @@ export default function Progreso() {
                       <RecallScoreChart series={serie} anchoBase={metricWidth} />
                     </View>
 
-                    <View style={[styles.pagina, { width: metricWidth }, Platform.OS === 'web' && { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 24 }]}>
+                    <View style={[styles.pagina, { width: metricWidth }]}>
                       <View style={styles.rowHead}>
                         <Text style={type.label}>Constancia</Text>
                         {racha && racha.days > 0 ? (
@@ -190,15 +182,17 @@ export default function Progreso() {
                       </View>
                       <ActivityHeatmap activity={actividad} />
                     </View>
-                  </MetricPages>
+                  </MetricCarousel>
                 ) : null}
               </View>
 
-              <View style={[styles.dots, Platform.OS === 'web' && { display: 'none' }]}>
+              {Platform.OS === 'web' ? <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 20 }}>
+                {PAGINAS.map((label, index) => <Button key={label} label={label} kind={pagina === index ? 'primary' : undefined} onPress={() => setPagina(index)} />)}
+              </View> : <View style={styles.dots}>
                 {PAGINAS.map((p, i) => (
                   <View key={p} style={[styles.dot, i === pagina && styles.dotOn]} />
                 ))}
-              </View>
+              </View>}
             </Card>
 
             <Card style={{ gap: spacing.md }}>

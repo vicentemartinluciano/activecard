@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: spacing.sm + 4,
     gap: spacing.sm,
-    ...(Platform.OS === 'web' ? { padding: 20, gap: 16 } : {}),
+    ...(Platform.OS === 'web' ? { padding: 28, gap: 20, minHeight: 220 } : {}),
   },
   rowActive: {
     borderColor: "rgba(62,99,221,0.55)",
@@ -149,6 +149,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     marginBottom: spacing.sm,
+    ...(Platform.OS === 'web' ? { padding: 16, minHeight: 72 } : {}),
   },
   boxBack: {
     marginBottom: 0,
@@ -158,13 +159,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     ...font(600),
     lineHeight: 20,
-    ...(Platform.OS === 'web' ? { fontSize: 17, lineHeight: 25 } : {}),
+    ...(Platform.OS === 'web' ? { fontSize: 20, lineHeight: 29 } : {}),
   },
   boxText: {
     ...type.body,
     fontSize: 13,
     color: colors.textMuted,
     lineHeight: 19,
-    ...(Platform.OS === 'web' ? { fontSize: 15, lineHeight: 23 } : {}),
+    ...(Platform.OS === 'web' ? { fontSize: 18, lineHeight: 27 } : {}),
   },
 });

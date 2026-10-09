@@ -22,7 +22,7 @@ const OPTIONS = [
 
 function CreationArea({ children }) {
   return Platform.OS === 'web'
-    ? <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>{children}</ScrollView>
+    ? <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>{children}</ScrollView>
     : <View style={{ flex: 1 }}>{children}</View>;
 }
 
@@ -50,7 +50,7 @@ export default function Crear() {
 
   return (
     <SectionSwipe index={1}>
-    <Screen safeTop style={Platform.OS === 'web' ? { padding: 32 } : undefined}>
+    <Screen safeTop style={Platform.OS === 'web' ? { padding: 16, maxWidth: '100%' } : undefined}>
       <CreationArea>
       <View style={{ flex: 1, justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center', paddingTop: Platform.OS === 'web' ? 20 : 0 }}>
       <Text style={[type.title, { textAlign: Platform.OS === 'web' ? 'left' : 'center', marginBottom: spacing.lg, ...(Platform.OS === 'web' ? { fontSize: 32 } : {}) }]}>
@@ -61,7 +61,7 @@ export default function Crear() {
         {/* Excepción al patrón Card: GlowPressable directo, porque las cards
             encienden el halo con hovered (web) / pressed (nativo) y Card no
             expone esos estados. El resto de la app sigue usando Card. */}
-        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 300 } : undefined}>
+        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 0 } : undefined}>
         {OPTIONS.map((opt) => (
           <GlowPressable
             accessibilityRole="button"

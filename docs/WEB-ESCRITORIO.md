@@ -6,7 +6,7 @@ La web funciona como un espacio de trabajo inspirado en REANCLA. Todas las secci
 siguen disponibles: Inicio, Biblioteca, Crear, Gimnasio, Progreso y Ajustes. Android
 conserva sus pestañas y sus gestos.
 
-- Barra izquierda de 76 px sin logo e iconos de 26 px. Las cinco secciones
+- Barra izquierda de 60 px sin logo e iconos de 26 px. Las cinco secciones
   distribuyen el espacio vertical y Ajustes ocupa su franja inferior. El destino
   seleccionado y el icono bajo el cursor cambian a azul. Solo Ajustes tiene una línea
   separadora; los nombres aparecen al pasar el mouse o enfocar con
@@ -39,15 +39,25 @@ conserva sus pestañas y sus gestos.
   un rectángulo detrás del campo. No hay saludo inicial; los controles del campo son
   uniformes y el textarea web no muestra un marco propio. En web, el menú de adjuntos
   es un desplegable anclado al botón; Android conserva el sheet.
-- Inicio distribuye repaso a la izquierda y mazos en progreso/recientes a la derecha,
-  apilados si no caben. Los recientes se ordenan por último repaso o fecha de creación.
-  Crear ofrece tres superficies amplias con descripción, alineadas arriba.
-  Progreso usa todo el ancho
-  para recuerdo y muestra constancia debajo, limitada a 348 px para no estirar las
-  celdas; el trazado web tiene 260 px de alto. Lo que viene conserva barras horizontales
+- Inicio distribuye repaso a la izquierda y mazos a la derecha, en dos áreas de igual
+  altura que se apilan si no caben. Los mazos en progreso tienen prioridad y los
+  recientes completan el espacio restante, sin repetir mazos ni mostrar avisos vacíos.
+  Los recientes se ordenan por último repaso o fecha de creación. El repaso usa
+  título, contadores, botón y barra proporcionados al panel. La racha web reproduce
+  el mismo Lottie del celular mediante SVG local; el acceso extra al Gimnasio se quitó.
+  Crear ofrece tres superficies amplias con descripción, alineadas arriba y con
+  margen interno en su scroll para conservar bordes y halos.
+  Progreso alterna recuerdo y constancia en un carrusel horizontal, con arrastre de
+  mouse, gesto táctil y botones. Ambos usan todo el ancho; gráfico y cuadrícula tienen
+  260 px de alto. Lo que viene conserva barras horizontales
   con filas y cifras más legibles, y distingue el día actual.
-  El área de contenido llega a 1440 px y la tarjeta de estudio a 800 px, según el
+  Progreso y los mazos usan el ancho disponible; la tarjeta de estudio llega a 800 px, según el
   espacio disponible. Los controles y superficies web tienen más espacio interior.
+- La cuenta web distribuye la explicación y el formulario/estado en dos áreas cuando
+  caben. El estado diferencia conexión, avance, pendientes y error; mantiene la fecha
+  del último intercambio, los mismos botones y la confirmación antes de restaurar.
+  Las copias se despliegan desde Recuperación. No cambia autenticación, permisos ni
+  criterios de sincronización.
 - En el estudio, Espacio gira la tarjeta. Una vez vista la respuesta, 1/izquierda
   califica Again, 2/arriba Hard y 3/derecha Good. Los atajos no actúan en campos de
   texto, durante composición, con modificadores ni al mantener una tecla apretada.
@@ -134,3 +144,6 @@ errores de consola en estas interacciones.
 La suite local pasó 372 tests en 40 suites. Expo Doctor offline pasó 21/21 controles;
 ESLint con cero warnings y los exports web/Android pasaron. La exportación Android
 no acredita una prueba física sobre el Galaxy A15.
+# Estado de sincronización en Ajustes
+
+El centro del engranaje de la barra lateral se muestra verde después de confirmar una sincronización y comprobar que la biblioteca local coincide con su checkpoint. Vuelve a neutro al guardar cambios locales, mientras sincroniza, ante un error o cuando quedan cambios remotos pendientes. El tooltip informa ese estado; las claves locales no cuentan como cambios compartidos.

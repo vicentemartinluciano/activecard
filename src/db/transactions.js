@@ -3,12 +3,24 @@
 const managers = new WeakMap();
 const changesContent = (sql) => /\b(?:INSERT|UPDATE|DELETE|REPLACE|ALTER)\b/i.test(String(sql)) && /\b(?:folders|decks|tags|deck_tags|cards|review_logs|connections|gym_chats|gym_messages|study_preferences)\b/i.test(String(sql));
 export const getDatabaseRevision = (db) => managers.get(db)?.revision ?? null;
+export function subscribeDatabaseChanges(db, listener) {
+  const listeners = managers.get(db)?.listeners;
+  listeners?.add(listener);
+  return () => listeners?.delete(listener);
+}
+function contentChanged(manager) {
+  manager.revision++;
+  for (const listener of manager.listeners) {
+    // Un observador de UI no puede invalidar una escritura ya confirmada.
+    try { listener(manager.revision); } catch { /* La cola sigue utilizable. */ }
+  }
+}
 export function withDbConnection(db, task) {
   const manager = managers.get(db);
   return manager ? manager.enqueue(() => task(manager.raw)) : task(db);
 }
 export function manageDatabase(raw) {
-  const manager = { raw, revision: 0 };
+  const manager = { raw, revision: 0, listeners: new Set() };
   let tail = Promise.resolve();
   const enqueue = (task) => {
     const result = tail.then(task);
@@ -21,7 +33,7 @@ export function manageDatabase(raw) {
       if (typeof value !== "function") return value;
       return (...args) => enqueue(async () => {
         const result = await value.apply(target, args);
-        if ((key === "runAsync" || key === "execAsync") && changesContent(args[0])) manager.revision++;
+        if ((key === "runAsync" || key === "execAsync") && changesContent(args[0])) contentChanged(manager);
         return result;
       });
     },
@@ -48,7 +60,7 @@ export function withDbTransaction(db, task) {
     try {
       const result = await task(tx);
       await connection.execAsync("COMMIT");
-      if (changed) manager.revision++;
+      if (changed) contentChanged(manager);
       return result;
     } catch (error) {
       await connection.execAsync("ROLLBACK");
