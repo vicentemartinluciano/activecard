@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Feather from '@expo/vector-icons/Feather';
 import { ActivityIndicator, Platform, Pressable, Switch, Text, View } from "react-native";
 import { listRecoveries } from "../lib/syncLocal";
+import { syncIndicator } from "../lib/syncIndicator";
 import { colors, font, spacing, type } from "../theme";
 import { useCloudSync } from "./CloudSyncProvider";
 import { Button, Card, confirmAsync, Field, Pill } from "./ui";
@@ -30,8 +31,9 @@ export default function AccountPanel() {
   };
   if (Platform.OS === 'web') {
     const failure = error || status.error;
-    const badge = failure ? 'Revisar conexión' : busy ? 'Sincronizando' : status.user ? (status.pending ? 'Cambios pendientes' : status.message === 'Al día' ? 'Al día' : 'Conectada') : 'Sin conectar';
-    const stateColor = failure ? colors.danger : status.user && !busy && !status.pending ? colors.successBright : colors.accentText;
+    const indicator = syncIndicator({ ...status, busy, error: failure });
+    const badge = indicator.label;
+    const stateColor = failure ? colors.danger : indicator.synced ? colors.successBright : colors.accentText;
     return <Card style={{ padding: 28, gap: 24 }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Feather name="cloud" size={26} color={colors.accentText} /><Text style={[type.heading, { fontSize: 24 }]}>Cuenta privada</Text></View>
@@ -48,9 +50,9 @@ export default function AccountPanel() {
           {status.user ? <>
             <Text style={[type.body, { fontSize: 18, ...font(600) }]}>{status.user.email}</Text>
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 18, borderRadius: 14, backgroundColor: colors.surfaceHigh }}>
-              {busy ? <ActivityIndicator size="small" color={colors.accentText} /> : <Feather name={failure ? 'alert-circle' : status.pending ? 'clock' : 'check-circle'} size={22} color={stateColor} />}
+              {busy ? <ActivityIndicator size="small" color={colors.accentText} /> : <Feather name={failure ? 'alert-circle' : indicator.synced ? 'check-circle' : 'clock'} size={22} color={stateColor} />}
               <View style={{ flex: 1, gap: 6 }}>
-                <Text style={[type.body, { fontSize: 15, lineHeight: 23, color: failure ? colors.danger : colors.text }]} accessibilityLiveRegion="polite">{error || status.message}</Text>
+                <Text style={[type.body, { fontSize: 15, lineHeight: 23, color: failure ? colors.danger : colors.text }]} accessibilityLiveRegion="polite">{!failure && !busy && !status.pending && status.localPending ? 'Cambios locales pendientes de sincronizar' : error || status.message}</Text>
                 {status.syncedAt && <Text style={[type.small, { fontSize: 13 }]}>Última sincronización · {new Date(status.syncedAt).toLocaleString()}</Text>}
               </View>
             </View>

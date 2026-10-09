@@ -86,4 +86,5 @@ jobs:
         with:
           name: activecard-web-preview
           path: .web-ci
+          include-hidden-files: true
           retention-days: 1

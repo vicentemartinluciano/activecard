@@ -144,3 +144,6 @@ errores de consola en estas interacciones.
 La suite local pasó 372 tests en 40 suites. Expo Doctor offline pasó 21/21 controles;
 ESLint con cero warnings y los exports web/Android pasaron. La exportación Android
 no acredita una prueba física sobre el Galaxy A15.
+# Estado de sincronización en Ajustes
+
+El centro del engranaje de la barra lateral se muestra verde después de confirmar una sincronización y comprobar que la biblioteca local coincide con su checkpoint. Vuelve a neutro al guardar cambios locales, mientras sincroniza, ante un error o cuando quedan cambios remotos pendientes. El tooltip informa ese estado; las claves locales no cuentan como cambios compartidos.

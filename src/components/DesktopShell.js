@@ -7,6 +7,7 @@ import { listDecks } from '../db/decks';
 import { listFolders } from '../db/folders';
 import { DESKTOP_INDEX_WIDTH, DESKTOP_RAIL_WIDTH, desktopSection, hasLibraryIndex, libraryTree } from '../lib/desktopLayout';
 import { colors, font } from '../theme';
+import { syncIndicator } from '../lib/syncIndicator';
 import { Field } from './ui';
 import { useCloudSync } from './CloudSyncProvider';
 
@@ -26,20 +27,22 @@ export function useDesktopBeforeNavigate(save) {
   useFocusEffect(useCallback(() => register?.(save), [register, save]));
 }
 
-function RailButton({ label, icon, active, onPress, pending = false, separator = false }) {
+function RailButton({ label, icon, active, onPress, sync, separator = false }) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
   return <View style={[styles.railItem, separator && styles.settingsSeparator]}>
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }}
-      accessibilityHint={pending ? 'Hay cambios de otro dispositivo para incorporar en Ajustes' : undefined}
+      accessibilityHint={sync?.label}
       onPress={onPress} onFocus={(event) => setFocused(!!event.currentTarget?.matches?.(':focus-visible'))} onBlur={() => setFocused(false)}
       onPointerDown={() => setFocused(false)}
       onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}
       style={({ pressed }) => [styles.railButton, { backgroundColor: hovered || pressed ? colors.surfaceHigh : 'transparent', outlineStyle: focused ? 'solid' : 'none', outlineWidth: 2, outlineColor: colors.accentText, outlineOffset: -4 }]}>
-      <Feather pointerEvents="none" name={icon} size={26} color={active || hovered || focused ? colors.accentText : colors.textMuted} />
-      {pending && <View pointerEvents="none" style={{ position: 'absolute', right: 6, top: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentText }} />}
+      <View pointerEvents="none" style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+        <Feather name={icon} size={26} color={active || hovered || focused ? colors.accentText : colors.textMuted} />
+        {sync && <View testID="settings-sync-indicator" style={{ position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: sync.synced ? colors.successBright : colors.textMuted }} />}
+      </View>
     </Pressable>
-    {(hovered || focused) && <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{pending ? `${label} · incorporar cambios` : label}</Text></View>}
+    {(hovered || focused) && <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{sync ? `${label} · ${sync.label}` : label}</Text></View>}
   </View>;
 }
 
@@ -134,7 +137,7 @@ function DesktopWorkspace({ children }) {
   return <View style={styles.shell}>
     <View style={styles.rail}>
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
-      <RailButton separator label="Ajustes" icon="settings" active={section === 'ajustes'} pending={syncStatus?.pending} onPress={() => open('/ajustes')} />
+      <RailButton separator label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
     </View>
     <View style={{ width: library && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
       {library && <View dataSet={{ libraryIndex: 'true' }} testID="desktop-library-index"
