@@ -40,13 +40,13 @@ export default function AccountPanel() {
         <Pill label={badge} color={stateColor} labelStyle={{ fontSize: 14 }} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 32 }}>
-        <View style={{ flexGrow: 1, flexBasis: 280, minWidth: 0, gap: 16 }}>
+        <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 280, minWidth: 0, gap: 16 }}>
           <Text style={[type.body, { fontSize: 20, lineHeight: 29, ...font(600) }]}>{status.user ? 'Tu biblioteca en ambos dispositivos' : 'Conectá tu PC y tu celular'}</Text>
           <Text style={[type.small, { fontSize: 15, lineHeight: 24 }]}>Mazos, tarjetas, imágenes, repasos, límites diarios y conversaciones del Gimnasio.</Text>
           {!status.user && <Text style={[type.small, { fontSize: 15, lineHeight: 24 }]}>Usá tu acceso de REANCLA. Los datos de cada app se guardan por separado.</Text>}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Feather name="key" size={16} color={colors.textMuted} /><Text style={[type.small, { fontSize: 13 }]}>Las claves de OpenAI y Notion quedan en este dispositivo.</Text></View>
         </View>
-        <View style={{ flexGrow: 2, flexBasis: 420, minWidth: 0, gap: 14 }}>
+        <View style={{ flexGrow: 2, flexShrink: 1, flexBasis: 420, minWidth: 0, gap: 14 }}>
           {status.user ? <>
             <Text style={[type.body, { fontSize: 18, ...font(600) }]}>{status.user.email}</Text>
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 18, borderRadius: 14, backgroundColor: colors.surfaceHigh }}>
