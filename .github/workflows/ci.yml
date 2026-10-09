@@ -71,3 +71,19 @@ jobs:
         env:
           EXPO_NO_DOTENV: "1"
         run: npx expo export --platform android --clear
+
+      # Validar también los componentes y dependencias exclusivos del navegador.
+      - name: Export web de control
+        env:
+          EXPO_NO_DOTENV: "1"
+          EXPO_PUBLIC_OPENAI_API_KEY: "DISABLED_USE_DEVICE_SETTINGS"
+          EXPO_PUBLIC_NOTION_TOKEN: "DISABLED_USE_DEVICE_SETTINGS"
+          EXPO_PUBLIC_ANTHROPIC_API_KEY: "DISABLED_USE_DEVICE_SETTINGS"
+        run: npx expo export --platform web --output-dir .web-ci
+
+      - name: Guardar vista web para revisión visual
+        uses: actions/upload-artifact@v4
+        with:
+          name: activecard-web-preview
+          path: .web-ci
+          retention-days: 1
