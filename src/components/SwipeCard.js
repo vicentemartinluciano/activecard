@@ -8,6 +8,7 @@ import { Animated, PanResponder, Platform, StyleSheet, Text, useWindowDimensions
 import { colors, font, radius, ratingColors } from "../theme";
 import { createStudyMouseDrag, studyDragDirection } from '../lib/studyMouseDrag';
 import { createStudyMotion } from '../lib/studyMotion';
+import { focusStudyCard } from '../lib/studyKeyboard';
 
 const SWIPE_THRESHOLD = 90;
 
@@ -72,6 +73,7 @@ export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeR
   const { width, height } = useWindowDimensions();
   const pan = useRef(new Animated.ValueXY()).current;
   const frameRef = useRef(null);
+  const webFrameRef = useRef(null);
   const motion = useRef(null);
   const mouse = useRef(null);
   const [armed, setArmed] = useState(false);
@@ -146,6 +148,7 @@ export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeR
     motion.current.reset();
     mouse.current?.reset();
     setError('');
+    if (Platform.OS === 'web') focusStudyCard(webFrameRef.current, document.activeElement);
     return () => { motion.current.reset(); };
   }, [cardId]);
 
@@ -235,7 +238,7 @@ export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeR
     </Animated.View>
   );
   return Platform.OS === 'web'
-    ? <div data-study-drag="true" {...mouse.current.handlers} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, userSelect: 'none', touchAction: armed ? 'none' : 'pan-y', cursor: armed ? 'grabbing' : 'auto' }}>{card}{!!error && <Text style={{ color: colors.danger }}>{error}</Text>}</div>
+    ? <div ref={webFrameRef} tabIndex={-1} aria-label="Tarjeta de estudio" data-study-drag="true" {...mouse.current.handlers} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, outline: 'none', userSelect: 'none', touchAction: armed ? 'none' : 'pan-y', cursor: armed ? 'grabbing' : 'auto' }}>{card}{!!error && <Text style={{ color: colors.danger }}>{error}</Text>}</div>
     : card;
 }
 

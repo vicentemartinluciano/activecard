@@ -88,9 +88,12 @@ test('web vuelve al centro con un nodo DOM y anima los atajos antes de calificar
   });
   const grade = jest.fn();
   const ref = React.createRef();
+  const webNode = { focus: jest.fn() };
+  const props = { ref, cardId: 1, onSwipeRight: grade };
   let tree;
   try {
-    await act(async () => { tree = create(React.createElement(SwipeCard, { ref, cardId: 1, onSwipeRight: grade }), { createNodeMock: () => ({ nodeType: 1 }) }); });
+    await act(async () => { tree = create(React.createElement(SwipeCard, props), { createNodeMock: (element) => element.props['data-study-drag'] ? webNode : ({ nodeType: 1 }) }); });
+    expect(webNode.focus).toHaveBeenCalledWith({ preventScroll: true });
     const root = tree.root.findByType('div');
     const pointer = (x) => ({ button: 0, pointerType: 'mouse', pointerId: 1, clientX: x, clientY: 100, target: { closest: () => null }, currentTarget: { setPointerCapture: jest.fn() }, preventDefault: jest.fn(), stopPropagation: jest.fn() });
     await act(async () => {
@@ -111,6 +114,12 @@ test('web vuelve al centro con un nodo DOM y anima los atajos antes de calificar
     expect(grade).not.toHaveBeenCalled();
     await act(async () => { flight.done({ finished: true }); await result; });
     expect(grade).toHaveBeenCalledTimes(1);
+    globalThis.document.activeElement = { closest: () => null }; // botón de nota
+    await act(async () => { tree.update(React.createElement(SwipeCard, { ...props, cardId: 2 })); });
+    expect(webNode.focus).toHaveBeenCalledTimes(2);
+    globalThis.document.activeElement = { closest: () => ({ tagName: 'INPUT' }) };
+    await act(async () => { tree.update(React.createElement(SwipeCard, { ...props, cardId: 3 })); });
+    expect(webNode.focus).toHaveBeenCalledTimes(2);
   } finally {
     if (tree) await act(async () => { tree.unmount(); });
     timing.mockRestore(); clock.mockRestore(); Platform.OS = previousOS;

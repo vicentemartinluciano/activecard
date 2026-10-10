@@ -61,6 +61,9 @@ conserva sus pestañas y sus gestos.
 - En el estudio, Espacio gira la tarjeta. Una vez vista la respuesta, 1/izquierda
   califica Again, 2/arriba Hard y 3/derecha Good. Los atajos no actúan en campos de
   texto, durante composición, con modificadores ni al mantener una tecla apretada.
+  Al entrar o avanzar, el foco vuelve a la tarjeta, incluso si se calificó con un
+  botón; se conserva el foco si se está escribiendo en un campo. Espacio muestra la
+  respuesta y luego las flechas califican con su animación.
   Dos toques activan el arrastre sin mantener apretado el segundo. Con mouse se
   mueve sin botones y otro toque suelta; con tacto se apoya de nuevo y se arrastra.
   Soltar bajo el umbral, Escape, salir de la tarjeta o perder el foco devuelve al
@@ -166,3 +169,10 @@ Escape sin nota y vuelos de las tres flechas con señales roja, azul y verde. El
 de montaje cubre un nodo sin `setNativeProps`; los tests del motor cubren retorno,
 interrupciones, cambio de tarjeta y error al guardar. Esta prueba no acredita QA
 física en Android ni altera los repasos privados de Martín.
+
+El 10/10 se detectó que una pestaña conservaba el bundle anterior a esta corrección.
+Después de recargar respondió Espacio. La app completa, con SQLite y tarjetas
+ficticias en otro origen local, confirmó el avance por flecha derecha y también
+reprodujo un bloqueo tras usar los botones: el foco quedaba en el botón de nota.
+Ahora la tarjeta recupera el foco al entrar y avanzar, sin robarlo a un campo de
+escritura. El test de montaje comprueba ambos casos.
