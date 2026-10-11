@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   },
   touchArea: {
     flex: 1,
-    height: 36,
+    height: 44,
     justifyContent: "center",
   },
   track: {
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     backgroundColor: colors.text,
     marginLeft: -9,
-    top: 9,
+    top: 13,
   },
   label: {
     color: colors.accentText,

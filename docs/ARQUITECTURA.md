@@ -1,9 +1,9 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-08
-APK vigente: 1.6.0. La primera publicación en la nube y el estado «Al día» de la web
-se verificaron. Martín desinstaló y reinstaló Android: perdió la clave local de OpenAI;
-conservación/recuperación actual del teléfono y ciclo entre dispositivos pendientes.
+Última actualización: 2026-10-11
+APK vigente: 1.6.0. El estado del teléfono, la cuenta y las pruebas de intercambio
+entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
+perdió la clave local de OpenAI; las claves siguen siendo locales.
 
 ## Visión
 
@@ -26,13 +26,16 @@ Notion opcional: lib/notion.js → Notion API
 
 La cuenta privada usa Auth y Storage de Supabase en el proyecto de REANCLA, con tablas
 y permisos propios. SQLite sigue funcionando offline. La migración remota y sus
-permisos se verificaron el 7 de octubre. Falta probar el login y Android ↔ web antes
-de declararla operativa. Ver `SINCRONIZACION.md` para el protocolo y los pasos de activación.
+permisos se verificaron el 7 de octubre. Ver `SINCRONIZACION.md` para el protocolo,
+las pruebas efectuadas y sus límites de validación.
 
 La web tiene un shell de escritorio persistente: barra de secciones, índice de
 carpetas/mazos con fijado y vista previa por hover y contenido independiente. Ver
 `WEB-ESCRITORIO.md` para el diseño aprobado y `SINCRONIZACION.md` para la cuenta
 privada y sincronización con conversaciones del Gimnasio.
+
+El pulido visual compartido de web y Android está descrito en `UI-PULIDO.md`:
+primitivas accesibles, ancho de formularios y composición adaptada a ventanas angostas.
 
 ## Stack
 

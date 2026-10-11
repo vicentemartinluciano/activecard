@@ -178,7 +178,7 @@ function DesktopWorkspace({ children }) {
           <Feather pointerEvents="none" name="sidebar" size={17} color={colors.textMuted} />
         </Pressable>
         <View accessibilityLabel="Ubicación en la biblioteca" style={styles.breadcrumbs}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca')} style={styles.crumb}><Text style={styles.trail}>Biblioteca</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca')} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
           {currentFolder && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${currentFolder.name}`} onPress={() => open(`/carpetas/${currentFolder.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{currentFolder.name}</Text></Pressable></>}
           {selectedDeck && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a mazo ${selectedDeck.name}`} onPress={() => open(`/mazos/${selectedDeck.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{selectedDeck.name}</Text></Pressable></>}
         </View>
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   index: { position: 'absolute', left: 0, width: DESKTOP_INDEX_WIDTH, backgroundColor: colors.surface, borderRightWidth: 1, borderRightColor: colors.border },
   floating: { borderRadius: 10, boxShadow: '8px 0 24px rgba(0,0,0,0.3)' },
   indexHeading: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 12 },
-  smallButton: { width: 34, height: 34, borderRadius: 5, justifyContent: 'center', alignItems: 'center' },
+  smallButton: { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   search: { flex: 1, minWidth: 0, fontSize: 13, paddingHorizontal: 10, paddingVertical: 10 },
   treeRow: { width: '100%', flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
   treeText: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, flex: 1 },
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
   folderRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6 },
   chevron: { width: 30, height: 46, justifyContent: 'center', alignItems: 'center' },
   folderName: { flex: 1, flexDirection: 'row', minHeight: 46, alignItems: 'center', gap: 10, paddingRight: 16, borderRadius: 5 },
-  emptyFolder: { ...font(), color: colors.textMuted, fontSize: 11, paddingLeft: 38, paddingVertical: 8 },
-  error: { ...font(), color: colors.textMuted, fontSize: 12, padding: 16 },
+  emptyFolder: { ...font(), color: colors.textMuted, fontSize: 13, lineHeight: 20, paddingLeft: 38, paddingVertical: 8 },
+  error: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, padding: 16 },
   edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, minHeight: 0 },
   toolbar: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },

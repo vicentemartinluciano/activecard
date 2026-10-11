@@ -39,8 +39,9 @@ function HomeDeckArea({ children }) {
 export default function Inicio() {
   const router = useRouter();
   const focused = useIsFocused();
-  const { height: windowHeight } = useWindowDimensions();
-  const workspaceHeight = Math.max(380, windowHeight - 124);
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const desktop = Platform.OS === 'web' && windowWidth >= 1060;
+  const workspaceHeight = Math.min(520, Math.max(380, windowHeight - 124));
   const [stats, setStats] = useState(null);
   const [streak, setStreak] = useState(null);
   const [inProgressDecks, setInProgressDecks] = useState([]);
@@ -125,6 +126,8 @@ export default function Inicio() {
       <View style={styles.inner}>
       <View style={styles.topRow}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Abrir Ajustes"
           onPress={() => router.push("/ajustes")}
           hitSlop={8}
           style={({ pressed }) => [styles.identity, pressed && { opacity: 0.7 }]}
@@ -134,7 +137,7 @@ export default function Inicio() {
               {(userName || "?").trim().charAt(0).toUpperCase()}
             </Text>
           </View>
-          <View>
+          <View style={{ flexShrink: 1 }}>
             <Text style={styles.greeting}>
               {greeting()}, {userName}
             </Text>
@@ -155,9 +158,9 @@ export default function Inicio() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={[styles.body, desktop && { paddingHorizontal: spacing.lg }]}>
         <View style={Platform.OS === 'web' ? { flexDirection: 'row', flexWrap: 'wrap', gap: 28, paddingTop: 24 } : undefined}>
-        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 460, minWidth: 0, height: workspaceHeight } : undefined}>
+        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 460, minWidth: 0, ...(desktop ? { height: workspaceHeight } : { width: '100%' }) } : undefined}>
         <View style={Platform.OS === 'web' ? { flex: 1 } : undefined}>
         {/* El hero: una luz gira por el borde de forma permanente (BorderLight)
             y el halo cobalto se enciende al tocar la tarjeta O al apretar el
@@ -172,12 +175,12 @@ export default function Inicio() {
             colors={gradients.hero}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.hero}
+            style={[styles.hero, Platform.OS === 'web' && !desktop && { minHeight: 280, padding: spacing.lg, gap: spacing.md }]}
           >
             {/* El reflejo va ENCIMA del degradé y debajo del texto: barre la
                 superficie sin agregar ningún marco alrededor. */}
             <Sheen disabled={!focused} radius={radius.lg} />
-            <Text style={styles.heroTitle}>Repaso de hoy</Text>
+            <Text style={[styles.heroTitle, Platform.OS === 'web' && !desktop && type.title]}>Repaso de hoy</Text>
             {completedToday ? (
               <Text style={styles.heroDone}>Completado ✓</Text>
             ) : (
@@ -253,7 +256,7 @@ export default function Inicio() {
               >
                 <Feather name={d.icon || "book"} size={22} color={colors.accentText} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.deckName}>{d.name}</Text>
+                  <Text style={styles.deckName} numberOfLines={2}>{d.name}</Text>
                   <ProgressBar
                     pct={d.progress.pct}
                     gradient={gradients.progress}
@@ -269,7 +272,7 @@ export default function Inicio() {
         {Platform.OS === 'web' && visibleRecent.length > 0 && <View style={styles.section}>
           <View style={styles.sectionHeader}><Text style={type.label}>MAZOS RECIENTES</Text><Pressable accessibilityRole="button" onPress={() => router.push('/biblioteca')}><Text style={styles.sectionLink}>Ver todos</Text></Pressable></View>
           {visibleRecent.map((deck) => <Card key={deck.id} onPress={() => router.push(`/mazos/${deck.id}`)} style={styles.deckRow}>
-            <Feather name={deck.icon || 'layers'} size={24} color={colors.accentText} /><View style={{ flex: 1 }}><Text style={styles.deckName}>{deck.name}</Text><Text style={type.small}>{deck.card_count} tarjetas</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
+            <Feather name={deck.icon || 'layers'} size={24} color={colors.accentText} /><View style={{ flex: 1, minWidth: 0 }}><Text style={styles.deckName} numberOfLines={2}>{deck.name}</Text><Text style={type.small}>{deck.card_count} {deck.card_count === 1 ? 'tarjeta' : 'tarjetas'}</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
           </Card>)}
         </View>}
         </HomeDeckArea>
@@ -312,6 +315,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    flex: 1,
+    minWidth: 0,
   },
   avatar: {
     width: 40,
@@ -339,8 +344,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   gymShortcut: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: radius.pill,
     backgroundColor: "transparent",
     alignItems: "center",

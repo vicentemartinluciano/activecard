@@ -47,7 +47,7 @@ import { colors, font, glow, gradients, radius, spacing, textColors, type } from
 // aparece SOLO al tocarlo (o con el mouse encima en la web).
 export function HeroButton({ label, onPress, style }) {
   return (
-    <GlowPressable onPress={onPress} style={[styles.heroBtnOuter, style]}>
+    <GlowPressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[styles.heroBtnOuter, style]}>
       <LinearGradient
         colors={gradients.hero}
         start={{ x: 0, y: 0 }}
@@ -62,11 +62,11 @@ export function HeroButton({ label, onPress, style }) {
 
 function StarToggle({ starred, onPress, size = 18 }) {
   return (
-    <Pressable onPress={onPress} hitSlop={10}>
+    <Pressable accessibilityRole="button" accessibilityLabel={starred ? "Quitar de destacadas" : "Destacar tarjeta"} accessibilityState={{ selected: !!starred }} onPress={onPress} hitSlop={2} style={styles.cardAction}>
       {starred ? (
         <FontAwesome name="star" size={size} color="#FFC53D" />
       ) : (
-        <Feather name="star" size={size} color={colors.textMuted} style={{ opacity: 0.4 }} />
+        <Feather name="star" size={size} color={colors.textMuted} />
       )}
     </Pressable>
   );
@@ -74,12 +74,11 @@ function StarToggle({ starred, onPress, size = 18 }) {
 
 function SuspendToggle({ suspended, onPress, size = 18 }) {
   return (
-    <Pressable onPress={onPress} hitSlop={10}>
+    <Pressable accessibilityRole="button" accessibilityLabel={suspended ? "Reanudar tarjeta" : "Suspender tarjeta"} accessibilityState={{ selected: !!suspended }} onPress={onPress} hitSlop={2} style={styles.cardAction}>
       <Feather
         name={suspended ? "play-circle" : "pause-circle"}
         size={size}
         color={suspended ? colors.accentText : colors.textMuted}
-        style={{ opacity: suspended ? 1 : 0.45 }}
       />
     </Pressable>
   );
@@ -114,6 +113,7 @@ export default function DetalleMazo() {
   const [draft, setDraft] = useState({ front: "", back: "" });
   const [editError, setEditError] = useState("");
   const [loadError, setLoadError] = useState("");
+  const [loadedDeckId, setLoadedDeckId] = useState(null);
   const [cardQuery, setCardQuery] = useState("");
   const [cardFilter, setCardFilter] = useState(null);
   // Los chips de filtro solo se muestran con el buscador enfocado, igual que
@@ -139,11 +139,16 @@ export default function DetalleMazo() {
     try {
       const d = await getDeck(deckId);
       setDeck(d);
+      if (!d) {
+        setLoadError("Este mazo ya no está disponible.");
+        return;
+      }
       if (d) {
         setName(d.name);
         const loadedCards = await listCardsByDeck(deckId);
         cardsRef.current = loadedCards;
         setCards(loadedCards);
+        setLoadedDeckId(deckId);
         setAllTags(await listTags());
         setFolders(await listFolders());
         setProgress(await getDeckDailyProgress(deckId));
@@ -271,9 +276,11 @@ export default function DetalleMazo() {
     setDraft(nextDraft);
   }, []);
 
-  if (!deck) {
+  if (!deck || loadedDeckId !== deckId) {
     return (
       <Screen>
+        <Stack.Screen options={{ title: "Mazo" }} />
+        {!loadError && <EmptyState text="Cargando tarjetas…" icon="layers" full />}
         <Toast message={loadError} onRetry={load} />
       </Screen>
     );
@@ -371,9 +378,11 @@ export default function DetalleMazo() {
           ícono solo, alineado con la suspensión y la estrella. */}
       <View style={styles.cardActions}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Conversar sobre esta tarjeta"
           onPress={() => router.push(`/gimnasio/nueva?cardId=${item.id}`)}
-          hitSlop={10}
-          style={({ pressed }) => pressed && { opacity: 0.65 }}
+          hitSlop={2}
+          style={({ pressed }) => [styles.cardAction, pressed && { opacity: 0.65 }]}
         >
           <Feather name="message-circle" size={18} color={colors.accentText} />
         </Pressable>
@@ -387,7 +396,7 @@ export default function DetalleMazo() {
   );
 
   return (
-    <Screen style={Platform.OS === 'web' ? { maxWidth: '100%', paddingHorizontal: 20 } : undefined}>
+    <Screen>
       <Stack.Screen
         options={{
           headerShown: Platform.OS !== 'web',
@@ -432,14 +441,14 @@ export default function DetalleMazo() {
           ) : null}
 
           {progress && progress.total > 0 ? (
-            <Card style={{ gap: spacing.sm, ...(Platform.OS === 'web' ? { minHeight: 160, justifyContent: 'center', padding: 28, gap: 16 } : {}) }}>
+            <Card style={{ gap: spacing.sm }}>
               <View style={styles.progressHead}>
-                <Text style={[type.label, Platform.OS === 'web' && { fontSize: 15, letterSpacing: 1.2 }]}>Progreso de hoy</Text>
+                <Text style={type.label}>Progreso de hoy</Text>
                 {recallScore != null ? (
                   <Pill label={`Recuerdo ${recallScore}%`} color={colors.successBright} labelStyle={Platform.OS === 'web' ? { fontSize: 14 } : undefined} style={Platform.OS === 'web' ? { paddingHorizontal: 14, paddingVertical: 8 } : undefined} />
                 ) : null}
               </View>
-              <Text style={[type.small, Platform.OS === 'web' && { fontSize: 18, lineHeight: 27 }]}>
+              <Text style={type.small}>
                 {progress.reviewedToday}/{progress.total} tarjetas repasadas
               </Text>
               <ProgressBar pct={progress.pct} gradient={gradients.progress} glowStyle={glow.green} style={Platform.OS === 'web' ? { height: 14, marginTop: 4 } : undefined} />
@@ -696,6 +705,12 @@ export default function DetalleMazo() {
 }
 
 const styles = StyleSheet.create({
+  cardAction: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tagRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -722,12 +737,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    ...(Platform.OS === 'web' ? { minHeight: 180, padding: 28, gap: 24 } : {}),
+    ...(Platform.OS === 'web' ? { minHeight: 120, padding: 20, gap: 16 } : {}),
   },
   cardFront: {
     ...type.body,
     ...font(500),
-    ...(Platform.OS === 'web' ? { fontSize: 22, lineHeight: 31 } : {}),
+    ...(Platform.OS === 'web' ? { fontSize: 18, lineHeight: 27 } : {}),
   },
   cardPills: {
     flexDirection: "row",

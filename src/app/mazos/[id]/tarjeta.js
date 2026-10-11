@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     ...type.small,
-    fontSize: 11,
+    fontSize: 13,
     textAlign: "right",
   },
   deckRow: {

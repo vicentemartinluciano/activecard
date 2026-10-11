@@ -34,11 +34,11 @@ function EditableCardRow({
   return (
     <View style={[styles.row, active && styles.rowActive]}>
       <View style={styles.head}>
-        <Pressable onPress={() => onToggleStar(card.id)} hitSlop={10}>
+        <Pressable accessibilityRole="button" accessibilityLabel={card.starred ? "Quitar de destacadas" : "Destacar tarjeta"} accessibilityState={{ selected: !!card.starred }} onPress={() => onToggleStar(card.id)} hitSlop={2} style={styles.action}>
           {card.starred ? (
-            <FontAwesome name="star" size={15} color="#FFC53D" />
+            <FontAwesome name="star" size={18} color="#FFC53D" />
           ) : (
-            <Feather name="star" size={15} color={colors.textMuted} style={{ opacity: 0.4 }} />
+            <Feather name="star" size={18} color={colors.textMuted} />
           )}
         </Pressable>
         <Text style={styles.headLabel}>Tarjeta</Text>
@@ -59,12 +59,11 @@ function EditableCardRow({
         <Text style={styles.counter}>
           {index + 1} / {total}
         </Text>
-        <Pressable onPress={() => onToggleSuspended(card.id)} hitSlop={10}>
+        <Pressable accessibilityRole="button" accessibilityLabel={card.suspended ? "Reanudar tarjeta" : "Suspender tarjeta"} accessibilityState={{ selected: !!card.suspended }} onPress={() => onToggleSuspended(card.id)} hitSlop={2} style={styles.action}>
           <Feather
             name={card.suspended ? "play-circle" : "pause-circle"}
-            size={15}
+            size={18}
             color={card.suspended ? colors.accentText : colors.textMuted}
-            style={{ opacity: card.suspended ? 1 : 0.45 }}
           />
         </Pressable>
       </View>
@@ -85,6 +84,8 @@ function EditableCardRow({
         </>
       ) : (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Editar frente y dorso de la tarjeta"
           onPress={() => onActivate(card.id)}
           style={({ pressed }) => pressed && { opacity: 0.7 }}
         >
@@ -113,19 +114,20 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: spacing.sm + 4,
     gap: spacing.sm,
-    ...(Platform.OS === 'web' ? { padding: 28, gap: 20, minHeight: 220 } : {}),
+    ...(Platform.OS === 'web' ? { padding: 20, gap: 16, minHeight: 180 } : {}),
   },
   rowActive: {
     borderColor: "rgba(62,99,221,0.55)",
   },
   head: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: spacing.sm,
   },
   headLabel: {
     ...type.small,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 1,
     textTransform: "uppercase",
     ...font(700),
@@ -133,13 +135,19 @@ const styles = StyleSheet.create({
   counter: {
     ...type.small,
     ...tabular,
-    fontSize: 11,
+    fontSize: 13,
     marginLeft: "auto",
   },
   ideaPill: {
     borderColor: "rgba(158,110,222,0.35)",
     backgroundColor: "rgba(158,110,222,0.10)",
     paddingVertical: 2,
+  },
+  action: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   box: {
     backgroundColor: colors.surface,

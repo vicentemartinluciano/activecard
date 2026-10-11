@@ -11,27 +11,30 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors, font, layout, radius, spacing, type } from "../theme";
+import { colors, control, font, layout, radius, spacing, type } from "../theme";
 
 // El contenedor externo pinta el fondo a todo el ancho y centra el contenido;
 // el interno lo capa a layout.maxWidth (columna tipo móvil en web de escritorio).
 // safeTop: para pantallas SIN header de navegación (tabs Crear/Biblioteca) —
 // respeta el status bar sin sumar padding doble en las que sí tienen header.
-export function Screen({ children, style, safeTop }) {
+export function Screen({ children, style, safeTop, variant }) {
+  const { width } = useWindowDimensions();
+  const contentStyle = [styles.screen, Platform.OS === 'web' && { padding: width >= 1000 ? spacing.lg : spacing.md }, variant === 'form' && { maxWidth: layout.formMaxWidth }, style];
   if (safeTop) {
     return (
       <SafeAreaView edges={["top"]} style={styles.screenOuter}>
-        <View style={[styles.screen, style]}>{children}</View>
+        <View style={contentStyle}>{children}</View>
       </SafeAreaView>
     );
   }
   return (
     <View style={styles.screenOuter}>
-      <View style={[styles.screen, style]}>{children}</View>
+      <View style={contentStyle}>{children}</View>
     </View>
   );
 }
@@ -40,15 +43,16 @@ export function Screen({ children, style, safeTop }) {
 // app sale de acá para no duplicar estilos por pantalla.
 // level: "base" (surfaceCard, contenedores principales) | "high" (surfaceHigh,
 // sub-superficies dentro de otra card).
-export function Card({ children, onPress, level = "base", style, onLayout }) {
+export function Card({ children, onPress, level = "base", style, onLayout, accessibilityLabel }) {
   const base = [styles.card, level === "high" && styles.cardHigh, style];
   if (onPress) {
     return (
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
         onPress={onPress}
         onLayout={onLayout}
-        style={({ pressed }) => [...base, pressed && { opacity: 0.7 }]}
+        style={({ pressed, hovered, focused }) => [...base, hovered && { borderColor: colors.pillBorder }, Platform.OS === 'web' && focused && styles.focusRing, pressed && { opacity: 0.85 }]}
       >
         {children}
       </Pressable>
@@ -72,8 +76,10 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style, la
   if (onPress) {
     return (
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
         onPress={onPress}
-        style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }, style]}
+        style={({ pressed }) => [styles.pill, { minHeight: control.minHeight }, pressed && { opacity: 0.7 }, style]}
       >
         {content}
       </Pressable>
@@ -104,6 +110,7 @@ export function Button({
   halo,
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const [focused, setFocused] = useState(false);
   const pressIn = () => {
     Animated.spring(scale, { toValue: 0.96, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: 0 }).start();
     onPressIn?.();
@@ -118,6 +125,9 @@ export function Button({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: !!disabled }}
+        onFocus={(event) => setFocused(!!event.currentTarget?.matches?.(':focus-visible'))}
+        onBlur={() => setFocused(false)}
+        onPointerDown={() => setFocused(false)}
         onPress={onPress}
         onPressIn={pressIn}
         onPressOut={pressOut}
@@ -129,6 +139,8 @@ export function Button({
           kind === "ghost" && styles.buttonGhost,
           kind === "inverse" && styles.buttonInverse,
           size === "lg" && styles.buttonLg,
+          Platform.OS === 'web' && focused && styles.focusRing,
+          hovered && !disabled && { borderColor: colors.accentText },
           disabled && { opacity: 0.4 },
           pressed && { opacity: 0.85 },
           halo && (pressed || hovered) && !disabled && halo,
@@ -156,6 +168,8 @@ export const Field = forwardRef(function Field(
   { value, onChangeText, placeholder, multiline, style, ...rest },
   ref
 ) {
+  const [focused, setFocused] = useState(false);
+  const { onFocus, onBlur, ...inputProps } = rest;
   return (
     <TextInput
       ref={ref}
@@ -164,8 +178,10 @@ export const Field = forwardRef(function Field(
       placeholder={placeholder}
       placeholderTextColor={colors.textMuted}
       multiline={multiline}
-      style={[styles.field, multiline && styles.fieldMultiline, style]}
-      {...rest}
+      style={[styles.field, multiline && styles.fieldMultiline, focused && { borderColor: colors.accentText }, style]}
+      onFocus={(event) => { setFocused(true); onFocus?.(event); }}
+      onBlur={(event) => { setFocused(false); onBlur?.(event); }}
+      {...inputProps}
     />
   );
 });
@@ -173,6 +189,9 @@ export const Field = forwardRef(function Field(
 export function Chip({ label, active, onPress }) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: !!active }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
@@ -180,7 +199,7 @@ export function Chip({ label, active, onPress }) {
         pressed && { opacity: 0.7 },
       ]}
     >
-      <Text style={[styles.chipLabel, active && { color: colors.accent }]}>{label}</Text>
+      <Text style={[styles.chipLabel, active && { color: colors.accentText, ...font(600) }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -247,10 +266,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   button: {
+    minHeight: control.minHeight,
     backgroundColor: colors.pillBg, // secundario translúcido
     borderWidth: 1,
     borderColor: colors.pillBorder,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
     alignItems: "center",
@@ -292,6 +312,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   field: {
+    minHeight: control.minHeight,
+    ...font(400),
     backgroundColor: colors.surface,
     borderRadius: radius.sm,
     borderWidth: 1,
@@ -333,10 +355,12 @@ const styles = StyleSheet.create({
     ...font(600),
   },
   chip: {
+    minHeight: control.minHeight,
+    justifyContent: "center",
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.pillBorder,
-    paddingVertical: 5,
+    paddingVertical: 9,
     paddingHorizontal: spacing.sm + 4,
     backgroundColor: colors.pillBg,
   },
@@ -345,7 +369,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentSoft,
   },
   chipLabel: {
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
+    ...font(400),
     color: colors.textMuted,
   },
   empty: {
@@ -365,5 +391,11 @@ const styles = StyleSheet.create({
   inlineAdd: {
     flexDirection: "row",
     gap: spacing.sm,
+  },
+  focusRing: {
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+    outlineColor: colors.accentText,
+    outlineOffset: 3,
   },
 });

@@ -12,17 +12,18 @@ export default function DesktopLibraryHome({ folders, decks, cards, tags, progre
   const [query, setQuery] = useState('');
   const [tagIds, setTagIds] = useState([]);
   const [focused, setFocused] = useState(false);
+  const foldersById = new Map(folders.map((folder) => [folder.id, folder.name]));
   const visibleDecks = tagIds.length ? decks.filter((deck) => deck.tags?.some((tag) => tagIds.includes(tag.id))) : decks;
   const results = query.trim() ? searchLibrary(query, { folders, decks, cards }) : null;
-  return <Screen style={{ padding: 28 }}><ScrollView contentContainerStyle={{ gap: 24, paddingBottom: 40 }}>
+  return <Screen><ScrollView contentContainerStyle={{ gap: 24, paddingBottom: 40 }}>
     <View style={{ gap: 10 }}>
-      <Text style={[type.heading, { fontSize: 30 }]}>Biblioteca</Text>
+      <Text style={type.title}>Biblioteca</Text>
       <Text style={type.small}>Elegí un mazo en el índice para editar sus tarjetas o empezar a estudiar.</Text>
     </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-      {[[decks.length, 'mazos'], [cards.length, 'tarjetas'], [folders.length, 'carpetas']].map(([value, label]) => <Card key={label} style={{ flex: 1, minWidth: 110, gap: 6 }}>
-        <Text style={{ ...font(700), color: colors.text, fontSize: 36 }}>{value}</Text><Text style={type.body}>{label}</Text>
-      </Card>)}
+      {[[decks.length, 'mazos', 'mazo'], [cards.length, 'tarjetas', 'tarjeta'], [folders.length, 'carpetas', 'carpeta']].map(([value, label, singular]) => <View key={label} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingRight: 12 }}>
+        <Text style={{ ...font(700), color: colors.text, fontSize: 20 }}>{value}</Text><Text style={type.small}>{value === 1 ? singular : label}</Text>
+      </View>)}
     </View>
     <Field accessibilityLabel="Buscar en toda la biblioteca" placeholder="Buscar carpetas, mazos o texto de una tarjeta" value={query} onChangeText={setQuery} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
     {(focused || tagIds.length > 0) && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{tags.map((tag) => <Chip key={tag.id} label={tag.name} active={tagIds.includes(tag.id)} onPress={() => setTagIds((current) => current.includes(tag.id) ? current.filter((id) => id !== tag.id) : [...current, tag.id])} />)}</View>}
@@ -33,10 +34,11 @@ export default function DesktopLibraryHome({ folders, decks, cards, tags, progre
       {!results.folders.length && !results.decks.length && !results.cards.length && <Text style={type.small}>Sin coincidencias.</Text>}
     </View> : <View style={{ gap: 12 }}>
       <Text style={type.label}>MAZOS</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20 }}>{visibleDecks.map((deck) => <Card key={deck.id} onPress={() => router.navigate(`/mazos/${deck.id}`)} style={{ flexGrow: 1, flexShrink: 1, flexBasis: 320, minHeight: 180, gap: 18 }}>
-        <Feather name={deck.icon || 'layers'} size={28} color={colors.accentText} />
-        <Text style={[type.body, font(600), { fontSize: 19, lineHeight: 28 }]}>{deck.name}</Text>
-        <Text style={[type.small, { fontSize: 14 }]}>{deck.card_count} tarjetas · {progressByDeck[deck.id]?.pct || 0}% repasado hoy</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>{visibleDecks.map((deck) => <Card key={deck.id} onPress={() => router.navigate(`/mazos/${deck.id}`)} style={{ flexGrow: 1, flexShrink: 1, flexBasis: 280, minWidth: 0, minHeight: 140, gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><Feather name={deck.icon || 'layers'} size={22} color={colors.accentText} />
+        <Text style={[type.body, font(600), { flex: 1, minWidth: 0 }]}>{deck.name}</Text></View>
+        {foldersById.has(deck.folder_id) && <Text style={type.small} numberOfLines={1}>{foldersById.get(deck.folder_id)}</Text>}
+        <Text style={[type.small, { fontSize: 14 }]}>{deck.card_count} {deck.card_count === 1 ? 'tarjeta' : 'tarjetas'} · {progressByDeck[deck.id]?.pct || 0}% repasado hoy</Text>
       </Card>)}</View>
       {!decks.length && <Button label="Crear tu primer mazo" kind="primary" onPress={() => router.navigate('/crear')} />}
     </View>}
