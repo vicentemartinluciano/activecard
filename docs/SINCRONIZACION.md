@@ -138,6 +138,22 @@ verifica que todos sus archivos existan y permite reintentar el mismo cambio.
 
 Las transferencias procesan hasta cuatro filas simultáneas y comparten solicitudes
 de fragmentos idénticos en vuelo. El estado muestra la fase y los registros terminados.
+
+Al reabrir la web, el motor reutiliza el checkpoint del dueño guardado en SQLite.
+Primero consulta únicamente la revisión remota. Si coincide, no descarga manifiesto
+ni registros: la biblioteca local sigue disponible mientras se confirma la cuenta.
+Si cambió, lee el manifiesto y compara los SHA-256 de cada fila con la copia guardada;
+descarga solo filas nuevas o modificadas, incluyendo todos los fragmentos de esas
+filas. Los borrados se reconstruyen desde el manifiesto sin descargar las filas que
+permanecen. El avance «Descargando» cuenta las filas que requieren transferencia.
+Al subir una edición local después de reabrir, también se reutilizan las filas de
+la versión remota confirmada, evitando subidas duplicadas y su verificación de red.
+La primera sincronización sin checkpoint sigue descargando la biblioteca completa.
+La igualdad de revisión se consulta con la sesión autorizada; una copia de otro
+dueño no se reutiliza y una revisión remota perdida produce un error conservador.
+No se indica «Al día» sin comprobar la nube ni se incorporan cambios remotos durante
+la edición o el estudio. Las claves y la preferencia Recordar sesión siguen locales.
+
 El límite de 25 segundos cubre la solicitud y la lectura del cuerpo, incluso si el
 fetch no responde a AbortController. Ante un fallo se esperan las solicitudes ya
 iniciadas y no se publica un manifiesto parcial; la biblioteca local se conserva.

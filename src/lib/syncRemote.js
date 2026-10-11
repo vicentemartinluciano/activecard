@@ -62,6 +62,7 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
   const downloads = new Map();
   const uploads = new Map();
   let lastCloud = null;
+  let confirmedBase = null;
   const persist = (token, epoch) => {
     const result = storageTail.then(() => epoch === generation ? store.saveRefreshToken(token, remember) : undefined);
     storageTail = result.catch(() => {});
@@ -160,7 +161,7 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
   return {
     async login(email, password, keepSession = false) {
       const epoch = ++generation;
-      session = null; cachedBlobs.clear(); knownBlobs.clear(); lastCloud = null; remember = keepSession;
+      session = null; cachedBlobs.clear(); knownBlobs.clear(); lastCloud = null; confirmedBase = null; remember = keepSession;
       const data = await request("/auth/v1/token?grant_type=password", { method: "POST", body: { email: email.trim(), password } });
       return accept(data, epoch);
     },
@@ -169,30 +170,77 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       const token = await store.readRefreshToken();
       return token ? refresh(token) : null;
     },
-    async logout() { const epoch = ++generation; session = null; cachedBlobs.clear(); knownBlobs.clear(); lastCloud = null; await persist(null, epoch); },
-    async read(progress = () => {}) {
+    async logout() { const epoch = ++generation; session = null; cachedBlobs.clear(); knownBlobs.clear(); lastCloud = null; confirmedBase = null; await persist(null, epoch); },
+    async read(progress = () => {}, checkpoint = null) {
       const auth = await credentials();
+      // El checkpoint vive en SQLite, no en la caché de esta pestaña. Consultar
+      // primero la revisión evita volver a descargarlo al reiniciar el navegador.
+      let known = lastCloud?.owner === auth.owner ? lastCloud : null;
+      if (checkpoint?.owner === auth.owner) {
+        if (!Number.isSafeInteger(checkpoint.revision) || checkpoint.revision < 0) throw new Error("Revisión local inválida.");
+        const document = validateDocument(checkpoint.document);
+        if (!known || checkpoint.revision >= known.revision) known = { ...checkpoint, document };
+      }
+      const validateRevision = (rows) => {
+        if (!Array.isArray(rows) || rows.length > 1) throw new Error("Respuesta de sincronización inválida.");
+        const revision = rows.length ? rows[0].revision : 0;
+        if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("Revisión inválida.");
+        if (known && revision < known.revision) throw new Error("La nube perdió una versión confirmada. Tus datos locales siguen guardados.");
+        return revision;
+      };
+      if (known) {
+        const metadata = await request("/rest/v1/activecard_sync?select=revision", { access: auth.access });
+        check(auth.epoch);
+        const revision = validateRevision(metadata);
+        if (revision === known.revision) {
+          confirmedBase = { owner: auth.owner, revision, document: known.document };
+          return { revision, document: known.document };
+        }
+      }
       const rows = await request("/rest/v1/activecard_sync?select=revision,manifest", { access: auth.access });
       check(auth.epoch);
-      if (!Array.isArray(rows) || rows.length > 1) throw new Error("Respuesta de sincronización inválida.");
+      const revision = validateRevision(rows);
       if (!rows.length) return { revision: 0, document: emptyDocument() };
-      const { revision, manifest } = rows[0];
-      if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("Revisión inválida.");
+      const { manifest } = rows[0];
       validateManifest(manifest);
-      if (lastCloud?.owner === auth.owner && lastCloud.revision === revision && canonical(lastCloud.manifest) === canonical(manifest)) return { revision, document: lastCloud.document };
       const document = emptyDocument();
       let total = 0;
-      await transfer(manifest.entries, async ([table, id, hashes]) => {
-        let serialized = "";
-        for (const part of hashes) { serialized += await getBlob(part, auth);  }
-        total += serialized.length;
+      const installRow = (table, id, row, length) => {
+        total += length;
         if (total > MAX_DOCUMENT) throw new Error("El contenido excede el límite de sincronización.");
-        const row = JSON.parse(serialized);
         if (table === "deck_tags") document.deck_tags = row;
         else Object.defineProperty(document[table], id, { value: row, enumerable: true, configurable: true, writable: true });
+      };
+      const missing = new Set();
+      // Una versión nueva puede cambiar una sola tarjeta. Reutilizamos cada fila
+      // del checkpoint únicamente si sus fragmentos coinciden con el manifiesto.
+      await transfer(manifest.entries, async ([table, id, hashes], index) => {
+        const row = table === "deck_tags" ? known?.document.deck_tags : known?.document[table][id];
+        if (row !== undefined) {
+          const text = canonical(row);
+          const parts = splitText(text);
+          if (parts.length === hashes.length) {
+            const digests = await Promise.all(parts.map(hash));
+            check(auth.epoch);
+            if (digests.every((digest, part) => digest === hashes[part])) {
+              hashes.forEach((digest) => knownBlobs.add(digest));
+              installRow(table, id, row, text.length);
+              return;
+            }
+          }
+        }
+        missing.add(index);
+      }, () => {});
+      const changedRows = manifest.entries.filter((_, index) => missing.has(index));
+      if (changedRows.length) await transfer(changedRows, async ([table, id, hashes]) => {
+        let serialized = "";
+        for (const part of hashes) { serialized += await getBlob(part, auth);  }
+        installRow(table, id, JSON.parse(serialized), serialized.length);
       }, progress);
+      check(auth.epoch);
       validateDocument(document);
       lastCloud = { owner: auth.owner, revision, manifest, document };
+      confirmedBase = { owner: auth.owner, revision, document };
       return { revision, document };
     },
     async commit(document, revision, progress = () => {}) {
@@ -207,12 +255,16 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       }
       await transfer(records, async ([table, id, row], index) => {
         const text = canonical(row);
+        const previous = table === "deck_tags" ? confirmedBase?.document.deck_tags : confirmedBase?.document[table][id];
+        const unchanged = confirmedBase?.owner === auth.owner && confirmedBase.revision === revision && previous !== undefined && canonical(previous) === text;
         total += text.length;
         if (total > MAX_DOCUMENT) throw new Error("El contenido excede el límite de sincronización. Todo sigue guardado localmente.");
         const hashes = [];
         for (const part of splitText(text)) {
           const digest = await hash(part);
+          check(auth.epoch);
           hashes.push(digest);
+          if (unchanged) knownBlobs.add(digest);
           await putBlob(digest, part, auth);
         }
         entries[index] = [table, id, hashes];
@@ -221,7 +273,10 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       const result = await request("/rest/v1/rpc/activecard_commit", { method: "POST", body: { p_manifest: manifest, p_expected_revision: revision, p_change_id: uuid() }, access: auth.access });
       check(auth.epoch);
       if (typeof result?.ok !== "boolean" || !Number.isSafeInteger(result.revision) || result.revision < revision) throw new Error("Respuesta de sincronización inválida.");
-      if (result.ok) lastCloud = { owner: auth.owner, revision: result.revision, manifest, document };
+      if (result.ok) {
+        lastCloud = { owner: auth.owner, revision: result.revision, manifest, document };
+        confirmedBase = { owner: auth.owner, revision: result.revision, document };
+      }
       return result;
     },
   };
