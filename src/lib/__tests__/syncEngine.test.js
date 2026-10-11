@@ -30,6 +30,16 @@ test("puede subir cambios locales sin incorporar cambios remotos durante el estu
   const test = setup({ safe: false, remoteDoc: doc("Inicial") }); await test.engine.login("correo", "contraseña");
   expect(test.events).toEqual(["commit", "checkpoint"]);
 });
+
+test("entrega el checkpoint durable del dueño, sin usar las ediciones locales como base remota", async () => {
+  const test = setup({ safe: false, remoteDoc: doc("Inicial") });
+  const checkpoint = { document: doc("Inicial"), revision: 7 };
+  test.local.readLocalSync.mockResolvedValue({ document: doc("PC"), checkpoint, clean: false });
+  await test.engine.login("correo", "contraseña");
+  expect(test.remote.read).toHaveBeenCalledWith(expect.any(Function), { ...checkpoint, owner: "owner" });
+  expect(test.local.applyLocalSync).not.toHaveBeenCalled();
+  expect(test.remote.commit.mock.calls[0][0]).toEqual(doc("PC"));
+});
 test("reintenta cuando aparece una edición entre la captura y la instalación", async () => {
   const test = setup(); test.local.applyLocalSync.mockResolvedValueOnce(false);
   await test.engine.login("correo", "contraseña");

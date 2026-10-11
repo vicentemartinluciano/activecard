@@ -11,7 +11,7 @@ function server({ duplicateStatus = 409, duplicateBody = {} } = {}) {
   const fetcher = jest.fn(async (url, options) => {
     if (url.includes("/auth/v1/token")) return reply(auth);
     if (url.endsWith("/activecard_access")) return reply(true);
-    if (url.includes("/rest/v1/activecard_sync")) return reply(snapshot ? [snapshot] : []);
+    if (url.includes("/rest/v1/activecard_sync")) return reply(snapshot ? [url.endsWith("select=revision") ? { revision: snapshot.revision } : snapshot] : []);
     if (url.endsWith("/activecard_commit")) {
       const body = JSON.parse(options.body);
       if (body.p_expected_revision !== (snapshot?.revision || 0)) return reply({ ok: false, revision: snapshot.revision });
@@ -29,6 +29,117 @@ function server({ duplicateStatus = 409, duplicateBody = {} } = {}) {
   const remote = createSyncRemote({ fetcher, store, hash, uuid: () => "00000000-0000-4000-8000-000000000101" });
   return { remote, fetcher, store, blobs };
 }
+beforeEach(() => jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-11T12:00:00Z")));
+afterEach(() => jest.restoreAllMocks());
+const savedCheckpoint = (document, revision = 1) => JSON.parse(JSON.stringify({ owner, revision, document }));
+const freshClient = (test) => createSyncRemote({ fetcher: test.fetcher, store: test.store, hash, uuid: () => "00000000-0000-4000-8000-000000000102" });
+const storageReads = (test) => test.fetcher.mock.calls.filter(([url, request]) => url.includes("/object/authenticated/") && request.method === "GET");
+
+test("al reabrir con checkpoint hace solo una consulta de revisión, sin descargar registros", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const doc = emptyDocument();
+  doc.folders.folder = { name: "Biblioteca guardada", created_at: "2026-10-07T15:00:00Z" };
+  await test.remote.commit(doc, 0);
+  const reopened = freshClient(test);
+  await reopened.login("correo", "contraseña"); test.fetcher.mockClear();
+  const progress = jest.fn();
+  expect(await reopened.read(progress, savedCheckpoint(doc))).toEqual({ revision: 1, document: doc });
+  expect(test.fetcher.mock.calls.map(([url]) => url)).toEqual([expect.stringMatching(/select=revision$/)]);
+  expect(progress).not.toHaveBeenCalled();
+});
+
+test("tras reabrir descarga solo una fila modificada y una nueva, reutilizando adjuntos", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const original = emptyDocument();
+  for (let i = 0; i < 9; i++) original.folders[`folder-${i}`] = { name: `Carpeta ${i}`, created_at: "2026-10-07T15:00:00Z" };
+  original.gym_chats.chat = { title: "Fuentes", origin_card_id: null, draft_text: "", created_at: "2026-10-07T15:00:00Z", updated_at: "2026-10-07T15:00:00Z" };
+  original.gym_messages.message = { chat_id: "chat", role: "user", text: "Fuente guardada", metadata: JSON.stringify({ sources: [{ name: "PDF", base64: "YWJj".repeat(100000) }] }), created_at: "2026-10-07T15:00:00Z" };
+  await test.remote.commit(original, 0);
+  const changed = structuredClone(original);
+  changed.folders["folder-0"].name = "Editada en el celular";
+  changed.folders.new = { name: "Nueva", created_at: "2026-10-11T12:00:00Z" };
+  delete changed.folders["folder-1"];
+  await test.remote.commit(changed, 1);
+  const reopened = freshClient(test);
+  await reopened.login("correo", "contraseña"); test.fetcher.mockClear();
+  const progress = jest.fn();
+  expect(await reopened.read(progress, savedCheckpoint(original))).toEqual({ revision: 2, document: changed });
+  expect(storageReads(test)).toHaveLength(2);
+  expect(progress.mock.calls).toEqual([[0, 2], [1, 2], [2, 2]]);
+  expect(original.folders["folder-0"].name).toBe("Carpeta 0");
+});
+
+test("un borrado remoto se reconstruye sin descargar filas conservadas", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const original = emptyDocument(); original.folders.folder = { name: "Borrar", created_at: "2026-10-07T15:00:00Z" };
+  await test.remote.commit(original, 0); await test.remote.commit(emptyDocument(), 1);
+  const reopened = freshClient(test); await reopened.login("correo", "contraseña"); test.fetcher.mockClear();
+  const progress = jest.fn();
+  expect((await reopened.read(progress, savedCheckpoint(original))).document).toEqual(emptyDocument());
+  expect(storageReads(test)).toHaveLength(0);
+  expect(progress).not.toHaveBeenCalled();
+});
+
+test("al reabrir y publicar una edición local sube solo esa fila sin verificar duplicados", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const original = emptyDocument();
+  for (let i = 0; i < 9; i++) original.folders[`folder-${i}`] = { name: `Carpeta ${i}`, created_at: "2026-10-07T15:00:00Z" };
+  await test.remote.commit(original, 0);
+  const reopened = freshClient(test); await reopened.login("correo", "contraseña");
+  await reopened.read(undefined, savedCheckpoint(original)); test.fetcher.mockClear();
+  const local = structuredClone(original); local.folders["folder-0"].name = "Edición local";
+  expect(await reopened.commit(local, 1)).toEqual({ ok: true, revision: 2 });
+  expect(storageReads(test)).toHaveLength(0);
+  expect(test.fetcher.mock.calls.filter(([url, request]) => url.includes("/storage/") && request.method === "POST")).toHaveLength(1);
+});
+
+test("un checkpoint de otro dueño nunca se devuelve ni reutiliza", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const doc = emptyDocument(); await test.remote.commit(doc, 0);
+  const reopened = freshClient(test); await reopened.login("correo", "contraseña"); test.fetcher.mockClear();
+  const foreign = savedCheckpoint(doc); foreign.owner = "otra-cuenta";
+  foreign.document.folders.secret = { name: "Privado de otra cuenta", created_at: "2026-10-07T15:00:00Z" };
+  expect((await reopened.read(undefined, foreign)).document).toEqual(doc);
+  expect(storageReads(test)).toHaveLength(1);
+});
+
+test.each([null, 0])("una revisión remota perdida (%s) no reemplaza el checkpoint", async (revision) => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  test.fetcher.mockImplementationOnce(async () => reply(revision === null ? [] : [{ revision }]));
+  await expect(test.remote.read(undefined, savedCheckpoint(emptyDocument()))).rejects.toThrow("perdió una versión");
+  expect(storageReads(test)).toHaveLength(0);
+});
+
+test("una fila local alterada se descarga y verifica contra el hash remoto", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const doc = emptyDocument(); doc.folders.folder = { name: "Original", created_at: "2026-10-07T15:00:00Z" };
+  await test.remote.commit(doc, 0); await test.remote.commit(doc, 1);
+  const reopened = freshClient(test); await reopened.login("correo", "contraseña"); test.fetcher.mockClear();
+  const altered = savedCheckpoint(doc); altered.document.folders.folder.name = "Alterada";
+  expect((await reopened.read(undefined, altered)).document).toEqual(doc);
+  expect(storageReads(test)).toHaveLength(1);
+});
+
+test("un checkpoint inválido no se usa aunque coincida su revisión", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña"); test.fetcher.mockClear();
+  const invalid = savedCheckpoint(emptyDocument()); invalid.document.settings = { token: "NO-COMPARTIR" };
+  await expect(test.remote.read(undefined, invalid)).rejects.toThrow("no es válido");
+  expect(test.fetcher).not.toHaveBeenCalled();
+});
+
+test("una descarga incremental dañada no devuelve el documento ni modifica la base guardada", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const original = emptyDocument(); original.folders.folder = { name: "Original", created_at: "2026-10-07T15:00:00Z" };
+  await test.remote.commit(original, 0);
+  const changed = structuredClone(original); changed.folders.folder.name = "Nueva versión";
+  await test.remote.commit(changed, 1);
+  const digest = await hash(JSON.stringify(changed.folders.folder, Object.keys(changed.folders.folder).sort()));
+  test.blobs.set(digest, "ALTERADO");
+  const reopened = freshClient(test); await reopened.login("correo", "contraseña");
+  const checkpoint = savedCheckpoint(original);
+  await expect(reopened.read(undefined, checkpoint)).rejects.toThrow("dañada");
+  expect(checkpoint).toEqual(savedCheckpoint(original));
+});
 test("la contraseña viaja solo a Auth; se conserva únicamente el refresh token", async () => {
   const test = server(); await test.remote.login("privado@example.test", "CONTRASEÑA", false);
   expect(test.store.saveRefreshToken).toHaveBeenCalledWith("REFRESH-PRIVADO", false);

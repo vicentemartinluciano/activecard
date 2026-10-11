@@ -26,7 +26,7 @@ export function createSyncEngine({ remote, local = localStorage, canApply = () =
           stage("Leyendo los cambios de este dispositivo…");
           const captured = await local.readLocalSync(owner);
           stage("Consultando la cuenta…");
-          const cloud = await remote.read(progress("Descargando"));
+          const cloud = await remote.read(progress("Descargando"), captured.checkpoint && { ...captured.checkpoint, owner });
           check(expected);
           if (captured.clean && captured.checkpoint?.revision === cloud.revision) {
             report({ pending: false, syncedAt: new Date().toISOString(), message: "Al día" });
