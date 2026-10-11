@@ -32,7 +32,7 @@ de carpeta. Formularios con ancho de lectura; controles de tarjetas, chat e hist
 con áreas cómodas. La carga de un mazo distingue espera, error y biblioteca vacía.
 
 - Lint estricto y Expo Doctor offline (21/21) aprobados.
-- Jest: 449 tests en 47 suites; incluye carga de mazos y controles accesibles frente
+- Jest: 450 tests en 47 suites; incluye carga de mazos y controles accesibles frente
   a los atajos de estudio. En esta PC se ejecutó en serie con timeout de 60 s.
 - Exportaciones locales web y Android aprobadas. CI vuelve a exportar el commit final.
 - Navegador local con biblioteca sintética independiente, sin cuenta ni claves:

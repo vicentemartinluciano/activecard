@@ -60,7 +60,7 @@ export default function FlipCard({
   const faceText = showBack ? back : front;
 
   return (
-    <Pressable onPress={onFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
+    <Pressable dataSet={{ studyFlip: 'true' }} onPress={onFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
       <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
         <View style={styles.face}>
           {/* ScrollView: el dorso (o el frente) largo se lee scrolleando en

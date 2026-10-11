@@ -56,3 +56,16 @@ test('Espacio y la flecha siguen funcionando sobre el área de estudio', async (
   expect(flip).toHaveBeenCalledTimes(1);
   expect(grade).toHaveBeenCalledWith('hard');
 });
+
+test('las flechas califican con el foco en el flip y Espacio queda a cargo del Pressable', async () => {
+  const card = document.createElement('div');
+  card.setAttribute('role', 'button');
+  card.setAttribute('data-study-flip', 'true');
+  document.body.append(card);
+  await act(async () => {
+    card.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    card.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  });
+  expect(flip).not.toHaveBeenCalled();
+  expect(grade).toHaveBeenCalledWith('good');
+});
