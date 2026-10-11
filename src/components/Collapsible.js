@@ -50,13 +50,14 @@ export default function Collapsible({ icon, title, summary, defaultOpen = false,
 
 const styles = StyleSheet.create({
   head: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm + 2,
   },
   title: {
     ...type.body,
-    fontSize: 15,
+    fontSize: 16,
     ...font(600),
   },
   body: {

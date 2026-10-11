@@ -10,9 +10,10 @@
 // Si el elemento vive dentro de un ScrollView, el contenedor necesita
 // HALO_PADDING de aire o Android recorta el resplandor contra su borde.
 
-import { Pressable } from "react-native";
+import { useState } from "react";
+import { Platform, Pressable } from "react-native";
 
-import { glow } from "../theme";
+import { colors, glow } from "../theme";
 
 // `active`: enciende el halo desde afuera. Sirve cuando lo que se toca está
 // ADENTRO (el botón del hero se come el press, así que el contenedor nunca se
@@ -28,15 +29,21 @@ export default function GlowPressable({
   accessibilityLabel,
   children,
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: !!disabled }}
+      onFocus={(event) => setFocused(!!event.currentTarget?.matches?.(':focus-visible'))}
+      onBlur={() => setFocused(false)}
+      onPointerDown={() => setFocused(false)}
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled}
       style={({ pressed, hovered }) => [
         style,
+        Platform.OS === 'web' && focused && { outlineStyle: 'solid', outlineWidth: 2, outlineColor: colors.accentText, outlineOffset: 3 },
         (pressed || hovered || active) && !disabled && halo,
       ]}
     >

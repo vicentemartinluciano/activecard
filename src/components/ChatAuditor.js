@@ -693,7 +693,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
             >
               <Feather name="plus" size={21} color={colors.text} />
             </Pressable>
-            <Field value={input} onChangeText={changeInput} accessibilityLabel="Mensaje al Gimnasio" placeholder={composerFocused ? 'Escribí lo que querés trabajar…' : 'Conversá con el Gimnasio…'} multiline editable={!active} style={[styles.field, composerFocused && styles.fieldExpanded]}
+            <Field value={input} onChangeText={changeInput} accessibilityLabel="Mensaje al Gimnasio" placeholder={composerFocused ? 'Escribí lo que querés trabajar…' : 'Conversá…'} multiline editable={!active} style={[styles.field, composerFocused && styles.fieldExpanded]}
               onFocus={() => setComposerFocused(true)}
               onBlur={Platform.OS !== 'web' ? () => setComposerFocused(false) : undefined}
               onKeyPress={Platform.OS === "web" ? (event) => {
@@ -768,10 +768,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, gap: spacing.sm, overflow: "hidden", backgroundColor: colors.bg },
   rootKeyboard: { paddingBottom: spacing.md },
   header: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
-  backButton: { width: 34, height: 38, alignItems: "center", justifyContent: "center" },
-  title: { ...type.heading, fontSize: 23 },
-  saved: { ...type.small, fontSize: 11 },
-  iconButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.cardBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(21,21,24,0.7)" },
+  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  title: { ...type.heading, fontSize: 22 },
+  saved: { ...type.small, fontSize: 13 },
+  iconButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.cardBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(21,21,24,0.7)" },
   contextPill: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(62,99,221,0.42)", backgroundColor: "rgba(12,18,31,0.78)" },
   contextText: { ...type.small, ...font(600), color: colors.text, flexShrink: 1 },
   chat: { flex: 1 },
@@ -788,10 +788,10 @@ const styles = StyleSheet.create({
   richBubble: { gap: 7 },
   busyBubble: { width: 54, minHeight: 44, alignItems: "center", justifyContent: "center" },
   actionCard: { gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: "rgba(15,20,29,0.94)" },
-  actionEyebrow: { ...type.small, ...font(700), color: "#00F2FE", fontSize: 10, letterSpacing: 0.8 },
+  actionEyebrow: { ...type.small, ...font(700), color: colors.accentText, fontSize: 12, letterSpacing: 0.8 },
   beforeBox: { gap: 3, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.025)" },
   proposedCard: { gap: 2, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(255,255,255,0.025)" },
-  miniLabel: { ...type.small, ...font(700), fontSize: 9, color: colors.textMuted },
+  miniLabel: { ...type.small, ...font(700), fontSize: 12, color: colors.textMuted },
   previewText: { ...type.body, ...font(600), fontSize: 14 },
   previewMuted: { ...type.small, color: colors.textMuted },
   optionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder },
@@ -801,21 +801,21 @@ const styles = StyleSheet.create({
   deleteCheckActive: { backgroundColor: colors.danger, borderColor: colors.danger },
   dangerSummary: { flexDirection: "row", gap: spacing.sm, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: "rgba(229,72,77,0.08)", borderWidth: 1, borderColor: "rgba(229,72,77,0.25)" },
   confirmName: { ...font(700), color: colors.text },
-  error: { color: colors.danger, fontSize: 12 },
+  error: { ...type.small, color: colors.danger },
   attachmentScroller: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 },
   attachmentRow: { gap: spacing.xs, paddingHorizontal: 1, height: 52, alignItems: "center" },
   attachmentPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 230, height: 48, paddingHorizontal: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: "rgba(65,190,240,0.28)", backgroundColor: "rgba(12,21,33,0.94)" },
   sourcePill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, width: 230, height: 48, paddingHorizontal: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: "rgba(62,99,221,0.38)", backgroundColor: "rgba(18,24,48,0.9)" },
   attachmentCopy: { flex: 1, gap: 1 },
-  attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 11 },
-  attachmentDeck: { ...type.small, fontSize: 9, color: colors.textMuted },
+  attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 13, lineHeight: 18 },
+  attachmentDeck: { ...type.small, fontSize: 12, lineHeight: 16, color: colors.textMuted },
   footer: { gap: spacing.sm, paddingVertical: spacing.sm, backgroundColor: 'transparent', width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 880, alignSelf: 'center', marginBottom: 8 } : {}) },
   composer: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 60, width: '100%', alignSelf: 'center', padding: 8, borderRadius: 28, borderWidth: 1, borderColor: '#1E2028', backgroundColor: '#101115' },
   composerExpanded: { minHeight: 140, alignItems: 'flex-end', borderRadius: 24 },
-  attachButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  attachButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   attachButtonExpanded: { marginRight: 'auto', marginTop: 80 },
-  voiceButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 0, backgroundColor: 'transparent' },
-  field: { flex: 1, height: 40, minHeight: 40, maxHeight: 40, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 8, paddingHorizontal: 4, ...(Platform.OS === 'web' ? { outlineStyle: 'none', boxShadow: 'none' } : {}) },
+  voiceButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 0, backgroundColor: 'transparent' },
+  field: { flex: 1, height: 44, minHeight: 44, maxHeight: 44, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 8, paddingHorizontal: 4, ...(Platform.OS === 'web' ? { outlineStyle: 'none', boxShadow: 'none' } : {}) },
   fieldExpanded: { position: 'absolute', top: 12, left: 16, right: 16, height: 66, minHeight: 66, maxHeight: 66, paddingHorizontal: 0, paddingVertical: 4 },
-  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#25304A', alignItems: "center", justifyContent: "center" },
+  send: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#25304A', alignItems: "center", justifyContent: "center" },
 });

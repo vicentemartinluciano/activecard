@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   date: {
     ...type.small,
-    fontSize: 11,
+    fontSize: 13,
   },
   chatLink: {
     flexDirection: "row",

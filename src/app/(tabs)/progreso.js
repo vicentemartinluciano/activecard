@@ -253,9 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   titulo: {
-    fontSize: 24,
-    ...font(800),
-    color: colors.text,
+    ...type.title,
   },
   rowHead: {
     flexDirection: "row",
@@ -317,7 +315,7 @@ const styles = StyleSheet.create({
     ...type.small,
     color: colors.text,
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 21,
   },
   weakCount: {
     ...type.small,

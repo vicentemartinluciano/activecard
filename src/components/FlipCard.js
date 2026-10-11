@@ -5,7 +5,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
 import RichText from "./RichText";
 import { colors, radius, spacing, textColors, type } from "../theme";
@@ -25,6 +25,7 @@ export default function FlipCard({
   onToggleGym,
   onEdit,
 }) {
+  const { height } = useWindowDimensions();
   const scaleX = useRef(new Animated.Value(1)).current;
   const [showBack, setShowBack] = useState(flipped);
   const scrollRef = useRef(null);
@@ -59,7 +60,7 @@ export default function FlipCard({
   const faceText = showBack ? back : front;
 
   return (
-    <Pressable onPress={onFlip} style={styles.wrapper}>
+    <Pressable onPress={onFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
       <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
         <View style={styles.face}>
           {/* ScrollView: el dorso (o el frente) largo se lee scrolleando en
@@ -88,21 +89,20 @@ export default function FlipCard({
               texto (en Android el orden de render gana; sin esto el ScrollView
               los tapaba). Absolutos en la esquina superior derecha. */}
           {onToggleStar ? (
-            <Pressable dataSet={{ studyAction: 'star' }} onPress={onToggleStar} hitSlop={10} style={styles.star}>
+            <Pressable accessibilityRole="button" accessibilityLabel={starred ? "Quitar de destacadas" : "Destacar tarjeta"} accessibilityState={{ selected: !!starred }} dataSet={{ studyAction: 'star' }} onPress={onToggleStar} hitSlop={2} style={styles.star}>
               {starred ? (
                 <FontAwesome name="star" size={20} color="#FFC53D" />
               ) : (
-                <Feather name="star" size={20} color={colors.textMuted} style={{ opacity: 0.35 }} />
+                <Feather name="star" size={20} color={colors.textMuted} />
               )}
             </Pressable>
           ) : null}
           {onToggleGym ? (
-            <Pressable dataSet={{ studyAction: 'gym' }} onPress={onToggleGym} hitSlop={10} style={styles.gym}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Abrir Gimnasio después de calificar" accessibilityState={{ selected: !!gymArmed }} dataSet={{ studyAction: 'gym' }} onPress={onToggleGym} hitSlop={2} style={styles.gym}>
               <Feather
                 name="zap"
                 size={20}
                 color={gymArmed ? textColors.violeta : colors.textMuted}
-                style={gymArmed ? null : { opacity: 0.35 }}
               />
             </Pressable>
           ) : null}
@@ -110,8 +110,8 @@ export default function FlipCard({
               van a la derecha). Abre el editor de la tarjeta sin salir del
               estudio. Mismo patrón absoluto: el tap no dispara flip ni swipe. */}
           {onEdit ? (
-            <Pressable dataSet={{ studyAction: 'edit' }} onPress={onEdit} hitSlop={10} style={styles.edit}>
-              <Feather name="edit-2" size={20} color={colors.textMuted} style={{ opacity: 0.35 }} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Editar tarjeta" dataSet={{ studyAction: 'edit' }} onPress={onEdit} hitSlop={2} style={styles.edit}>
+              <Feather name="edit-2" size={20} color={colors.textMuted} />
             </Pressable>
           ) : null}
         </View>
@@ -142,21 +142,33 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   star: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
+    top: spacing.sm,
+    right: spacing.sm,
     zIndex: 2,
   },
   gym: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: "absolute",
-    top: spacing.md,
-    right: spacing.md + 36,
+    top: spacing.sm,
+    right: spacing.sm + 48,
     zIndex: 2,
   },
   edit: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: "absolute",
-    top: spacing.md,
-    left: spacing.md,
+    top: spacing.sm,
+    left: spacing.sm,
     zIndex: 2,
   },
   textBox: {

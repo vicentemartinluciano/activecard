@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pillBg,
   },
   searchField: { flex: 1, borderWidth: 0, backgroundColor: "transparent", paddingHorizontal: 0 },
-  filterLabel: { ...type.label, fontSize: 10, marginTop: 2 },
+  filterLabel: { ...type.label, marginTop: 2 },
   filterRow: { gap: spacing.xs, paddingRight: spacing.md },
   loading: { paddingVertical: spacing.xl },
   list: { maxHeight: 330 },
@@ -198,6 +198,6 @@ const styles = StyleSheet.create({
   checkActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   copy: { flex: 1, gap: 2 },
   front: { ...type.body, ...font(600), fontSize: 14 },
-  deck: { ...type.small, fontSize: 11 },
+  deck: { ...type.small, fontSize: 13 },
   empty: { ...type.small, textAlign: "center", paddingVertical: spacing.xl },
 });

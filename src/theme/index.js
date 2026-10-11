@@ -12,7 +12,7 @@ export const colors = {
   surfaceCard: "#151518", // fondo de tarjetas/paneles destacados
   border: "#202027",
   track: "#1E1E24", // track de barras de progreso
-  cardBorder: "#FFFFFF0A", // borde translúcido de las cards (Obsidian Cobalt)
+  cardBorder: "#FFFFFF14", // delimita superficies sin competir con el contenido
   text: "#E9E9EF",
   textMuted: "#8B8B98",
   accent: "#3E63DD", // azul profundo (acento principal)
@@ -76,7 +76,10 @@ export const layout = {
   maxWidth: Platform.OS === "web" ? 1440 : 480,
   // La tarjeta aprovecha el escritorio sin convertir el texto en una línea de monitor.
   studyMaxWidth: Platform.OS === "web" ? 800 : 480,
+  formMaxWidth: 880,
 };
+
+export const control = { minHeight: 44, iconSize: 44 };
 
 // Semántica: lg = contenedores Card principales, md = filas/superficies internas,
 // sm = botones/inputs, pill = píldoras y barras de progreso.
@@ -143,13 +146,14 @@ export function font(weight = 400) {
 export const tabular = { fontVariant: ["tabular-nums"] };
 
 export const type = {
-  title: { fontSize: 28, ...font(700), color: colors.text },
-  subtitle: { fontSize: 15, ...font(400), color: colors.textMuted },
+  title: { fontSize: 28, lineHeight: 36, ...font(700), color: colors.text },
+  subtitle: { fontSize: 15, lineHeight: 22, ...font(400), color: colors.textMuted },
   body: { fontSize: 17, ...font(400), color: colors.text, lineHeight: 24 },
-  small: { fontSize: 13, ...font(400), color: colors.textMuted },
-  heading: { fontSize: 20, ...font(700), color: colors.text },
+  small: { fontSize: 14, lineHeight: 21, ...font(400), color: colors.textMuted },
+  heading: { fontSize: 20, lineHeight: 28, ...font(700), color: colors.text },
   label: {
     fontSize: 12,
+    lineHeight: 18,
     ...font(600),
     color: colors.textMuted,
     textTransform: "uppercase",

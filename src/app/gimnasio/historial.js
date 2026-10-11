@@ -73,11 +73,11 @@ export default function HistorialGimnasio() {
 
 const styles = StyleSheet.create({
   header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  headerButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 },
-  headerTitle: { ...type.heading, fontSize: 23 },
-  subtitle: { ...type.small, fontSize: 11 },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+  headerTitle: { ...type.heading, fontSize: 22 },
+  subtitle: { ...type.small, fontSize: 13 },
   row: { minHeight: 78, padding: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   title: { ...type.body, ...font(600) },
-  date: { ...type.small, fontSize: 11 },
-  trash: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  date: { ...type.small, fontSize: 13 },
+  trash: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
 });

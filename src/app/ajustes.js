@@ -250,7 +250,7 @@ export default function Ajustes() {
   };
 
   return (
-    <Screen>
+    <Screen style={Platform.OS === 'web' ? { maxWidth: 1120 } : undefined}>
       <Stack.Screen options={{ title: "Ajustes" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
         <AccountPanel />
@@ -508,7 +508,7 @@ export default function Ajustes() {
 
 const styles = StyleSheet.create({
   section: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   sectionTitle: {
     ...type.label,
@@ -532,6 +532,7 @@ const styles = StyleSheet.create({
   },
   reminderTimeRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: spacing.sm,
   },

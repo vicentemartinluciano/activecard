@@ -112,6 +112,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   option: {
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,

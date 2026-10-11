@@ -97,7 +97,7 @@ export default function CrearConIA() {
   }
 
   return (
-    <Screen>
+    <Screen variant="form">
       <Stack.Screen options={{ title: "Generar con IA" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
         <Card style={{ gap: spacing.md }}>
@@ -138,6 +138,9 @@ export default function CrearConIA() {
                 const active = source === s.key;
                 return (
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={s.label}
+                    accessibilityState={{ selected: active }}
                     key={s.key}
                     onPress={() => setSource(s.key)}
                     style={({ pressed }) => [
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   section: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   chipRow: {
     flexDirection: "row",
@@ -240,6 +243,7 @@ const styles = StyleSheet.create({
   },
   sourceTile: {
     flex: 1,
+    minWidth: 0,
     alignItems: "center",
     gap: spacing.xs,
     paddingVertical: spacing.md,
@@ -253,7 +257,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentSoft,
   },
   sourceLabel: {
-    fontSize: 13,
+    fontSize: 14,
     ...font(600),
     color: colors.textMuted,
   },

@@ -12,7 +12,7 @@ export default function useStudyKeyboard({ enabled, flipped, flip, grade, isBusy
     if (Platform.OS !== 'web') return;
     const keydown = (event) => {
       const current = handlers.current;
-      if (!current.enabled || pending.current || current.isBusy?.() || event.target.closest?.('input, textarea, select, button, a, [contenteditable="true"]')) return;
+      if (!current.enabled || pending.current || current.isBusy?.() || event.target.closest?.('input, textarea, select, button, a, [role="button"], [role="link"], [contenteditable="true"]')) return;
       const action = studyKeyAction(event, current.flipped);
       if (!action) return;
       event.preventDefault();

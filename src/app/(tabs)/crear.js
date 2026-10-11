@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
 import GlowPressable from "../../components/GlowPressable";
@@ -10,7 +10,7 @@ import Stagger from "../../components/Stagger";
 import { InlineAdd, Screen } from "../../components/ui";
 import { createDeck } from "../../db/decks";
 import { createFolder } from "../../db/folders";
-import { colors, font, gradients, radius, spacing, type } from "../../theme";
+import { colors, gradients, HALO_PADDING, radius, spacing, type } from "../../theme";
 
 // Los emojis se quedan: decisión de Martín (se propuso pasarlos a Feather y lo
 // rechazó). Las tres opciones reaccionan IGUAL — ninguna es "la destacada".
@@ -21,14 +21,14 @@ const OPTIONS = [
 ];
 
 function CreationArea({ children }) {
-  return Platform.OS === 'web'
-    ? <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>{children}</ScrollView>
-    : <View style={{ flex: 1 }}>{children}</View>;
+  return <ScrollView contentContainerStyle={{ flexGrow: 1, padding: HALO_PADDING, paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>{children}</ScrollView>;
 }
 
 // Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
 export default function Crear() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const desktop = Platform.OS === 'web' && width >= 1000;
   const [createStep, setCreateStep] = useState(null); // null | "mazo" | "carpeta"
 
   const onCreateDeck = async (name) => {
@@ -50,10 +50,10 @@ export default function Crear() {
 
   return (
     <SectionSwipe index={1}>
-    <Screen safeTop style={Platform.OS === 'web' ? { padding: 16, maxWidth: '100%' } : undefined}>
+    <Screen safeTop style={{ padding: 0 }}>
       <CreationArea>
-      <View style={{ flex: 1, justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center', paddingTop: Platform.OS === 'web' ? 20 : 0 }}>
-      <Text style={[type.title, { textAlign: Platform.OS === 'web' ? 'left' : 'center', marginBottom: spacing.lg, ...(Platform.OS === 'web' ? { fontSize: 32 } : {}) }]}>
+      <View style={{ flex: 1, justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center', paddingTop: desktop ? spacing.lg : spacing.sm }}>
+      <Text style={[type.title, { textAlign: Platform.OS === 'web' ? 'left' : 'center', marginBottom: spacing.lg }]}>
         ¿Qué querés crear hoy?
       </Text>
 
@@ -61,7 +61,7 @@ export default function Crear() {
         {/* Excepción al patrón Card: GlowPressable directo, porque las cards
             encienden el halo con hovered (web) / pressed (nativo) y Card no
             expone esos estados. El resto de la app sigue usando Card. */}
-        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 0 } : undefined}>
+        <Stagger style={desktop ? { flexGrow: 1, flexShrink: 1, flexBasis: 280, minWidth: 0 } : { width: '100%' }}>
         {OPTIONS.map((opt) => (
           <GlowPressable
             accessibilityRole="button"
@@ -74,13 +74,15 @@ export default function Crear() {
               colors={gradients.card}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.rowInner}
+              style={[styles.rowInner, desktop && styles.desktopRow]}
             >
               <View style={styles.emojiBox}>
                 <Text style={{ fontSize: 26 }}>{opt.emoji}</Text>
               </View>
-              <Text style={[type.body, { ...font(800), fontSize: Platform.OS === 'web' ? 22 : 18 }]}>{opt.title}</Text>
-              {Platform.OS === 'web' && <Text style={[type.body, { color: colors.textMuted, lineHeight: 26 }]}>{opt.description}</Text>}
+              <View style={{ flex: desktop ? undefined : 1, minWidth: 0, gap: spacing.xs }}>
+                <Text style={[type.heading, { fontSize: desktop ? 22 : 18, lineHeight: desktop ? 30 : 25 }]}>{opt.title}</Text>
+                <Text style={type.small}>{opt.description}</Text>
+              </View>
             </LinearGradient>
           </GlowPressable>
         ))}
@@ -125,7 +127,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     paddingHorizontal: spacing.md + 4,
-    ...(Platform.OS === 'web' ? { minHeight: 300, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', padding: 28, gap: 24 } : {}),
+    paddingVertical: spacing.md,
+  },
+  desktopRow: {
+    minHeight: 230,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.lg,
   },
   emojiBox: {
     width: 54,
