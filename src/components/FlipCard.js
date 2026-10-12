@@ -5,10 +5,29 @@
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
 import RichText from "./RichText";
 import { colors, radius, spacing, textColors, type } from "../theme";
+
+// RN Web convierte Pressable + role button en BUTTON. La superficie contiene
+// otros botones, por lo que usamos un DIV accesible para evitar HTML anidado
+// inválido. Android conserva su Pressable y su gestión de toques.
+function WebFlipSurface({ children, onPress, accessibilityLabel, style }) {
+  return <div role="button" tabIndex={0} data-study-flip="true" aria-label={accessibilityLabel}
+    onClick={onPress}
+    onKeyDown={(event) => {
+      if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
+      const key = event.nativeEvent || event;
+      if (key.ctrlKey || key.metaKey || key.altKey || key.isComposing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) onPress();
+    }}
+    style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', ...StyleSheet.flatten(style) }}>
+    {children}
+  </div>;
+}
 
 // gymArmed/onToggleGym: rayo ⚡ opcional (repaso diario) — al armarlo, DESPUÉS
 // de calificar esta tarjeta se abre el Gimnasio Mental. Decisión del momento:
@@ -58,9 +77,10 @@ export default function FlipCard({
   }, [cardId, flipped, showBack]);
 
   const faceText = showBack ? back : front;
+  const Surface = Platform.OS === 'web' ? WebFlipSurface : Pressable;
 
   return (
-    <Pressable dataSet={{ studyFlip: 'true' }} onPress={onFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
+    <Surface onPress={onFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
       <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
         <View style={styles.face}>
           {/* ScrollView: el dorso (o el frente) largo se lee scrolleando en
@@ -116,7 +136,7 @@ export default function FlipCard({
           ) : null}
         </View>
       </Animated.View>
-    </Pressable>
+    </Surface>
   );
 }
 

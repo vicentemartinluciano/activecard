@@ -1,5 +1,7 @@
 // Dos toques activan el arrastre sin mantener el segundo. Otro toque lo suelta.
 // Los controles internos, Escape y la pérdida de foco cancelan sin calificar.
+import { isStudyControl } from './studyControls';
+
 export function studyDragDirection(dx, dy, threshold = 90) {
   if (Math.abs(dx) >= Math.abs(dy) && Math.abs(dx) > threshold) return dx > 0 ? 'good' : 'again';
   if (dy < -threshold && Math.abs(dy) > Math.abs(dx)) return 'hard';
@@ -30,7 +32,7 @@ export function createStudyMouseDrag({ move, release, cancel, isBusy = () => fal
     onPointerDownCapture(event) {
       if (event.button !== 0 || event.isPrimary === false) return;
       suppressClick = false;
-      if (event.target.closest?.('[data-study-action], button, input, textarea, a')) { reset(); return; }
+      if (isStudyControl(event.target)) { reset(); return; }
       if (isBusy()) { suppressClick = true; consume(event); return; }
       if (drag) {
         // El mouse ya movió la tarjeta sin botones. En tacto, el tercer toque

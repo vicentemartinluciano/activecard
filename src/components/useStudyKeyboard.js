@@ -2,6 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { studyKeyAction } from '../lib/studyKeyboard';
+import { isStudyControl } from '../lib/studyControls';
 
 export default function useStudyKeyboard({ enabled, flipped, flip, grade, isBusy }) {
   const handlers = useRef(null);
@@ -13,13 +14,13 @@ export default function useStudyKeyboard({ enabled, flipped, flip, grade, isBusy
     const keydown = (event) => {
       const current = handlers.current;
       if (!current.enabled || pending.current || current.isBusy?.()) return;
-      const control = event.target.closest?.('input, textarea, select, button, a, [role="button"], [role="link"], [contenteditable="true"]');
-      // El flip accesible atiende Espacio/Enter por su Pressable. Las flechas
-      // siguen calificando si el clic dejó el foco en la cara de la tarjeta.
-      if (control && !(control.hasAttribute?.('data-study-flip') && event.key.startsWith('Arrow'))) return;
+      if (isStudyControl(event.target)) return;
       const action = studyKeyAction(event, current.flipped);
       if (!action) return;
       event.preventDefault();
+      // Resolver antes del handler de la cara o de PressResponder: Espacio
+      // debe girar una sola vez y no convertirse además en un click.
+      event.stopPropagation();
       if (action === 'flip') current.flip();
       else {
         pending.current = true;
@@ -27,8 +28,8 @@ export default function useStudyKeyboard({ enabled, flipped, flip, grade, isBusy
         Promise.resolve(current.grade(action)).catch(() => { setError('No pudimos guardar el repaso. Volvé a intentar.'); }).finally(() => { pending.current = false; });
       }
     };
-    document.addEventListener('keydown', keydown);
-    return () => document.removeEventListener('keydown', keydown);
+    document.addEventListener('keydown', keydown, true);
+    return () => document.removeEventListener('keydown', keydown, true);
   }, []));
   return error;
 }
