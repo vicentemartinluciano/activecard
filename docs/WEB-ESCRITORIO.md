@@ -72,6 +72,21 @@ conserva sus pestañas y sus gestos.
   rayo no arman el arrastre. Los textos de atajos debajo
   se quitaron; los atajos y botones siguen disponibles. Android conserva su swipe.
 
+### Corrección de controles web del 12 de octubre de 2026
+
+La cara de estudio usa una superficie accesible `div` en web para no anidar los
+botones de estrella/editor/rayo dentro de un `button`. Teclado y arrastre distinguen
+esa superficie de los controles internos; Espacio se resuelve una sola vez en captura,
+y números/flechas siguen funcionando con el foco en la cara. El doble clic conserva
+la activación del arrastre sin mantener el segundo clic. Android conserva su Pressable.
+
+La regresión se comprobó con React Native Web y DOM reales en jsdom: seis casos
+fallan sobre los componentes publicados anteriores y pasan con la corrección. Las
+pruebas incluyen continuidad tras calificar con un botón, escritura, modificadores,
+composición y repetición. No se calificaron tarjetas reales. La comprobación visual
+de Chrome mediante Computer Use se interrumpió porque no pudo identificar la URL
+con suficiente certeza; estos tests no se presentan como QA visual de Chrome.
+
 ## Ajuste aprobado el 8 de octubre de 2026
 
 - **Objetivo:** dar más espacio y legibilidad al escritorio y trasladar la interfaz
