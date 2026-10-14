@@ -1,9 +1,12 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-11
+Última actualización: 2026-10-13
 APK vigente: 1.6.0. El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
+
+Runtime preparado: 1.7.0 incorpora dos widgets Android, Repaso diario y Mazos.
+Requiere APK nueva; implementación y límites de actualización/QA en `WIDGETS.md`.
 
 ## Visión
 
@@ -107,6 +110,9 @@ scripts/build-editor.mjs
 
 `src/app/_layout.js`:
 
+La entrada `index.js` registra primero el handler headless de widgets en Android
+y después carga Expo Router. Web/iOS resuelven un registro vacío.
+
 1. carga las cuatro familias de Plus Jakarta Sans;
 2. inicializa el caché de claves desde `settings`;
 3. configura el handler de notificaciones;
@@ -114,6 +120,10 @@ scripts/build-editor.mjs
    recordatorio;
 5. escucha toques sobre una notificación para navegar a `/repaso`;
 6. envuelve la aplicación con Gesture Handler y ErrorBoundary.
+
+`WidgetUpdates` observa cambios confirmados de SQLite para refrescar las instancias
+instaladas, además de foreground y cambio de día con la app activa. El handler de
+Android puede consultar los mismos repositorios con la app cerrada. Ver `WIDGETS.md`.
 
 La base se abre de forma perezosa desde `db/client.js`. En web, `openWithRetry()` tolera
 locks transitorios de OPFS y una promesa rechazada nunca queda cacheada.

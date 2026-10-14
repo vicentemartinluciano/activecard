@@ -17,6 +17,10 @@ analiza fuentes y propone acciones sobre la biblioteca.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
+- Widgets Android preparados para runtime/APK 1.7.0: Repaso diario y Mazos
+  (avance parcial de hoy; recientes sólo si no hay progreso). Ver `docs/WIDGETS.md`
+  para contrato, entrega y evidencia física; APK instalada sigue siendo 1.6.0
+  hasta verificar la actualización.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 
 ## Fuentes de contexto
@@ -48,7 +52,7 @@ Scripts para Martín:
 
 - `comandos AC/INICIAR-APP.bat`: desarrollo con caché limpia.
 - `comandos AC/ACTUALIZAR-APP.bat`: OTA compatible al canal `preview`.
-- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.6.0.
+- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.7.0.
 
 El criterio de lint de CI es el comando directo con `--max-warnings 0`, no solamente
 `npm run lint`.

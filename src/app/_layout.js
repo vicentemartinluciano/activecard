@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ErrorBoundary from "../components/ErrorBoundary";
 import DesktopShell from "../components/DesktopShell";
 import CloudSyncProvider from "../components/CloudSyncProvider";
+import WidgetUpdates from "../components/WidgetUpdates";
 import { autoBackupIfDue } from "../lib/backupIO";
 import { initKeys } from "../lib/keys";
 import {
@@ -75,6 +76,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style="light" />
       <ErrorBoundary>
+      <WidgetUpdates />
       <CloudSyncProvider>
       <DesktopShell>
       <Stack

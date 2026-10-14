@@ -2,7 +2,7 @@
   "expo": {
     "name": "ActiveCard",
     "slug": "activecard",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "activecard",
@@ -16,9 +16,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "ios": {
       "supportsTablet": true,
@@ -61,6 +59,43 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#3E63DD",
           "defaultChannel": "repaso-diario"
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "targetCellWidth": 4,
+              "label": "ActiveCard · Repaso diario",
+              "resizeMode": "horizontal|vertical",
+              "minHeight": "154dp",
+              "updatePeriodMillis": 1800000,
+              "targetCellHeight": 2,
+              "description": "Pendientes y progreso del día. Tocá para repasar.",
+              "minWidth": "180dp",
+              "name": "DailyReview",
+              "previewImage": "./assets/widgets/daily-preview.png"
+            },
+            {
+              "targetCellWidth": 4,
+              "label": "ActiveCard · Mazos",
+              "resizeMode": "horizontal|vertical",
+              "minHeight": "154dp",
+              "updatePeriodMillis": 1800000,
+              "targetCellHeight": 3,
+              "description": "Continuá los mazos en progreso de hoy; si no hay, abrí los recientes.",
+              "minWidth": "180dp",
+              "name": "StudyDecks",
+              "previewImage": "./assets/widgets/decks-preview.png"
+            }
+          ],
+          "fonts": [
+            "./node_modules/@expo-google-fonts/plus-jakarta-sans/400Regular/PlusJakartaSans_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/plus-jakarta-sans/600SemiBold/PlusJakartaSans_600SemiBold.ttf",
+            "./node_modules/@expo-google-fonts/plus-jakarta-sans/700Bold/PlusJakartaSans_700Bold.ttf",
+            "./node_modules/@expo-google-fonts/plus-jakarta-sans/800ExtraBold/PlusJakartaSans_800ExtraBold.ttf"
+          ]
         }
       ]
     ],

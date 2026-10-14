@@ -1,0 +1,67 @@
+import { getWidgetInfo, requestWidgetUpdateById } from 'react-native-android-widget';
+import { buildWidgetTree } from 'react-native-android-widget/src/api/build-widget-tree';
+import { loadWidgetData } from '../data';
+import { refreshInstalledWidgets, widgetTaskHandler } from '../runtime.android';
+
+jest.mock('../data', () => ({ loadWidgetData: jest.fn() }));
+jest.mock('react-native-android-widget', () => ({ ...jest.requireActual('react-native-android-widget'), getWidgetInfo: jest.fn(), requestWidgetUpdateById: jest.fn() }));
+const info = (name, width = 320, height = 260, id = 1) => ({ widgetName: name, widgetId: id, width, height });
+const data = { review: { done: 2, remaining: 8, total: 10, pct: 20 }, mode: 'progress', decks: [{ id: 1, name: 'Operaciones', progress: { pct: 30 } }, { id: 2, name: 'Economía', progress: { pct: 60 } }, { id: 3, name: 'Personas', progress: { pct: 80 } }] };
+const render = async (name, width, height) => {
+  const renderWidget = jest.fn();
+  await widgetTaskHandler({ widgetInfo: info(name, width, height), widgetAction: 'WIDGET_ADDED', renderWidget });
+  return JSON.stringify(buildWidgetTree(renderWidget.mock.calls[0][0]));
+};
+beforeEach(() => {
+  jest.clearAllMocks();
+  loadWidgetData.mockResolvedValue(data);
+  getWidgetInfo.mockResolvedValue([]);
+});
+test('construye árboles nativos para repaso compacto/amplio y enlaces explícitos', async () => {
+  for (const [width, height] of [[180, 154], [320, 180], [400, 300]]) {
+    const tree = await render('DailyReview', width, height);
+    expect(tree).toContain('Repasar ahora');
+    expect(tree).toContain('activecard:///repaso');
+    expect(tree).toContain('REFRESH');
+  }
+});
+test('redimensionar mazos respeta el máximo de filas y conserva Biblioteca', async () => {
+  const small = await render('StudyDecks', 180, 154);
+  expect(small).toContain('Operaciones'); expect(small).not.toContain('Economía');
+  expect(small).toContain('activecard:///biblioteca');
+  expect(small).toContain('target=study');
+  const large = await render('StudyDecks', 320, 260);
+  expect(large).toContain('Personas');
+});
+test('completado, recientes y biblioteca vacía tienen estados propios', async () => {
+  loadWidgetData.mockResolvedValue({ ...data, review: { done: 10, remaining: 0, total: 10, pct: 100 } });
+  expect(await render('DailyReview', 320, 180)).toContain('Repaso completado');
+  loadWidgetData.mockResolvedValue({ ...data, mode: 'recent', decks: [{ id: 2, name: 'Economía', card_count: 1 }] });
+  const recent = await render('StudyDecks', 320, 260);
+  expect(recent).toContain('Mazos recientes'); expect(recent).toContain('target=deck');
+  loadWidgetData.mockResolvedValue({ ...data, mode: 'recent', decks: [] });
+  expect(await render('StudyDecks', 320, 260)).toContain('Tu próximo paso');
+});
+test('fallo de lectura muestra reintento y nunca un progreso ficticio', async () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  loadWidgetData.mockRejectedValue(new Error('SQLite busy'));
+  const tree = await render('DailyReview', 320, 180);
+  expect(tree).toContain('No pudimos leer tus datos'); expect(tree).not.toContain('Al día');
+  warn.mockRestore();
+});
+test('eliminación e interacción desconocida no abren la base', async () => {
+  const renderWidget = jest.fn();
+  await widgetTaskHandler({ widgetInfo: info('DailyReview'), widgetAction: 'WIDGET_DELETED', renderWidget });
+  await widgetTaskHandler({ widgetInfo: info('DailyReview'), widgetAction: 'WIDGET_CLICK', clickAction: 'OTHER', renderWidget });
+  expect(loadWidgetData).not.toHaveBeenCalled(); expect(renderWidget).not.toHaveBeenCalled();
+});
+test('refresca todas las instancias con su tamaño y evita leer SQLite si no hay widgets', async () => {
+  await refreshInstalledWidgets();
+  expect(loadWidgetData).not.toHaveBeenCalled();
+  const instances = [info('DailyReview', 180, 154, 1), info('DailyReview', 320, 240, 2), info('StudyDecks', 320, 260, 3)];
+  getWidgetInfo.mockImplementation(async (name) => instances.filter((widget) => widget.widgetName === name));
+  requestWidgetUpdateById.mockImplementation(async (props) => buildWidgetTree(await props.renderWidget(instances.find((widget) => widget.widgetId === props.widgetId))));
+  await refreshInstalledWidgets();
+  expect(loadWidgetData).toHaveBeenCalledTimes(1);
+  expect(requestWidgetUpdateById.mock.calls.map(([props]) => props.widgetId)).toEqual([1, 2, 3]);
+});
