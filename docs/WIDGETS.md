@@ -138,3 +138,29 @@ Referencias: [integración Expo](https://saleksovski.github.io/react-native-andr
   Doctor offline 21/21. DeckLoading volvió a agotar 5 s al compartir ejecución
   con Doctor; pasó aislado y luego en la repetición integral sin otros controles
   simultáneos, sin modificar su test ni ampliar el timeout.
+
+### Build APK 1.8.0 del 15/10/2026
+
+- [Build EAS bf9ddabf-383d-421b-9436-fb6047add319](https://expo.dev/accounts/vicentemartinluciano/projects/activecard/builds/bf9ddabf-383d-421b-9436-fb6047add319): **FINISHED**, sin instalación física.
+- Base `a0b808976c478c683ea39b1aec25439354a2bb32`, runtime 1.8.0,
+  versionName 1.8.0, versionCode 3, package `com.marti.activecard`.
+- [CI de la base](https://github.com/vicentemartinluciano/activecard/actions/runs/38734216860)
+  verde, incluidos tests y exports Android/web. EAS reutiliza la firma existente.
+- EAS confirma que las variables del perfil preview (credenciales deshabilitadas)
+  tienen prioridad sobre las variables remotas homónimas.
+- [Descargar APK 1.8.0](https://expo.dev/artifacts/eas/PBzAvb5-YF2eM6550YICf4j1KSUw2O1-cUV8vNC1iTA.apk).
+- Archivo descargado e inspeccionado: 135.412.520 bytes;
+  SHA-256 `67513d85e8fcc2b5955eaff84f0e632d3303e70b262cf078698e0568ce42a5dd`.
+- AndroidManifest binario confirma package `com.marti.activecard`, versión 1.8.0
+  y código 3. Los dos proveedores compilados incluyen mínimos 160 × 132 dp,
+  resize horizontal/vertical y sus respectivos tamaños iniciales 4 × 2 / 4 × 3.
+- Certificado v2 idéntico al de la APK 1.7.0 previamente instalada
+  (SHA-256 `8f5bd7c2b7d4d1bcd56b5707dbaf50b11cd2a9ae073c613f1a73dee6b7281845`).
+  Se comparó la identidad del certificado; no reemplaza la validación criptográfica
+  integral ni una instalación real. Assets revisados sin credenciales locales ni
+  patrones privados.
+- Para instalar: exportar respaldo reciente y actualizar encima, sin desinstalar.
+  No se conectó el teléfono; no se verificaron UI, resize ni rutas en esta APK,
+  ni se pudo dejar Focus abierta.
+
+Referencia de tamaños: [Android App Widgets](https://developer.android.com/develop/ui/views/appwidgets/layouts).
