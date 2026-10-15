@@ -25,10 +25,14 @@ nuevo; no se puede agregar el soporte a la APK 1.6.0 por OTA.
 Fondo oscuro, degradado cobalto, reflejo suave en el borde, progreso verde y fuentes
 Plus Jakarta Sans embebidas en Android. Render estático: esta biblioteca dibuja
 una imagen con zonas táctiles; no hay un bucle de animación ni actualizaciones
-frecuentes para simular brillo. Los assets del selector son ilustrativos.
+frecuentes para simular brillo. Los assets del selector usan el JSX real en una simulación HTML con datos de muestra, no capturas del teléfono.
 
-Ambos se pueden redimensionar horizontal y verticalmente, mínimo 180 × 154 dp.
-Tamaños iniciales: repaso 4 × 2 celdas; mazos 4 × 3. El tamaño real depende del launcher.
+En APK 1.8.0, ambos se pueden redimensionar horizontal y verticalmente hasta
+160 × 132 dp. El tamaño inicial se solicita aparte: repaso 4 × 2 celdas
+(250 × 132 dp de referencia); mazos 4 × 3 (250 × 220 dp). El tamaño y los pasos
+reales dependen de la grilla del launcher. `plugins/with-widget-resize.js` añade
+`minResizeWidth/Height` al XML final sin tocar node_modules; conserva receptores,
+preview y demás atributos. La APK 1.7.0 conserva sus límites nativos previos.
 Las vistas usan el ancho/alto que informa Android: tipografía, cifras y botones
 crecen con el espacio disponible. Filas desde arriba, nombres de hasta dos líneas
 en tamaños altos y sin grandes bloques vacíos centrados. `layout.js` presupuesta
@@ -64,7 +68,7 @@ prebuild/config y exports Android/web. Estos controles no prueban el launcher f�
 
 Instalada el 14/10: APK **1.7.0 / código 2**, encima de 1.6.0, sin desinstalar.
 Los cambios de contenido/diseño del 15/10 son compatibles por OTA con 1.7.0.
-Los cambios de límites del selector/redimensionado requieren otra APK.
+Los nuevos límites y previews del selector se entregan en APK/runtime **1.8.0**.
 Conservar package/proyecto/firma, exportar respaldo antes e instalar encima.
 El `versionCode` se incrementa remotamente para distinguir APKs.
 
@@ -97,7 +101,7 @@ que esas rutas funcionan en el Samsung A15.
 
 - Progreso más recientes complementarios, tipografía adaptable y nombres multilínea.
 - `scripts/preview-widget-layouts.mjs` usa el JSX de producción, fuentes y datos
-  de muestra para simular 180 × 154, 320 × 180/260/340 y 400 × 500 dp en HTML.
+  de muestra para simular desde 160 × 132 hasta 400 × 500 dp en HTML.
   No es render Android ni evidencia física; los tests construyen además árboles
   nativos reales de la biblioteca y verifican el presupuesto de cada región.
 - Validación local: 53 suites / 497 tests, lint sin advertencias y Doctor offline
@@ -108,3 +112,29 @@ que esas rutas funcionan en el Samsung A15.
 Referencias: [integración Expo](https://saleksovski.github.io/react-native-android-widget/docs/tutorial/register-widget-expo/),
 [actualizaciones](https://saleksovski.github.io/react-native-android-widget/docs/update-widget),
 [limitaciones de render](https://saleksovski.github.io/react-native-android-widget/docs/limitations).
+
+### Publicación OTA compatible con 1.7.0
+
+- Fecha: 15/10/2026; Android, rama/canal preview; base `547e7a4` con CI verde.
+- Grupo: `c2648198-8c1a-4fc4-8bb9-7adc2567bdd2`.
+- Update: `01a13f7b-edd7-7eba-85cb-451295439b84`, runtime 1.7.0.
+- Export separado con dotenv desactivado y credenciales deshabilitadas; revisión
+  del bundle sin credenciales locales ni patrones privados. Publicado con skip-bundler.
+- Publicación confirmada; descarga/ejecución en el teléfono no verificadas.
+- APK 1.8.0: conserva firma/package/proyecto, agrega límites nativos independientes
+  y previews del selector. Instalación física pendiente de disponibilidad del teléfono.
+
+### Configuración nativa 1.8.0 verificada localmente
+
+- Prebuild Android completado. Los dos XML generados incluyen minResizeWidth=160dp,
+  minResizeHeight=132dp, resize horizontal/vertical y sus previews/receptores intactos.
+- Tamaños iniciales separados: DailyReview 250 × 132 dp / 4 × 2 celdas;
+  StudyDecks 250 × 220 dp / 4 × 3. Cuatro fuentes embebidas; versionName 1.8.0.
+- Plugin XML idempotente, con error explícito ante un proveedor inesperado.
+- Presupuesto de contenido comprobado en 846 combinaciones de ancho/alto entre
+  160–500 y 132–592 dp, además de árboles nativos y previews. Esto no acredita
+  el tamaño mínimo ni los pasos reales que ofrecerá One UI.
+- Validación final local: 54 suites / 507 tests aprobados, lint sin advertencias,
+  Doctor offline 21/21. DeckLoading volvió a agotar 5 s al compartir ejecución
+  con Doctor; pasó aislado y luego en la repetición integral sin otros controles
+  simultáneos, sin modificar su test ni ampliar el timeout.

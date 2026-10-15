@@ -1,13 +1,13 @@
 import { decksLayout, reviewLayout } from '../layout';
 
 const data = { inProgress: [{ id: 1 }], recent: Array.from({ length: 12 }, (_, i) => ({ id: i + 2 })) };
-const sizes = [[180, 132], [180, 154], [240, 154], [320, 180], [320, 240], [320, 340], [400, 500], [500, 200]];
+const sizes = [[160, 132], [400, 132], [500, 132], [180, 132], [180, 154], [240, 154], [320, 180], [320, 240], [320, 340], [400, 500], [500, 200]];
 test.each(sizes)('repaso cabe en %i × %i, con controles visibles', (width, height) => {
   const l = reviewLayout({ width, height });
   expect(l.heroHeight + l.statHeight + l.barHeight + l.gap * 2).toBeLessThanOrEqual(l.bodyHeight);
   expect(l.padding * 2 + l.headerHeight + l.headerGap + l.bodyHeight + l.footerGap + l.buttonHeight).toBe(height);
 });
-test.each(sizes.filter(([, h]) => h >= 154))('mazos caben en %i × %i sin cortar las filas', (width, height) => {
+test.each(sizes)('mazos caben en %i × %i sin cortar las filas', (width, height) => {
   const l = decksLayout({ width, height }, data);
   const count = l.sections.reduce((n, section) => n + section.decks.length, 0);
   expect(l.nameHeight + l.detailHeight + 4).toBeLessThanOrEqual(l.rowHeight);
@@ -27,4 +27,15 @@ test('reserva recientes incluso con muchos mazos en progreso y no duplica filas'
   const l = decksLayout({ width: 320, height: 340 }, { inProgress: data.recent, recent: data.inProgress });
   expect(l.sections.map((s) => s.mode)).toEqual(['progress', 'recent']);
   expect(l.sections[1].decks).toEqual(data.inProgress);
+});
+
+test('grilla de tamaños desde los nuevos mínimos mantiene ambas vistas dentro de sus cajas', () => {
+  for (let width = 160; width <= 500; width += 20) {
+    for (let height = 132; height <= 600; height += 10) {
+      const l = decksLayout({ width, height }, data);
+      expect(l.nameHeight + l.detailHeight + 4).toBeLessThanOrEqual(l.rowHeight);
+      const r = reviewLayout({ width, height });
+      expect(r.heroHeight + r.statHeight + r.barHeight + 2 * r.gap).toBeLessThanOrEqual(r.bodyHeight);
+    }
+  }
 });

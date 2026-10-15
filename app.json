@@ -2,7 +2,7 @@
   "expo": {
     "name": "ActiveCard",
     "slug": "activecard",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "activecard",
@@ -69,11 +69,11 @@
               "targetCellWidth": 4,
               "label": "ActiveCard · Repaso diario",
               "resizeMode": "horizontal|vertical",
-              "minHeight": "154dp",
+              "minHeight": "132dp",
               "updatePeriodMillis": 1800000,
               "targetCellHeight": 2,
               "description": "Pendientes y progreso del día. Tocá para repasar.",
-              "minWidth": "180dp",
+              "minWidth": "250dp",
               "name": "DailyReview",
               "previewImage": "./assets/widgets/daily-preview.png"
             },
@@ -81,11 +81,11 @@
               "targetCellWidth": 4,
               "label": "ActiveCard · Mazos",
               "resizeMode": "horizontal|vertical",
-              "minHeight": "154dp",
+              "minHeight": "220dp",
               "updatePeriodMillis": 1800000,
               "targetCellHeight": 3,
-              "description": "Continuá los mazos en progreso de hoy; si no hay, abrí los recientes.",
-              "minWidth": "180dp",
+              "description": "Continuá los mazos en progreso de hoy y abrí también tus recientes.",
+              "minWidth": "250dp",
               "name": "StudyDecks",
               "previewImage": "./assets/widgets/decks-preview.png"
             }
@@ -97,7 +97,8 @@
             "./node_modules/@expo-google-fonts/plus-jakarta-sans/800ExtraBold/PlusJakartaSans_800ExtraBold.ttf"
           ]
         }
-      ]
+      ],
+      "./plugins/with-widget-resize"
     ],
     "runtimeVersion": {
       "policy": "appVersion"

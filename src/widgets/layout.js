@@ -36,7 +36,7 @@ export function decksLayout(info, { inProgress = [], recent = [] }) {
   const footerHeight = compact ? 20 : 28;
   const bodyHeight = height - padding * 2 - headerHeight - headerGap - footerHeight - footerGap;
   const compactRows = height < 300 || width < 250;
-  const nameSize = Math.round(clamp(width * (compactRows ? 0.052 : 0.06), 14, 24));
+  const nameSize = Math.round(clamp(width * (compactRows ? 0.052 : 0.06), 14, height < 154 ? 18 : 24));
   const detailSize = Math.round(clamp(nameSize * 0.78, 11, 18));
   const oneLineHeight = Math.ceil(nameSize * 1.4);
   const detailHeight = Math.ceil(detailSize * 1.4 + 2);

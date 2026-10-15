@@ -1,7 +1,7 @@
 @echo off
 setlocal
 chcp 65001 >nul
-set "APP_VERSION=1.7.0"
+set "APP_VERSION=1.8.0"
 title ActiveCard - Validar y construir APK %APP_VERSION%
 cd /d "%~dp0.."
 
