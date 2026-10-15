@@ -24,6 +24,8 @@ test('el viewport de mazos crece y cada elemento cabe en el mínimo', () => {
     }
   }
   expect(decksLayout({ width: 401, height: 340 }).bodyHeight).toBeGreaterThan(decksLayout({ width: 401, height: 218 }).bodyHeight);
+  const expanded = decksLayout({ width: 401, height: 340 });
+  expect(expanded.sectionHeight * 2 + expanded.rowHeight * 2).toBeLessThanOrEqual(expanded.bodyHeight);
 });
 
 test('el combinado reserva dos paneles utilizables desde su mínimo nativo', () => {

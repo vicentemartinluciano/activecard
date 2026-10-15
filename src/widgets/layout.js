@@ -16,11 +16,11 @@ export function reviewLayout(info) {
   const flameSize = tight ? 22 : medium ? 28 : Math.round(clamp(l.width * 0.1, 26, 42));
   const captionHeight = tight ? 12 : medium ? 14 : 16;
   const headerHeight = Math.max(titleSize * 1.25, flameSize + captionHeight);
-  const statSize = tight || l.width < 240 ? 10 : Math.round(clamp(l.width * 0.04, 11, 16));
+  const statSize = l.width < 240 ? 10 : Math.round(clamp(l.width * 0.04, 11, tight ? 15 : 16));
   const statHeight = tight ? 24 : medium ? 28 : Math.round(clamp(l.height * 0.12, 28, 40));
   const barHeight = tight ? 12 : medium ? 16 : Math.round(clamp(l.width * 0.055, 16, 24));
   const buttonHeight = tight ? 32 : medium ? 40 : Math.round(clamp(l.height * 0.2, 42, 60));
-  const buttonSize = tight || l.width < 240 ? 11 : Math.round(clamp(l.width * 0.045, 13, 18));
+  const buttonSize = l.width < 240 ? 11 : Math.round(clamp(l.width * 0.045, 13, 18));
   const groupHeight = headerHeight + statHeight + barHeight + buttonHeight + gap * 3;
   const inset = Math.max(0, (l.height - l.padding * 2 - groupHeight) / 2);
   return { ...l, gap, titleSize, flameSize, captionHeight, headerHeight,
@@ -35,7 +35,7 @@ export function decksLayout(info) {
   const footerHeight = 20;
   const gap = l.compact ? 4 : 8;
   const bodyHeight = l.height - l.padding * 2 - headerHeight - footerHeight - gap * 2;
-  const lines = bodyHeight >= 120 && l.width >= 240 ? 2 : 1;
+  const lines = bodyHeight >= 140 && l.width >= 240 && l.width < 340 ? 2 : 1;
   const nameSize = l.compact ? 14 : Math.round(clamp(l.width * 0.045, 16, 20));
   const nameHeight = Math.ceil(nameSize * 1.25) * lines;
   const detailSize = l.compact ? 11 : 13;
