@@ -194,3 +194,25 @@ Referencia de tamaños: [Android App Widgets](https://developer.android.com/deve
 - Lint sin advertencias, Doctor offline 21/21 y export Android aprobados.
   Los 48 PNG tienen 128 × 128 px y bordes transparentes sin recortar la llama;
   9 poses distintas muestreadas del ciclo repetido del Lottie original.
+
+### Entrega APK 1.9.0
+
+- [Build EAS d3dbcef4-cefb-4050-a111-3b13a5cd1b7a](https://expo.dev/accounts/vicentemartinluciano/projects/activecard/builds/d3dbcef4-cefb-4050-a111-3b13a5cd1b7a): **FINISHED**, sin instalación física.
+- Base `edb60abbe24010f208d298d0a92ff601a6a6ff7c`, runtime 1.9.0,
+  versionName 1.9.0, versionCode 4; firma y package existentes conservados.
+- [CI de la base](https://github.com/vicentemartinluciano/activecard/actions/runs/38777638081)
+  aprobada: tests, validación SQL y exports Android/web.
+- [Descargar APK 1.9.0](https://expo.dev/artifacts/eas/MLKZJ_cVUAPGoT1qMFjTvSD9wNv7hbkb3sdX8DSuqqc.apk).
+- Archivo descargado e inspeccionado: 135.625.978 bytes;
+  SHA-256 `4e3dc79b46aed3f5f2b5133838fb0affa458112c84532afee07aad8968783eb4`.
+- AndroidManifest binario confirma versión 1.9.0, código 4 y package existente.
+  Certificado v2 idéntico a 1.8.0 y 1.7.0: SHA-256
+  `8f5bd7c2b7d4d1bcd56b5707dbaf50b11cd2a9ae073c613f1a73dee6b7281845`.
+  Comparación de identidad; no verificación criptográfica integral ni instalación.
+- Los dos proveedores compilados conservan mínimos 160 × 132 dp y resize en
+  ambos ejes. XML binario incluye ViewFlipper con autoStart y flipInterval=63 ms;
+  los 48 PNG empaquetados coinciden exactamente con las fuentes. Esto acredita
+  recursos compilados, no movimiento efectivo en One UI.
+- Assets revisados sin valores de credenciales locales ni patrones privados.
+- Para instalar: exportar respaldo reciente y actualizar encima, sin desinstalar.
+- Sin instalación ni control del teléfono, reservado a otra sesión.

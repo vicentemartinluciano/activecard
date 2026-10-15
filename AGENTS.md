@@ -13,7 +13,7 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- APK instalada: 1.7.0 / código 2 (14/10, instalación encima de 1.6.0, sin desinstalar). El respaldo previo conserva 9 mazos y 160 tarjetas. Evidencia de widgets y límites de QA en `docs/WIDGETS.md`. Estado histórico del 8/10: Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El mazo vacío de prueba se borró con autorización; al 8/10, teléfono y nube conservaban 8 mazos y 159 tarjetas. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; su recuperación puntual espera la elección de Martín. Límites diarios compartidos aprobados: OTA `314e1ebd-5b4e-4847-b2ad-538aa3f61be8` ejecutándose en Android, 100/50 visibles y publicados en Supabase; Martín confirmó esos valores en la web tras recargar y sincronizar. Ver evidencia y límites de QA en `docs/SINCRONIZACION.md`.
+- Última APK verificada en el teléfono: 1.7.0 / código 2 (14/10, instalación encima de 1.6.0, sin desinstalar). El respaldo previo conserva 9 mazos y 160 tarjetas. Evidencia de widgets y límites de QA en `docs/WIDGETS.md`. Estado histórico del 8/10: Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El mazo vacío de prueba se borró con autorización; al 8/10, teléfono y nube conservaban 8 mazos y 159 tarjetas. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; su recuperación puntual espera la elección de Martín. Límites diarios compartidos aprobados: OTA `314e1ebd-5b4e-4847-b2ad-538aa3f61be8` ejecutándose en Android, 100/50 visibles y publicados en Supabase; Martín confirmó esos valores en la web tras recargar y sincronizar. Ver evidencia y límites de QA en `docs/SINCRONIZACION.md`.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
@@ -22,8 +22,9 @@ analiza fuentes y propone acciones sobre la biblioteca.
   contenido adaptable al tamaño. OTA 1.7.0 publicada; APK/runtime 1.8.0 / código 3 compilada y disponible: mínimos de resize 160 × 132 dp y nuevos previews; todavía sin instalar. Ver `docs/WIDGETS.md` para entrega y evidencia física.
 - Revisión posterior del 15/10: repaso sin cabecera ni actualizar, barra gruesa y
   contador compacto junto a pendientes. Racha real con el mismo Lottie de Inicio
-  en overlay nativo; requiere APK/runtime 1.9.0. Teléfono reservado a otra sesión;
-  no conectarlo durante este trabajo. Ver `docs/WIDGETS.md`.
+  en overlay nativo; APK/runtime 1.9.0 / código 4 compilada y disponible.
+  Archivo inspeccionado; instalación y QA físico pendientes. No se controló el
+  teléfono, reservado a otra sesión durante esta revisión. Ver `docs/WIDGETS.md`.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 
 ## Fuentes de contexto
