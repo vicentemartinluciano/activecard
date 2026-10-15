@@ -1,12 +1,13 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-13
-APK vigente: 1.6.0. El estado del teléfono, la cuenta y las pruebas de intercambio
+Última actualización: 2026-10-15
+APK instalada: 1.7.0 / código 2 (14/10/2026, sin desinstalar). El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
 
-Runtime preparado: 1.7.0 incorpora dos widgets Android, Repaso diario y Mazos.
-Requiere APK nueva; implementación y límites de actualización/QA en `WIDGETS.md`.
+Runtime 1.7.0 incorpora Repaso diario y Mazos. La revisión del 15/10 agrega
+recientes complementarios y tamaños de contenido adaptables por OTA compatible.
+Implementación y límites de actualización/QA en `WIDGETS.md`.
 
 ## Visión
 

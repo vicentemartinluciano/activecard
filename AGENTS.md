@@ -13,14 +13,13 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- APK vigente: 1.6.0 (SecureStore + Crypto). Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El mazo vacío de prueba se borró con autorización; teléfono y nube conservan 8 mazos y 159 tarjetas. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; su recuperación puntual espera la elección de Martín. Límites diarios compartidos aprobados: OTA `314e1ebd-5b4e-4847-b2ad-538aa3f61be8` ejecutándose en Android, 100/50 visibles y publicados en Supabase; Martín confirmó esos valores en la web tras recargar y sincronizar. Ver evidencia y límites de QA en `docs/SINCRONIZACION.md`.
+- APK instalada: 1.7.0 / código 2 (14/10, instalación encima de 1.6.0, sin desinstalar). El respaldo previo conserva 9 mazos y 160 tarjetas. Evidencia de widgets y límites de QA en `docs/WIDGETS.md`. Estado histórico del 8/10: Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El mazo vacío de prueba se borró con autorización; teléfono y nube conservan 8 mazos y 159 tarjetas. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; su recuperación puntual espera la elección de Martín. Límites diarios compartidos aprobados: OTA `314e1ebd-5b4e-4847-b2ad-538aa3f61be8` ejecutándose en Android, 100/50 visibles y publicados en Supabase; Martín confirmó esos valores en la web tras recargar y sincronizar. Ver evidencia y límites de QA en `docs/SINCRONIZACION.md`.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
-- Widgets Android preparados para runtime/APK 1.7.0: Repaso diario y Mazos
-  (avance parcial de hoy; recientes sólo si no hay progreso). Ver `docs/WIDGETS.md`
-  para contrato, entrega y evidencia física; APK instalada sigue siendo 1.6.0
-  hasta verificar la actualización.
+- Widgets Android desde runtime/APK 1.7.0: Repaso diario y Mazos.
+  Revisión del 15/10: progreso parcial de hoy seguido de recientes sin duplicados,
+  contenido adaptable al tamaño. Ver `docs/WIDGETS.md` para entrega y evidencia física.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 
 ## Fuentes de contexto

@@ -6,7 +6,7 @@ import { refreshInstalledWidgets, widgetTaskHandler } from '../runtime.android';
 jest.mock('../data', () => ({ loadWidgetData: jest.fn() }));
 jest.mock('react-native-android-widget', () => ({ ...jest.requireActual('react-native-android-widget'), getWidgetInfo: jest.fn(), requestWidgetUpdateById: jest.fn() }));
 const info = (name, width = 320, height = 260, id = 1) => ({ widgetName: name, widgetId: id, width, height });
-const data = { review: { done: 2, remaining: 8, total: 10, pct: 20 }, mode: 'progress', decks: [{ id: 1, name: 'Operaciones', progress: { pct: 30 } }, { id: 2, name: 'Economía', progress: { pct: 60 } }, { id: 3, name: 'Personas', progress: { pct: 80 } }] };
+const data = { review: { done: 2, remaining: 8, total: 10, pct: 20 }, recent: [{ id: 4, name: 'Reciente adicional', card_count: 15 }], inProgress: [{ id: 1, name: 'Operaciones', progress: { pct: 30 } }, { id: 2, name: 'Economía', progress: { pct: 60 } }, { id: 3, name: 'Personas', progress: { pct: 80 } }] };
 const render = async (name, width, height) => {
   const renderWidget = jest.fn();
   await widgetTaskHandler({ widgetInfo: info(name, width, height), widgetAction: 'WIDGET_ADDED', renderWidget });
@@ -25,21 +25,23 @@ test('construye árboles nativos para repaso compacto/amplio y enlaces explícit
     expect(tree).toContain('REFRESH');
   }
 });
-test('redimensionar mazos respeta el máximo de filas y conserva Biblioteca', async () => {
+test('redimensionar agrega recientes con su enlace y conserva Biblioteca', async () => {
   const small = await render('StudyDecks', 180, 154);
   expect(small).toContain('Operaciones'); expect(small).not.toContain('Economía');
   expect(small).toContain('activecard:///biblioteca');
   expect(small).toContain('target=study');
-  const large = await render('StudyDecks', 320, 260);
-  expect(large).toContain('Personas');
+  const large = await render('StudyDecks', 320, 340);
+  expect(large).toContain('RECIENTES');
+  expect(large).toContain('Reciente adicional');
+  expect(large).toContain('target=deck');
 });
 test('completado, recientes y biblioteca vacía tienen estados propios', async () => {
   loadWidgetData.mockResolvedValue({ ...data, review: { done: 10, remaining: 0, total: 10, pct: 100 } });
   expect(await render('DailyReview', 320, 180)).toContain('Repaso completado');
-  loadWidgetData.mockResolvedValue({ ...data, mode: 'recent', decks: [{ id: 2, name: 'Economía', card_count: 1 }] });
+  loadWidgetData.mockResolvedValue({ ...data, inProgress: [], recent: [{ id: 2, name: 'Economía', card_count: 1 }] });
   const recent = await render('StudyDecks', 320, 260);
   expect(recent).toContain('Mazos recientes'); expect(recent).toContain('target=deck');
-  loadWidgetData.mockResolvedValue({ ...data, mode: 'recent', decks: [] });
+  loadWidgetData.mockResolvedValue({ ...data, inProgress: [], recent: [] });
   expect(await render('StudyDecks', 320, 260)).toContain('Tu próximo paso');
 });
 test('fallo de lectura muestra reintento y nunca un progreso ficticio', async () => {

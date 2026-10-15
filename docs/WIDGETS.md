@@ -8,12 +8,14 @@ nuevo; no se puede agregar el soporte a la APK 1.6.0 por OTA.
 - **Repaso diario** (`DailyReview`): pendientes, completadas, porcentaje y barra.
   Usa `getDailyReviewStats`, incluidos límites diarios, falladas y mazos pausados.
   Tocar el resumen o «Repasar ahora» abre `/repaso`; sin pendientes muestra «Al día».
-- **Mazos** (`StudyDecks`): hasta tres mazos con `0 < progreso.pct < 100` del día,
-  en el mismo orden que Inicio. Tocar uno abre su estudio. Cuando no hay ninguno,
-  muestra hasta tres recientes por `last_studied_at || created_at` descendente,
-  con desempate por ID descendente; el toque abre el detalle, como en Inicio web.
-  No mezcla recientes para rellenar una lista parcial. El progreso se reinicia
-  con el día local. Un widget pequeño reduce filas; Biblioteca siempre queda accesible.
+- **Mazos** (`StudyDecks`): primero mazos con `0 < progreso.pct < 100` del día,
+  en el mismo orden que Inicio. Tocar uno abre su estudio. Debajo agrega recientes
+  por `last_studied_at || created_at` descendente (desempate por ID descendente),
+  excluyendo los que ya están en progreso; el toque abre el detalle.
+  Si caben al menos dos filas, reserva lugar para ambos grupos. En el mínimo,
+  prioriza una fila de progreso. Sin progreso, muestra sólo recientes.
+  Muestra hasta ocho filas según el espacio; Biblioteca y el conteo restante
+  siempre quedan accesibles. El progreso se reinicia con el día local.
 - El botón ↻ de cada widget vuelve a consultar SQLite sin cambiar datos de estudio.
 - Sin mazos, ofrece abrir Biblioteca. Si falla una lectura, muestra reintento;
   nunca presenta un error como cero pendientes o una biblioteca vacía.
@@ -27,7 +29,10 @@ frecuentes para simular brillo. Los assets del selector son ilustrativos.
 
 Ambos se pueden redimensionar horizontal y verticalmente, mínimo 180 × 154 dp.
 Tamaños iniciales: repaso 4 × 2 celdas; mazos 4 × 3. El tamaño real depende del launcher.
-Las vistas usan el ancho/alto que informa Android para evitar escalar una captura fija.
+Las vistas usan el ancho/alto que informa Android: tipografía, cifras y botones
+crecen con el espacio disponible. Filas desde arriba, nombres de hasta dos líneas
+en tamaños altos y sin grandes bloques vacíos centrados. `layout.js` presupuesta
+cada región y decide cuántas filas caben. El modo compacto conserva los controles.
 
 ## Integración
 
@@ -36,7 +41,7 @@ Las vistas usan el ancho/alto que informa Android para evitar escalar una captur
   redimensionamiento y reintento, incluso cuando Android inicia el runtime headless.
   Eliminación y acciones desconocidas no consultan la base.
 - `src/widgets/data.js`: repositorios existentes y una misma fecha para repaso/mazos.
-- `src/widgets/model.js`: selección, límites de filas y destinos puros.
+- `src/widgets/model.js`: selección y destinos puros; `layout.js`: tamaños y reparto de filas.
 - `src/components/WidgetUpdates.android.js`: escucha escrituras ya confirmadas de
   `transactions.js`, agrupa ráfagas y refresca todas las instancias. También al
   entrar/salir de foreground y cada minuto mientras la app está activa.
@@ -57,9 +62,11 @@ inválidos/borrados, múltiples instancias y tamaños, render de árboles nativo
 agrupación de escrituras y cambios durante un refresco. Además, lint, Expo Doctor,
 prebuild/config y exports Android/web. Estos controles no prueban el launcher físico.
 
-Para entregar, conservar package/proyecto/firma, compilar preview 1.7.0, verificar
-respaldo e instalar encima de 1.6.0. No desinstalar. El `versionCode` se incrementa
-remotamente para distinguir APKs.
+Instalada el 14/10: APK **1.7.0 / código 2**, encima de 1.6.0, sin desinstalar.
+Los cambios de contenido/diseño del 15/10 son compatibles por OTA con 1.7.0.
+Los cambios de límites del selector/redimensionado requieren otra APK.
+Conservar package/proyecto/firma, exportar respaldo antes e instalar encima.
+El `versionCode` se incrementa remotamente para distinguir APKs.
 
 QA físico: selector y apariencia real, ambas rutas en arranque frío, redimensionar,
 varias instancias, refresco tras estudio/undo/renombrado/sync, completar mazo,
@@ -74,9 +81,29 @@ que esas rutas funcionan en el Samsung A15.
   de los exports, aprobó los 481 sin cambiar ese test ni aumentar su timeout.
 - Expo Doctor offline: 21/21. Export Android y web aprobados; prebuild genera
   ambos receptores, XML de tamaños y las cuatro fuentes nativas.
-- Samsung A15 conectado: se comprobó APK 1.6.0 / código 1. Focus impide mantener
-  ActiveCard abierta para exportar respaldo y probar widgets; no se modifican
-  esas restricciones. Instalación y QA nuevos esperan acceso al teléfono.
+### Evidencia física del 14/10/2026
+
+- Respaldo v4 exportado antes de instalar: 9 mazos, 160 tarjetas, 4 carpetas,
+  3 chats y 147 review logs; sin settings/claves. Identidades y referencias validadas.
+- Instalación encima de 1.6.0 confirmada por ADB: 1.7.0 / código 2; apertura fría
+  y Ajustes «Al día». No se hizo una comparación completa del respaldo posterior.
+- One UI mostró ambos proveedores en el selector y se agregó Repaso diario.
+  Mostró datos locales reales: 25 pendientes. El tamaño inicial fue mayor al
+  esperado (aprox. 294 × 341 dp), con contenido pequeño y demasiado espacio vacío.
+- La captura aportada por Martín el 15/10 muestra ambos widgets y motiva el ajuste.
+  No prueba enlaces, refresco tras mutaciones, múltiples instancias ni cambio de día.
+
+### Revisión del 15/10/2026
+
+- Progreso más recientes complementarios, tipografía adaptable y nombres multilínea.
+- `scripts/preview-widget-layouts.mjs` usa el JSX de producción, fuentes y datos
+  de muestra para simular 180 × 154, 320 × 180/260/340 y 400 × 500 dp en HTML.
+  No es render Android ni evidencia física; los tests construyen además árboles
+  nativos reales de la biblioteca y verifican el presupuesto de cada región.
+- Validación local: 53 suites / 497 tests, lint sin advertencias y Doctor offline
+  21/21. El test existente DeckLoading agotó su timeout al correr junto al lint;
+  la repetición integral aislada pasó sin modificarlo ni ampliar el timeout.
+- Martín no dispone del teléfono. No se intenta conexión, instalación ni QA físico.
 
 Referencias: [integración Expo](https://saleksovski.github.io/react-native-android-widget/docs/tutorial/register-widget-expo/),
 [actualizaciones](https://saleksovski.github.io/react-native-android-widget/docs/update-widget),

@@ -18,9 +18,9 @@ test('reutiliza cola y progreso con la misma fecha, sin recalcular FSRS', async 
   expect(getDailyReviewStats).toHaveBeenCalledWith(now);
   expect(getDecksDailyProgress).toHaveBeenCalledWith(now);
   expect(result.review).toEqual({ done: 5, remaining: 8, total: 13, pct: 38 });
-  expect(result.mode).toBe('progress');
+  expect(result.inProgress.map((deck) => deck.id)).toEqual([7]);
   getDecksDailyProgress.mockResolvedValue({ 7: { reviewedToday: 0, total: 20, pct: 0 } });
-  expect((await loadWidgetData(new Date('2026-10-14T03:00:01Z'))).mode).toBe('recent');
+  expect((await loadWidgetData(new Date('2026-10-14T03:00:01Z'))).recent.map((deck) => deck.id)).toEqual([7]);
 });
 test('no convierte un fallo de SQLite en cero pendientes', async () => {
   getDailyReviewStats.mockRejectedValue(new Error('SQLite busy'));
