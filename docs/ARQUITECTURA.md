@@ -11,6 +11,10 @@ APK/runtime 1.8.0 / código 3 compilada, aún sin instalar: añade mínimos de
 redimensionado independientes del tamaño inicial.
 Runtime/APK 1.9.0 añade racha con ViewFlipper nativo sobre el fuego del repaso.
 APK 1.9.0 / código 4 compilada e inspeccionada, sin instalación ni QA físico.
+Revisión física posterior del 15/10: 1.9.0 instalada; se detectó ausencia del
+overlay en `layout-night` y listas recortadas por capacidad. Fuente 1.10.0 corrige
+ambos: overlay diurno/nocturno, reflejo nativo del progreso, `ListWidget` con
+progreso seguido de todos los recientes y tercer proveedor `ReviewAndDecks`.
 Implementación, entregas y límites de QA en `WIDGETS.md`.
 
 ## Visión

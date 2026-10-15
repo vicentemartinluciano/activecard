@@ -26,16 +26,19 @@ function style(s = {}, text = false) {
   return out;
 }
 export function FlexWidget({style:s,children}) {return React.createElement('div',{style:style(s)},children);}
+export function ListWidget({style:s,children}) {return React.createElement('div',{style:{...style(s),overflow:'auto'}},children);}
 export function OverlapWidget({style:s,children}) {return React.createElement('div',{style:{...style(s),display:'grid'}},React.Children.toArray(children).map((child,i)=>React.createElement('div',{key:i,style:{gridArea:'1 / 1',minWidth:0}},child)));}
-export function TextWidget({style:s,text,maxLines=1}) {return React.createElement('div',{'data-fit':s?.adjustsFontSizeToFit||undefined,style:{...style(s,true),WebkitLineClamp:maxLines}},text);}
+export function TextWidget({style:s,text,maxLines=1}) {return React.createElement('div',{style:{...style(s),justifyContent:'center',alignItems:'stretch',overflow:'hidden'}},React.createElement('div',{'data-fit':s?.adjustsFontSizeToFit||undefined,style:{display:'-webkit-box',WebkitBoxOrient:'vertical',WebkitLineClamp:maxLines,overflow:'hidden',lineHeight:1.25,width:'100%'}},text));}
 export function SvgWidget({style:s,svg}) {return React.createElement('div',{style:style(s),dangerouslySetInnerHTML:{__html:svg.replace('<svg ','<svg style="width:100%;height:100%" ')}});}
 `;
 const result = await build({
-  stdin: { contents: "export { ReviewWidget, DecksWidget } from './src/widgets/views.android.js';", resolveDir: root, loader: 'jsx' },
+  stdin: { contents: "export { ReviewWidget, DecksWidget, CombinedWidget } from './src/widgets/views.android.js';", resolveDir: root, loader: 'jsx' },
   bundle: true, platform: 'node', format: 'cjs', write: false,
   external: ['react', 'react/jsx-runtime'], loader: { '.js': 'jsx' }, jsx: 'automatic',
   plugins: [{ name: 'native-widget-preview', setup(b) {
     b.onResolve({ filter: /^react-native-android-widget$/ }, () => ({ path: 'widget-shim', namespace: 'preview' }));
+    b.onResolve({ filter: /^react-native$/ }, () => ({ path: 'native-shim', namespace: 'native' }));
+    b.onLoad({ filter: /.*/, namespace: 'native' }, () => ({ contents: "export const Platform={OS:'android'};", loader: 'js' }));
     b.onLoad({ filter: /.*/, namespace: 'preview' }, () => ({ contents: shim, loader: 'js', resolveDir: root }));
   } }],
 });
@@ -56,8 +59,9 @@ const data = { streak: { days: 7, activeToday: true }, review: { remaining: 23, 
 const browser = await chromium.launch({ headless: true, channel: process.env.WIDGET_BROWSER || 'chrome' });
 try {
   const page = await browser.newPage({ deviceScaleFactor: 2 });
-  for (const [width, height] of [[160, 132], [400, 132], [180, 154], [320, 180], [320, 260], [320, 340], [400, 500]]) {
-    for (const [name, View] of [['daily', views.ReviewWidget], ['decks', views.DecksWidget]]) {
+  for (const [width, height] of [[160, 132], [400, 132], [180, 154], [294, 218], [401, 340], [320, 180], [320, 260], [320, 340], [400, 500]]) {
+    for (const [name, View] of [['daily', views.ReviewWidget], ['decks', views.DecksWidget], ['combined', views.CombinedWidget]]) {
+      if (name === 'combined' && height < 280) continue;
       const html = `<html><head><style>${fonts}body{margin:0;background:#09090B}svg{display:block}</style></head><body>${renderToStaticMarkup(React.createElement(View, { info: { width, height }, data }))}</body></html>`;
       await page.setViewportSize({ width, height });
       await page.setContent(html);
@@ -69,7 +73,7 @@ try {
         }
       });
       await page.screenshot({ path: resolve(dir, `${name}-${width}x${height}.png`) });
-      if (process.argv.includes('--selector') && width === 320 && height === (name === 'daily' ? 180 : 260)) {
+      if (process.argv.includes('--selector') && width === 320 && height === (name === 'daily' ? 180 : name === 'decks' ? 260 : 340)) {
         await page.screenshot({ path: resolve(root, `assets/widgets/${name}-preview.png`) });
       }
     }

@@ -1,5 +1,5 @@
 // Progreso parcial de hoy y recientes complementarios, sin repetir identidades.
-export const WIDGET_NAMES = { review: 'DailyReview', decks: 'StudyDecks' };
+export const WIDGET_NAMES = { review: 'DailyReview', decks: 'StudyDecks', combined: 'ReviewAndDecks' };
 
 export function selectWidgetDecks(decks, progressByDeck) {
   const inProgress = decks

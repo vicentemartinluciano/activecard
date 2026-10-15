@@ -32,20 +32,21 @@ test('construye árboles nativos para repaso compacto/amplio y enlaces explícit
 });
 test('redimensionar agrega recientes con su enlace y conserva Biblioteca', async () => {
   const small = await render('StudyDecks', 180, 154);
-  expect(small).toContain('Operaciones'); expect(small).not.toContain('Economía');
+  expect(small).toContain('Operaciones'); expect(small).toContain('Economía');
+  expect(small).toContain('Reciente adicional'); expect(small).toContain('ListWidget');
   expect(small).toContain('activecard:///biblioteca');
   expect(small).toContain('target=study');
   const large = await render('StudyDecks', 320, 340);
-  expect(large).toContain('RECIENTES');
+  expect(large).toContain('MAZOS RECIENTES');
   expect(large).toContain('Reciente adicional');
   expect(large).toContain('target=deck');
 });
 test('completado, recientes y biblioteca vacía tienen estados propios', async () => {
   loadWidgetData.mockResolvedValue({ ...data, review: { done: 10, remaining: 0, total: 10, pct: 100 } });
-  expect(await render('DailyReview', 320, 180)).toContain('Repaso completado');
+  expect(await render('DailyReview', 320, 180)).toContain('REPASAR DE NUEVO');
   loadWidgetData.mockResolvedValue({ ...data, inProgress: [], recent: [{ id: 2, name: 'Economía', card_count: 1 }] });
   const recent = await render('StudyDecks', 320, 260);
-  expect(recent).toContain('Mazos recientes'); expect(recent).toContain('target=deck');
+  expect(recent).toContain('MAZOS RECIENTES'); expect(recent).toContain('target=deck');
   loadWidgetData.mockResolvedValue({ ...data, inProgress: [], recent: [] });
   expect(await render('StudyDecks', 320, 260)).toContain('Tu próximo paso');
 });
@@ -65,12 +66,23 @@ test('eliminación e interacción desconocida no abren la base', async () => {
 test('refresca todas las instancias con su tamaño y evita leer SQLite si no hay widgets', async () => {
   await refreshInstalledWidgets();
   expect(loadWidgetData).not.toHaveBeenCalled();
-  const instances = [info('DailyReview', 180, 154, 1), info('DailyReview', 320, 240, 2), info('StudyDecks', 320, 260, 3)];
+  const instances = [info('DailyReview', 180, 154, 1), info('DailyReview', 320, 240, 2), info('StudyDecks', 320, 260, 3), info('ReviewAndDecks', 320, 340, 4)];
   getWidgetInfo.mockImplementation(async (name) => instances.filter((widget) => widget.widgetName === name));
   requestWidgetUpdateById.mockImplementation(async (props) => buildWidgetTree(await props.renderWidget(instances.find((widget) => widget.widgetId === props.widgetId))));
   await refreshInstalledWidgets();
   expect(loadWidgetData).toHaveBeenCalledTimes(1);
-  expect(requestWidgetUpdateById.mock.calls.map(([props]) => props.widgetId)).toEqual([1, 2, 3]);
+  expect(requestWidgetUpdateById.mock.calls.map(([props]) => props.widgetId)).toEqual([1, 2, 3, 4]);
+});
+
+test('el combinado mantiene repaso y colección de todos los mazos con sus enlaces', async () => {
+  const tree = await render('ReviewAndDecks', 401, 340);
+  expect(tree).toContain('Repaso de hoy');
+  expect(tree).toContain('ListWidget');
+  expect(tree).toContain('Reciente adicional');
+  expect(tree).toContain('activecard-progress');
+  expect(tree).toContain('activecard:///repaso');
+  expect(tree).toContain('target=study');
+  expect(tree).toContain('target=deck');
 });
 
 test('racha activa usa la marca animada; sin actividad hoy queda quieta y conserva los días', async () => {

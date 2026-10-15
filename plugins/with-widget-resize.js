@@ -4,7 +4,7 @@ const path = require('node:path');
 
 // El plugin de widgets no expone minResize*. Aplicar después de que genere
 // los proveedores; fallar si cambia el contrato, sin parchear node_modules.
-const limits = { DailyReview: { width: '160dp', height: '132dp' }, StudyDecks: { width: '160dp', height: '132dp' } };
+const limits = { DailyReview: { width: '160dp', height: '132dp' }, StudyDecks: { width: '160dp', height: '132dp' }, ReviewAndDecks: { width: '160dp', height: '280dp' } };
 
 async function resizeProvider(source, { width, height }) {
   const doc = await XML.parseXMLAsync(source);

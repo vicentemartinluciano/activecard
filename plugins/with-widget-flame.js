@@ -10,18 +10,25 @@ const changes = [
     to: '        ActiveCardWidgetFlame.apply(appContext, widgetId, remoteWidgetView, widgetWithViews.getRootView());\n        addCollectionViews(widgetId, remoteWidgetView, widgetWithViews);' },
   { file: 'java/com/reactnativeandroidwidget/builder/widget/SvgWidget.java', hash: 'b70fef5e16385a27910a9028667bf936f1cb74920b5a4b42d1408dd43251f879',
     from: '            view.setImageDrawable(pd);',
-    to: '            view.setImageDrawable(pd);\n            if (props.hasKey("svgString") && props.getString("svgString").contains("data-activecard-flame=\\"active\\"")) view.setTag("activecard-flame:" + props.getString("svgString"));' },
+    previous: '            view.setImageDrawable(pd);\n            if (props.hasKey("svgString") && props.getString("svgString").contains("data-activecard-flame=\\"active\\"")) view.setTag("activecard-flame:" + props.getString("svgString"));',
+    to: '            view.setImageDrawable(pd);\n            if (props.hasKey("svgString")) com.reactnativeandroidwidget.ActiveCardWidgetFlame.tag(view, props.getString("svgString"));' },
   { file: 'res/layout/rn_widget.xml', hash: '2a7a5628df8a84f9686e5356dd1e8fe1bb6892f4865a28336e5f6ee0ef40d2fd',
     from: '    <FrameLayout\n        android:id="@+id/rn_widget_clickable_container"',
     to: '    <FrameLayout android:id="@+id/activecard_flame_container" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone" />\n\n    <FrameLayout\n        android:id="@+id/rn_widget_clickable_container"' },
+  { file: 'res/layout-night/rn_widget.xml', hash: 'b5b83c9ac5c0a75a4509d834a7f34c57639bbfbe0e1475fb701378cbab42e6ba',
+    from: '    <FrameLayout\n        android:id="@+id/rn_widget_clickable_container"',
+    to: '    <FrameLayout android:id="@+id/activecard_flame_container" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone" />\n\n    <FrameLayout\n        android:id="@+id/rn_widget_clickable_container"' },
+  { file: 'java/com/reactnativeandroidwidget/builder/widget/TextWidget.java', hash: '5ed592b33e786514ca73fa96122e466b5b12fa612370c5a4f7a0e24fe59f1c47',
+    from: '        if (props.hasKey("textAlign")) {\n            if ("left".equals(props.getString("textAlign"))) {\n                view.setGravity(Gravity.LEFT);\n            } else if ("right".equals(props.getString("textAlign"))) {\n                view.setGravity(Gravity.RIGHT);\n            } else {\n                view.setGravity(Gravity.CENTER);\n            }\n        }',
+    to: '        view.setIncludeFontPadding(false);\n        view.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);\n        if (props.hasKey("textAlign")) {\n            if ("left".equals(props.getString("textAlign"))) {\n                view.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);\n            } else if ("right".equals(props.getString("textAlign"))) {\n                view.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);\n            } else {\n                view.setGravity(Gravity.CENTER);\n            }\n        }' },
 ];
 function applyWidgetFlame(packageRoot) {
   if (JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')).version !== '0.22.1') throw new Error('Revisar integración de fuego al actualizar widgets.');
   const base = path.join(packageRoot, 'android/src/main');
-  const writes = changes.map(({ file, hash, from, to }) => {
+  const writes = changes.map(({ file, hash, from, to, previous }) => {
     const target = path.join(base, file);
     const content = fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n');
-    const original = content.includes(to) ? content.replace(to, from) : content;
+    const original = content.includes(to) ? content.replace(to, from) : previous && content.includes(previous) ? content.replace(previous, from) : content;
     if (digest(original) !== hash || original.split(from).length !== 2) throw new Error(`Contrato nativo inesperado: ${file}`);
     return { target, content: original.replace(from, to) };
   });

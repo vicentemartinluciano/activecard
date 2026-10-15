@@ -216,3 +216,33 @@ Referencia de tamaños: [Android App Widgets](https://developer.android.com/deve
 - Assets revisados sin valores de credenciales locales ni patrones privados.
 - Para instalar: exportar respaldo reciente y actualizar encima, sin desinstalar.
 - Sin instalación ni control del teléfono, reservado a otra sesión.
+
+### Revisión física integral posterior, 15/10/2026 — fuente 1.10.0
+
+- Galaxy A15 conectado con autorización; package instalado 1.9.0 / código 4.
+  Seis capturas del fuego produjeron una sola imagen; los PNG nativos diferían,
+  pero el árbol real de One UI carecía del contenedor de animación. La integración
+  anterior sólo modificaba `res/layout/rn_widget.xml`; el host oscuro usaba
+  `res/layout-night/rn_widget.xml`, que no tenía ese contenedor. Corregidos ambos
+  recursos con hashes e idempotencia, y cobertura explícita del recurso nocturno.
+- Repaso toma colores, gradiente, radio y fuentes de `theme`: título de Inicio,
+  indicadores en píldoras y botón blanco con texto centrado. Grupo centrado con
+  medidas dependientes de ancho y alto; se elimina el bloque flexible vacío.
+  Se retira la flecha porque el botón de Inicio tampoco la tiene. TextView sin
+  padding de fuente y con gravedad vertical centrada, incluidos textos a derecha.
+- Animación nativa tanto del fuego activo como de un reflejo limitado al tramo
+  completado del progreso; 48 cuadros, 63 ms, pausa al final del reflejo. Respeta
+  escala de animación global cero; conserva gráficos estáticos si falla el efecto.
+- Mazos usa colección desplazable real: progreso de hoy primero, todos los
+  recientes sin duplicados después. Cambiar tamaño ajusta filas y viewport;
+  no elimina los mazos que no entran. Mismo patrón en el nuevo `ReviewAndDecks`:
+  repaso fijo arriba y mazos desplazables debajo. Mínimos combinados 160 × 280 dp
+  para reservar espacio utilizable a ambos paneles; widgets individuales 160 × 132.
+- Respaldo v4 nuevo exportado por la app y copiado a PC antes de actualizar:
+  10 mazos, 164 tarjetas, 153 repasos, 4 carpetas, 4 chats y 23 mensajes.
+  SHA-256 `6c490fcb4a47c737a62392dd1e31cc54f2d5a5db3b1385c09b84f19efea82663`.
+  Archivo privado fuera de Git, además de la copia personal del teléfono.
+- Prebuild Android aprobado, Doctor offline 21/21 y lint sin advertencias.
+  Suite local: 54/55 suites aprobadas y timeout de DeckLoading a 5 s; repetición
+  aislada 3/3 aprobada sin cambiar su test ni timeout. Widgets/plugins 25/25.
+  Build, instalación y nueva QA física se registran al completar la entrega.

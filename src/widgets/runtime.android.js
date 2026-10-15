@@ -1,11 +1,13 @@
 import { getWidgetInfo, requestWidgetUpdateById } from 'react-native-android-widget';
 import { loadWidgetData } from './data';
 import { WIDGET_NAMES } from './model';
-import { DecksWidget, ReviewWidget, WidgetError } from './views.android';
+import { CombinedWidget, DecksWidget, ReviewWidget, WidgetError } from './views.android';
 
 function render(info, data) {
   if (!data) return <WidgetError info={info} />;
-  return info.widgetName === WIDGET_NAMES.review ? <ReviewWidget info={info} data={data} /> : <DecksWidget info={info} data={data} />;
+  if (info.widgetName === WIDGET_NAMES.review) return <ReviewWidget info={info} data={data} />;
+  if (info.widgetName === WIDGET_NAMES.combined) return <CombinedWidget info={info} data={data} />;
+  return <DecksWidget info={info} data={data} />;
 }
 
 export async function widgetTaskHandler({ widgetInfo, widgetAction, clickAction, renderWidget }) {
