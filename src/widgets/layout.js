@@ -15,19 +15,26 @@ export function widgetChrome({ width = 320, height = 240 }) {
 
 export function reviewLayout(info) {
   const chrome = widgetChrome(info);
-  const { width, height, padding, headerHeight, headerGap, footerGap, compact, contentWidth } = chrome;
-  const buttonHeight = compact ? 30 : Math.round(clamp(height * 0.16, 44, 62));
-  const buttonSize = compact ? 14 : Math.round(clamp(width * 0.052, 17, 23));
-  const statSize = compact ? 11 : Math.round(clamp(width * 0.047, 15, 21));
+  const { width, height, contentWidth, padding } = chrome;
+  const compact = chrome.compact;
+  const stacked = width < 260;
+  const buttonHeight = compact ? 32 : Math.round(clamp(height * 0.2, 46, 64));
+  const buttonSize = compact ? 14 : Math.round(clamp(width * 0.068, 18, 24));
+  const statSize = compact ? 11 : Math.round(clamp(width * 0.06, 17, 23));
   const statHeight = Math.ceil(statSize * 1.4 + 2);
-  const barHeight = compact ? 4 : 8;
-  const gap = compact ? 3 : 8;
-  const bodyHeight = height - padding * 2 - headerHeight - headerGap - buttonHeight - footerGap;
-  const heroSize = Math.floor(Math.max(12, Math.min(contentWidth * 0.29, 104,
-    (bodyHeight - statHeight - barHeight - gap * 2 - 2) / 1.25)));
-  const heroHeight = Math.ceil(heroSize * 1.25 + 2);
-  return { ...chrome, buttonHeight, buttonSize, statSize, statHeight, barHeight,
-    gap, heroSize, heroHeight, bodyHeight, pendingSize: compact ? 12 : Math.round(clamp(width * 0.055, 17, 24)) };
+  const barHeight = compact ? 12 : Math.round(clamp(width * 0.075, 20, 28));
+  const gap = compact ? 4 : 12;
+  const heroSize = compact ? (height < 150 && stacked ? 18 : 28) : Math.round(clamp(width * 0.16, 36, 56));
+  const pendingSize = compact ? 11 : Math.round(clamp(width * 0.065, 17, 24));
+  const requestedFlameSize = compact ? 26 : 42;
+  const badgeWidth = compact ? 40 : 60;
+  const bodyHeight = height - padding * 2 - statHeight - barHeight - buttonHeight - gap * 3;
+  const topInset = compact ? 0 : Math.min(12, Math.floor(bodyHeight * 0.1));
+  const flameSize = Math.min(requestedFlameSize, bodyHeight - topInset - (compact ? 16 : 20));
+  const heroHeight = Math.min(bodyHeight - topInset, Math.ceil(heroSize * 1.4) + (stacked ? Math.ceil(pendingSize * 1.4) : 0));
+  return { ...chrome, compact, stacked, buttonHeight, buttonSize, statSize,
+    statHeight, barHeight, gap, heroSize, heroHeight, bodyHeight, pendingSize,
+    flameSize, badgeWidth, topInset, counterWidth: contentWidth - badgeWidth - 8 };
 }
 
 export function decksLayout(info, { inProgress = [], recent = [] }) {

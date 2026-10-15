@@ -20,6 +20,10 @@ analiza fuentes y propone acciones sobre la biblioteca.
 - Widgets Android desde runtime/APK 1.7.0: Repaso diario y Mazos.
   Revisión del 15/10: progreso parcial de hoy seguido de recientes sin duplicados,
   contenido adaptable al tamaño. OTA 1.7.0 publicada; APK/runtime 1.8.0 / código 3 compilada y disponible: mínimos de resize 160 × 132 dp y nuevos previews; todavía sin instalar. Ver `docs/WIDGETS.md` para entrega y evidencia física.
+- Revisión posterior del 15/10: repaso sin cabecera ni actualizar, barra gruesa y
+  contador compacto junto a pendientes. Racha real con el mismo Lottie de Inicio
+  en overlay nativo; requiere APK/runtime 1.9.0. Teléfono reservado a otra sesión;
+  no conectarlo durante este trabajo. Ver `docs/WIDGETS.md`.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 
 ## Fuentes de contexto
@@ -51,7 +55,7 @@ Scripts para Martín:
 
 - `comandos AC/INICIAR-APP.bat`: desarrollo con caché limpia.
 - `comandos AC/ACTUALIZAR-APP.bat`: OTA compatible al canal `preview`.
-- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.8.0.
+- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.9.0.
 
 El criterio de lint de CI es el comando directo con `--max-warnings 0`, no solamente
 `npm run lint`.

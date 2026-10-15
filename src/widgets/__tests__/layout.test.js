@@ -4,8 +4,9 @@ const data = { inProgress: [{ id: 1 }], recent: Array.from({ length: 12 }, (_, i
 const sizes = [[160, 132], [400, 132], [500, 132], [180, 132], [180, 154], [240, 154], [320, 180], [320, 240], [320, 340], [400, 500], [500, 200]];
 test.each(sizes)('repaso cabe en %i × %i, con controles visibles', (width, height) => {
   const l = reviewLayout({ width, height });
-  expect(l.heroHeight + l.statHeight + l.barHeight + l.gap * 2).toBeLessThanOrEqual(l.bodyHeight);
-  expect(l.padding * 2 + l.headerHeight + l.headerGap + l.bodyHeight + l.footerGap + l.buttonHeight).toBe(height);
+  expect(l.heroHeight + l.topInset).toBeLessThanOrEqual(l.bodyHeight);
+  expect(l.flameSize + (l.compact ? 16 : 20) + l.topInset).toBeLessThanOrEqual(l.bodyHeight);
+  expect(l.padding * 2 + l.bodyHeight + l.statHeight + l.barHeight + l.buttonHeight + l.gap * 3).toBe(height);
 });
 test.each(sizes)('mazos caben en %i × %i sin cortar las filas', (width, height) => {
   const l = decksLayout({ width, height }, data);
@@ -15,7 +16,8 @@ test.each(sizes)('mazos caben en %i × %i sin cortar las filas', (width, height)
 });
 test('tamaño de la captura agranda contenido y agrega recientes; más alto muestra más', () => {
   const review = reviewLayout({ width: 320, height: 340 });
-  expect(review.heroSize).toBeGreaterThanOrEqual(80);
+  expect(review.heroSize).toBeLessThanOrEqual(56);
+  expect(review.barHeight).toBeGreaterThanOrEqual(22);
   expect(review.buttonSize).toBeGreaterThanOrEqual(17);
   const medium = decksLayout({ width: 320, height: 340 }, data);
   expect(medium.nameSize).toBeGreaterThanOrEqual(19);
@@ -35,7 +37,7 @@ test('grilla de tamaños desde los nuevos mínimos mantiene ambas vistas dentro 
       const l = decksLayout({ width, height }, data);
       expect(l.nameHeight + l.detailHeight + 4).toBeLessThanOrEqual(l.rowHeight);
       const r = reviewLayout({ width, height });
-      expect(r.heroHeight + r.statHeight + r.barHeight + 2 * r.gap).toBeLessThanOrEqual(r.bodyHeight);
+      expect(r.heroHeight).toBeLessThanOrEqual(r.bodyHeight);
     }
   }
 });

@@ -50,7 +50,7 @@ for (const [weight, folder, suffix] of [[400, '400Regular', 'Regular'], [600, '6
   const bytes = await readFile(resolve(root, `node_modules/@expo-google-fonts/plus-jakarta-sans/${folder}/${name}.ttf`));
   fonts += `@font-face{font-family:'${name}';src:url(data:font/ttf;base64,${Buffer.from(bytes).toString('base64')});font-weight:${weight}}`;
 }
-const data = { review: { remaining: 24, done: 1, total: 25, pct: 4 },
+const data = { streak: { days: 7, activeToday: true }, review: { remaining: 23, done: 2, total: 25, pct: 8 },
   inProgress: [{ id: 1, name: 'Creación de Ofertas Irresistibles', progress: { pct: 3 } }],
   recent: [{ id: 2, name: 'Administración de Operaciones', card_count: 32 }, { id: 3, name: 'Teoría de juegos', card_count: 21 }, { id: 4, name: 'Administración de Personas', card_count: 18 }, { id: 5, name: 'Marketing', card_count: 24 }, { id: 6, name: 'Estrategia', card_count: 8 }] };
 const browser = await chromium.launch({ headless: true, channel: process.env.WIDGET_BROWSER || 'chrome' });

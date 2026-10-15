@@ -1,13 +1,16 @@
 import { listDecks } from '../../db/decks';
 import { getDecksDailyProgress } from '../../db/progress';
 import { getDailyReviewStats } from '../../db/reviewQueue';
+import { getStreak } from '../../db/streak';
 import { loadWidgetData } from '../data';
 
+jest.mock('../../db/streak', () => ({ getStreak: jest.fn() }));
 jest.mock('../../db/decks', () => ({ listDecks: jest.fn() }));
 jest.mock('../../db/progress', () => ({ getDecksDailyProgress: jest.fn() }));
 jest.mock('../../db/reviewQueue', () => ({ getDailyReviewStats: jest.fn() }));
 beforeEach(() => {
   jest.clearAllMocks();
+  getStreak.mockResolvedValue({ days: 7, activeToday: true });
   listDecks.mockResolvedValue([{ id: 7, name: 'Operaciones', created_at: '2026-10-01', card_count: 20 }]);
   getDailyReviewStats.mockResolvedValue({ done: 5, remaining: 8, total: 13, pct: 38 });
   getDecksDailyProgress.mockResolvedValue({ 7: { reviewedToday: 2, total: 20, pct: 10 } });
@@ -15,6 +18,8 @@ beforeEach(() => {
 test('reutiliza cola y progreso con la misma fecha, sin recalcular FSRS', async () => {
   const now = new Date('2026-10-14T02:59:59Z');
   const result = await loadWidgetData(now);
+  expect(getStreak).toHaveBeenCalledWith(now);
+  expect(result.streak).toEqual({ days: 7, activeToday: true });
   expect(getDailyReviewStats).toHaveBeenCalledWith(now);
   expect(getDecksDailyProgress).toHaveBeenCalledWith(now);
   expect(result.review).toEqual({ done: 5, remaining: 8, total: 13, pct: 38 });

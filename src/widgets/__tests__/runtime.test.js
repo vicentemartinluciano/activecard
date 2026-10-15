@@ -22,7 +22,12 @@ test('construye árboles nativos para repaso compacto/amplio y enlaces explícit
     const tree = await render('DailyReview', width, height);
     expect(tree).toContain('Repasar ahora');
     expect(tree).toContain('activecard:///repaso');
-    expect(tree).toContain('REFRESH');
+    expect(tree).not.toContain('REFRESH');
+    const labels = [];
+    const walk = (node) => { if (node.type === 'TextWidget') labels.push(node.props.text); (node.children || []).forEach(walk); };
+    walk(JSON.parse(tree));
+    expect(labels).not.toContain('Repaso diario');
+    expect(tree).toContain('Racha de');
   }
 });
 test('redimensionar agrega recientes con su enlace y conserva Biblioteca', async () => {
@@ -66,4 +71,15 @@ test('refresca todas las instancias con su tamaño y evita leer SQLite si no hay
   await refreshInstalledWidgets();
   expect(loadWidgetData).toHaveBeenCalledTimes(1);
   expect(requestWidgetUpdateById.mock.calls.map(([props]) => props.widgetId)).toEqual([1, 2, 3]);
+});
+
+test('racha activa usa la marca animada; sin actividad hoy queda quieta y conserva los días', async () => {
+  loadWidgetData.mockResolvedValue({ ...data, streak: { days: 7, activeToday: true } });
+  expect(await render('DailyReview', 320, 340)).toContain('activecard-flame');
+  const active = await render('DailyReview', 320, 340);
+  expect(active).toContain('7 días');
+  loadWidgetData.mockResolvedValue({ ...data, streak: { days: 7, activeToday: false } });
+  const idle = await render('DailyReview', 320, 340);
+  expect(idle).toContain('7 días');
+  expect(idle).not.toEqual(active);
 });

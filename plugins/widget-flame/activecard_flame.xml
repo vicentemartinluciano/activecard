@@ -1,0 +1,3 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/activecard_flame_positioner" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="noHideDescendants">
+    <ViewFlipper android:id="@+id/activecard_flame_flipper" android:layout_width="match_parent" android:layout_height="match_parent" android:autoStart="true" android:flipInterval="63" />
+</FrameLayout>

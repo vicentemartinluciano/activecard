@@ -9,7 +9,8 @@ Runtime 1.7.0 incorpora Repaso diario y Mazos. La revisión del 15/10 agrega
 recientes complementarios y tamaños de contenido adaptables por OTA compatible.
 APK/runtime 1.8.0 / código 3 compilada, aún sin instalar: añade mínimos de
 redimensionado independientes del tamaño inicial.
-Implementación, publicación OTA 1.7.0 y límites de QA en `WIDGETS.md`.
+Runtime/APK 1.9.0 añade racha con ViewFlipper nativo sobre el fuego del repaso.
+Implementación, entregas y límites de QA en `WIDGETS.md`.
 
 ## Visión
 

@@ -2,6 +2,7 @@ import { FlexWidget, OverlapWidget, SvgWidget, TextWidget } from 'react-native-a
 import { cardsMark, chevronMark, widgetBackdrop } from './art';
 import { decksLayout, reviewLayout, widgetChrome } from './layout';
 import { widgetDeckUri } from './model';
+import { flameFrame } from './flameFrame';
 
 const palette = { text: '#F4F6FF', muted: '#A6B2D0', blue: '#A6BBFF', green: '#65D9A5' };
 const family = { 400: 'PlusJakartaSans_400Regular', 600: 'PlusJakartaSans_600SemiBold', 700: 'PlusJakartaSans_700Bold', 800: 'PlusJakartaSans_800ExtraBold' };
@@ -14,7 +15,7 @@ function Shell({ layout: l, title, accessibilityLabel, children }) {
   return <OverlapWidget accessibilityLabel={accessibilityLabel} style={{ width: l.width, height: l.height, borderRadius: 24, overflow: 'hidden' }}>
     <SvgWidget svg={widgetBackdrop(l.width, l.height)} style={{ width: l.width, height: l.height }} />
     <FlexWidget style={{ width: 'match_parent', height: 'match_parent', padding: l.padding }}>
-      <FlexWidget style={{ width: 'match_parent', height: l.headerHeight, flexDirection: 'row', alignItems: 'center', marginBottom: l.headerGap }}>
+      {title && <FlexWidget style={{ width: 'match_parent', height: l.headerHeight, flexDirection: 'row', alignItems: 'center', marginBottom: l.headerGap }}>
         <SvgWidget svg={cardsMark} style={{ width: l.iconSize, height: l.iconSize, marginRight: 8 }} clickAction="OPEN_APP" accessibilityLabel="Abrir ActiveCard" />
         <FlexWidget style={{ flex: 1, width: 0, height: l.headerHeight, justifyContent: 'center' }}>
           <Label text={title} size={l.titleSize} weight={700} fit style={{ width: 'match_parent', height: l.headerHeight }} />
@@ -22,7 +23,7 @@ function Shell({ layout: l, title, accessibilityLabel, children }) {
         <FlexWidget clickAction="REFRESH" accessibilityLabel="Actualizar widget" style={{ width: l.headerHeight, height: l.headerHeight, alignItems: 'center', justifyContent: 'center', marginLeft: 6, backgroundColor: '#FFFFFF0C', borderRadius: 12 }}>
           <Label text="↻" size={l.compact ? 22 : 28} color={palette.blue} />
         </FlexWidget>
-      </FlexWidget>
+      </FlexWidget>}
       {children}
     </FlexWidget>
   </OverlapWidget>;
@@ -31,30 +32,42 @@ function Shell({ layout: l, title, accessibilityLabel, children }) {
 function Bar({ pct, width, height = 8 }) {
   const value = Math.max(0, Math.min(100, pct));
   return <OverlapWidget style={{ width, height, borderRadius: height, backgroundColor: '#FFFFFF14', overflow: 'hidden' }}>
-    {value > 0 && <FlexWidget style={{ width: Math.max(height, Math.round(width * value / 100)), height, borderRadius: height, backgroundGradient: { from: '#3E63DD', to: '#65D9A5', orientation: 'LEFT_RIGHT' } }} />}
+    {value > 0 && <FlexWidget style={{ width: Math.max(1, Math.round(width * value / 100)), height, borderRadius: height, backgroundGradient: { from: '#3E63DD', to: '#65D9A5', orientation: 'LEFT_RIGHT' } }} />}
   </OverlapWidget>;
+}
+
+function StreakBadge({ streak, layout: l }) {
+  const active = streak.activeToday && streak.days > 0;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" xmlns:xlink="http://www.w3.org/1999/xlink" data-activecard-flame="${active ? 'active' : 'idle'}"><image width="128" height="128" opacity="${active ? 1 : 0.4}" xlink:href="${flameFrame}"/></svg>`;
+  return <FlexWidget accessibilityLabel={`Racha de ${streak.days} ${streak.days === 1 ? 'día' : 'días'}${active ? ', activa hoy' : ', pendiente de hoy'}`} style={{ width: l.badgeWidth, alignItems: 'center' }}>
+    <SvgWidget svg={svg} style={{ width: l.flameSize, height: l.flameSize }} />
+    <Label text={`${streak.days} ${streak.days === 1 ? 'día' : 'días'}`} size={l.compact ? 11 : 14} color={active ? '#FFBB65' : palette.muted} style={{ height: l.compact ? 16 : 20, width: l.badgeWidth, textAlign: 'center' }} />
+  </FlexWidget>;
 }
 
 export function ReviewWidget({ info, data }) {
   const stats = data.review;
+  const streak = data.streak || { days: 0, activeToday: false };
   const done = stats.remaining === 0 && stats.total > 0;
   const clear = stats.remaining === 0;
   const l = reviewLayout(info);
   const summary = done ? 'Repaso completado ✓' : clear ? 'No hay tarjetas pendientes'
     : `${stats.done} ${stats.done === 1 ? 'completada' : 'completadas'} · ${stats.pct}%`;
-  return <Shell layout={l} title="Repaso diario" accessibilityLabel={`Repaso diario: ${stats.remaining} pendientes. ${summary}`}>
-    <FlexWidget style={{ height: l.bodyHeight, width: 'match_parent' }} {...openUri('activecard:///repaso')} accessibilityLabel="Abrir repaso diario">
-      <FlexWidget style={{ height: l.heroHeight, width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
-        <Label text={clear ? 'Al día' : stats.remaining} size={l.heroSize} weight={800} fit color={clear ? palette.green : palette.text}
-          style={{ width: clear ? 'match_parent' : Math.round(l.contentWidth * 0.54), height: l.heroHeight }} />
-        {!clear && <FlexWidget style={{ flex: 1, width: 0, justifyContent: 'center' }}>
-          <Label text={stats.remaining === 1 ? 'pendiente' : 'pendientes'} size={l.pendingSize} fit style={{ width: 'match_parent', height: Math.ceil(l.pendingSize * 1.5) }} color={palette.muted} />
-        </FlexWidget>}
+  const digits = String(stats.remaining).length;
+  const countSize = l.stacked || clear ? l.heroSize : Math.max(14, Math.min(l.heroSize, Math.floor((l.counterWidth - l.pendingSize * 5.8 - 6) / (digits * 0.72))));
+  const countHeight = Math.min(l.bodyHeight - l.topInset - (l.stacked && !clear ? Math.ceil(l.pendingSize * 1.4) : 0), Math.ceil(countSize * 1.4));
+  const countWidth = l.stacked || clear ? l.counterWidth : Math.ceil(countSize * digits * 0.64 + 1);
+  return <Shell layout={l} accessibilityLabel={`Repaso diario: ${stats.remaining} pendientes. ${summary}. Racha de ${streak.days} días.`}>
+    <FlexWidget {...openUri('activecard:///repaso')} accessibilityLabel="Abrir repaso diario" style={{ height: l.bodyHeight, width: 'match_parent', flexDirection: 'row', alignItems: 'flex-start', paddingTop: l.topInset }}>
+      <FlexWidget style={{ width: l.counterWidth, flexDirection: l.stacked ? 'column' : 'row', alignItems: l.stacked ? 'flex-start' : 'center' }}>
+        <Label text={clear ? 'Al día' : stats.remaining} size={countSize} weight={800} fit color={clear ? palette.green : palette.text} style={{ width: countWidth, height: countHeight }} />
+        {!clear && <Label text={stats.remaining === 1 ? 'pendiente' : 'pendientes'} size={l.pendingSize} fit color={palette.muted} style={{ width: l.stacked ? l.counterWidth : l.counterWidth - countWidth - 6, height: Math.ceil(l.pendingSize * 1.4), marginLeft: l.stacked ? 0 : 6 }} />}
       </FlexWidget>
-      <Label text={summary} size={l.statSize} color={palette.muted} style={{ height: l.statHeight, width: 'match_parent', marginTop: l.gap, marginBottom: l.gap }} />
-      <Bar pct={done ? 100 : stats.pct} width={l.contentWidth} height={l.barHeight} />
+      <FlexWidget style={{ marginLeft: 8 }}><StreakBadge streak={streak} layout={l} /></FlexWidget>
     </FlexWidget>
-    <FlexWidget style={{ width: 'match_parent', height: l.buttonHeight, marginTop: l.footerGap, paddingHorizontal: l.compact ? 10 : 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', backgroundGradient: { from: '#466DEA', to: '#2E49A7', orientation: 'TL_BR' } }} {...openUri('activecard:///repaso')} accessibilityLabel={clear ? 'Abrir repaso' : 'Repasar ahora'}>
+    <Label text={summary} size={l.statSize} color={palette.muted} style={{ height: l.statHeight, width: 'match_parent' }} />
+    <FlexWidget style={{ marginTop: l.gap }}><Bar pct={done ? 100 : stats.pct} width={l.contentWidth} height={l.barHeight} /></FlexWidget>
+    <FlexWidget style={{ width: 'match_parent', height: l.buttonHeight, marginTop: l.gap * 2, paddingHorizontal: l.compact ? 10 : 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', backgroundGradient: { from: '#466DEA', to: '#2E49A7', orientation: 'TL_BR' } }} {...openUri('activecard:///repaso')} accessibilityLabel={clear ? 'Abrir repaso' : 'Repasar ahora'}>
       <FlexWidget style={{ flex: 1, width: 0 }}><Label text={clear ? 'Abrir repaso' : 'Repasar ahora'} size={l.buttonSize} weight={700} style={{ width: 'match_parent' }} /></FlexWidget>
       <Label text="→" size={l.compact ? 22 : 28} />
     </FlexWidget>

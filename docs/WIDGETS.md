@@ -16,18 +16,19 @@ nuevo; no se puede agregar el soporte a la APK 1.6.0 por OTA.
   prioriza una fila de progreso. Sin progreso, muestra sólo recientes.
   Muestra hasta ocho filas según el espacio; Biblioteca y el conteo restante
   siempre quedan accesibles. El progreso se reinicia con el día local.
-- El botón ↻ de cada widget vuelve a consultar SQLite sin cambiar datos de estudio.
+- Repaso diario ya no tiene botón ↻ ni título/ícono de cabecera. Mazos conserva su
+  actualización manual. El refresco automático sigue consultando SQLite.
 - Sin mazos, ofrece abrir Biblioteca. Si falla una lectura, muestra reintento;
   nunca presenta un error como cero pendientes o una biblioteca vacía.
 
 ## Diseño y tamaños
 
 Fondo oscuro, degradado cobalto, reflejo suave en el borde, progreso verde y fuentes
-Plus Jakarta Sans embebidas en Android. Render estático: esta biblioteca dibuja
-una imagen con zonas táctiles; no hay un bucle de animación ni actualizaciones
-frecuentes para simular brillo. Los assets del selector usan el JSX real en una simulación HTML con datos de muestra, no capturas del teléfono.
+Plus Jakarta Sans embebidas en Android. La biblioteca dibuja una imagen con zonas
+táctiles. Desde APK 1.9.0 se superpone un ViewFlipper nativo para el fuego de racha;
+no se usa un bucle JavaScript ni refrescos periódicos para animarlo. Los assets del selector usan el JSX real en una simulación HTML con datos de muestra, no capturas del teléfono.
 
-En APK 1.8.0, ambos se pueden redimensionar horizontal y verticalmente hasta
+Desde APK 1.8.0, ambos se pueden redimensionar horizontal y verticalmente hasta
 160 × 132 dp. El tamaño inicial se solicita aparte: repaso 4 × 2 celdas
 (250 × 132 dp de referencia); mazos 4 × 3 (250 × 220 dp). El tamaño y los pasos
 reales dependen de la grilla del launcher. `plugins/with-widget-resize.js` añade
@@ -164,3 +165,32 @@ Referencias: [integración Expo](https://saleksovski.github.io/react-native-andr
   ni se pudo dejar Focus abierta.
 
 Referencia de tamaños: [Android App Widgets](https://developer.android.com/develop/ui/views/appwidgets/layouts).
+
+### Revisión de repaso y racha, 15/10/2026 — runtime/APK 1.9.0
+
+- Pedido a partir de otra captura: se retira la cabecera del repaso (título,
+  ícono y actualizar), se reduce y sube el contador, con pendientes al lado
+  (debajo en el mínimo). Barra de 20–28 dp en tamaños amplios y 12 dp compacta;
+  botón y resumen grandes. La barra representa el porcentaje real, sin forzar
+  un relleno mínimo igual a su grosor.
+- Racha: `getStreak(now)`, misma fecha que el repaso, mismo criterio que Inicio.
+  Fuego activo y animado sólo si hubo actividad hoy; inactivo queda quieto/atenuado.
+- Se muestrea `assets/lottie/streak-fire.json`, el mismo Lottie de Inicio, en 48 PNG
+  de 128 px. `plugins/with-widget-flame.js` integra un overlay ViewFlipper de 63 ms
+  en la biblioteca 0.22.1, con hashes de los puntos de integración e idempotencia.
+- Overlay debajo de las zonas táctiles; sólo cubre el rectángulo del fuego.
+  Captura el fondo sin la llama para evitar duplicación de imágenes al moverse.
+  Caché por instancia, imagen de base y fondo. Memoria de frames limitada a
+  48 × 128 × 128 píxeles; archivos borrados al eliminar la instancia por el proveedor.
+- Escala de animación del sistema en cero o fallo decorativo: conserva el fuego
+  estático y los días. Sin temporizadores JS, alarmas, servicios ni permisos nuevos.
+- Esta entrega requiere APK 1.9.0: 1.7/1.8 carecen del overlay nativo.
+- No se controla ni se instala en el teléfono, que está ocupado en otra sesión.
+  Las previews son simulaciones; movimiento y apariencia reales siguen sin QA físico.
+- Prebuild Android completado e integración idempotente verificada; pruebas de
+  rechazo de cambios nativos inesperados y de superposición bajo las áreas táctiles.
+  La suite integral pasó 55 suites / 510 tests; el timeout local ya conocido de
+  DeckLoading pasó en la repetición integral sin modificar el test.
+- Lint sin advertencias, Doctor offline 21/21 y export Android aprobados.
+  Los 48 PNG tienen 128 × 128 px y bordes transparentes sin recortar la llama;
+  9 poses distintas muestreadas del ciclo repetido del Lottie original.
