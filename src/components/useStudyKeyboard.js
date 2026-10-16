@@ -4,9 +4,9 @@ import { Platform } from 'react-native';
 import { studyKeyAction } from '../lib/studyKeyboard';
 import { isStudyControl } from '../lib/studyControls';
 
-export default function useStudyKeyboard({ enabled, flipped, flip, grade, isBusy }) {
+export default function useStudyKeyboard({ enabled, flip, grade, isBusy }) {
   const handlers = useRef(null);
-  handlers.current = { enabled, flipped, flip, grade, isBusy };
+  handlers.current = { enabled, flip, grade, isBusy };
   const pending = useRef(false);
   const [error, setError] = useState('');
   useFocusEffect(useCallback(() => {
@@ -15,7 +15,7 @@ export default function useStudyKeyboard({ enabled, flipped, flip, grade, isBusy
       const current = handlers.current;
       if (!current.enabled || pending.current || current.isBusy?.()) return;
       if (isStudyControl(event.target)) return;
-      const action = studyKeyAction(event, current.flipped);
+      const action = studyKeyAction(event);
       if (!action) return;
       event.preventDefault();
       // Resolver antes del handler de la cara o de PressResponder: Espacio
