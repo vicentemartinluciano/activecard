@@ -248,17 +248,28 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
       .map((deckId) => Number(incomingDeckById.get(deckId)?.folder_id))
       .filter((id) => Number.isInteger(id) && incoming.folders.some((folder) => Number(folder.id) === id))
   );
+  const folderById = new Map(incoming.folders.map((folder) => [Number(folder.id), folder]));
+  for (const id of neededFolderIds) {
+    const parent = folderById.get(id)?.parent_id;
+    if (parent != null) neededFolderIds.add(Number(parent));
+  }
   const counts = { folders: 0, decks: 0, cards: 0, review_logs: 0, connections: 0, gym_chats: 0, gym_messages: 0 };
 
   await withDbTransaction(db, async (db) => {
     for (const folder of incoming.folders) {
       if (!neededFolderIds.has(Number(folder.id))) continue;
       const newId = await insertRow(db, "folders", {
-        ...without(folder, "id", "name"),
+        ...without(folder, "id", "name", "parent_id"),
         name: folderNameById.get(Number(folder.id)) || folder.name,
+        parent_id: null,
       });
       maps.folders.set(Number(folder.id), newId);
       counts.folders += 1;
+    }
+    for (const folder of incoming.folders) {
+      if (maps.folders.has(Number(folder.id)) && folder.parent_id != null) {
+        await db.runAsync("UPDATE folders SET parent_id = ? WHERE id = ?", [maps.folders.get(Number(folder.parent_id)) ?? null, maps.folders.get(Number(folder.id))]);
+      }
     }
     for (const deck of incoming.decks) {
       if (!neededDeckIds.has(Number(deck.id))) continue;

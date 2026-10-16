@@ -1,4 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
+import StarField from "../components/StarField";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -259,14 +260,17 @@ export default function Repaso() {
   }
 
   return (
-    <Screen style={{ maxWidth: layout.studyMaxWidth }}>
-      <Stack.Screen options={{ title: "Repaso", headerShown: true }} />
+    <Screen safeTop background={<StarField />} style={{ maxWidth: layout.studyMaxWidth, paddingTop: spacing.sm, paddingBottom: spacing.sm }}>
+      <Stack.Screen options={{ title: "", headerShown: false }} />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} style={{ padding: 10 }}><Feather name="arrow-left" size={22} color={colors.text} /></Pressable>
       <ProgressBar
         pct={(index / round.length) * 100}
         gradient={gradients.progress}
         glowStyle={glow.green}
-        style={{ marginBottom: spacing.sm }}
+        style={{ flex: 1 }}
       />
+      </View>
       <View style={styles.progressRow}>
         <Text style={styles.progress}>
           {index + 1} de {round.length}

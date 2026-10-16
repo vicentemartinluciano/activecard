@@ -9,6 +9,7 @@ import { colors, font, radius, ratingColors } from "../theme";
 import { createStudyMouseDrag, studyDragDirection } from '../lib/studyMouseDrag';
 import { createStudyMotion } from '../lib/studyMotion';
 import { focusStudyCard } from '../lib/studyKeyboard';
+import { StudyInteractionContext } from './StudyInteractionContext';
 
 const SWIPE_THRESHOLD = 90;
 
@@ -174,6 +175,8 @@ export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeR
     };
   }, []);
 
+  const nestedInteraction = useRef(false);
+  useEffect(() => { nestedInteraction.current = false; }, [cardId]);
   const responder = useRef(null);
   if (!responder.current) responder.current = PanResponder.create({
     // Tomar el gesto con arrastre horizontal real (para no robarle el tap al
@@ -182,7 +185,7 @@ export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeR
     // tiene contenido, se queda él con el gesto vertical (y el botón azul
     // queda como camino confiable). Hacia abajo nunca lo tomamos.
     onMoveShouldSetPanResponder: (_, g) =>
-      !motion.current.isBusy() && (
+      !nestedInteraction.current && !motion.current.isBusy() && (
         (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy)) ||
         (g.dy < -12 && Math.abs(g.dy) > Math.abs(g.dx))),
     onPanResponderMove: (_, gesture) => motion.current.move(gesture),
@@ -239,7 +242,7 @@ export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeR
   );
   return Platform.OS === 'web'
     ? <div ref={webFrameRef} tabIndex={-1} aria-label="Tarjeta de estudio" data-study-drag="true" {...mouse.current.handlers} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, outline: 'none', userSelect: 'none', touchAction: armed ? 'none' : 'pan-y', cursor: armed ? 'grabbing' : 'auto' }}>{card}{!!error && <Text style={{ color: colors.danger }}>{error}</Text>}</div>
-    : card;
+    : <StudyInteractionContext.Provider value={nestedInteraction}>{card}</StudyInteractionContext.Provider>;
 }
 
 const styles = StyleSheet.create({

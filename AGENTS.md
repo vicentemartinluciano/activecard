@@ -94,7 +94,7 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 ## Arquitectura crítica
 
 - SQLite usa exclusivamente la API async. Migraciones append-only en `db/schema.js`;
-  esquema actual v9 (identidades, recuperación y límites diarios compartidos en `study_preferences`). Las claves y el resto de `settings` siguen locales.
+  esquema actual v10 (`folders.parent_id` para jerarquía; v9 conserva límites diarios compartidos en `study_preferences`). Las claves y el resto de `settings` siguen locales.
 - `FSRS_COLS` en `db/cards.js` es la fuente única del estado programado.
 - Las operaciones SQLite pasan por `transactions.js`; usar `withDbTransaction` para operaciones atómicas y su conexión de callback. No abrir BEGIN/COMMIT sobre la conexión administrada.
 - Fechas se guardan en UTC y se agrupan por día local en JavaScript.
@@ -103,7 +103,7 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - Tras modificar el editor compartido o `editor-web/`, regenerar y commitear
   `assets/editor/editorHtml.js`.
 - Las imágenes viven inline como data URI comprimidas y entran en el respaldo.
-- Respaldo vigente v4; restaura v1–v3 y conserva identidades; `settings` y claves nunca se exportan.
+- Respaldo vigente v5; restaura v1–v4 y conserva identidades y jerarquía; `settings` y claves nunca se exportan. Compartir mazo exporta contenido sin historial ni identidades.
 - Importación: reemplazo total o suma selectiva con deduplicación y remapeo de IDs.
 - Voz Android: reconocimiento en vivo del sistema + Whisper local como respaldo.
 - Recordatorio local desactivado por defecto; solo se programa si quedan pendientes.

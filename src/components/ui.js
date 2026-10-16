@@ -22,18 +22,20 @@ import { colors, control, font, layout, radius, spacing, type } from "../theme";
 // el interno lo capa a layout.maxWidth (columna tipo móvil en web de escritorio).
 // safeTop: para pantallas SIN header de navegación (tabs Crear/Biblioteca) —
 // respeta el status bar sin sumar padding doble en las que sí tienen header.
-export function Screen({ children, style, safeTop, variant }) {
+export function Screen({ children, style, safeTop, variant, background }) {
   const { width } = useWindowDimensions();
   const contentStyle = [styles.screen, Platform.OS === 'web' && { padding: width >= 1000 ? spacing.lg : spacing.md }, variant === 'form' && { maxWidth: layout.formMaxWidth }, style];
   if (safeTop) {
     return (
       <SafeAreaView edges={["top"]} style={styles.screenOuter}>
+        {background}
         <View style={contentStyle}>{children}</View>
       </SafeAreaView>
     );
   }
   return (
     <View style={styles.screenOuter}>
+      {background}
       <View style={contentStyle}>{children}</View>
     </View>
   );

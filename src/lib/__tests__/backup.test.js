@@ -46,7 +46,7 @@ describe("buildBackup", () => {
     });
     const backup = await buildBackup(db, NOW);
     expect(backup.app).toBe("activecard");
-    expect(backup.version).toBe(4);
+    expect(backup.version).toBe(5);
     expect(backup.exportedAt).toBe(NOW.toISOString());
     expect(backup.decks).toEqual([{ id: 1, name: "Administración", created_at: "x" }]);
     expect(backup.cards).toEqual([{ id: 1, deck_id: 1, front: "f", back: "b" }]);

@@ -1,15 +1,16 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Stagger from "../../components/Stagger";
-import { InlineAdd, Screen } from "../../components/ui";
+import { Chip, InlineAdd, Screen } from "../../components/ui";
 import { createDeck } from "../../db/decks";
-import { createFolder } from "../../db/folders";
+import { createFolder, listFolders } from "../../db/folders";
+import { folderPath } from "../../lib/folderTree";
 import { colors, gradients, HALO_PADDING, radius, spacing, type } from "../../theme";
 
 // Los emojis se quedan: decisión de Martín (se propuso pasarlos a Feather y lo
@@ -27,9 +28,16 @@ function CreationArea({ children }) {
 // Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
 export default function Crear() {
   const router = useRouter();
+  const { parentId } = useLocalSearchParams();
   const { width } = useWindowDimensions();
   const desktop = Platform.OS === 'web' && width >= 1000;
   const [createStep, setCreateStep] = useState(null); // null | "mazo" | "carpeta"
+  const [folders, setFolders] = useState([]);
+  const [folderParent, setFolderParent] = useState(null);
+  useFocusEffect(useCallback(() => {
+    listFolders().then(setFolders);
+    if (parentId) { setFolderParent(Number(parentId)); setCreateStep("carpeta"); }
+  }, [parentId]));
 
   const onCreateDeck = async (name) => {
     const id = await createDeck(name);
@@ -38,9 +46,9 @@ export default function Crear() {
   };
 
   const onCreateFolder = async (name) => {
-    await createFolder(name);
+    const id = await createFolder(name, folderParent);
     setCreateStep(null);
-    router.push("/biblioteca");
+    router.push(`/carpetas/${id}`);
   };
 
   const handlePress = (key) => {
@@ -100,7 +108,14 @@ export default function Crear() {
           <InlineAdd placeholder="Nombre del mazo nuevo…" buttonLabel="Crear" onSubmit={onCreateDeck} />
         ) : null}
         {createStep === "carpeta" ? (
+          <View style={{ gap: spacing.md }}>
+          <Text style={type.label}>Dentro de</Text>
+          <ScrollView style={{ maxHeight: 200 }} contentContainerStyle={{ gap: spacing.sm }}>
+            <Chip label="Biblioteca (raíz)" active={folderParent == null} onPress={() => setFolderParent(null)} />
+            {folders.map((folder) => <Chip key={folder.id} label={folderPath(folders, folder.id).map((part) => part.name).join(" / ")} active={folderParent === folder.id} onPress={() => setFolderParent(folder.id)} />)}
+          </ScrollView>
           <InlineAdd placeholder="Nombre de la carpeta…" buttonLabel="Crear" onSubmit={onCreateFolder} />
+          </View>
         ) : null}
       </ActionSheet>
     </Screen>

@@ -2,7 +2,7 @@ import React from 'react';
 import { act, create } from 'react-test-renderer';
 
 import DeckScreen from '../../app/mazos/[id]';
-import { listCardsByDeck } from '../../db/cards';
+import { createCard, getCard, listCardsByDeck, updateCardText } from '../../db/cards';
 import { getDeck } from '../../db/decks';
 
 // Esta prueba observa las transiciones de carga de la pantalla real. Los
@@ -24,7 +24,10 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-native-sortables', () => ({ default: {}, __esModule: true }));
 jest.mock('../DesktopShell', () => ({ useDesktopBeforeNavigate: () => {} }));
-jest.mock('../EditableCardRow', () => () => null);
+jest.mock('../EditableCardRow', () => (props) => require('react').createElement('editable-row', props));
+jest.mock('../Collapsible', () => () => null);
+jest.mock('../ConfirmDeleteSheet', () => () => null);
+jest.mock('../../lib/backupIO', () => ({ exportDeck: jest.fn() }));
 jest.mock('../IconPicker', () => () => null);
 jest.mock('../PercentSlider', () => () => null);
 jest.mock('../ActionSheet', () => () => null);
@@ -39,7 +42,7 @@ jest.mock('../ui', () => {
     Screen: ({ children }) => element('screen', null, children),
     Card: ({ children }) => element('card', null, children),
     EmptyState: ({ text }) => element('empty-state', text),
-    Button: ({ label }) => element('button', label),
+    Button: ({ label, onPress }) => require('react').createElement('button', { onPress }, label),
     Pill: ({ label }) => element('pill', label),
     Chip: ({ label }) => element('chip', label),
     Field: () => null,
@@ -49,7 +52,7 @@ jest.mock('../ui', () => {
 jest.mock('../Stagger', () => ({ __esModule: true, default: ({ children }) => children }));
 jest.mock('../Toast', () => ({ __esModule: true, default: ({ message }) =>
   require('react').createElement(require('react-native').Text, null, message) }));
-jest.mock('../../db/cards', () => ({ listCardsByDeck: jest.fn() }));
+jest.mock('../../db/cards', () => ({ listCardsByDeck: jest.fn(), createCard: jest.fn(), getCard: jest.fn(), updateCardText: jest.fn() }));
 jest.mock('../../db/decks', () => ({ getDeck: jest.fn(), listTags: async () => [] }));
 jest.mock('../../db/folders', () => ({ listFolders: async () => [] }));
 jest.mock('../../db/progress', () => ({ getDeckDailyProgress: async () => null }));
@@ -97,4 +100,35 @@ test('un mazo inexistente termina la carga con un mensaje concreto', async () =>
   await act(async () => { screen = create(<DeckScreen />); });
   expect(visibleText()).toContain('Este mazo ya no está disponible.');
   expect(visibleText()).not.toContain('Cargando tarjetas…');
+});
+
+test('abre el mazo editable y guarda el borrador antes de activar otra tarjeta', async () => {
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([{ id: 1, front: 'Uno', back: 'Dorso' }, { id: 2, front: 'Dos', back: 'Otro' }]);
+  updateCardText.mockResolvedValue();
+  await act(async () => { screen = create(<DeckScreen />); });
+  expect(screen.root.findAllByType('editable-row')).toHaveLength(2);
+  await act(async () => screen.root.findAllByType('editable-row')[0].props.onActivate(1));
+  await act(async () => screen.root.findAllByType('editable-row')[0].props.onChangeDraft({ front: 'Uno editado', back: 'Dorso' }));
+  await act(async () => screen.root.findAllByType('editable-row')[1].props.onActivate(2));
+  expect(updateCardText).toHaveBeenCalledWith(1, 'Uno editado', 'Dorso', expect.objectContaining({ expected: { front: 'Uno', back: 'Dorso' } }));
+  expect(screen.root.findAllByType('editable-row')[1].props.active).toBe(true);
+});
+
+test('la tarjeta nueva se edita en el mazo y dos toques en guardar crean una sola fila', async () => {
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([]);
+  let finishCreate;
+  createCard.mockImplementation(() => new Promise((resolve) => { finishCreate = resolve; }));
+  getCard.mockResolvedValue({ id: 3, front: 'Pregunta', back: 'Respuesta' });
+  await act(async () => { screen = create(<DeckScreen />); });
+  await act(async () => screen.root.findByProps({ accessibilityLabel: 'Nueva tarjeta' }).props.onPress());
+  expect(createCard).not.toHaveBeenCalled();
+  await act(async () => screen.root.findByType('editable-row').props.onChangeDraft({ front: 'Pregunta', back: 'Respuesta' }));
+  const save = screen.root.findAllByType('button').find((button) => button.children.includes('Guardar tarjeta'));
+  let first, second;
+  await act(async () => { first = save.props.onPress(); second = save.props.onPress(); });
+  expect(createCard).toHaveBeenCalledTimes(1);
+  await act(async () => { finishCreate(3); await Promise.all([first, second]); });
+  expect(screen.root.findByType('editable-row').props.card.id).toBe(3);
 });

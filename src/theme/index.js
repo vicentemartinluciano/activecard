@@ -75,7 +75,7 @@ export const spacing = {
 export const layout = {
   maxWidth: Platform.OS === "web" ? 1440 : 480,
   // La tarjeta aprovecha el escritorio sin convertir el texto en una línea de monitor.
-  studyMaxWidth: Platform.OS === "web" ? 800 : 480,
+  studyMaxWidth: Platform.OS === "web" ? 1120 : 680,
   formMaxWidth: 880,
 };
 

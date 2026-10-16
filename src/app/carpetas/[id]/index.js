@@ -4,12 +4,15 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import DeckListItem from "../../../components/DeckListItem";
-import { Button, Card, confirmAsync, EmptyState, Field, Screen } from "../../../components/ui";
+import ActionSheet from "../../../components/ActionSheet";
+import ConfirmDeleteSheet from "../../../components/ConfirmDeleteSheet";
+import { Button, Card, EmptyState, Field, Screen } from "../../../components/ui";
 import { listDecks, setDeckFolder } from "../../../db/decks";
-import { deleteFolder, getFolder, renameFolder } from "../../../db/folders";
+import { deleteFolder, getFolder, listFolders, moveFolder, renameFolder } from "../../../db/folders";
+import { canMoveFolder, folderPath } from "../../../lib/folderTree";
 import { getDecksDailyProgress } from "../../../db/progress";
 import { colors, spacing, type } from "../../../theme";
 
@@ -25,6 +28,10 @@ export default function DetalleCarpeta() {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [folders, setFolders] = useState([]);
+  const [showMove, setShowMove] = useState(false);
+  const [error, setError] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const load = useCallback(async () => {
     const f = await getFolder(folderId);
@@ -35,6 +42,7 @@ export default function DetalleCarpeta() {
       return;
     }
     setFolder(f);
+    setFolders(await listFolders());
     setName(f.name);
     const [d, p] = await Promise.all([listDecks(), getDecksDailyProgress()]);
     setDecks(d);
@@ -51,6 +59,11 @@ export default function DetalleCarpeta() {
 
   const folderDecks = decks.filter((d) => d.folder_id === folderId);
   const looseDecks = decks.filter((d) => !d.folder_id);
+  const children = folders.filter((f) => f.parent_id === folderId);
+  const move = async (parentId) => {
+    try { await moveFolder(folderId, parentId); setShowMove(false); setError(""); await load(); }
+    catch (e) { setError(e.message); }
+  };
 
   const saveName = async () => {
     if (name.trim()) await renameFolder(folderId, name);
@@ -68,16 +81,7 @@ export default function DetalleCarpeta() {
     load();
   };
 
-  const onDelete = async () => {
-    const ok = await confirmAsync(
-      "Borrar carpeta",
-      `Se borra "${folder.name}". Los mazos no se borran: quedan sueltos en la Biblioteca.`
-    );
-    if (ok) {
-      await deleteFolder(folderId);
-      goBack();
-    }
-  };
+  const onDelete = () => setDeleteOpen(true);
 
   return (
     <Screen>
@@ -88,6 +92,10 @@ export default function DetalleCarpeta() {
         contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
         ListHeaderComponent={
           <View style={{ gap: spacing.md, marginBottom: spacing.md }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <Button label="Biblioteca" kind="ghost" onPress={() => router.push("/biblioteca")} />
+              {folderPath(folders, folder.parent_id).map((parent) => <Button key={parent.id} label={parent.name} kind="ghost" onPress={() => router.push(`/carpetas/${parent.id}`)} />)}
+            </View>
             {editingName ? (
               <View style={{ flexDirection: "row", gap: spacing.sm }}>
                 <Field value={name} onChangeText={setName} style={{ flex: 1 }} autoFocus />
@@ -105,10 +113,18 @@ export default function DetalleCarpeta() {
             <Text style={type.label}>
               {folderDecks.length} {folderDecks.length === 1 ? "mazo" : "mazos"} en esta carpeta
             </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <Button label="Crear subcarpeta" onPress={() => router.push(`/crear?parentId=${folderId}`)} />
+              <Button label="Mover carpeta" onPress={() => setShowMove(true)} />
+            </View>
+            {children.map((child) => <Card key={child.id} onPress={() => router.push(`/carpetas/${child.id}`)} style={styles.addRow}>
+              <Feather name="folder" size={20} color={colors.accentText} /><Text style={type.body}>{child.name}</Text>
+            </Card>)}
+            {!!error && <Text style={{ color: colors.danger }}>{error}</Text>}
           </View>
         }
         ListEmptyComponent={
-          <EmptyState text="Esta carpeta está vacía. Agregá mazos desde abajo." />
+          children.length ? null : <EmptyState text="Esta carpeta está vacía. Agregá mazos desde abajo." />
         }
         renderItem={({ item }) => (
           <View style={styles.deckRow}>
@@ -154,6 +170,14 @@ export default function DetalleCarpeta() {
           </View>
         }
       />
+      <ConfirmDeleteSheet visible={deleteOpen} name={folder.name} description="Los mazos quedan sueltos y las subcarpetas suben al nivel anterior." onClose={() => setDeleteOpen(false)} onConfirm={async () => { await deleteFolder(folderId); goBack(); }} />
+      <ActionSheet visible={showMove} title="Mover carpeta a…" onClose={() => setShowMove(false)}>
+        <ScrollView contentContainerStyle={{ gap: spacing.sm }}>
+          <Button label="Biblioteca (raíz)" onPress={() => move(null)} />
+          {folders.filter((f) => canMoveFolder(folders, folderId, f.id)).map((f) => <Button key={f.id} label={folderPath(folders, f.id).map((part) => part.name).join(" / ")} onPress={() => move(f.id)} />)}
+          {!!error && <Text style={{ color: colors.danger }}>{error}</Text>}
+        </ScrollView>
+      </ActionSheet>
     </Screen>
   );
 }

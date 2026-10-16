@@ -29,6 +29,7 @@ import {
   isImageSelected,
   runBubbleAction,
   setImageWidth,
+  mountTableToolbar,
 } from "../src/lib/editorSetup";
 
 const post = (msg) => window.ReactNativeWebView?.postMessage(JSON.stringify(msg));
@@ -209,6 +210,8 @@ const editor = new Editor({
     }
   },
 });
+
+mountTableToolbar(editor, host);
 
 editor.registerPlugin(
   BubbleMenuPlugin({

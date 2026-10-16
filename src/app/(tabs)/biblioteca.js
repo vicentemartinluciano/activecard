@@ -275,7 +275,7 @@ export default function Biblioteca() {
                         />
                       </GlowPressable>
                     ) : null}
-                    {folders.map((f) => (
+                    {folders.filter((f) => f.parent_id == null).map((f) => (
                       <Card
                         key={f.id}
                         onPress={() => router.push(`/carpetas/${f.id}`)}

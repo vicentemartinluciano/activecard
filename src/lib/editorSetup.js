@@ -6,6 +6,7 @@ import { Extension, textInputRule } from "@tiptap/core";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Placeholder } from "@tiptap/extensions";
 import { StarterKit } from "@tiptap/starter-kit";
+import { TableKit } from "@tiptap/extension-table";
 
 import { compressFile } from "./imageCompress";
 import { Image } from "./tiptapImage";
@@ -38,6 +39,7 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left" } = {}
       // > para cita, ~~ para tachado, --- divisor, - viñeta y 1. numerada.
     }),
     Highlight,
+    TableKit.configure({ table: { resizable: false, renderWrapper: true } }),
     TColor,
     TextAlign.configure({ types: ["paragraph", "heading", "blockquote"], defaultAlignment: defaultAlign }),
     Image,
@@ -204,4 +206,42 @@ export function applyColor(editor, colorKey, currentKey) {
   if (currentKey === colorKey) chain.unsetMark("tcolor");
   else chain.setMark("tcolor", { color: colorKey });
   chain.run();
+}
+
+// La misma barra accesible en web y en el WebView. Conserva la selección al
+// tocar controles; se actualiza también al mover el cursor entre celdas.
+export function mountTableToolbar(editor, host) {
+  const bar = document.createElement("div");
+  bar.className = "nf-tablebar";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "Tablas");
+  const actions = [
+    ["Insertar tabla", "insertTable"], ["+ Fila", "addRowAfter"],
+    ["− Fila", "deleteRow"], ["+ Columna", "addColumnAfter"],
+    ["− Columna", "deleteColumn"], ["Encabezado", "toggleHeaderRow"],
+    ["Borrar tabla", "deleteTable"],
+  ];
+  const buttons = actions.map(([label, command]) => {
+    const button = document.createElement("button");
+    button.type = "button"; button.textContent = label;
+    button.setAttribute("aria-label", label);
+    button.addEventListener("pointerdown", (event) => event.preventDefault());
+    button.addEventListener("click", () => {
+      const chain = editor.chain().focus();
+      if (command === "insertTable") chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+      else chain[command]().run();
+    });
+    bar.appendChild(button);
+    return { button, command };
+  });
+  const update = () => {
+    const inside = editor.isActive("table");
+    for (const { button, command } of buttons) {
+      button.hidden = command !== "insertTable" && !inside;
+      button.disabled = command === "insertTable" && inside;
+    }
+  };
+  host.appendChild(bar); update();
+  editor.on("transaction", update);
+  return () => { editor.off("transaction", update); bar.remove(); };
 }

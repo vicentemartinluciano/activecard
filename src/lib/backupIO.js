@@ -2,12 +2,12 @@
 // La lógica de armar/restaurar el JSON vive en src/lib/backup.js (pura,
 // testeada); esto solo mueve bytes a/desde disco.
 
-import * as DocumentPicker from "expo-document-picker";
 import { Platform } from "react-native";
 
 import { getDb } from "../db/client";
 import { buildBackup, listSourcesFromMessages, normalizeBackup, restoreBackup } from "./backup";
 import { applyAdditiveImport, prepareAdditiveImport } from "./backupMerge";
+import { buildDeckExport } from "./deckExport";
 
 function fileName(now = new Date()) {
   const iso = now.toISOString().slice(0, 10);
@@ -23,8 +23,17 @@ export async function listExportableSources() {
 export async function exportBackup(now = new Date(), { sourceKeys } = {}) {
   const db = await getDb();
   const backup = await buildBackup(db, now, { sourceKeys });
-  const json = JSON.stringify(backup, null, 2);
-  const name = fileName(now);
+  return shareJson(backup, fileName(now));
+}
+
+export async function exportDeck(deckId, now = new Date()) {
+  const backup = await buildDeckExport(await getDb(), deckId, now);
+  const slug = backup.decks[0].name.replace(/[^\p{L}\p{N}_-]+/gu, "-").slice(0, 70) || "mazo";
+  return shareJson(backup, `activecard-${slug}-${now.toISOString().slice(0, 10)}.json`);
+}
+
+async function shareJson(data, name) {
+  const json = JSON.stringify(data, null, 2);
 
   if (Platform.OS === "web") {
     const blob = new Blob([json], { type: "application/json" });
@@ -52,6 +61,7 @@ export async function exportBackup(now = new Date(), { sourceKeys } = {}) {
 // Abre el picker una sola vez y devuelve el JSON ya parseado + un resumen
 // para mostrar antes de confirmar el reemplazo. null si el usuario canceló.
 export async function pickBackupFile() {
+  const DocumentPicker = await import("expo-document-picker");
   const result = await DocumentPicker.getDocumentAsync({
     type: ["application/json", "text/plain"],
     copyToCacheDirectory: true,

@@ -36,7 +36,7 @@ try {
   await raw.runAsync("INSERT INTO settings(key,value) VALUES('openAIKey','NO-DEBE-SINCRONIZARSE')");
   await raw.runAsync("INSERT INTO settings(key,value) VALUES('dailyLimits',?)", [JSON.stringify({ maxReviews: 100, maxNew: 50 })]);
   await api.migrate(raw);
-  assert.equal((await raw.getFirstAsync("PRAGMA user_version")).user_version, 9);
+  assert.equal((await raw.getFirstAsync("PRAGMA user_version")).user_version, 10);
   const first = await api.readLocalSync(owner);
   assert.deepEqual(first.document.study_preferences.dailyLimits, { max_reviews: 100, max_new: 50 });
   assert.deepEqual(await api.getSetting("dailyLimits"), { maxReviews: 100, maxNew: 50 });
@@ -93,5 +93,5 @@ try {
   await raw.runAsync("INSERT INTO gym_messages(id,chat_id,role,text,created_at) VALUES(2,1,'user','Anterior',?)", [now]);
   await raw.runAsync("INSERT INTO gym_messages(id,chat_id,role,text,created_at) VALUES(1,1,'assistant','Más reciente',?)", ["2026-10-07T16:00:00.000Z"]);
   assert.equal((await api.listGymChats())[0].last_message, "Más reciente");
-  console.log("OK: migración v7→v9, límites conservados y compartidos, caché invalidada, identidades, claves locales, relaciones, recuperación y respaldo v4 en SQLite real.");
+  console.log("OK: migración v7→v10, límites conservados y compartidos, caché invalidada, identidades, claves locales, relaciones, recuperación y respaldo v5 en SQLite real.");
 } finally { sqlite.close(); delete globalThis.activecardTestDb; }

@@ -23,6 +23,7 @@ import {
   BLOCK_BY_CHAR,
   BLOCK_SENTINELS,
   IMG_SENTINEL,
+  encodeTable,
   parseRich,
 } from "./richtext";
 import { textColors } from "../theme";
@@ -77,6 +78,7 @@ const OL_RE = /^(\d{1,4})\. /;
 // interpretados: "---" = divisor, "N. " = ítem de lista numerada. Es la única
 // definición de esto en la app — la usan marksToHtml y el render (RichText).
 export function describeBlock(block) {
+  if (block.type === "table") return { kind: "table", rows: block.rows, spans: [] };
   // Las listas nunca llevan alineación (align null → el render las deja a la
   // izquierda, no heredan el default de la cara).
   if (block.type === "li") return { kind: "li", spans: block.spans, align: null };
@@ -148,6 +150,16 @@ export function marksToHtml(marcas) {
   let i = 0;
   while (i < blocks.length) {
     const block = blocks[i];
+
+    if (block.kind === "table") {
+      out.push(`<table><tbody>${block.rows.map((row) => `<tr>${row.map((cell) => {
+        const tag = cell.header ? "th" : "td";
+        const span = (name) => Number.isInteger(cell[name]) && cell[name] > 1 && cell[name] <= 100 ? ` ${name}="${cell[name]}"` : "";
+        return `<${tag}${span("colspan")}${span("rowspan")}>${marksToHtml(cell.text) || "<p></p>"}</${tag}>`;
+      }).join("")}</tr>`).join("")}</tbody></table>`);
+      i++;
+      continue;
+    }
 
     if (block.kind === "hr") {
       out.push("<hr>");
@@ -283,10 +295,22 @@ function alignFromAttrs(attrs) {
 }
 
 export function htmlToMarks(html) {
+  const tables = [];
   const src = (html == null ? "" : String(html))
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<style[\s\S]*?<\/style\s*>/gi, "");
+    .replace(/<style[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<table\b[^>]*>([\s\S]*?)<\/table\s*>/gi, (_, body) => {
+      const rows = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)].map((row) =>
+        [...row[1].matchAll(/<(td|th)\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi)].map((cell) => {
+          const span = (name) => Math.max(1, Math.min(100, Number(new RegExp(`${name}\\s*=\\s*["']?(\\d+)`, "i").exec(cell[2])?.[1]) || 1));
+          return { text: htmlToMarks(cell[3]), header: cell[1].toLowerCase() === "th", colspan: span("colspan"), rowspan: span("rowspan") };
+        })
+      ).filter((row) => row.length);
+      if (!rows.length) return "";
+      tables.push(rows);
+      return `<actable data-index="${tables.length - 1}"></actable>`;
+    });
 
   const blocks = []; // { prefix: "" | "- " | "N. " | "hr", spans: [] }
   let cur = null;
@@ -324,6 +348,11 @@ export function htmlToMarks(html) {
     liJustOpened = false;
 
     if (!closing) {
+      if (tag === "actable") {
+        closeBlock();
+        blocks.push({ prefix: "table", rows: tables[Number(/data-index="(\d+)"/.exec(attrs)?.[1])], spans: [] });
+        continue;
+      }
       if (tag === "br" || tag === "hr") {
         closeBlock();
         if (tag === "hr") {
@@ -534,6 +563,7 @@ function serializeSpans(items, applied) {
 
 function blocksToMarks(blocks) {
   const lines = blocks.map((b) => {
+    if (b.prefix === "table") return encodeTable(b.rows);
     if (b.prefix === "hr") return "---";
     if (b.prefix === "img") return `${IMG_SENTINEL}${b.width || 100} ${b.src}`;
     const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));

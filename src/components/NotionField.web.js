@@ -27,6 +27,7 @@ import {
   isImageSelected,
   runBubbleAction,
   setImageWidth,
+  mountTableToolbar,
 } from "../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
 import { colors, radius } from "../theme";
@@ -80,6 +81,10 @@ export default function NotionField({
   }, [editor]);
 
   const fileInputRef = useRef(null);
+  const tableToolbarRef = useRef(null);
+  useEffect(() => {
+    if (editor && tableToolbarRef.current) return mountTableToolbar(editor, tableToolbarRef.current);
+  }, [editor]);
 
   if (!editor) return null;
   const imgSelected = isImageSelected(editor);
@@ -212,6 +217,7 @@ export default function NotionField({
         </div>
       </BubbleMenu>
       <EditorContent editor={editor} />
+      <div ref={tableToolbarRef} />
       <input
         ref={fileInputRef}
         type="file"

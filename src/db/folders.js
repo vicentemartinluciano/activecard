@@ -3,6 +3,7 @@ import { withDbTransaction } from "./transactions";
 // cada mazo pertenece a 0 o 1 carpeta (decks.folder_id).
 
 import { getDb } from "./client";
+import { canMoveFolder } from "../lib/folderTree";
 
 export async function listFolders() {
   const db = await getDb();
@@ -18,13 +19,26 @@ export async function getFolder(id) {
   return db.getFirstAsync("SELECT * FROM folders WHERE id = ?", [id]);
 }
 
-export async function createFolder(name) {
+export async function createFolder(name, parentId = null) {
   const db = await getDb();
-  const res = await db.runAsync("INSERT INTO folders (name, created_at) VALUES (?, ?)", [
+  return withDbTransaction(db, async (tx) => {
+  if (parentId != null && !await tx.getFirstAsync("SELECT id FROM folders WHERE id = ?", [parentId])) throw new Error("La carpeta de destino ya no existe.");
+  const res = await tx.runAsync("INSERT INTO folders (name, created_at, parent_id) VALUES (?, ?, ?)", [
     name.trim(),
     new Date().toISOString(),
+    parentId,
   ]);
   return res.lastInsertRowId;
+  });
+}
+
+export async function moveFolder(id, parentId) {
+  const db = await getDb();
+  return withDbTransaction(db, async (tx) => {
+    const folders = await tx.getAllAsync("SELECT * FROM folders");
+    if (!folders.some((folder) => folder.id === id) || !canMoveFolder(folders, id, parentId)) throw new Error("No podés mover una carpeta dentro de sí misma o de una subcarpeta.");
+    await tx.runAsync("UPDATE folders SET parent_id = ? WHERE id = ?", [parentId, id]);
+  });
 }
 
 export async function renameFolder(id, name) {
@@ -38,6 +52,8 @@ export async function renameFolder(id, name) {
 export async function deleteFolder(id) {
   const db = await getDb();
   await withDbTransaction(db, async (db) => {
+    const folder = await db.getFirstAsync("SELECT parent_id FROM folders WHERE id = ?", [id]);
+    await db.runAsync("UPDATE folders SET parent_id = ? WHERE parent_id = ?", [folder?.parent_id ?? null, id]);
     await db.runAsync("UPDATE decks SET folder_id = NULL WHERE folder_id = ?", [id]);
     await db.runAsync("DELETE FROM folders WHERE id = ?", [id]);
   });

@@ -146,13 +146,13 @@ locks transitorios de OPFS y una promesa rechazada nunca queda cacheada.
 
 ## SQLite
 
-Migraciones append-only en `db/schema.js`. Esquema actual: v9. v8 agrega `sync_id`, `sync_state` y `sync_recovery`; v9 lleva exclusivamente los límites diarios a `study_preferences`, conservando los valores locales anteriores. No modifica migraciones anteriores.
+Migraciones append-only en `db/schema.js`. Esquema actual: v10. v8 agrega `sync_id`, `sync_state` y `sync_recovery`; v9 lleva exclusivamente los límites diarios a `study_preferences`; v10 agrega `folders.parent_id`. Conserva datos anteriores y no modifica migraciones ya aplicadas. Ver `BIBLIOTECA-Y-ESTUDIO.md` para edición permanente, tablas, export por mazo y jerarquía.
 
 ### Tablas
 
 #### `folders`
 
-- `id`, `name`, `created_at`.
+- `id`, `name`, `created_at`, `parent_id` opcional para subcarpetas (v10).
 
 #### `decks`
 
@@ -201,7 +201,7 @@ Preferencias y secretos locales. No forma parte del respaldo.
 Una única fila `dailyLimits` comparte los máximos diarios de repasos y nuevas tarjetas.
 La migración v9 conserva los valores de `settings.dailyLimits`; la API de configuración
 redirige esa clave a la tabla compartida. El resto de `settings` sigue local. Solo las
-copias internas de sincronización incluyen esta fila; el respaldo manual v4 no cambia.
+copias internas de sincronización incluyen esta fila; el respaldo manual v5 no incluye preferencias ni claves.
 
 #### `priorities`
 
@@ -411,7 +411,7 @@ WAV persistido con Whisper Base q5_1 local.
 
 ## Respaldo
 
-Formato vigente: v4; conserva identidades de sincronización y permite restaurar v1, v2 y v3.
+Formato vigente: v5; conserva identidades de sincronización y jerarquía de carpetas y permite restaurar v1–v4. Compartir un mazo genera un export de contenido sin historial, chats ni identidades. Las tablas se conservan dentro de `front/back`.
 
 ```text
 folders, decks, tags, deck_tags, cards, review_logs,

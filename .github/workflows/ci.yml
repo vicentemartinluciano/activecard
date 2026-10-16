@@ -65,6 +65,7 @@ jobs:
       - name: Sincronización en SQLite y Postgres reales
         run: |
           node scripts/verify-sync-sqlite.mjs
+          node scripts/verify-library-sqlite.mjs
           node scripts/verify-sync-sql.mjs
 
       - name: Export Android de control

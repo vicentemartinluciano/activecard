@@ -9,13 +9,14 @@ import { Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowD
 
 import RichText from "./RichText";
 import { colors, radius, spacing, textColors, type } from "../theme";
+import { isStudyControl } from "../lib/studyControls";
 
 // RN Web convierte Pressable + role button en BUTTON. La superficie contiene
 // otros botones, por lo que usamos un DIV accesible para evitar HTML anidado
 // inválido. Android conserva su Pressable y su gestión de toques.
 function WebFlipSurface({ children, onPress, accessibilityLabel, style }) {
   return <div role="button" tabIndex={0} data-study-flip="true" aria-label={accessibilityLabel}
-    onClick={onPress}
+    onClick={(event) => { if (!isStudyControl(event.target)) onPress(); }}
     onKeyDown={(event) => {
       if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
       const key = event.nativeEvent || event;
