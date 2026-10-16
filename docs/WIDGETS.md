@@ -326,3 +326,24 @@ las verificaciones de Git/lockfile. No se actualizan dependencias ni se lanza AP
 Se ejecutó el bloque real del BAT aislado, con `cmd.exe`: obligatorio 21/21,
 consulta remota con las 17 recomendaciones del registro, aviso y continuación
 confirmados (`DOCTOR_GATE_OK`, código 0). No se ejecutó el paso de EAS Build.
+
+### Reparación de herramientas locales y prueba de carga — 16/10/2026
+
+- En el siguiente intento, Doctor no pudo ejecutar `npx expo config --json --full`.
+  Se reprodujo en Windows: faltaban `node_modules/.bin/expo.cmd`, otros accesos
+  locales y el módulo `@expo/cli`. La instalación estaba incompleta; esto no indica
+  por sí solo qué proceso dejó esos archivos faltantes.
+- Reinstalación exacta con `npm ci --prefer-offline --no-audit --no-fund` completada;
+  se recuperaron Expo, ESLint, Jest y sus accesos, sin cambios de versiones/lockfile.
+  El BAT usa esos parámetros y comprueba los tres accesos antes de continuar.
+  Ejecuta la lectura de configuración local directamente, conservando el stderr,
+  para exponer la causa en vez de depender del mensaje genérico de Doctor.
+  Configuración y Doctor obligatorio 21/21 comprobados después de la reparación.
+- El control completo encontró además el timeout intermitente de `DeckLoading`.
+  Se conserva la pantalla real, las lecturas diferidas y las mismas aserciones;
+  el fixture ahora simula las vistas host y el gradiente nativo, ajenos al contrato
+  carga/vacío/error. También evita iniciar el fetch nativo lazy al limpiar el
+  entorno. Los tres casos pasaron aislados, manteniendo el límite original de 5 s.
+- La validación local del tramo posterior a la instalación se ejecuta mediante una
+  copia temporal del BAT que termina antes del paso 10. No incluye EAS Build ni
+  genera un APK; Martín conserva la ejecución del comando de construcción.
