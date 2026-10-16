@@ -94,7 +94,7 @@ rem  tenia un arbol hibrido que el npm de esta PC toleraba y el de EAS no. O sea
 rem  que el "npm ci" de aca NO alcanza como garantia. Esto lo detecta antes de
 rem  gastar el build: si regenerar el lock lo modifica, es que estaba
 rem  desincronizado con package.json.
-call npm install --package-lock-only --ignore-scripts
+call npm install --package-lock-only --ignore-scripts --prefer-offline --no-audit --no-fund
 if errorlevel 1 (
   echo  ERROR: no se pudo regenerar package-lock.json.
   goto :failure
@@ -114,14 +114,28 @@ if errorlevel 1 (
 
 echo.
 echo  [5/10] Instalando dependencias exactas del lockfile...
-call npm ci
+call npm ci --prefer-offline --no-audit --no-fund
 if errorlevel 1 (
   echo  ERROR: npm ci fallo.
   goto :failure
 )
+rem  Un npm ci que devuelve exito no alcanza si faltan archivos locales.
+rem  No dejar que npx busque otra copia y oculte una instalacion incompleta.
+for %%T in (expo eslint jest) do (
+  if not exist "node_modules\.bin\%%T.cmd" (
+    echo  ERROR: instalacion local incompleta. Falta node_modules\.bin\%%T.cmd.
+    goto :failure
+  )
+)
 
 echo.
 echo  [6/10] Validando compatibilidad con el Expo SDK instalado...
+echo  Comprobando primero la lectura de la configuracion Expo...
+call "node_modules\.bin\expo.cmd" config --json --full >nul
+if errorlevel 1 (
+  echo  ERROR: no se pudo leer la configuracion Expo. La causa aparece arriba.
+  goto :failure
+)
 rem  Mismo control obligatorio que CI. Los parches mas nuevos se informan
 rem  aparte: no son incompatibilidades del SDK instalado ni cambian el lockfile.
 set "EXPO_OFFLINE=1"
