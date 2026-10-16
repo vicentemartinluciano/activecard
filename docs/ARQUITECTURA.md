@@ -1,20 +1,18 @@
 # Arquitectura de ActiveCard
 
 Última actualización: 2026-10-15
-APK instalada: 1.7.0 / código 2 (14/10/2026, sin desinstalar). El estado del teléfono, la cuenta y las pruebas de intercambio
+APK instalada: 1.10.0 / código 5 (15/10/2026, sobre 1.9.0 sin desinstalar). El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
 
-Runtime 1.7.0 incorpora Repaso diario y Mazos. La revisión del 15/10 agrega
-recientes complementarios y tamaños de contenido adaptables por OTA compatible.
-APK/runtime 1.8.0 / código 3 compilada, aún sin instalar: añade mínimos de
-redimensionado independientes del tamaño inicial.
-Runtime/APK 1.9.0 añade racha con ViewFlipper nativo sobre el fuego del repaso.
-APK 1.9.0 / código 4 compilada e inspeccionada, sin instalación ni QA físico.
-Revisión física posterior del 15/10: 1.9.0 instalada; se detectó ausencia del
-overlay en `layout-night` y listas recortadas por capacidad. Fuente 1.10.0 corrige
-ambos: overlay diurno/nocturno, reflejo nativo del progreso, `ListWidget` con
-progreso seguido de todos los recientes y tercer proveedor `ReviewAndDecks`.
+Runtime 1.10.0 incluye Repaso diario, Mazos y el combinado `ReviewAndDecks`.
+La revisión física de 1.9.0 detectó un overlay ausente en `layout-night` y listas
+recortadas por capacidad. La 1.10.0 integra overlay diurno/nocturno para fuego y
+reflejo del progreso, y `ListWidget` con progreso seguido de todos los recientes.
+El repaso copia el diseño de Inicio; el combinado lo fija sobre la lista.
+APK compilada, inspeccionada e instalada; render Android y cachés comprobados.
+Falta QA visible de animación, scroll, resize y agregado del combinado: el teléfono
+se bloqueó durante la compilación y requiere desbloqueo humano.
 Implementación, entregas y límites de QA en `WIDGETS.md`.
 
 ## Visión

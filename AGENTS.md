@@ -13,22 +13,17 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- Última APK observada en el teléfono: 1.9.0 / código 4 (15/10). Respaldo nuevo exportado antes de la siguiente actualización: 10 mazos y 164 tarjetas. En 1.9.0 se comprobó que el fuego queda estático en modo oscuro y que los recientes se omiten según el tamaño; no tomar el build como QA aprobado. Evidencia de widgets y límites de QA en `docs/WIDGETS.md`. Estado histórico del 8/10: Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El mazo vacío de prueba se borró con autorización; al 8/10, teléfono y nube conservaban 8 mazos y 159 tarjetas. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; su recuperación puntual espera la elección de Martín. Límites diarios compartidos aprobados: OTA `314e1ebd-5b4e-4847-b2ad-538aa3f61be8` ejecutándose en Android, 100/50 visibles y publicados en Supabase; Martín confirmó esos valores en la web tras recargar y sincronizar. Ver evidencia y límites de QA en `docs/SINCRONIZACION.md`.
+- APK instalada: 1.10.0 / código 5 (15/10, actualización ADB sobre 1.9.0, sin desinstalar). Respaldo previo nuevo en teléfono y PC: 10 mazos y 164 tarjetas. Se comprobaron versión, firma y bitmaps generados en Android; QA visible de launcher pendiente porque el teléfono se bloqueó y requiere desbloqueo humano. No dar animaciones/scroll/resize por verificados. Evidencia en `docs/WIDGETS.md`. Estado histórico del 8/10: Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El mazo vacío de prueba se borró con autorización; al 8/10, teléfono y nube conservaban 8 mazos y 159 tarjetas. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; su recuperación puntual espera la elección de Martín. Límites diarios compartidos aprobados: OTA `314e1ebd-5b4e-4847-b2ad-538aa3f61be8` ejecutándose en Android, 100/50 visibles y publicados en Supabase; Martín confirmó esos valores en la web tras recargar y sincronizar. Ver evidencia y límites de QA en `docs/SINCRONIZACION.md`.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
-- Widgets Android desde runtime/APK 1.7.0: Repaso diario y Mazos.
-  Revisión del 15/10: progreso parcial de hoy seguido de recientes sin duplicados,
-  contenido adaptable al tamaño. OTA 1.7.0 publicada; APK/runtime 1.8.0 / código 3 compilada y disponible: mínimos de resize 160 × 132 dp y nuevos previews; todavía sin instalar. Ver `docs/WIDGETS.md` para entrega y evidencia física.
-- Revisión posterior del 15/10: repaso sin cabecera ni actualizar, barra gruesa y
-  contador compacto junto a pendientes. Racha real con el mismo Lottie de Inicio
-  en overlay nativo; APK/runtime 1.9.0 / código 4 compilada y disponible.
-  Archivo inspeccionado; instalación y QA físico pendientes. No se controló el
-  teléfono, reservado a otra sesión durante esta revisión. Ver `docs/WIDGETS.md`.
+- Widgets Android: Repaso diario, Mazos y Repaso y mazos (tercero desde 1.10.0).
+  Diseño de Inicio, botón blanco centrado, racha y reflejo del progreso con overlay
+  nativo diurno/nocturno. Mazos desplazables completos: progreso parcial de hoy
+  seguido de recientes sin duplicados. Combinado con repaso fijo y lista debajo.
+  Mínimos 160 × 132 dp individuales / 160 × 280 combinado. El selector registra
+  los tres; falta colocar y probar el combinado en One UI tras desbloquear.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
-- Revisión integral posterior: fuente 1.10.0 con diseño de Inicio, botón blanco
-  centrado, animaciones en layouts diurno/nocturno, mazos desplazables completos
-  y tercer widget Repaso y mazos. Build e instalación por verificar en `docs/WIDGETS.md`.
 
 ## Fuentes de contexto
 

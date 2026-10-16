@@ -245,4 +245,30 @@ Referencia de tamaños: [Android App Widgets](https://developer.android.com/deve
 - Prebuild Android aprobado, Doctor offline 21/21 y lint sin advertencias.
   Suite local: 54/55 suites aprobadas y timeout de DeckLoading a 5 s; repetición
   aislada 3/3 aprobada sin cambiar su test ni timeout. Widgets/plugins 25/25.
-  Build, instalación y nueva QA física se registran al completar la entrega.
+  [CI de la base final](https://github.com/vicentemartinluciano/activecard/actions/runs/38824083498)
+  aprobada: 55 suites / 489 tests, lint, Doctor, SQL real y exports Android/web.
+
+### APK 1.10.0 instalada; QA visible pendiente de desbloqueo
+
+- [Build EAS f812c05b-867b-455a-b238-1b64119cb6a1](https://expo.dev/accounts/vicentemartinluciano/projects/activecard/builds/f812c05b-867b-455a-b238-1b64119cb6a1): **FINISHED**.
+  Base `b5e192a4244ff7b808053366d792dd8e307dbe0b`, runtime 1.10.0, código 5.
+- [Descargar APK](https://expo.dev/artifacts/eas/_T_XEFrEVlkjTwxxAioGewSdTp6ORP8mrZW_1xL9FfM.apk).
+  Descargada e inspeccionada: 135.445.546 bytes, SHA-256
+  `c6ac72b019b1f37949521476b0ffb78cc606638bb105fce146645dff3f1d6cc7`.
+- Certificado v2 idéntico al de 1.7–1.9, package `com.marti.activecard`.
+  Los tres proveedores compilados conservan resize en ambos ejes y sus mínimos;
+  ambos layouts raíz (diurno/nocturno) incluyen el mismo contenedor adicional.
+  XML compilado con autoStart/63 ms, 48 PNG iguales a las fuentes. Assets sin
+  credenciales locales ni patrones privados.
+- `adb install -r`: **Success**, sin desinstalación; `dumpsys package` confirma
+  1.10.0 / código 5. El selector registra `ReviewAndDecks` junto a los anteriores.
+- Se descargaron bitmaps nativos posteriores a la instalación: repaso con título,
+  indicadores y botón centrado, 23 pendientes / 2 completadas / 8% / racha de 1 día.
+  La colección produjo cabeceras y filas recientes adicionales (índices 3–10),
+  sin el recorte anterior. Se comprobaron cachés nativas separadas para fuego y
+  barra; su existencia no prueba que el launcher las esté reproduciendo.
+- El teléfono se bloqueó durante la compilación (keyguard seguro, pantalla en
+  Dozing). Se pidió desbloqueo humano; no se introduce ni modifica el PIN.
+  Pendiente: movimiento visible de ambos efectos, desplazamiento a recientes,
+  tamaños reales pequeños/amplios, agregado y prueba del combinado y sus enlaces.
+  Los bitmaps anteriores son render nativo, no capturas del widget visible.
