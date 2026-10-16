@@ -24,3 +24,10 @@ test("los spans de celdas se conservan y HTML ejecutable no se vuelve contenido"
   expect(marksToHtml(marks)).toContain('colspan="2"');
   expect(toPlainText(marks)).toBe("Seguro");
 });
+
+test("una cita vacía anterior no absorbe el bloque de tabla", () => {
+  const marks = htmlToMarks('<blockquote><p></p></blockquote><table><tr><td><p>Tabla</p></td></tr></table>');
+  expect(parseRich(marks).map((block) => block.type)).toEqual(["p", "table"]);
+  expect(toPlainText(marks)).toBe("\nTabla");
+  expect(htmlToMarks(marksToHtml(marks))).toBe(marks);
+});

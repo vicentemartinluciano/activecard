@@ -138,7 +138,7 @@ export function parseRich(text) {
 
     const nextAlign = ALIGN_BY_CHAR[lines[i + 1][0]] ? lines[i + 1][0] : "";
     const nextContent = nextAlign ? lines[i + 1].slice(1) : lines[i + 1];
-    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(IMG_SENTINEL)) continue;
+    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(IMG_SENTINEL) || nextContent.startsWith(TABLE_SENTINEL)) continue;
 
     lines[i + 1] = `${nextAlign || legacy[1]}${BLOCK_SENTINELS.quote}${nextContent}`;
     lines.splice(i, 1);
