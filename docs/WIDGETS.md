@@ -315,3 +315,14 @@ Referencia de tamaños: [Android App Widgets](https://developer.android.com/deve
   la repetición integral sin modificar ese test ni ampliar el timeout. Nuevas
   pruebas cubren espacio de scroll, botón al margen, cambios continuos de tamaño,
   resize agrupado y lecturas viejas que terminan después de una tarea más nueva.
+
+### Corrección del preflight APK 1.11.0
+
+El BAT cancelaba en el paso 6 por recomendaciones de parches remotos de Expo,
+aunque la compatibilidad con el SDK instalado aprobaba en CI. Se alinea el comando
+con CI: Doctor con `EXPO_OFFLINE=1` es obligatorio; una segunda consulta remota es
+informativa. No se omiten fallos del control obligatorio, lint, tests, export ni
+las verificaciones de Git/lockfile. No se actualizan dependencias ni se lanza APK.
+Se ejecutó el bloque real del BAT aislado, con `cmd.exe`: obligatorio 21/21,
+consulta remota con las 17 recomendaciones del registro, aviso y continuación
+confirmados (`DOCTOR_GATE_OK`, código 0). No se ejecutó el paso de EAS Build.

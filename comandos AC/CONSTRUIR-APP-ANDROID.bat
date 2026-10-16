@@ -121,11 +121,24 @@ if errorlevel 1 (
 )
 
 echo.
-echo  [6/10] Validando compatibilidad con Expo Doctor...
+echo  [6/10] Validando compatibilidad con el Expo SDK instalado...
+rem  Mismo control obligatorio que CI. Los parches mas nuevos se informan
+rem  aparte: no son incompatibilidades del SDK instalado ni cambian el lockfile.
+set "EXPO_OFFLINE=1"
 call npx expo-doctor
 if errorlevel 1 (
-  echo  ERROR: Expo Doctor detecto un problema.
+  echo  ERROR: Expo Doctor detecto un problema con el SDK instalado.
   goto :failure
+)
+set "EXPO_OFFLINE="
+echo.
+echo  Consultando parches Expo disponibles ^(informativo, no bloquea el build^)...
+call npx expo-doctor
+if errorlevel 1 (
+  echo.
+  echo  AVISO: la consulta remota de Expo Doctor tiene recomendaciones o no pudo completarse.
+  echo  La compatibilidad obligatoria con el SDK instalado ya fue aprobada.
+  echo  Continuando con los controles restantes, sin actualizar dependencias.
 )
 
 echo.
