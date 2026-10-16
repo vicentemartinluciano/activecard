@@ -5,6 +5,16 @@ import DeckScreen from '../../app/mazos/[id]';
 import { listCardsByDeck } from '../../db/cards';
 import { getDeck } from '../../db/decks';
 
+// Esta prueba observa las transiciones de carga de la pantalla real. Los
+// componentes host evitan iniciar ScrollView y vistas Expo nativas al resolver
+// la primera lectura: ese arranque diferido agotaba los 5 s en Windows.
+jest.mock('react-native', () => ({
+  Platform: { OS: 'android', select: values => values.android ?? values.default },
+  StyleSheet: { create: styles => styles },
+  View: 'View', Text: 'Text', ScrollView: 'ScrollView', Pressable: 'Pressable',
+}));
+jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
+
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   useLocalSearchParams: () => ({ id: '7' }),
@@ -48,6 +58,13 @@ jest.mock('../../db/settings', () => ({ getSetting: async (_key, fallback) => fa
 
 let screen;
 const visibleText = () => JSON.stringify(screen.toJSON());
+
+beforeAll(() => {
+  // El fetch lazy del preset Expo no debe iniciar módulos nativos al limpiar
+  // este fixture local. Cualquier solicitud de red sería un error de la prueba.
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true,
+    value: jest.fn(() => { throw new Error('La prueba de carga local no usa red.'); }) });
+});
 
 afterEach(async () => {
   await act(async () => screen?.unmount());
