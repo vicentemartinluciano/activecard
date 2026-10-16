@@ -7,23 +7,26 @@ nuevo; no se puede agregar el soporte a la APK 1.6.0 por OTA.
 
 - **Repaso diario** (`DailyReview`): pendientes, completadas, porcentaje y barra.
   Usa `getDailyReviewStats`, incluidos límites diarios, falladas y mazos pausados.
-  Tocar el resumen o «Repasar ahora» abre `/repaso`; sin pendientes muestra «Al día».
+  Tocar el resumen o «Repasar ahora» abre `/repaso`; al completar ofrece repasar de nuevo.
 - **Mazos** (`StudyDecks`): primero mazos con `0 < progreso.pct < 100` del día,
   en el mismo orden que Inicio. Tocar uno abre su estudio. Debajo agrega recientes
   por `last_studied_at || created_at` descendente (desempate por ID descendente),
   excluyendo los que ya están en progreso; el toque abre el detalle.
-  Si caben al menos dos filas, reserva lugar para ambos grupos. En el mínimo,
-  prioriza una fila de progreso. Sin progreso, muestra sólo recientes.
-  Muestra hasta ocho filas según el espacio; Biblioteca y el conteo restante
-  siempre quedan accesibles. El progreso se reinicia con el día local.
-- Repaso diario ya no tiene botón ↻ ni título/ícono de cabecera. Mazos conserva su
-  actualización manual. El refresco automático sigue consultando SQLite.
+  Todos forman una lista nativa desplazable; la altura limita el viewport, nunca
+  elimina recientes. Sin progreso, muestra sólo recientes. Desde la preparación
+  1.11.0 no tiene título «Mazos» ni pie fijo «Deslizá»; Biblioteca es el último ítem
+  de la lista. El progreso se reinicia con el día local.
+- **Todo junto** (`ReviewAndDecks`, proveedor desde 1.10.0): repaso fijo arriba y
+  lista de progreso/recientes debajo. En 1.11.0 su etiqueta del selector pasa de
+  «Repaso y mazos» a «Todo junto» y solicita 4 × 4 celdas, con preview propio.
+- Repaso diario usa «Repaso de hoy», racha y botón blanco centrado como Inicio.
+  Ninguno muestra botón ↻. El refresco automático sigue consultando SQLite.
 - Sin mazos, ofrece abrir Biblioteca. Si falla una lectura, muestra reintento;
   nunca presenta un error como cero pendientes o una biblioteca vacía.
 
 ## Diseño y tamaños
 
-Fondo oscuro, degradado cobalto, reflejo suave en el borde, progreso verde y fuentes
+Fondo oscuro, degradado de Inicio, progreso con reflejo y fuentes
 Plus Jakarta Sans embebidas en Android. La biblioteca dibuja una imagen con zonas
 táctiles. Desde APK 1.9.0 se superpone un ViewFlipper nativo para el fuego de racha;
 no se usa un bucle JavaScript ni refrescos periódicos para animarlo. Los assets del selector usan el JSX real en una simulación HTML con datos de muestra, no capturas del teléfono.
@@ -37,7 +40,7 @@ preview y demás atributos. La APK 1.7.0 conserva sus límites nativos previos.
 Las vistas usan el ancho/alto que informa Android: tipografía, cifras y botones
 crecen con el espacio disponible. Filas desde arriba, nombres de hasta dos líneas
 en tamaños altos y sin grandes bloques vacíos centrados. `layout.js` presupuesta
-cada región y decide cuántas filas caben. El modo compacto conserva los controles.
+cada región y la altura del viewport. El modo compacto conserva los controles.
 
 ## Integración
 
@@ -52,7 +55,7 @@ cada región y decide cuántas filas caben. El modo compacto conserva los contro
   entrar/salir de foreground y cada minuto mientras la app está activa.
 - Android solicita actualizaciones periódicas cada 30 minutos. El sistema puede
   demorarlas por batería/reposo; no se promete un reinicio visual exacto a medianoche.
-  Al abrir la app o tocar ↻ se recalcula el día local actual.
+  Al abrir la app se recalcula el día local actual; los errores ofrecen reintento.
 - Enlaces `activecard:///widget?target=study|deck&deckId=...`: esperan apertura y
   migración de SQLite; si el mazo fue borrado, abren Biblioteca. `/repaso` y
   `/biblioteca` usan enlaces directos. No modifican FSRS ni contenido.
@@ -272,3 +275,43 @@ Referencia de tamaños: [Android App Widgets](https://developer.android.com/deve
   Pendiente: movimiento visible de ambos efectos, desplazamiento a recientes,
   tamaños reales pequeños/amplios, agregado y prueba del combinado y sus enlaces.
   Los bitmaps anteriores son render nativo, no capturas del widget visible.
+
+### Revisión del 16/10/2026 — preparación 1.11.0, sin generar APK
+
+- Las dos capturas de Martín muestran Mazos con poco espacio desplazable y el
+  repaso demasiado agrupado. También reporta saltos y demora al cambiar tamaño.
+  Se elimina el título «Mazos» y el pie «Deslizá»; Biblioteca queda como último
+  elemento desplazable, conservando los enlaces de progreso y recientes.
+  En 294 × 218 dp el viewport pasa de 118 a 192 dp.
+- Repaso distribuye la altura entre cabecera, indicadores, barra y botón. El botón
+  termina en el margen inferior; no queda centrado junto al resto en un bloque
+  pequeño. Las medidas varían de forma continua, sin los saltos a 180/220 dp.
+- El combinado ya existía en código y en los tres proveedores del APK 1.10.0;
+  no se había colocado en One UI. La preparación conserva `ReviewAndDecks` y lo
+  identifica «ActiveCard · Todo junto», con preview propio e inicio de 4 × 4 celdas.
+  Mínimo combinado intacto: 160 × 280 dp. Agregarlo desde el selector del launcher.
+- Ráfagas de resize se agrupan 150 ms dentro del handler headless. WorkManager
+  mantiene un trabajo de resize por instancia con reemplazo, conservando prioridad
+  expedited. Se consultan medidas vigentes después de SQLite y se descartan lecturas
+  superadas. El código nativo verifica tamaño antes de rasterizar y antes de publicar.
+  La estrategia de trabajo único sigue el contrato de
+  [WorkManager](https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/manage-work).
+- Fuego: 48 PNG transparentes compartidos entre tamaños/instancias y fondo separado;
+  no se vuelven a componer 48 fondos al ampliar. Reflejo: 33 PNG transparentes hasta
+  512 × 40 px, reutilizando el cuadro vacío durante la pausa. Se mantienen 48 pasos
+  a 63 ms; los URI inmutables evitan reutilizar una imagen de otra medida. Cachés
+  de medidas antiguas expiran después de un día; al borrar el widget se limpian
+  sus imágenes. Escala de animación cero y fallback estático conservados.
+- Previews del JSX real, incluidas 160 × 132, 294 × 218 y 401 × 340 dp: simulación
+  HTML revisada, no render físico. Prebuild genera los tres receptores; combinado
+  con etiqueta «Todo junto», 4 × 4 y mínimos correctos. No compila código Java.
+- Versión/BAT preparados para **1.11.0**. Por pedido explícito de Martín no se lanza
+  EAS Build, OTA ni instalación; él ejecuta `comandos AC/CONSTRUIR-APP-ANDROID.bat`.
+  Falta comprobar esta revisión en One UI: agregado del combinado, scroll hasta
+  recientes/Biblioteca, enlaces, resize rápido y reproducción de fuego/reflejo.
+- Validación local: **55 suites / 493 pruebas**, lint sin advertencias, Doctor
+  offline **21/21**, prebuild y export Android aprobados. La primera corrida
+  integral tuvo el timeout conocido de DeckLoading a 5 s; pasó aislado (3/3) y en
+  la repetición integral sin modificar ese test ni ampliar el timeout. Nuevas
+  pruebas cubren espacio de scroll, botón al margen, cambios continuos de tamaño,
+  resize agrupado y lecturas viejas que terminan después de una tarea más nueva.

@@ -59,7 +59,7 @@ const data = { streak: { days: 7, activeToday: true }, review: { remaining: 23, 
 const browser = await chromium.launch({ headless: true, channel: process.env.WIDGET_BROWSER || 'chrome' });
 try {
   const page = await browser.newPage({ deviceScaleFactor: 2 });
-  for (const [width, height] of [[160, 132], [400, 132], [180, 154], [294, 218], [401, 340], [320, 180], [320, 260], [320, 340], [400, 500]]) {
+  for (const [width, height] of [[160, 132], [400, 132], [180, 154], [294, 218], [401, 218], [160, 280], [401, 340], [320, 180], [320, 260], [320, 340], [400, 500]]) {
     for (const [name, View] of [['daily', views.ReviewWidget], ['decks', views.DecksWidget], ['combined', views.CombinedWidget]]) {
       if (name === 'combined' && height < 280) continue;
       const html = `<html><head><style>${fonts}body{margin:0;background:#09090B}svg{display:block}</style></head><body>${renderToStaticMarkup(React.createElement(View, { info: { width, height }, data }))}</body></html>`;

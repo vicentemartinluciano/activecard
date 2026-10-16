@@ -41,18 +41,18 @@ export function ReviewWidget({ info, data }) {
   const available = l.contentWidth - 8;
   const pillWidths = weights.map((weight) => Math.floor(available * weight / weights.reduce((a, b) => a + b, 0)));
   return <Shell layout={l} accessibilityLabel={`Repaso diario: ${stats.remaining} pendientes, ${stats.done} completadas, ${stats.pct}%. Racha de ${streak.days} ${streak.days === 1 ? 'día' : 'días'}.`}>
-    <FlexWidget style={{ width: 'match_parent', height: l.groupHeight, marginTop: l.inset }}>
+    <FlexWidget style={{ width: 'match_parent', height: l.groupHeight }}>
       <FlexWidget {...openUri('activecard:///repaso')} accessibilityLabel="Abrir repaso diario" style={{ width: 'match_parent', height: l.headerHeight, flexDirection: 'row', alignItems: 'center' }}>
         <Label text="Repaso de hoy" size={l.titleSize} weight={800} lines={l.width < 220 ? 2 : 1} fit style={{ width: l.contentWidth - l.badgeWidth - 8, height: l.headerHeight }} />
         <FlexWidget style={{ marginLeft: 8 }}><StreakBadge streak={streak} layout={l} /></FlexWidget>
       </FlexWidget>
-      {done ? <Label text="Completado ✓" size={Math.min(l.titleSize, l.statHeight - 2)} weight={700} color={colors.successBright} style={{ height: l.statHeight, width: 'match_parent', marginTop: l.gap }} /> : <FlexWidget style={{ width: 'match_parent', height: l.statHeight, flexDirection: 'row', marginTop: l.gap }}>
+      {done ? <Label text="Completado ✓" size={Math.min(l.titleSize, l.statHeight - 2)} weight={700} color={colors.successBright} style={{ height: l.statHeight, width: 'match_parent', marginTop: l.statsGap }} /> : <FlexWidget style={{ width: 'match_parent', height: l.statHeight, flexDirection: 'row', marginTop: l.statsGap }}>
         {labels.map((text, i) => <FlexWidget key={i} style={{ width: pillWidths[i], height: l.statHeight, marginRight: i < 2 ? 4 : 0, backgroundColor: colors.accentSoft, borderRadius: 999, justifyContent: 'center' }}>
           <Label text={text} size={l.statSize} color={colors.accentText} weight={700} fit style={{ width: 'match_parent', height: 'match_parent', textAlign: 'center', paddingHorizontal: l.width < 240 ? 2 : 5 }} />
         </FlexWidget>)}
       </FlexWidget>}
-      <SvgWidget svg={progressArt(l.contentWidth, l.barHeight, stats.pct, true)} style={{ width: l.contentWidth, height: l.barHeight, marginTop: l.gap }} />
-      <FlexWidget {...openUri('activecard:///repaso')} accessibilityLabel={done ? 'Repasar de nuevo' : 'Repasar ahora'} style={{ width: 'match_parent', height: l.buttonHeight, marginTop: l.gap, borderRadius: 10, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+      <SvgWidget svg={progressArt(l.contentWidth, l.barHeight, stats.pct, true)} style={{ width: l.contentWidth, height: l.barHeight, marginTop: l.barGap }} />
+      <FlexWidget {...openUri('activecard:///repaso')} accessibilityLabel={done ? 'Repasar de nuevo' : 'Repasar ahora'} style={{ width: 'match_parent', height: l.buttonHeight, marginTop: l.buttonGap, borderRadius: 10, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
         <Label text={done ? 'REPASAR DE NUEVO' : 'REPASAR AHORA'} size={l.buttonSize} color={colors.bg} weight={800} fit style={{ width: 'match_parent', height: 'match_parent', textAlign: 'center', paddingHorizontal: 8 }} />
       </FlexWidget>
     </FlexWidget>
@@ -80,20 +80,18 @@ export function DecksWidget({ info, data }) {
   const l = decksLayout(info);
   const sections = [{ mode: 'progress', title: 'EN PROGRESO', decks: data.inProgress }, { mode: 'recent', title: 'MAZOS RECIENTES', decks: data.recent }].filter(section => section.decks.length);
   return <Shell layout={l} hero={false} accessibilityLabel="Mazos de ActiveCard: progreso de hoy y recientes. Deslizá para ver todos.">
-    <Label text="Mazos" size={l.titleSize} weight={800} style={{ width: 'match_parent', height: l.headerHeight }} />
-    {sections.length ? <ListWidget style={{ width: l.contentWidth, height: l.bodyHeight, marginTop: l.gap }}>
+    {sections.length ? <ListWidget style={{ width: l.contentWidth, height: l.bodyHeight }}>
       {sections.flatMap(section => [
         <FlexWidget key={section.mode} style={{ width: l.contentWidth, height: l.sectionHeight, justifyContent: 'center' }}><Label text={section.title} size={l.compact ? 9 : 11} color={colors.textMuted} weight={700} style={{ height: l.sectionHeight, width: 'match_parent' }} /></FlexWidget>,
         ...section.decks.map(deck => <DeckRow key={`${section.mode}-${deck.id}`} deck={deck} mode={section.mode} layout={l} />),
       ])}
-    </ListWidget> : <FlexWidget {...openUri('activecard:///biblioteca')} style={{ width: 'match_parent', height: l.bodyHeight, marginTop: l.gap, justifyContent: 'center' }}>
+      <FlexWidget {...openUri('activecard:///biblioteca')} accessibilityLabel="Abrir Biblioteca, todos los mazos" style={{ width: l.contentWidth, height: 40, justifyContent: 'center' }}>
+        <Label text="Abrir Biblioteca →" size={l.detailSize} color={colors.accentText} style={{ width: 'match_parent', height: 40 }} />
+      </FlexWidget>
+    </ListWidget> : <FlexWidget {...openUri('activecard:///biblioteca')} style={{ width: 'match_parent', height: l.bodyHeight, justifyContent: 'center' }}>
       <Label text="Tu próximo paso" size={l.nameSize} weight={700} />
       <Label text="Abrí Biblioteca para empezar" size={l.detailSize} color={colors.textMuted} fit style={{ width: 'match_parent' }} />
     </FlexWidget>}
-    <FlexWidget {...openUri('activecard:///biblioteca')} accessibilityLabel="Abrir Biblioteca, todos los mazos" style={{ width: 'match_parent', height: l.footerHeight, marginTop: l.gap, flexDirection: 'row', alignItems: 'center' }}>
-      <Label text="Biblioteca" size={l.compact ? 11 : 13} color={colors.accentText} style={{ width: l.contentWidth * 0.48, height: l.footerHeight }} />
-      <Label text="Deslizá ↕" size={l.compact ? 10 : 12} color={colors.textMuted} style={{ width: l.contentWidth * 0.52, height: l.footerHeight, textAlign: 'right' }} />
-    </FlexWidget>
   </Shell>;
 }
 

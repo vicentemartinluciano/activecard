@@ -2,7 +2,7 @@
   "expo": {
     "name": "ActiveCard",
     "slug": "activecard",
-    "version": "1.10.0",
+    "version": "1.11.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "activecard",
@@ -91,12 +91,12 @@
             },
             {
               "targetCellWidth": 4,
-              "label": "ActiveCard · Repaso y mazos",
+              "label": "ActiveCard · Todo junto",
               "resizeMode": "horizontal|vertical",
               "minHeight": "340dp",
               "updatePeriodMillis": 1800000,
-              "targetCellHeight": 3,
-              "description": "Repaso con racha animada y mazos desplazables: progreso y recientes.",
+              "targetCellHeight": 4,
+              "description": "Repaso diario arriba y lista deslizable de mazos en progreso y recientes debajo.",
               "minWidth": "250dp",
               "name": "ReviewAndDecks",
               "previewImage": "./assets/widgets/combined-preview.png"

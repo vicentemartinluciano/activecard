@@ -1,6 +1,6 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-15
+Última actualización: 2026-10-16
 APK instalada: 1.10.0 / código 5 (15/10/2026, sobre 1.9.0 sin desinstalar). El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
@@ -11,8 +11,17 @@ recortadas por capacidad. La 1.10.0 integra overlay diurno/nocturno para fuego y
 reflejo del progreso, y `ListWidget` con progreso seguido de todos los recientes.
 El repaso copia el diseño de Inicio; el combinado lo fija sobre la lista.
 APK compilada, inspeccionada e instalada; render Android y cachés comprobados.
-Falta QA visible de animación, scroll, resize y agregado del combinado: el teléfono
-se bloqueó durante la compilación y requiere desbloqueo humano.
+Las capturas del 16/10 y el reporte de Martín detectan espacio desperdiciado en
+Mazos, repaso comprimido y demora/saltos al redimensionar. Fuente preparada para
+1.11.0: lista sin cabecera/pie fijos, Biblioteca como último ítem, repaso con botón
+al margen inferior y espaciado repartido. El combinado se identifica «Todo junto»
+en el selector y pide 4 × 4 celdas, conservando su proveedor e instancias.
+Resize usa trabajo nativo único por ID, agrupación headless de 150 ms y tamaño
+vigente tras leer SQLite; descarta renders de medidas anteriores. El fuego comparte
+48 assets transparentes y un fondo separado; el reflejo reutiliza 33 cuadros pequeños
+transparentes, sin recapturar el fondo en cada cuadro. Los URI de cuadros son
+inmutables, con expiración de tamaños antiguos. Falta QA físico de esta revisión.
+Por pedido de Martín no se genera, publica ni instala APK/OTA; ejecuta su BAT.
 Implementación, entregas y límites de QA en `WIDGETS.md`.
 
 ## Visión

@@ -4,7 +4,7 @@ const path = require('node:path');
 const { applyWidgetFlame } = require('../with-widget-flame');
 let root;
 const native = 'android/src/main/';
-const files = ['java/com/reactnativeandroidwidget/RNWidget.java', 'java/com/reactnativeandroidwidget/builder/widget/SvgWidget.java', 'res/layout/rn_widget.xml', 'res/layout-night/rn_widget.xml', 'java/com/reactnativeandroidwidget/builder/widget/TextWidget.java'];
+const files = ['java/com/reactnativeandroidwidget/RNWidget.java', 'java/com/reactnativeandroidwidget/builder/widget/SvgWidget.java', 'res/layout/rn_widget.xml', 'res/layout-night/rn_widget.xml', 'java/com/reactnativeandroidwidget/builder/widget/TextWidget.java', 'java/com/reactnativeandroidwidget/RNWidgetJsCommunication.java'];
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'activecard-flame-'));
   fs.writeFileSync(path.join(root, 'package.json'), '{"version":"0.22.1"}');
@@ -29,6 +29,9 @@ test('integra overlay debajo de los toques y conserva los hooks al repetir prebu
   expect(first[3].indexOf('activecard_flame_container')).toBeLessThan(first[3].indexOf('rn_widget_clickable_container'));
   expect(first[4]).toContain('setIncludeFontPadding(false)');
   expect(first[4]).toContain('Gravity.RIGHT | Gravity.CENTER_VERTICAL');
+  expect(first[5]).toContain('"WIDGET_RESIZED".equals');
+  expect(first[5]).toContain('ExistingWorkPolicy.REPLACE, builder.build()');
+  expect(first[0].indexOf('isCurrentSize')).toBeLessThan(first[0].indexOf('WidgetFactory.buildWidgetFromRoot'));
   expect(fs.readdirSync(path.join(root, native, 'assets/activecard_widget_flame'))).toHaveLength(48);
 });
 test('un cambio nativo inesperado falla antes de sobrescribir los otros archivos', () => {

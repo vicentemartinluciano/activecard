@@ -9,6 +9,7 @@ const info = (name, width = 320, height = 260, id = 1) => ({ widgetName: name, w
 const data = { review: { done: 2, remaining: 8, total: 10, pct: 20 }, recent: [{ id: 4, name: 'Reciente adicional', card_count: 15 }], inProgress: [{ id: 1, name: 'Operaciones', progress: { pct: 30 } }, { id: 2, name: 'Economía', progress: { pct: 60 } }, { id: 3, name: 'Personas', progress: { pct: 80 } }] };
 const render = async (name, width, height) => {
   const renderWidget = jest.fn();
+  getWidgetInfo.mockResolvedValue([info(name, width, height)]);
   await widgetTaskHandler({ widgetInfo: info(name, width, height), widgetAction: 'WIDGET_ADDED', renderWidget });
   return JSON.stringify(buildWidgetTree(renderWidget.mock.calls[0][0]));
 };
@@ -94,4 +95,50 @@ test('racha activa usa la marca animada; sin actividad hoy queda quieta y conser
   const idle = await render('DailyReview', 320, 340);
   expect(idle).toContain('7 días');
   expect(idle).not.toEqual(active);
+});
+
+test('Mazos destina toda su superficie interior a la lista y Biblioteca se desplaza con ella', async () => {
+  const tree = JSON.parse(await render('StudyDecks', 294, 218));
+  const labels = [];
+  let list;
+  const walk = node => {
+    if (node.type === 'TextWidget') labels.push(node.props.text);
+    if (node.type === 'ListWidget') list = node;
+    (node.children || []).forEach(walk);
+  };
+  walk(tree);
+  expect(labels).not.toContain('Mazos');
+  expect(labels.some(text => text.includes('Deslizá'))).toBe(false);
+  expect(list.props.height).toBe(192);
+  expect(JSON.stringify(list.children.at(-1))).toContain('activecard:///biblioteca');
+});
+
+test('una ráfaga de resize sólo lee y dibuja la última instancia, con las medidas vigentes', async () => {
+  jest.useFakeTimers();
+  try {
+    const renderWidget = jest.fn();
+    getWidgetInfo.mockResolvedValue([info('DailyReview', 401, 340)]);
+    const tasks = [218, 240, 280].map(height => widgetTaskHandler({ widgetInfo: info('DailyReview', 294, height), widgetAction: 'WIDGET_RESIZED', renderWidget }));
+    expect(loadWidgetData).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(150);
+    await Promise.all(tasks);
+    expect(loadWidgetData).toHaveBeenCalledTimes(1);
+    expect(renderWidget).toHaveBeenCalledTimes(1);
+    const tree = buildWidgetTree(renderWidget.mock.calls[0][0]);
+    expect(tree.props).toMatchObject({ width: 401, height: 340 });
+  } finally { jest.useRealTimers(); }
+});
+
+test('una lectura vieja no reemplaza el resultado de una tarea más nueva', async () => {
+  let finishOld;
+  loadWidgetData.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+  getWidgetInfo.mockResolvedValue([info('DailyReview', 401, 340)]);
+  const oldRender = jest.fn();
+  const newRender = jest.fn();
+  const older = widgetTaskHandler({ widgetInfo: info('DailyReview', 294, 218), widgetAction: 'WIDGET_UPDATE', renderWidget: oldRender });
+  await widgetTaskHandler({ widgetInfo: info('DailyReview', 401, 340), widgetAction: 'WIDGET_UPDATE', renderWidget: newRender });
+  finishOld(data);
+  await older;
+  expect(newRender).toHaveBeenCalledTimes(1);
+  expect(oldRender).not.toHaveBeenCalled();
 });

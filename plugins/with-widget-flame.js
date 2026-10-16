@@ -5,7 +5,14 @@ const crypto = require('node:crypto');
 const { withDangerousMod } = require('expo/config-plugins');
 const digest = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const changes = [
+  { file: 'java/com/reactnativeandroidwidget/RNWidgetJsCommunication.java', hash: 'dda6c0720d639f952423fb84de78ce5b1b9f789ca0a8358d7bed1723547cfdb5',
+    from: '        WorkManager\n            .getInstance(context)\n            .enqueue(builder.build());',
+    to: '        if ("WIDGET_RESIZED".equals(data.getString("widgetAction"))) {\n            WorkManager.getInstance(context).enqueueUniqueWork(\n                context.getPackageName() + ".ACTIVE_CARD_RESIZE." + data.getInt("widgetId", -1),\n                ExistingWorkPolicy.REPLACE, builder.build());\n        } else {\n            WorkManager.getInstance(context).enqueue(builder.build());\n        }' },
   { file: 'java/com/reactnativeandroidwidget/RNWidget.java', hash: '14047f44da2b0534f8d06384d65ceabf5abc6afe25c6529df75b40814f7b273b',
+    extras: [
+      { from: '        ReadableMap light = config.getMap("light");', to: '        ReadableMap light = config.getMap("light");\n        if (!ActiveCardWidgetFlame.isCurrentSize(appContext, widgetId, light)) return;' },
+      { from: '        AppWidgetManager.getInstance(appContext)\n            .updateAppWidget(widgetId, remoteWidgetView);', to: '        if (!ActiveCardWidgetFlame.isCurrentSize(appContext, widgetId, light)) return;\n        AppWidgetManager.getInstance(appContext)\n            .updateAppWidget(widgetId, remoteWidgetView);' },
+    ],
     from: '        addCollectionViews(widgetId, remoteWidgetView, widgetWithViews);',
     to: '        ActiveCardWidgetFlame.apply(appContext, widgetId, remoteWidgetView, widgetWithViews.getRootView());\n        addCollectionViews(widgetId, remoteWidgetView, widgetWithViews);' },
   { file: 'java/com/reactnativeandroidwidget/builder/widget/SvgWidget.java', hash: 'b70fef5e16385a27910a9028667bf936f1cb74920b5a4b42d1408dd43251f879',
@@ -25,12 +32,18 @@ const changes = [
 function applyWidgetFlame(packageRoot) {
   if (JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')).version !== '0.22.1') throw new Error('Revisar integración de fuego al actualizar widgets.');
   const base = path.join(packageRoot, 'android/src/main');
-  const writes = changes.map(({ file, hash, from, to, previous }) => {
+  const writes = changes.map(({ file, hash, from, to, previous, extras = [] }) => {
     const target = path.join(base, file);
-    const content = fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n');
+    let content = fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n');
+    for (const edit of extras) content = content.replace(edit.to, edit.from);
     const original = content.includes(to) ? content.replace(to, from) : previous && content.includes(previous) ? content.replace(previous, from) : content;
     if (digest(original) !== hash || original.split(from).length !== 2) throw new Error(`Contrato nativo inesperado: ${file}`);
-    return { target, content: original.replace(from, to) };
+    let patched = original.replace(from, to);
+    for (const edit of extras) {
+      if (patched.split(edit.from).length !== 2) throw new Error(`Contrato nativo inesperado: ${file}`);
+      patched = patched.replace(edit.from, edit.to);
+    }
+    return { target, content: patched };
   });
   for (const [source, destination] of [['ActiveCardWidgetFlame.java', 'java/com/reactnativeandroidwidget/ActiveCardWidgetFlame.java'], ['activecard_flame.xml', 'res/layout/activecard_flame.xml'], ['activecard_flame_frame.xml', 'res/layout/activecard_flame_frame.xml']]) writes.push({ target: path.join(base, destination), content: fs.readFileSync(path.join(__dirname, 'widget-flame', source), 'utf8') });
   for (const write of writes) fs.writeFileSync(write.target, write.content);

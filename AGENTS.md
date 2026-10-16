@@ -17,12 +17,18 @@ analiza fuentes y propone acciones sobre la biblioteca.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
-- Widgets Android: Repaso diario, Mazos y Repaso y mazos (tercero desde 1.10.0).
+- Widgets Android: Repaso diario, Mazos y el combinado (tercero desde 1.10.0).
   Diseño de Inicio, botón blanco centrado, racha y reflejo del progreso con overlay
   nativo diurno/nocturno. Mazos desplazables completos: progreso parcial de hoy
   seguido de recientes sin duplicados. Combinado con repaso fijo y lista debajo.
   Mínimos 160 × 132 dp individuales / 160 × 280 combinado. El selector registra
-  los tres; falta colocar y probar el combinado en One UI tras desbloquear.
+  los tres. Las capturas del 16/10 muestran que 1.10.0 desperdicia espacio en Mazos
+  y comprime el repaso; Martín informa demora y saltos al redimensionar.
+  Preparación 1.11.0: Mazos sin título/pie fijo, Biblioteca al final del scroll,
+  botón del repaso abajo, resize agrupado y cuadros de fuego reutilizados.
+  Combinado identificable como «Todo junto», tamaño inicial 4 × 4.
+  No construir ni instalar el APK: Martín ejecuta el comando guardado. Falta QA
+  físico de esta revisión y colocar/probar el combinado.
 - IA actual: OpenAI Responses API con GPT-5.6 Luna.
 
 ## Fuentes de contexto
@@ -54,7 +60,7 @@ Scripts para Martín:
 
 - `comandos AC/INICIAR-APP.bat`: desarrollo con caché limpia.
 - `comandos AC/ACTUALIZAR-APP.bat`: OTA compatible al canal `preview`.
-- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.10.0.
+- `comandos AC/CONSTRUIR-APP-ANDROID.bat`: preflight y APK 1.11.0 (a ejecutar por Martín).
 
 El criterio de lint de CI es el comando directo con `--max-warnings 0`, no solamente
 `npm run lint`.
