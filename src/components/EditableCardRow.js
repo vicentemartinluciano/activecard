@@ -27,6 +27,7 @@ function EditableCardRow({
   onChangeDraft,
   onToggleStar,
   onToggleSuspended,
+  onGym,
 }) {
   const front = active ? draft.front : card.front;
   const back = active ? draft.back : card.back;
@@ -34,13 +35,16 @@ function EditableCardRow({
   return (
     <View style={[styles.row, active && styles.rowActive]}>
       <View style={styles.head}>
-        <Pressable accessibilityRole="button" accessibilityLabel={card.starred ? "Quitar de destacadas" : "Destacar tarjeta"} accessibilityState={{ selected: !!card.starred }} onPress={() => onToggleStar(card.id)} hitSlop={2} style={styles.action}>
+        {onGym && <Pressable accessibilityRole="button" accessibilityLabel="Conversar sobre esta tarjeta" onPress={() => onGym(card.id)} style={styles.action}>
+          <Feather name="message-circle" size={18} color={colors.accentText} />
+        </Pressable>}
+        {onToggleStar && <Pressable accessibilityRole="button" accessibilityLabel={card.starred ? "Quitar de destacadas" : "Destacar tarjeta"} accessibilityState={{ selected: !!card.starred }} onPress={() => onToggleStar(card.id)} hitSlop={2} style={styles.action}>
           {card.starred ? (
             <FontAwesome name="star" size={18} color="#FFC53D" />
           ) : (
             <Feather name="star" size={18} color={colors.textMuted} />
           )}
-        </Pressable>
+        </Pressable>}
         <Text style={styles.headLabel}>Tarjeta</Text>
         {card.source === "hybrid" ? (
           <Pill icon="zap" label="Idea" color={textColors.violeta} style={styles.ideaPill} />
@@ -59,13 +63,13 @@ function EditableCardRow({
         <Text style={styles.counter}>
           {index + 1} / {total}
         </Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={card.suspended ? "Reanudar tarjeta" : "Suspender tarjeta"} accessibilityState={{ selected: !!card.suspended }} onPress={() => onToggleSuspended(card.id)} hitSlop={2} style={styles.action}>
+        {onToggleSuspended && <Pressable accessibilityRole="button" accessibilityLabel={card.suspended ? "Reanudar tarjeta" : "Suspender tarjeta"} accessibilityState={{ selected: !!card.suspended }} onPress={() => onToggleSuspended(card.id)} hitSlop={2} style={styles.action}>
           <Feather
             name={card.suspended ? "play-circle" : "pause-circle"}
             size={18}
             color={card.suspended ? colors.accentText : colors.textMuted}
           />
-        </Pressable>
+        </Pressable>}
       </View>
 
       {active ? (

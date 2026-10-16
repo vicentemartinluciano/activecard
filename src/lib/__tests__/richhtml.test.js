@@ -337,8 +337,10 @@ describe("HTML de TipTap real", () => {
 });
 
 describe("HTML ajeno degradado", () => {
-  test("tablas se degradan a bloques de texto", () => {
-    expect(htmlToMarks("<table><tr><td>a</td></tr><tr><td>b</td></tr></table>")).toBe("a\nb");
+  test("tablas conservan su estructura y aportan texto legible", () => {
+    const marks = htmlToMarks("<table><tr><td>a</td></tr><tr><td>b</td></tr></table>");
+    expect(toPlainText(marks)).toBe("a\nb");
+    expect(marksToHtml(marks)).toContain("<table>");
   });
 
   test("<script> y <style> se eliminan con su contenido", () => {

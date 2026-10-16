@@ -32,6 +32,20 @@ const ALIGN_STRIP_RE = /^[\uE000\uE001\uE002]/;
 // (richhtml.js) lo interpreta y RichText lo renderiza como <Image>. toPlainText
 // lo omite (as\u00ED no ensucia previews / b\u00FAsqueda / contexto de IA).
 export const IMG_SENTINEL = "\uE010";
+export const TABLE_SENTINEL = "\uE030";
+
+export function encodeTable(rows) {
+  return TABLE_SENTINEL + encodeURIComponent(JSON.stringify(rows));
+}
+
+export function decodeTable(line) {
+  if (!line.startsWith(TABLE_SENTINEL)) return null;
+  try {
+    const rows = JSON.parse(decodeURIComponent(line.slice(1)));
+    if (!Array.isArray(rows) || !rows.length || rows.some((row) => !Array.isArray(row) || !row.length || row.some((cell) => typeof cell?.text !== "string"))) return null;
+    return rows;
+  } catch { return null; }
+}
 
 // Formato por bloque (títulos y cita). Al igual que la alineación, vive como
 // un sentinel privado e invisible al inicio de la línea para conservar el
@@ -124,13 +138,15 @@ export function parseRich(text) {
 
     const nextAlign = ALIGN_BY_CHAR[lines[i + 1][0]] ? lines[i + 1][0] : "";
     const nextContent = nextAlign ? lines[i + 1].slice(1) : lines[i + 1];
-    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(IMG_SENTINEL)) continue;
+    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(IMG_SENTINEL) || nextContent.startsWith(TABLE_SENTINEL)) continue;
 
     lines[i + 1] = `${nextAlign || legacy[1]}${BLOCK_SENTINELS.quote}${nextContent}`;
     lines.splice(i, 1);
     i--;
   }
   return lines.map((line) => {
+    const rows = decodeTable(line);
+    if (rows) return { type: "table", rows, spans: [] };
     const isListItem = line.startsWith("- ");
     const content = isListItem ? line.slice(2) : line;
     return {
@@ -145,6 +161,7 @@ export function parseRich(text) {
 export function toPlainText(text) {
   return parseRich(text)
     .map((block) => {
+      if (block.type === "table") return block.rows.map((row) => row.map((cell) => toPlainText(cell.text)).join(" | ")).join("\n");
       const plain = block.spans.map((s) => s.text).join("")
         .replace(ALIGN_STRIP_RE, "")
         .replace(BLOCK_STRIP_RE, "");

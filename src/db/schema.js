@@ -231,6 +231,9 @@ export const MIGRATIONS = [
       CASE WHEN json_type(value, '$.maxNew') = 'integer' AND json_extract(value, '$.maxNew') BETWEEN 0 AND 50
         THEN json_extract(value, '$.maxNew') END END FROM settings WHERE key = 'dailyLimits'), 15));
   `,
+  // v10 — jerarquía de carpetas; las existentes quedan en la raíz.
+  `ALTER TABLE folders ADD COLUMN parent_id INTEGER;
+   CREATE INDEX idx_folders_parent ON folders(parent_id);`,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

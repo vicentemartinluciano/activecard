@@ -5,6 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimen
 
 import { listDecks } from '../db/decks';
 import { listFolders } from '../db/folders';
+import { folderPath } from '../lib/folderTree';
 import { DESKTOP_INDEX_WIDTH, DESKTOP_RAIL_WIDTH, desktopSection, hasLibraryIndex, libraryTree } from '../lib/desktopLayout';
 import { colors, font } from '../theme';
 import { syncIndicator } from '../lib/syncIndicator';
@@ -134,6 +135,19 @@ function DesktopWorkspace({ children }) {
     <Text numberOfLines={1} style={[styles.treeText, selectedId === deck.id && { color: colors.text }]}>{deck.name}</Text>
     <Text style={styles.count}>{deck.card_count}</Text>
   </Pressable>;
+  const folderRow = (folder, depth = 0) => {
+    const isOpen = !!query.trim() || !!expanded[folder.id];
+    return <View key={folder.id} style={{ marginLeft: depth ? 14 : 0 }}>
+      <FolderRow folder={folder} isOpen={isOpen} toggle={() => setExpanded((value) => ({ ...value, [folder.id]: !value[folder.id] }))} open={() => open(`/carpetas/${folder.id}`)} />
+      <div aria-hidden={!isOpen} inert={!isOpen} style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 200ms ease', visibility: isOpen ? 'visible' : 'hidden' }}>
+        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+          {(folder.folders || []).map((child) => folderRow(child, depth + 1))}
+          {folder.children.map((deck) => deckRow(deck, true))}
+          {!folder.children.length && !folder.folders?.length && <Text style={styles.emptyFolder}>Carpeta vacía</Text>}
+        </div>
+      </div>
+    </View>;
+  };
   return <View style={styles.shell}>
     <View style={styles.rail}>
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
@@ -151,15 +165,7 @@ function DesktopWorkspace({ children }) {
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {error ? <Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.error}>{error} Reintentar</Text></Pressable> : null}
-          {tree.folders.map((folder) => {
-            const isOpen = !!query.trim() || !!expanded[folder.id];
-            return <View key={folder.id}>
-              <FolderRow folder={folder} isOpen={isOpen} toggle={() => setExpanded((value) => ({ ...value, [folder.id]: !value[folder.id] }))} open={() => open(`/carpetas/${folder.id}`)} />
-              <div aria-hidden={!isOpen} inert={!isOpen} style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 200ms ease', visibility: isOpen ? 'visible' : 'hidden' }}>
-                <div style={{ overflow: 'hidden', minHeight: 0 }}>{folder.children.length ? folder.children.map((deck) => deckRow(deck, true)) : <Text style={styles.emptyFolder}>Sin mazos</Text>}</div>
-              </div>
-            </View>;
-          })}
+          {tree.folders.map((folder) => folderRow(folder))}
           {tree.loose.map((deck) => deckRow(deck))}
           {!error && !tree.folders.length && !tree.loose.length && <Text style={styles.error}>{query ? 'Sin coincidencias.' : 'Todavía no hay mazos.'}</Text>}
         </ScrollView>
@@ -179,7 +185,7 @@ function DesktopWorkspace({ children }) {
         </Pressable>
         <View accessibilityLabel="Ubicación en la biblioteca" style={styles.breadcrumbs}>
           <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca')} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
-          {currentFolder && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${currentFolder.name}`} onPress={() => open(`/carpetas/${currentFolder.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{currentFolder.name}</Text></Pressable></>}
+          {currentFolder && folderPath(folders, currentFolder.id).map((folder) => <View key={folder.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${folder.name}`} onPress={() => open(`/carpetas/${folder.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{folder.name}</Text></Pressable></View>)}
           {selectedDeck && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a mazo ${selectedDeck.name}`} onPress={() => open(`/mazos/${selectedDeck.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{selectedDeck.name}</Text></Pressable></>}
         </View>
       </View>}

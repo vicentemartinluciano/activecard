@@ -16,12 +16,14 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export default function Collapsible({ icon, title, summary, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
+export default function Collapsible({ icon, title, summary, defaultOpen = false, children, open: controlledOpen, onToggle }) {
+  const [internalOpen, setOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? internalOpen;
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpen((o) => !o);
+    if (onToggle) onToggle();
+    else setOpen((o) => !o);
   };
 
   return (
@@ -43,7 +45,9 @@ export default function Collapsible({ icon, title, summary, defaultOpen = false,
           color={colors.textMuted}
         />
       </Pressable>
-      {open ? <View style={styles.body}>{children}</View> : null}
+      {Platform.OS === "web" ? <div aria-hidden={!open} inert={!open} style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", opacity: open ? 1 : 0, transition: "grid-template-rows 200ms ease, opacity 200ms ease" }}>
+        <div style={{ overflow: "hidden", minHeight: 0 }}><View style={styles.body}>{children}</View></div>
+      </div> : open ? <View style={styles.body}>{children}</View> : null}
     </Card>
   );
 }

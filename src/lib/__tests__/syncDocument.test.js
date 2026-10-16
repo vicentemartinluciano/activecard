@@ -5,7 +5,7 @@ const now = "2026-10-07T15:00:00.000Z";
 const clone = (value) => JSON.parse(JSON.stringify(value));
 function document() {
   const doc = emptyDocument();
-  doc.folders.folder = { name: "Facultad", created_at: now };
+  doc.folders.folder = { name: "Facultad", created_at: now, parent_id: null };
   doc.decks.deck = { name: "Personas", created_at: now, priority: 100, icon: null, folder_id: "folder" };
   doc.cards.card = { deck_id: "deck", front: "Pregunta", back: "Respuesta", source: "manual", origin_card_id: null, created_at: now, ...newCardState(new Date(now)), starred: 0, suspended: 0, position: 1 };
   return doc;

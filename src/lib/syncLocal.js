@@ -27,7 +27,7 @@ export async function readLocalSync(owner) {
   });
 }
 async function installDocument(tx, doc, current) {
-  validateDocument(doc);
+  doc = validateDocument(doc);
   const maps = {};
   for (const table of Object.keys(COLUMNS)) {
     const previous = new Map(current[table].map((row) => [table === "tags" ? `tag:${row.name}` : row.sync_id, row.id]));

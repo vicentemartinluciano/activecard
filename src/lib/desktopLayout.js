@@ -18,10 +18,16 @@ export function libraryTree(folders, decks, query = '') {
   const normalize = (text) => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const needle = normalize(query.trim());
   const matches = (item) => normalize(item.name).includes(needle);
-  const roots = folders.map((folder) => ({
-    ...folder,
-    children: decks.filter((deck) => deck.folder_id === folder.id && (!needle || matches(folder) || matches(deck))),
-  })).filter((folder) => !needle || matches(folder) || folder.children.length);
+  const branch = (parentId, inheritedMatch = false) => folders.filter((folder) => (folder.parent_id ?? null) === parentId).map((folder) => {
+    const matched = inheritedMatch || matches(folder);
+    const nested = branch(folder.id, matched);
+    return {
+      ...folder,
+      children: decks.filter((deck) => deck.folder_id === folder.id && (!needle || matched || matches(deck))),
+      ...(nested.length ? { folders: nested } : {}),
+    };
+  }).filter((folder) => !needle || inheritedMatch || matches(folder) || folder.children.length || folder.folders?.length);
+  const roots = branch(null);
   const folderIds = new Set(folders.map((folder) => folder.id));
   return { folders: roots, loose: decks.filter((deck) => !folderIds.has(deck.folder_id) && (!needle || matches(deck))) };
 }

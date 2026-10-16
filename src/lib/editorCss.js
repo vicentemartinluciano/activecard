@@ -7,6 +7,15 @@
 // sintonía con src/theme/index.js si el theme cambia.
 
 export const EDITOR_CSS = `
+.nf-tablebar { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 42px 8px 10px; }
+.nf-tablebar button { font: inherit; font-size: 12px; min-height: 36px; padding: 5px 9px; color: #B7B7C2; background: #1C1C22; border: 1px solid #FFFFFF1F; border-radius: 6px; cursor: pointer; }
+.nf-tablebar button[hidden] { display: none; }
+.nf-tablebar button:disabled { opacity: .4; cursor: default; }
+.nf-root .tableWrapper { overflow-x: auto; margin: 8px 0; }
+.nf-root table { border-collapse: collapse; table-layout: fixed; min-width: 100%; }
+.nf-root td, .nf-root th { border: 1px solid #FFFFFF30; min-width: 100px; padding: 8px; vertical-align: top; position: relative; }
+.nf-root th { background: #1C1C22; font-weight: 700; }
+.nf-root .selectedCell { background: #3E63DD30; }
 .nf-root {
   position: relative;
   background: #121216;

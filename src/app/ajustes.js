@@ -199,6 +199,12 @@ export default function Ajustes() {
     try {
       const picked = await pickBackupFile();
       if (!picked) return;
+      if (picked.parsed.kind === "deck") {
+        const plan = await prepareParsedAdditiveImport(picked.parsed);
+        setPendingImport({ parsed: picked.parsed, plan });
+        router.push("/importar-respaldo");
+        return;
+      }
       setPickedBackup(picked);
       setImportModeOpen(true);
     } catch (e) {

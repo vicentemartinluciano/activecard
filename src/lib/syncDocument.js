@@ -1,8 +1,9 @@
 import { FSRS_COLS } from "../db/cards";
+import { validateFolderTree } from "./folderTree";
 
 export const COLUMNS = {
   study_preferences: ["max_reviews", "max_new"],
-  folders: ["name", "created_at"],
+  folders: ["name", "created_at", "parent_id"],
   decks: ["name", "created_at", "priority", "icon", "folder_id"],
   tags: ["name"],
   cards: ["deck_id", "front", "back", "source", "origin_card_id", "created_at", ...FSRS_COLS, "starred", "position", "suspended"],
@@ -12,12 +13,13 @@ export const COLUMNS = {
   gym_messages: ["chat_id", "role", "text", "metadata", "created_at"],
 };
 export const REFERENCES = {
+  parent_id: "folders",
   deck_id: "decks", folder_id: "folders", tag_id: "tags", card_id: "cards",
   origin_card_id: "cards", hybrid_card_id: "cards", chat_id: "gym_chats",
 };
 const REQUIRED = new Set(["deck_id", "card_id", "chat_id"]);
 const NUMBERS = new Set([...FSRS_COLS.filter((c) => !["due", "last_review"].includes(c)), "priority", "position", "starred", "suspended", "max_reviews", "max_new"]);
-const NULLABLE = new Set(["folder_id", "origin_card_id", "hybrid_card_id", "last_review", "icon", "position", "transcript", "metadata"]);
+const NULLABLE = new Set(["parent_id", "folder_id", "origin_card_id", "hybrid_card_id", "last_review", "icon", "position", "transcript", "metadata"]);
 export const canonical = (value) => JSON.stringify(value, (_, item) => {
   if (item && typeof item === "object" && !Array.isArray(item)) return Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]));
   return item;
@@ -82,9 +84,11 @@ export function validateDocument(doc) {
     const rows = doc[table];
     if (!rows || typeof rows !== "object" || Array.isArray(rows) || Object.keys(rows).length > 100000) fail();
     for (const [id, row] of Object.entries(rows)) {
-      if (!id || id.length > 512 || ["__proto__", "constructor", "prototype"].includes(id) || !row || Object.keys(row).sort().join() !== [...columns].sort().join()) fail();
+      const expectedColumns = table === "folders" && row && !Object.hasOwn(row, "parent_id") ? columns.filter((column) => column !== "parent_id") : columns;
+      if (!id || id.length > 512 || ["__proto__", "constructor", "prototype"].includes(id) || !row || Object.keys(row).sort().join() !== [...expectedColumns].sort().join()) fail();
       for (const column of columns) {
         const value = row[column];
+        if (column === "parent_id" && value === undefined) continue;
         if (value === null && NULLABLE.has(column)) continue;
         if (REFERENCES[column]) {
           if (typeof value !== "string" || !Object.hasOwn(doc[REFERENCES[column]], value)) fail();
@@ -104,6 +108,7 @@ export function validateDocument(doc) {
       }
     }
   }
+  validateFolderTree(Object.entries(doc.folders).map(([id, row]) => ({ ...row, id })));
   if (!Array.isArray(doc.deck_tags)) fail();
   const links = new Set();
   for (const pair of doc.deck_tags) {
@@ -188,6 +193,21 @@ export function mergeDocuments(base, local, remote) {
       }
     }
   } while (changed);
+  // Dos movimientos válidos por separado pueden cerrar un ciclo al combinarse.
+  // Cortarlo en la raíz conserva las carpetas y archiva la alternativa local.
+  for (const id of Object.keys(result.folders).sort()) {
+    const seen = new Set([id]);
+    let parent = result.folders[id].parent_id;
+    while (parent != null) {
+      if (seen.has(parent)) {
+        result.folders[id] = { ...result.folders[id], parent_id: null };
+        conflicts.push(JSON.stringify(["folders", id]));
+        break;
+      }
+      seen.add(parent);
+      parent = result.folders[parent]?.parent_id;
+    }
+  }
   result.deck_tags = result.deck_tags.filter(([deck, tag]) => Object.hasOwn(result.decks, deck) && Object.hasOwn(result.tags, tag)).sort((a, b) => canonical(a).localeCompare(canonical(b)));
   validateDocument(result);
   return { document: result, conflicts: [...new Set(conflicts)] };

@@ -1,4 +1,5 @@
 import { withDbConnection, withDbTransaction } from "../db/transactions";
+import { validateFolderTree } from "./folderTree";
 // Respaldo manual de datos (export/import): JSON con todo el contenido del
 // usuario (mazos, tarjetas, conexiones). NO incluye `settings` — ahí viven
 // las claves de API, que no deben viajar en un archivo que se comparte.
@@ -6,7 +7,7 @@ import { withDbConnection, withDbTransaction } from "../db/transactions";
 export const BACKUP_APP = "activecard";
 // v2 agrega la tabla folders. Los respaldos v1 (sin folders) siguen siendo
 // restaurables: se normalizan a folders vacío.
-export const BACKUP_VERSION = 4;
+export const BACKUP_VERSION = 5;
 
 // folders primero: aunque folder_id no tiene FK real, insertar padres antes
 // que hijos es la convención del restore.
@@ -114,7 +115,7 @@ export function validateBackup(backup) {
   if (backup.app !== BACKUP_APP) {
     throw new Error("Este archivo no es un respaldo de ActiveCard.");
   }
-  if (![1, 2, 3, BACKUP_VERSION].includes(backup.version)) {
+  if (![1, 2, 3, 4, BACKUP_VERSION].includes(backup.version)) {
     throw new Error(`Versión de respaldo no soportada (${backup.version}).`);
   }
   for (const table of TABLES) {
@@ -129,6 +130,7 @@ export function validateBackup(backup) {
 
 export function normalizeBackup(backup) {
   validateBackup(backup);
+  validateFolderTree(backup.folders || []);
   return {
     ...backup,
     folders: backup.folders || [],

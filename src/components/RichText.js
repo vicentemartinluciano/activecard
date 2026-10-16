@@ -4,12 +4,13 @@
 // (richhtml.js), la misma que usa el editor — así lo que se ve al estudiar
 // es exactamente lo que se ve al editar.
 
-import { useEffect, useMemo, useState } from "react";
-import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { describeBlock, groupQuoteRuns } from "../lib/richhtml";
 import { parseRich } from "../lib/richtext";
 import { colors, font, radius, spacing, textColors } from "../theme";
+import { StudyInteractionContext } from "./StudyInteractionContext";
 
 // Imagen inline (data URI). Toma el aspect ratio real para no deformarla y
 // respetar el ancho elegido. width = % del ancho (100 = a todo lo ancho); se
@@ -77,10 +78,22 @@ function spanStyle(span) {
 // por cara — el dorso arranca centrado). Las listas nunca heredan el default
 // (siempre a la izquierda).
 export default function RichText({ text, style, containerStyle, defaultAlign = "left" }) {
+  const interaction = useContext(StudyInteractionContext);
   const blocks = useMemo(() => groupQuoteRuns(parseRich(text).map(describeBlock)), [text]);
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {
+        if (block.kind === "table") return (
+          <ScrollView horizontal key={i} nestedScrollEnabled dataSet={{ studyAction: "table" }} onTouchStart={() => { if (interaction) interaction.current = true; }} onTouchEnd={() => { if (interaction) interaction.current = false; }} onTouchCancel={() => { if (interaction) interaction.current = false; }} style={{ marginVertical: spacing.sm }}>
+            <View accessibilityLabel="Tabla" style={{ borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.border }}>
+              {block.rows.map((row, r) => <View key={r} style={{ flexDirection: "row" }}>
+                {row.map((cell, c) => <View key={c} style={{ width: 160 * (cell.colspan || 1), padding: 10, borderRightWidth: 1, borderBottomWidth: 1, borderColor: colors.border, backgroundColor: cell.header ? colors.surfaceHigh : colors.surface }}>
+                  <RichText text={cell.text} style={[style, cell.header && styles.bold]} defaultAlign="left" />
+                </View>)}
+              </View>)}
+            </View>
+          </ScrollView>
+        );
         if (block.kind === "quoteGroup") {
           return (
             <View key={i} style={styles.quoteWrap}>
