@@ -24,7 +24,7 @@ function WebFlipSurface({ children, onPress, accessibilityLabel, style }) {
       event.stopPropagation();
       if (!event.repeat) onPress();
     }}
-    style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', ...StyleSheet.flatten(style) }}>
+    style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', outline: 'none', ...StyleSheet.flatten(style) }}>
     {children}
   </div>;
 }
@@ -97,7 +97,9 @@ export default function FlipCard({
             contentContainerStyle={styles.textContent}
             showsVerticalScrollIndicator
           >
-            <Pressable onPress={onFlip}>
+            <Pressable onPress={onFlip} {...(Platform.OS === 'web' ? {
+              tabIndex: -1, dataSet: { studyFlipText: 'true' }, style: { outlineStyle: 'none' },
+            } : {})}>
               <RichText
                 text={faceText}
                 style={styles.text}

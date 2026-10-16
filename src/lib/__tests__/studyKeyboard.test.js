@@ -1,7 +1,9 @@
 import { focusStudyCard, studyKeyAction } from '../studyKeyboard';
 
-test('el teclado exige ver la respuesta y respeta las tres notas de FSRS', () => {
-  expect(studyKeyAction({ key: '1' }, false)).toBeNull();
+test('el teclado respeta las tres notas de FSRS también desde la pregunta', () => {
+  expect(studyKeyAction({ key: '1' }, false)).toBe('again');
+  expect(studyKeyAction({ key: '2' }, false)).toBe('hard');
+  expect(studyKeyAction({ key: '3' }, false)).toBe('good');
   expect(studyKeyAction({ key: ' ' }, false)).toBe('flip');
   expect(studyKeyAction({ key: 'ArrowLeft' }, true)).toBe('again');
   expect(studyKeyAction({ key: 'ArrowUp' }, true)).toBe('hard');

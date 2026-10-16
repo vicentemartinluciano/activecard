@@ -58,12 +58,12 @@ conserva sus pestañas y sus gestos.
   del último intercambio, los mismos botones y la confirmación antes de restaurar.
   Las copias se despliegan desde Recuperación. No cambia autenticación, permisos ni
   criterios de sincronización.
-- En el estudio, Espacio gira la tarjeta. Una vez vista la respuesta, 1/izquierda
+- En el estudio, Espacio gira la tarjeta. Desde cualquiera de las caras, 1/izquierda
   califica Again, 2/arriba Hard y 3/derecha Good. Los atajos no actúan en campos de
   texto, durante composición, con modificadores ni al mantener una tecla apretada.
   Al entrar o avanzar, el foco vuelve a la tarjeta, incluso si se calificó con un
   botón; se conserva el foco si se está escribiendo en un campo. Espacio muestra la
-  respuesta y luego las flechas califican con su animación.
+  respuesta; las flechas califican con su animación, igual que los botones.
   Dos toques activan el arrastre sin mantener apretado el segundo. Con mouse se
   mueve sin botones y otro toque suelta; con tacto se apoya de nuevo y se arrastra.
   Soltar bajo el umbral, Escape, salir de la tarjeta o perder el foco devuelve al
@@ -71,6 +71,14 @@ conserva sus pestañas y sus gestos.
   color que el arrastre; el bloqueo dura hasta guardar la nota. Estrella, lápiz y
   rayo no arman el arrastre. Los textos de atajos debajo
   se quitaron; los atajos y botones siguen disponibles. Android conserva su swipe.
+
+### Corrección de foco y calificación del 16 de octubre de 2026
+
+Los atajos califican desde la pregunta o la respuesta, igual que los botones de
+nota. Se eliminó la condición que exigía voltear antes de usar flechas/números.
+La cara y su texto no muestran el marco de foco nativo del navegador; el texto
+sale de la secuencia de Tab porque la cara ya ofrece la misma acción. Estrella,
+edición, rayo y botones conservan su navegación y foco propios.
 
 ### Corrección de controles web del 12 de octubre de 2026
 

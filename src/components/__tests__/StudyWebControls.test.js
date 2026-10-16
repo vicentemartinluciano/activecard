@@ -100,6 +100,34 @@ test.each([['1', 'again'], ['2', 'hard'], ['3', 'good'], ['ArrowRight', 'good']]
     expect(grade).toHaveBeenCalledWith(rating);
   });
 
+test.each([['1', 'again'], ['2', 'hard'], ['3', 'good'],
+  ['ArrowLeft', 'again'], ['ArrowUp', 'hard'], ['ArrowRight', 'good']])(
+  '%s califica desde la pregunta con foco en el texto y permite seguir', async (value, rating) => {
+    const text = container.querySelector('[data-study-flip-text]');
+    await act(async () => text.focus());
+    expect(document.activeElement).toBe(text);
+    await key(text, value);
+    expect(grade.mock.calls).toEqual([[rating]]);
+    expect(flip).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Pregunta de prueba 2');
+    expect(document.activeElement).toBe(container.querySelector('[data-study-drag]'));
+    await key(document.activeElement, value);
+    expect(grade.mock.calls).toEqual([[rating], [rating]]);
+    expect(container.textContent).toContain('Pregunta de prueba 3');
+  });
+
+test('la cara y el texto no muestran el marco nativo; la estrella sigue accesible', () => {
+  const face = container.querySelector('[data-study-flip]');
+  const text = container.querySelector('[data-study-flip-text]');
+  expect(face.style.outline).toBe('none');
+  expect(face.tabIndex).toBe(0);
+  expect(text.tabIndex).toBe(-1);
+  expect(getComputedStyle(text).outlineStyle).toBe('none');
+  const starButton = container.querySelector('[data-study-action="star"]');
+  expect(starButton.tabIndex).toBe(0);
+  expect(starButton.style.outlineStyle).not.toBe('none');
+});
+
 test('el doble clic sobre texto de la cara arma el arrastre y otro clic califica', async () => {
   const face = container.querySelector('[data-study-flip]');
   const text = [...face.querySelectorAll('div')].find((node) => node.textContent === 'Pregunta de prueba 1');
