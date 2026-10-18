@@ -5,9 +5,10 @@
 // es exactamente lo que se ve al editar.
 
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { describeBlock, groupQuoteRuns } from "../lib/richhtml";
+import { tableGrid, tableColumnWidths } from "../lib/richTable";
 import { parseRich } from "../lib/richtext";
 import { colors, font, radius, spacing, textColors } from "../theme";
 import { StudyInteractionContext } from "./StudyInteractionContext";
@@ -63,6 +64,59 @@ function ImageBlock({ src, width = 100 }) {
   );
 }
 
+function TableBlock({ rows, style }) {
+  const interactionRef = useContext(StudyInteractionContext);
+  const [measured, setMeasured] = useState({});
+  const [width, setWidth] = useState(0);
+  const { cells, columns } = useMemo(() => tableGrid(rows), [rows]);
+  const minColumnWidth = Platform.OS === "web" ? 80 : 200;
+  const columnWidth = Math.max(200, width / Math.max(1, columns));
+  const widths = tableColumnWidths(rows, columnWidth, minColumnWidth);
+  const columnOffset = (column) => widths.slice(0, column).reduce((sum, value) => sum + value, 0);
+  const heights = rows.map(() => 48);
+  cells.forEach((cell, index) => {
+    const height = (measured[index] || 48) / cell.rowspan;
+    for (let r = cell.row; r < cell.row + cell.rowspan; r++) heights[r] = Math.max(heights[r], height);
+  });
+  const offset = (row) => heights.slice(0, row).reduce((sum, height) => sum + height, 0);
+  return (
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ marginVertical: 12 }}>
+      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator dataSet={{ studyAction: "table" }}
+        onTouchStart={() => { if (interactionRef) { interactionRef.current = true; interactionRef.suppressFlipUntil = Date.now() + 400; } }}
+        onTouchEnd={() => { if (interactionRef) { interactionRef.current = false; interactionRef.suppressFlipUntil = Date.now() + 400; } }}
+        onTouchCancel={() => { if (interactionRef) { interactionRef.current = false; interactionRef.suppressFlipUntil = Date.now() + 400; } }}>
+        <View style={{ width: columnOffset(columns), height: offset(rows.length) }}>
+          {cells.map((cell, index) => (
+            <View
+              key={index}
+              style={{
+                position: "absolute",
+                left: columnOffset(cell.column),
+                top: offset(cell.row),
+                width: columnOffset(cell.column + cell.colspan) - columnOffset(cell.column),
+                height: offset(cell.row + cell.rowspan) - offset(cell.row),
+                borderWidth: 0.5,
+                borderColor: colors.border,
+                backgroundColor: cell.header ? colors.surfaceHigh : "transparent",
+              }}
+            >
+              <View
+                onLayout={(event) => {
+                  const height = Math.ceil(event.nativeEvent.layout.height) + 2;
+                  setMeasured((previous) => (previous[index] === height ? previous : { ...previous, [index]: height }));
+                }}
+                style={{ padding: 10 }}
+              >
+                <RichText text={cell.text} style={[style, cell.header && styles.bold]} />
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
 function spanStyle(span) {
   return [
     span.bold && styles.bold,
@@ -78,22 +132,12 @@ function spanStyle(span) {
 // por cara — el dorso arranca centrado). Las listas nunca heredan el default
 // (siempre a la izquierda).
 export default function RichText({ text, style, containerStyle, defaultAlign = "left" }) {
-  const interaction = useContext(StudyInteractionContext);
+  const baseSize = StyleSheet.flatten(style)?.fontSize || 16;
   const blocks = useMemo(() => groupQuoteRuns(parseRich(text).map(describeBlock)), [text]);
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {
-        if (block.kind === "table") return (
-          <ScrollView horizontal key={i} nestedScrollEnabled dataSet={{ studyAction: "table" }} onTouchStart={() => { if (interaction) interaction.current = true; }} onTouchEnd={() => { if (interaction) interaction.current = false; }} onTouchCancel={() => { if (interaction) interaction.current = false; }} style={{ marginVertical: spacing.sm }}>
-            <View accessibilityLabel="Tabla" style={{ borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.border }}>
-              {block.rows.map((row, r) => <View key={r} style={{ flexDirection: "row" }}>
-                {row.map((cell, c) => <View key={c} style={{ width: 160 * (cell.colspan || 1), padding: 10, borderRightWidth: 1, borderBottomWidth: 1, borderColor: colors.border, backgroundColor: cell.header ? colors.surfaceHigh : colors.surface }}>
-                  <RichText text={cell.text} style={[style, cell.header && styles.bold]} defaultAlign="left" />
-                </View>)}
-              </View>)}
-            </View>
-          </ScrollView>
-        );
+        if (block.kind === "table") return <TableBlock key={i} rows={block.rows} style={style} />;
         if (block.kind === "quoteGroup") {
           return (
             <View key={i} style={styles.quoteWrap}>
@@ -104,7 +148,7 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
                     key={j}
                     style={[style, styles.quoteText, align !== "left" && { textAlign: align }]}
                   >
-                    {quote.spans.map((span, k) => (
+                    {quote.spans.length === 0 ? "\u00a0" : quote.spans.map((span, k) => (
                       <Text key={k} style={spanStyle(span)}>
                         {span.text}
                       </Text>
@@ -129,17 +173,18 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
         // Sin tocar → las listas van a la izquierda; el resto usa el default de
         // la cara (frente = centro, dorso = izquierda).
         const align = block.align || (isList ? "left" : defaultAlign);
-        const blockTextStyle = block.kind === "heading1" ? styles.heading1
-          : block.kind === "heading2" ? styles.heading2
-            : block.kind === "heading3" ? styles.heading3
-              : null;
+        const headingScale = { heading1: 1.55, heading2: 1.3, heading3: 1.12 }[block.kind];
+        const blockTextStyle = headingScale
+          ? { ...font(700), fontSize: baseSize * headingScale, lineHeight: baseSize * headingScale * 1.22, marginVertical: 4 }
+          : { marginBottom: 2 };
+
 
         const line = (
           <Text
             style={[style, blockTextStyle, align !== "left" && { textAlign: align }, isList && styles.liContent]}
             key={i}
           >
-            {block.spans.map((span, j) => (
+            {block.spans.length === 0 ? "\u00a0" : block.spans.map((span, j) => (
               <Text key={j} style={spanStyle(span)}>
                 {span.text}
               </Text>
@@ -187,11 +232,8 @@ const styles = StyleSheet.create({
   bullet: {
     marginTop: 1,
   },
-  heading1: { ...font(700), fontSize: 24, lineHeight: 30, marginVertical: 3 },
-  heading2: { ...font(700), fontSize: 20, lineHeight: 26, marginVertical: 2 },
-  heading3: { ...font(700), fontSize: 17, lineHeight: 23, marginVertical: 1 },
-  quoteWrap: { borderLeftWidth: 3, borderLeftColor: "#5B6897", paddingLeft: spacing.sm, marginVertical: spacing.xs },
-  quoteText: { color: colors.textMuted, fontStyle: "italic" },
+  quoteWrap: { borderLeftWidth: 3, borderLeftColor: "#5B6897", paddingLeft: 12, paddingVertical: 3, marginVertical: 5 },
+  quoteText: { color: colors.textMuted, marginBottom: 2 },
   divider: {
     height: 1,
     alignSelf: "stretch",

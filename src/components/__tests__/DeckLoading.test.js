@@ -57,7 +57,7 @@ jest.mock('../../db/decks', () => ({ getDeck: jest.fn(), listTags: async () => [
 jest.mock('../../db/folders', () => ({ listFolders: async () => [] }));
 jest.mock('../../db/progress', () => ({ getDeckDailyProgress: async () => null }));
 jest.mock('../../db/stats', () => ({ getDeckRecallScore: async () => null }));
-jest.mock('../../db/settings', () => ({ getSetting: async (_key, fallback) => fallback }));
+jest.mock('../../db/settings', () => ({ getSetting: async (_key, fallback) => fallback, listCardDrafts: jest.fn().mockResolvedValue([]), setSetting: jest.fn().mockResolvedValue() }));
 
 let screen;
 const visibleText = () => JSON.stringify(screen.toJSON());
@@ -115,7 +115,8 @@ test('abre el mazo editable y guarda el borrador antes de activar otra tarjeta',
   expect(screen.root.findAllByType('editable-row')[1].props.active).toBe(true);
 });
 
-test('la tarjeta nueva se edita en el mazo y dos toques en guardar crean una sola fila', async () => {
+test('la tarjeta nueva se guarda sola una vez y conserva el editor activo', async () => {
+  jest.useFakeTimers();
   getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
   listCardsByDeck.mockResolvedValue([]);
   let finishCreate;
@@ -125,10 +126,12 @@ test('la tarjeta nueva se edita en el mazo y dos toques en guardar crean una sol
   await act(async () => screen.root.findByProps({ accessibilityLabel: 'Nueva tarjeta' }).props.onPress());
   expect(createCard).not.toHaveBeenCalled();
   await act(async () => screen.root.findByType('editable-row').props.onChangeDraft({ front: 'Pregunta', back: 'Respuesta' }));
-  const save = screen.root.findAllByType('button').find((button) => button.children.includes('Guardar tarjeta'));
-  let first, second;
-  await act(async () => { first = save.props.onPress(); second = save.props.onPress(); });
+  expect(visibleText()).not.toContain('Guardar tarjeta');
+  expect(visibleText()).not.toContain('Reordenar tarjetas');
+  await act(async () => jest.advanceTimersByTime(350));
   expect(createCard).toHaveBeenCalledTimes(1);
-  await act(async () => { finishCreate(3); await Promise.all([first, second]); });
+  await act(async () => { finishCreate(3); });
   expect(screen.root.findByType('editable-row').props.card.id).toBe(3);
+  expect(screen.root.findByType('editable-row').props.active).toBe(true);
+  jest.useRealTimers();
 });

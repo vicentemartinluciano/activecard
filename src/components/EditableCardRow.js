@@ -28,12 +28,13 @@ function EditableCardRow({
   onToggleStar,
   onToggleSuspended,
   onGym,
+  onMove,
 }) {
   const front = active ? draft.front : card.front;
   const back = active ? draft.back : card.back;
 
   return (
-    <View style={[styles.row, active && styles.rowActive]}>
+    <View style={[styles.row, active && styles.rowActive, Platform.OS === "web" && { breakInside: "avoid", display: "inline-flex", width: "100%", marginBottom: 20 }]}>
       <View style={styles.head}>
         {onGym && <Pressable accessibilityRole="button" accessibilityLabel="Conversar sobre esta tarjeta" onPress={() => onGym(card.id)} style={styles.action}>
           <Feather name="message-circle" size={18} color={colors.accentText} />
@@ -63,6 +64,10 @@ function EditableCardRow({
         <Text style={styles.counter}>
           {index + 1} / {total}
         </Text>
+        {onMove ? <>
+          <Pressable accessibilityRole="button" accessibilityLabel="Subir tarjeta" disabled={index === 0} onPress={() => onMove(card.id, -1)} style={[styles.move, index === 0 && { opacity: .3 }]}><Feather name="arrow-up" size={16} color={colors.textMuted} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Bajar tarjeta" disabled={index === total - 1} onPress={() => onMove(card.id, 1)} style={[styles.move, index === total - 1 && { opacity: .3 }]}><Feather name="arrow-down" size={16} color={colors.textMuted} /></Pressable>
+        </> : null}
         {onToggleSuspended && <Pressable accessibilityRole="button" accessibilityLabel={card.suspended ? "Reanudar tarjeta" : "Suspender tarjeta"} accessibilityState={{ selected: !!card.suspended }} onPress={() => onToggleSuspended(card.id)} hitSlop={2} style={styles.action}>
           <Feather
             name={card.suspended ? "play-circle" : "pause-circle"}
@@ -76,12 +81,14 @@ function EditableCardRow({
         <>
           <NotionField
             value={draft.front}
+            minHeight={56}
             onChangeText={(v) => onChangeDraft({ ...draft, front: v })}
             placeholder="Frente"
             defaultAlign="center"
           />
           <NotionField
             value={draft.back}
+            minHeight={56}
             onChangeText={(v) => onChangeDraft({ ...draft, back: v })}
             placeholder="Dorso"
           />
@@ -94,7 +101,7 @@ function EditableCardRow({
           style={({ pressed }) => pressed && { opacity: 0.7 }}
         >
           <View style={styles.box}>
-            <RichText text={front} style={styles.boxTextFront} defaultAlign="left" />
+            <RichText text={front} style={styles.boxTextFront} defaultAlign="center" />
           </View>
           <View style={[styles.box, styles.boxBack]}>
             <RichText text={back} style={styles.boxText} defaultAlign="left" />
@@ -118,7 +125,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: spacing.sm + 4,
     gap: spacing.sm,
-    ...(Platform.OS === 'web' ? { padding: 20, gap: 16, minHeight: 180 } : {}),
+    ...(Platform.OS === 'web' ? { padding: 16, gap: 12 } : {}),
   },
   rowActive: {
     borderColor: "rgba(62,99,221,0.55)",
@@ -153,6 +160,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  move: { width: 28, height: 36, alignItems: "center", justifyContent: "center" },
   box: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -161,23 +169,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     marginBottom: spacing.sm,
-    ...(Platform.OS === 'web' ? { padding: 16, minHeight: 72 } : {}),
+    ...(Platform.OS === 'web' ? { padding: 12 } : {}),
   },
   boxBack: {
     marginBottom: 0,
   },
-  boxTextFront: {
-    ...type.body,
-    fontSize: 14,
-    ...font(600),
-    lineHeight: 20,
-    ...(Platform.OS === 'web' ? { fontSize: 20, lineHeight: 29 } : {}),
-  },
-  boxText: {
-    ...type.body,
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 19,
-    ...(Platform.OS === 'web' ? { fontSize: 18, lineHeight: 27 } : {}),
-  },
+  boxTextFront: { ...type.body, fontSize: 16, lineHeight: 23.2 },
+  boxText: { ...type.body, fontSize: 16, lineHeight: 23.2 },
 });

@@ -16,7 +16,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export default function Collapsible({ icon, title, summary, defaultOpen = false, children, open: controlledOpen, onToggle }) {
+export default function Collapsible({ icon, title, summary, defaultOpen = false, children, open: controlledOpen, onToggle, triggerHidden = false }) {
   const [internalOpen, setOpen] = useState(defaultOpen);
   const open = controlledOpen ?? internalOpen;
 
@@ -25,6 +25,12 @@ export default function Collapsible({ icon, title, summary, defaultOpen = false,
     if (onToggle) onToggle();
     else setOpen((o) => !o);
   };
+
+  if (triggerHidden) return Platform.OS === "web" ? (
+    <div aria-hidden={!open} inert={!open} style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", opacity: open ? 1 : 0, transition: "grid-template-rows 200ms ease, opacity 200ms ease" }}>
+      <div style={{ minHeight: 0, overflow: "hidden" }}><Card style={{ gap: spacing.md }}>{children}</Card></div>
+    </div>
+  ) : open ? <Card style={{ gap: spacing.md }}>{children}</Card> : null;
 
   return (
     <Card style={{ gap: 0 }}>

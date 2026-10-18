@@ -7,15 +7,30 @@
 // sintonía con src/theme/index.js si el theme cambia.
 
 export const EDITOR_CSS = `
-.nf-tablebar { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 42px 8px 10px; }
-.nf-tablebar button { font: inherit; font-size: 12px; min-height: 36px; padding: 5px 9px; color: #B7B7C2; background: #1C1C22; border: 1px solid #FFFFFF1F; border-radius: 6px; cursor: pointer; }
-.nf-tablebar button[hidden] { display: none; }
-.nf-tablebar button:disabled { opacity: .4; cursor: default; }
-.nf-root .tableWrapper { overflow-x: auto; margin: 8px 0; }
-.nf-root table { border-collapse: collapse; table-layout: fixed; min-width: 100%; }
-.nf-root td, .nf-root th { border: 1px solid #FFFFFF30; min-width: 100px; padding: 8px; vertical-align: top; position: relative; }
-.nf-root th { background: #1C1C22; font-weight: 700; }
-.nf-root .selectedCell { background: #3E63DD30; }
+.nf-root .tableWrapper { overflow-x: auto; max-width: 100%; margin: 12px 0; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.nf-root table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 360px; }
+.nf-root td, .nf-root th { position: relative; min-width: 160px; border: 1px solid #ffffff24; padding: 10px 12px; vertical-align: top; text-align: left; line-height: 1.5; overflow-wrap: anywhere; }
+.nf-root th { background: #3e63dd0d; font-weight: 600; }
+.nf-root .column-resize-handle { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; background: #3e63dd; pointer-events: none; z-index: 2; }
+.nf-root .resize-cursor { cursor: col-resize; }
+.nf-root td[data-nf-active-cell], .nf-root th[data-nf-active-cell] { background: #3e63dd0a; box-shadow: inset 0 0 0 1px #3e63dd66; }
+.nf-root td p, .nf-root th p { margin: 0 0 4px; min-height: 1.5em; }
+.nf-root td > p:last-child, .nf-root th > p:last-child { margin-bottom: 0; }
+.nf-root .selectedCell:after { position: absolute; inset: 0; background: #3e63dd1a; pointer-events: none; content: ""; }
+.nf-table-panel { position: absolute; box-sizing: border-box; z-index: 60; padding: 4px; background: #1c1c22; color: #E9E9EF; border: 1px solid #ffffff26; border-radius: 9px; overflow-y: auto; box-shadow: 0 4px 16px #0004; }
+.nf-table-panel[hidden], .nf-table-options[hidden] { display: none !important; }
+.nf-table-primary { display: flex; align-items: center; gap: 2px; }
+.nf-table-primary .nf-btn { flex: 1; min-width: 0; height: 36px; font-size: 13px; white-space: nowrap; }
+.nf-table-primary .nf-btn:last-child { flex: 0 0 36px; font-size: 22px; }
+.nf-table-options { display: flex; flex-direction: column; border-top: 1px solid #ffffff1f; margin-top: 4px; padding-top: 4px; }
+.nf-table-options .nf-btn { justify-content: flex-start; font-size: 13px; height: 38px; }
+.nf-table-panel .nf-btn:disabled { opacity: .4; cursor: default; }
+.nf-table-panel .nf-btn:focus-visible { outline: 2px solid #3e63dd; outline-offset: -2px; }
+.nf-table-grip { position: absolute; left: 0; width: 24px; height: 28px; padding: 3px; border: 0; border-radius: 4px; color: #8a7f6f; background: transparent; z-index: 4; cursor: pointer; }
+.nf-table-grip[hidden] { display: none !important; }
+.nf-table-grip:hover, .nf-table-grip:focus-visible { background: #ffffff12; color: #3e63dd; }
+.nf-table-grip svg { width: 18px; height: 22px; }
+
 .nf-root {
   position: relative;
   background: #121216;
@@ -34,26 +49,6 @@ export const EDITOR_CSS = `
                        (width: N%) lo achica y margin auto la mantiene centrada */
 }
 .nf-root .ProseMirror img.ProseMirror-selectednode { outline: 2px solid #3E63DD; }
-/* Botón para insertar imagen: fijo abajo a la derecha del campo. */
-.nf-imgbtn {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 8px;
-  background: #1C1C22;
-  color: #B7B7C2;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  z-index: 5;
-}
-.nf-imgbtn:hover { background: #24242C; color: #E9E9EF; }
-.nf-imgbtn svg { width: 16px; height: 16px; display: block; }
 .nf-root .ProseMirror {
   padding: 10px 12px;
   outline: none;
@@ -102,6 +97,8 @@ export const EDITOR_CSS = `
 }
 /* Barrita flotante */
 .nf-bubble {
+  position: absolute;
+  z-index: 65;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -110,8 +107,12 @@ export const EDITOR_CSS = `
   border-radius: 10px;
   padding: 6px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  z-index: 50;
+  z-index: 65;
 }
+.nf-bubble[hidden] { display: none !important; }
+.nf-insert-menu { display: none; gap: 4px; }
+.nf-inserting .nf-insert-menu { display: flex; flex-direction: column; }
+.nf-insert-menu > .nf-btn { justify-content: flex-start; gap: 12px; padding: 10px 12px; min-height: 42px; }
 .nf-bubble * { box-sizing: border-box; }
 .nf-row { display: flex; gap: 4px; align-items: center; }
 .nf-btn {

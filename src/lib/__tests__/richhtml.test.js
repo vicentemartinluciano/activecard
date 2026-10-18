@@ -162,6 +162,23 @@ describe("formatos de bloque estilo Notion", () => {
     expect(roundTrip(marcas)).toBe(marcas);
   });
 
+  test("citas contiguas separadas conservan sus límites al guardar, estudiar y reabrir", () => {
+    const html = "<blockquote><p>Uno</p><p>Dos</p></blockquote><blockquote><p>Tres</p></blockquote>";
+    const marks = htmlToMarks(html);
+    const grouped = groupQuoteRuns(parseRich(marks).map(describeBlock));
+    expect(grouped.map((block) => block.blocks.length)).toEqual([2, 1]);
+    expect(marksToHtml(marks).match(/<blockquote/g)).toHaveLength(2);
+    expect(roundTrip(marks)).toBe(marks);
+    expect(toPlainText(marks)).toBe("Uno\nDos\nTres");
+  });
+
+  test("un párrafo vacío conserva la separación entre citas", () => {
+    const marks = htmlToMarks("<blockquote><p>A</p></blockquote><p></p><blockquote><p>B</p></blockquote>");
+    expect(groupQuoteRuns(parseRich(marks).map(describeBlock)).map((block) => block.kind))
+      .toEqual(["quoteGroup", "p", "quoteGroup"]);
+    expect(roundTrip(marks)).toBe(marks);
+  });
+
   test("una cita ya guardada con la línea vacía heredada se reabre unida", () => {
     const legacy = `${Q}\nTexto citado`;
     expect(marksToHtml(legacy)).toBe("<blockquote>Texto citado</blockquote>");

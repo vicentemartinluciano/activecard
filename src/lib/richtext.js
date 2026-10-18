@@ -1,3 +1,5 @@
+import { validColumnWidths } from "./richTable";
+
 // Formato liviano tipo Notion, guardado como marcas dentro del mismo TEXT
 // de front/back — sin migración de esquema, 100% compatible con tarjetas
 // viejas (que simplemente no tienen marcas).
@@ -33,6 +35,9 @@ const ALIGN_STRIP_RE = /^[\uE000\uE001\uE002]/;
 // lo omite (as\u00ED no ensucia previews / b\u00FAsqueda / contexto de IA).
 export const IMG_SENTINEL = "\uE010";
 export const TABLE_SENTINEL = "\uE030";
+// Inicio explícito de otra cita contigua; las líneas E023 siguen perteneciendo
+// a la misma cita. Conserva la lectura de todas las tarjetas anteriores.
+export const QUOTE_START_SENTINEL = "\uE024";
 
 export function encodeTable(rows) {
   return TABLE_SENTINEL + encodeURIComponent(JSON.stringify(rows));
@@ -42,7 +47,14 @@ export function decodeTable(line) {
   if (!line.startsWith(TABLE_SENTINEL)) return null;
   try {
     const rows = JSON.parse(decodeURIComponent(line.slice(1)));
-    if (!Array.isArray(rows) || !rows.length || rows.some((row) => !Array.isArray(row) || !row.length || row.some((cell) => typeof cell?.text !== "string"))) return null;
+    if (!Array.isArray(rows) || !rows.length || rows.some((row) => !Array.isArray(row) || row.some((cell) => typeof cell?.text !== "string"))) return null;
+    for (const row of rows) for (const cell of row) {
+      for (const key of ["colspan", "rowspan"]) {
+        if (cell[key] == null) cell[key] = 1;
+        if (!Number.isSafeInteger(cell[key]) || cell[key] < 1 || cell[key] > 1000) return null;
+      }
+      if (cell.colwidth != null && !validColumnWidths(cell.colwidth, cell.colspan)) delete cell.colwidth;
+    }
     return rows;
   } catch { return null; }
 }
@@ -59,7 +71,7 @@ export const BLOCK_SENTINELS = {
 export const BLOCK_BY_CHAR = Object.fromEntries(
   Object.entries(BLOCK_SENTINELS).map(([key, value]) => [value, key])
 );
-const BLOCK_STRIP_RE = /^[\uE020-\uE023]/;
+const BLOCK_STRIP_RE = /^[\uE020-\uE024]/;
 const LEGACY_EMPTY_QUOTE_RE = /^([\uE000\uE001\uE002]?)\uE023$/;
 
 const COLOR_RE = /^\[\[([a-zA-Z]+):/;
@@ -138,7 +150,7 @@ export function parseRich(text) {
 
     const nextAlign = ALIGN_BY_CHAR[lines[i + 1][0]] ? lines[i + 1][0] : "";
     const nextContent = nextAlign ? lines[i + 1].slice(1) : lines[i + 1];
-    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(IMG_SENTINEL) || nextContent.startsWith(TABLE_SENTINEL)) continue;
+    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(QUOTE_START_SENTINEL) || nextContent.startsWith(IMG_SENTINEL) || nextContent.startsWith(TABLE_SENTINEL)) continue;
 
     lines[i + 1] = `${nextAlign || legacy[1]}${BLOCK_SENTINELS.quote}${nextContent}`;
     lines.splice(i, 1);

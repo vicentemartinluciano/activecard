@@ -2,6 +2,19 @@
 
 import { getDb } from "./client";
 
+export async function listCardDrafts(deckId) {
+  const db = await getDb();
+  const prefix = `cardDraft:${deckId}:`;
+  const rows = await db.getAllAsync("SELECT key,value FROM settings WHERE key LIKE ?", [`${prefix}%`]);
+  return rows.flatMap((row) => {
+    try {
+      const value = JSON.parse(row.value);
+      if (!value || typeof value.front !== "string" || typeof value.back !== "string") return [];
+      return [{ ...value, keyId: row.key.slice(prefix.length) === "new" ? null : Number(row.key.slice(prefix.length)) }];
+    } catch { return []; }
+  });
+}
+
 export async function getSetting(key, fallback = null) {
   const db = await getDb();
   if (key === "dailyLimits") {
