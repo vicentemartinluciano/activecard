@@ -34,6 +34,10 @@ try {
   await assert.rejects(() => api.moveFolder(root, 999), /subcarpeta/);
   const deck = await api.createDeck("Conceptos");
   await db.runAsync("UPDATE decks SET folder_id = ? WHERE id = ?", [leaf, deck]);
+  const draftKey = `cardDraft:${deck}:new`;
+  const recoveredId = await api.createCard({ deckId: deck, front: "Borrador", back: "Completo", draftKey });
+  assert.equal(JSON.parse((await db.getFirstAsync("SELECT value FROM settings WHERE key = ?", [draftKey])).value).cardId, recoveredId);
+  await db.runAsync("DELETE FROM cards WHERE id = ?", [recoveredId]);
   const card = await api.createCard({ deckId: deck, front: "Pregunta", back: "Respuesta" });
   await api.reviewCard(await api.getCard(card), "good", "daily", new Date("2026-10-16T12:00:00Z"));
   await raw.runAsync("INSERT INTO settings(key,value) VALUES('privateKey','NO-COMPARTIR')");

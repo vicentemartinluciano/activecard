@@ -176,7 +176,7 @@ export default function SwipeCard({ ref, cardId, children, onSwipeLeft, onSwipeR
   }, []);
 
   const nestedInteraction = useRef(false);
-  useEffect(() => { nestedInteraction.current = false; }, [cardId]);
+  useEffect(() => { nestedInteraction.current = false; nestedInteraction.suppressFlipUntil = 0; }, [cardId]);
   const responder = useRef(null);
   if (!responder.current) responder.current = PanResponder.create({
     // Tomar el gesto con arrastre horizontal real (para no robarle el tap al

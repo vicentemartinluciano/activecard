@@ -85,7 +85,8 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - Borrar mazos o carpetas requiere escribir el nombre exacto. Al borrar una carpeta, los
   mazos no seleccionados para borrar quedan sueltos.
 - Las ideas son tarjetas reales con `source='hybrid'`; el Gimnasio es una vista derivada.
-- Crear mazos, carpetas o contenido se centraliza en la pestaña Crear.
+- Crear mazos y carpetas se centraliza en la pestaña Crear. Las tarjetas manuales
+  también se crean dentro del mazo, en el mismo editor con autoguardado.
 - Biblioteca consulta, busca, filtra y organiza.
 - Los datos viven localmente. Martín aprobó sync privada con el acceso/proyecto de REANCLA, datos separados y conversaciones incluidas. No ampliar ese alcance sin una decisión explícita.
 - Por ahora no implementar multiproveedor ni “cualquier API”. OpenAI/Luna es la decisión
@@ -121,6 +122,11 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - No exponer claves en logs, commits, documentación ni respaldos.
 
 ## UI
+
+- Un solo modo editable para los mazos. Guardado automático en cola; borradores
+  incompletos locales en `settings`, fuera de FSRS, backup y sync. Mantener una
+  sola tarjeta con editores montados. Editor individual y lista usan
+  `EditableCardRow`. Insertar imagen/tabla desde la pill contextual.
 
 - Fondo `#09090B`, Plus Jakarta Sans, acento cobalto y progreso verde.
 - Gimnasio con fondo estrellado suave; no alterar el fondo sin pedido explícito.

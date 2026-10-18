@@ -1,14 +1,13 @@
 import Feather from "@expo/vector-icons/Feather";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Sortable from "react-native-sortables";
+import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../../components/ActionSheet";
 import Collapsible from "../../../components/Collapsible";
 import ConfirmDeleteSheet from "../../../components/ConfirmDeleteSheet";
+import useCardAutosaveLifecycle from "../../../components/useCardAutosaveLifecycle";
 import EditableCardRow from "../../../components/EditableCardRow";
 import GlowPressable from "../../../components/GlowPressable";
 import IconPicker from "../../../components/IconPicker";
@@ -16,16 +15,13 @@ import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
 import Stagger from "../../../components/Stagger";
 import Toast from "../../../components/Toast";
-import { Button, Card, Chip, confirmAsync, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
+import { Button, Card, Chip, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
 import { useDesktopBeforeNavigate } from "../../../components/DesktopShell";
 import {
   listCardsByDeck,
-  createCard,
-  getCard,
   setCardPositions,
   setCardStarred,
   setCardSuspended,
-  updateCardText,
 } from "../../../db/cards";
 import {
   deleteDeck,
@@ -41,12 +37,12 @@ import {
 import { listFolders } from "../../../db/folders";
 import { getDeckDailyProgress } from "../../../db/progress";
 import { getDeckRecallScore } from "../../../db/stats";
-import { getSetting, setSetting } from "../../../db/settings";
-import { toPlainText } from "../../../lib/richtext";
+import { getSetting, setSetting, listCardDrafts } from "../../../db/settings";
+import { createCardAutosave, readCardDraft } from "../../../lib/cardAutosave";
 import { exportDeck } from "../../../lib/backupIO";
 import { folderPath } from "../../../lib/folderTree";
 import { filterDeckCards } from "../../../lib/search";
-import { colors, font, glow, gradients, radius, spacing, textColors, type } from "../../../theme";
+import { colors, font, glow, gradients, radius, spacing, type } from "../../../theme";
 
 // Botón destacado con la visual del hero de Inicio (degradado azul).
 // Se usa arriba del mazo y como "Empezar" del sheet de estudio. El halo cobalto
@@ -63,30 +59,6 @@ export function HeroButton({ label, onPress, style }) {
         <Text style={styles.heroBtnLabel}>{label}</Text>
       </LinearGradient>
     </GlowPressable>
-  );
-}
-
-function StarToggle({ starred, onPress, size = 18 }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={starred ? "Quitar de destacadas" : "Destacar tarjeta"} accessibilityState={{ selected: !!starred }} onPress={onPress} hitSlop={2} style={styles.cardAction}>
-      {starred ? (
-        <FontAwesome name="star" size={size} color="#FFC53D" />
-      ) : (
-        <Feather name="star" size={size} color={colors.textMuted} />
-      )}
-    </Pressable>
-  );
-}
-
-function SuspendToggle({ suspended, onPress, size = 18 }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={suspended ? "Reanudar tarjeta" : "Suspender tarjeta"} accessibilityState={{ selected: !!suspended }} onPress={onPress} hitSlop={2} style={styles.cardAction}>
-      <Feather
-        name={suspended ? "play-circle" : "pause-circle"}
-        size={size}
-        color={suspended ? colors.accentText : colors.textMuted}
-      />
-    </Pressable>
   );
 }
 
@@ -113,7 +85,6 @@ export default function DetalleMazo() {
   const [recallScore, setRecallScore] = useState(null);
   // Modo edición: todas las tarjetas abiertas, se editan sin entrar a cada una.
   // activeId es la única que monta editores de verdad (ver EditableCardRow).
-  const [editMode, setEditMode] = useState(true);
   const [twoColumns, setTwoColumns] = useState(false);
   const [cardsWidth, setCardsWidth] = useState(0);
   const [activeId, setActiveId] = useState(null);
@@ -131,7 +102,9 @@ export default function DetalleMazo() {
   const cardsRef = useRef(cards);
   const activeIdRef = useRef(activeId);
   const draftRef = useRef(draft);
-  const commitInFlightRef = useRef(null);
+  const autosaveRef = useRef(null);
+  const activationRef = useRef(0);
+  const [saveStatus, setSaveStatus] = useState("");
 
   useEffect(() => {
     cardsRef.current = cards;
@@ -145,6 +118,7 @@ export default function DetalleMazo() {
 
   const load = useCallback(async () => {
     try {
+      if (autosaveRef.current && !await autosaveRef.current.flush()) return;
       const d = await getDeck(deckId);
       setDeck(d);
       if (!d) {
@@ -153,7 +127,14 @@ export default function DetalleMazo() {
       }
       if (d) {
         setName(d.name);
-        const loadedCards = await listCardsByDeck(deckId);
+        const loadedCards = (await listCardsByDeck(deckId)).map((card) => ({ ...card, localKey: cardsRef.current.find((item) => item.id === card.id)?.localKey }));
+        const localDrafts = await listCardDrafts(deckId);
+        for (const card of loadedCards) {
+          const local = localDrafts.find((draft) => (draft.cardId || draft.keyId) === card.id);
+          if (local) { card.front = local.front; card.back = local.back; }
+        }
+        const newDraft = await readCardDraft(deckId);
+        if (newDraft && !newDraft.cardId) loadedCards.push({ id: "new", localKey: cardsRef.current.find((item) => item.id === "new")?.localKey || "restored-new", deck_id: deckId, source: "manual", front: newDraft.front, back: newDraft.back });
         cardsRef.current = loadedCards;
         setCards(loadedCards);
         setLoadedDeckId(deckId);
@@ -170,7 +151,6 @@ export default function DetalleMazo() {
 
   const refresh = useCallback(() => {
     allowNavigationRef.current = false;
-    setEditMode(true);
     load();
   }, [load]);
 
@@ -185,69 +165,14 @@ export default function DetalleMazo() {
     });
   }, []);
 
-  const commitDraft = useCallback(() => {
-    if (commitInFlightRef.current) return commitInFlightRef.current;
-    const save = async () => {
-    const editingId = activeIdRef.current;
-    if (editingId == null) return true;
-    const front = draftRef.current.front.trim();
-    const back = draftRef.current.back.trim();
-    if (editingId === "new") {
-      if (!front && !back) {
-        activeIdRef.current = null;
-        setActiveId(null);
-        return true;
-      }
-      if (!front || !back) { setEditError("Completá el frente y el dorso antes de guardar."); return false; }
-      try {
-        const newId = await createCard({ deckId, front, back });
-        const created = await getCard(newId);
-        const next = [...cardsRef.current, created];
-        cardsRef.current = next;
-        setCards(next);
-        activeIdRef.current = null;
-        setActiveId(null);
-        setEditError("");
-        return true;
-      } catch { setEditError("No pudimos crear la tarjeta. Volvé a intentar."); return false; }
-    }
-    const original = cardsRef.current.find((c) => c.id === editingId);
-    if (!original) return true;
-    if (!front || !back) {
-      setEditError("Completá el frente y el dorso antes de salir.");
-      return false;
-    }
-    if (front === original.front && back === original.back) {
-      setEditError("");
-      return true;
-    }
-    try {
-      await updateCardText(editingId, front, back, { markReviewed: true, expected: { front: original.front, back: original.back } });
-      setCards((current) => {
-        const next = current.map((card) =>
-          card.id === editingId
-            ? { ...card, front, back, source: card.source === "ai" ? "manual" : card.source }
-            : card
-        );
-        cardsRef.current = next;
-        return next;
-      });
-      setEditError("");
-      return true;
-    } catch (error) {
-      setEditError(error.message || "No pudimos guardar esta tarjeta. Volvé a intentar.");
-      return false;
-    }
-    };
-    commitInFlightRef.current = save().finally(() => { commitInFlightRef.current = null; });
-    return commitInFlightRef.current;
-  }, [deckId]);
+  const commitDraft = useCallback(async () => autosaveRef.current ? autosaveRef.current.flush() : true, []);
+  useCardAutosaveLifecycle(autosaveRef);
 
   useDesktopBeforeNavigate(commitDraft);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (event) => {
-      if (!editMode || activeId == null || allowNavigationRef.current) return;
+      if (activeId == null || allowNavigationRef.current) return;
       event.preventDefault();
       if (savingDraftRef.current) return;
       savingDraftRef.current = true;
@@ -262,7 +187,7 @@ export default function DetalleMazo() {
         });
     });
     return unsubscribe;
-  }, [activeId, commitDraft, editMode, navigation]);
+  }, [activeId, commitDraft, navigation]);
 
   const toggleStar = useCallback(async (cardId) => {
     const item = cardsRef.current.find((card) => card.id === cardId);
@@ -294,29 +219,53 @@ export default function DetalleMazo() {
 
   const activateRow = useCallback(async (cardId) => {
     if (cardId === activeIdRef.current) return;
-    const saved = await commitDraft();
-    if (!saved) return;
+    const activation = ++activationRef.current;
+    if (!await commitDraft()) return;
     const card = cardsRef.current.find((candidate) => candidate.id === cardId);
     if (!card) return;
-    const nextDraft = { front: card.front, back: card.back };
+    const restored = await readCardDraft(deckId, cardId === "new" ? null : cardId);
+    if (activation !== activationRef.current) return;
+    const nextDraft = restored || { front: card.front, back: card.back };
+    autosaveRef.current = createCardAutosave({ deckId, card: cardId === "new" ? null : card, restored,
+      onStatus: (status, error) => { setSaveStatus(status); setEditError(error || ""); },
+      onSaved: (saved) => {
+        const created = cardId === "new" && cardsRef.current.some((item) => item.id === "new");
+        const next = cardsRef.current.map((item) => item.id === cardId || item.id === saved.id ? {
+          ...item, id: saved.id, deck_id: saved.deck_id, source: saved.source, front: saved.front, back: saved.back,
+        } : item);
+        cardsRef.current = next;
+        setCards(next);
+        if (created) getDeckDailyProgress(deckId).then(setProgress).catch(() => {});
+        if (activeIdRef.current === cardId) { activeIdRef.current = saved.id; setActiveId(saved.id); }
+      },
+    });
     activeIdRef.current = cardId;
     draftRef.current = nextDraft;
-    setActiveId(cardId);
-    setDraft(nextDraft);
-  }, [commitDraft]);
+    setActiveId(cardId); setDraft(nextDraft);
+    setSaveStatus(restored ? "draft" : "");
+    if (restored) autosaveRef.current.change(nextDraft);
+  }, [commitDraft, deckId]);
 
   const changeDraft = useCallback((nextDraft) => {
     draftRef.current = nextDraft;
     setDraft(nextDraft);
+    autosaveRef.current?.change(nextDraft);
+    // Mantiene visible el texto parcial al activar otra fila; la persistencia
+    // del borrador es local hasta completar ambas caras.
+    setCards((current) => {
+      const next = current.map((card) => card.id === activeIdRef.current ? { ...card, ...nextDraft } : card);
+      cardsRef.current = next; return next;
+    });
   }, []);
 
   const addInlineCard = async () => {
     if (!await commitDraft()) return;
-    setEditMode(true);
     setCardQuery(""); setCardFilter(null);
-    const empty = { front: "", back: "" };
-    activeIdRef.current = "new"; draftRef.current = empty;
-    setActiveId("new"); setDraft(empty);
+    if (!cardsRef.current.some((card) => card.id === "new")) {
+      const next = [...cardsRef.current, { id: "new", localKey: `draft-${Date.now()}`, source: "manual", front: "", back: "" }];
+      cardsRef.current = next; setCards(next);
+    }
+    await activateRow("new");
   };
 
   const openGym = async (cardId) => {
@@ -330,6 +279,7 @@ export default function DetalleMazo() {
   };
 
   const toggleDetails = () => {
+    LayoutAnimation?.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowDetails((value) => !value);
   };
 
@@ -349,7 +299,7 @@ export default function DetalleMazo() {
   const filteringCards = !!cardQuery.trim() || cardFilter != null;
   const gridColumns = twoColumns && cardsWidth >= 740 ? 2 : 1;
   const cardGrid = (children) => Platform.OS === 'web'
-    ? <View onLayout={(event) => setCardsWidth(event.nativeEvent.layout.width)}><div data-deck-columns={gridColumns} style={{ display: 'grid', gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`, gap: 20, alignItems: 'start' }}>{children}</div></View>
+    ? <View onLayout={(event) => setCardsWidth(event.nativeEvent.layout.width)}><div data-deck-columns={gridColumns} style={{ columnCount: gridColumns, columnGap: 20 }}>{children}</div></View>
     : <View style={{ gap: spacing.sm }}>{children}</View>;
   const toggleColumns = async () => {
     const next = !twoColumns;
@@ -380,15 +330,6 @@ export default function DetalleMazo() {
 
   const onDelete = () => setDeleteOpen(true);
 
-  const exitEditMode = async () => {
-    const saved = await commitDraft();
-    if (!saved) return;
-    activeIdRef.current = null;
-    setActiveId(null);
-    setEditMode(false);
-    load();
-  };
-
   const startStudy = async () => {
     if (!await commitDraft()) return;
     const stars = starsOnly && starredCount > 0;
@@ -398,64 +339,17 @@ export default function DetalleMazo() {
   };
 
   const moveCard = async (cardId, offset) => {
-    const next = [...cardsRef.current];
+    if (!await commitDraft()) return;
+    const pending = cardsRef.current.filter((card) => card.id === "new");
+    const next = cardsRef.current.filter((card) => card.id !== "new");
     const from = next.findIndex((card) => card.id === cardId);
     const to = from + offset;
     if (from < 0 || to < 0 || to >= next.length) return;
     [next[from], next[to]] = [next[to], next[from]];
-    try { await setCardPositions(deckId, next.map((card) => card.id)); cardsRef.current = next; setCards(next); }
+    try { await setCardPositions(deckId, next.map((card) => card.id)); cardsRef.current = [...next, ...pending]; setCards(cardsRef.current); }
     catch { setEditError("No pudimos guardar el orden."); }
   };
 
-  const cardRow = (item) => (
-    <Card
-      level="high"
-      style={styles.card}
-    >
-      <Pressable accessibilityRole="button" accessibilityLabel="Editar tarjeta" onPress={() => router.push(`/mazos/${deckId}/tarjeta?cardId=${item.id}`)} style={{ flex: 1, gap: 4 }}>
-        <Text style={styles.cardFront} numberOfLines={2}>
-          {toPlainText(item.front)}
-        </Text>
-        <View style={styles.cardPills}>
-          {item.source === "hybrid" ? (
-            <Pill icon="zap" label="Idea" color={textColors.violeta} style={styles.ideaPill} />
-          ) : null}
-          {item.source === "ai" ? (
-            <Pill icon="cpu" label="Sin revisar" color={colors.accentText} />
-          ) : null}
-          {item.suspended ? (
-            <Pill icon="pause-circle" label="Suspendida" color={colors.textMuted} />
-          ) : null}
-        </View>
-        <Text style={[type.small, Platform.OS === 'web' && { fontSize: 16, lineHeight: 24 }]} numberOfLines={2}>
-          {toPlainText(item.back)}
-        </Text>
-      </Pressable>
-      {/* Las tres acciones apiladas a la derecha. El "Pensar esto con el socio"
-          era un texto que se comía una línea entera de la fila: ahora es el
-          ícono solo, alineado con la suspensión y la estrella. */}
-      <View style={styles.cardActions}>
-        {Platform.OS === "web" && !filteringCards && <View style={{ flexDirection: "row" }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Subir tarjeta" disabled={cards[0]?.id === item.id} onPress={() => moveCard(item.id, -1)} style={styles.cardAction}><Feather name="arrow-up" size={18} color={colors.textMuted} /></Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Bajar tarjeta" disabled={cards[cards.length - 1]?.id === item.id} onPress={() => moveCard(item.id, 1)} style={styles.cardAction}><Feather name="arrow-down" size={18} color={colors.textMuted} /></Pressable>
-        </View>}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Conversar sobre esta tarjeta"
-          onPress={() => router.push(`/gimnasio/nueva?cardId=${item.id}`)}
-          hitSlop={2}
-          style={({ pressed }) => [styles.cardAction, pressed && { opacity: 0.65 }]}
-        >
-          <Feather name="message-circle" size={18} color={colors.accentText} />
-        </Pressable>
-        <SuspendToggle
-          suspended={!!item.suspended}
-          onPress={() => toggleSuspended(item.id)}
-        />
-        <StarToggle starred={!!item.starred} onPress={() => toggleStar(item.id)} />
-      </View>
-    </Card>
-  );
 
   return (
     <Screen>
@@ -464,27 +358,19 @@ export default function DetalleMazo() {
           headerShown: Platform.OS !== 'web',
           title: deck.name,
           headerTitle: () => <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" onPress={() => setEditingName(true)}><Text style={type.label}>{deck.name}</Text></Pressable>,
-          headerRight: () =>
-            !editMode ? (
-              <Pressable onPress={() => setEditMode(true)} hitSlop={10}>
-                <Text style={styles.doneLabel}>Listo</Text>
-              </Pressable>
-            ) : (
-              <Pressable onPress={() => setMenuOpen(true)} hitSlop={10}>
-                <Feather name="more-horizontal" size={22} color={colors.text} />
-              </Pressable>
-            ),
+          headerRight: () => <View style={{ flexDirection: "row" }}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Detalles del mazo" accessibilityState={{ expanded: showDetails }} onPress={toggleDetails} style={styles.cardAction}><Feather name="sliders" size={20} color={showDetails ? colors.accentText : colors.textMuted} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Opciones del mazo" onPress={() => setMenuOpen(true)} style={styles.cardAction}><Feather name="more-horizontal" size={22} color={colors.text} /></Pressable>
+          </View>,
         }}
       />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         {Platform.OS === "web" && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 20 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" style={{ flex: 1 }} onPress={() => setEditingName(true)}><Text style={[type.heading, { fontSize: 28 }]}>{deck.name}</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Detalles del mazo" accessibilityState={{ expanded: showDetails }} onPress={toggleDetails} style={styles.cardAction}><Feather name="sliders" size={21} color={showDetails ? colors.accentText : colors.textMuted} /></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={twoColumns ? 'Mostrar tarjetas en lista' : 'Mostrar tarjetas en dos columnas'} accessibilityState={{ selected: twoColumns }} onPress={toggleColumns} style={({ hovered }) => ({ width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered || twoColumns ? colors.surfaceHigh : 'transparent' })}>
             <Feather name={twoColumns ? 'list' : 'columns'} size={21} color={twoColumns ? colors.accentText : colors.textMuted} />
           </Pressable>
-          <Button label={editMode ? 'Reordenar tarjetas' : 'Volver a editar'} onPress={editMode ? exitEditMode : () => {
-            allowNavigationRef.current = false; setEditError(''); setEditMode(true); activeIdRef.current = null; setActiveId(null);
-          }} />
           <Button label="Estudiar" kind="primary" onPress={() => setStudySheet(true)} />
           <Pressable accessibilityRole="button" accessibilityLabel="Opciones del mazo" onPress={() => setMenuOpen(true)} style={{ padding: 10 }}><Feather name="more-horizontal" size={20} color={colors.textMuted} /></Pressable>
         </View>}
@@ -492,8 +378,7 @@ export default function DetalleMazo() {
           <Stagger>
           {editingName ? (
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <Field value={name} onChangeText={setName} style={{ flex: 1 }} autoFocus />
-              <Button label="Guardar" kind="primary" onPress={saveName} />
+              <Field value={name} onChangeText={setName} style={{ flex: 1 }} autoFocus onBlur={saveName} onSubmitEditing={saveName} />
             </View>
           ) : Platform.OS !== "web" ? (
             <HeroButton
@@ -503,10 +388,7 @@ export default function DetalleMazo() {
             />
           ) : null}
 
-          {activeId != null && activeId !== "new" && <Button label="Guardar cambios" onPress={async () => {
-            if (await commitDraft()) { activeIdRef.current = null; setActiveId(null); }
-          }} />}
-
+          {saveStatus === "saving" || saveStatus === "draft" ? <Text style={type.small}>{saveStatus === "saving" ? "Guardando…" : "Borrador guardado en este dispositivo · completá ambas caras para estudiar"}</Text> : null}
           {progress && progress.total > 0 ? (
             <Card style={{ gap: spacing.sm }}>
               <View style={styles.progressHead}>
@@ -522,7 +404,7 @@ export default function DetalleMazo() {
             </Card>
           ) : null}
 
-          <Collapsible icon="sliders" title="Editar detalles" open={showDetails} onToggle={toggleDetails}>
+          <Collapsible triggerHidden open={showDetails}>
               <View style={{ gap: spacing.sm }}>
                 <Text style={type.label}>Etiquetas</Text>
                 <View style={styles.tagRow}>
@@ -653,52 +535,16 @@ export default function DetalleMazo() {
             <EmptyState text="Este mazo no tiene tarjetas todavía." />
           ) : visibleCards.length === 0 ? (
             <EmptyState text="No hay tarjetas que coincidan con este filtro." icon="search" />
-          ) : editMode ? (
-            // En modo edición la lista va plana: el drag & drop y los editores
-            // no pueden convivir (uno necesita long-press, el otro el foco).
-            cardGrid(visibleCards.map((item, i) => (
-                <EditableCardRow
-                  key={item.id}
-                  card={item}
-                  index={i}
-                  total={visibleCards.length}
-                  active={activeId === item.id}
-                  draft={activeId === item.id ? draft : null}
-                  onActivate={activateRow}
-                  onChangeDraft={changeDraft}
-                  onToggleStar={toggleStar}
-                  onToggleSuspended={toggleSuspended}
-                  onGym={openGym}
-                />
-              )))
-          ) : Platform.OS === "web" || filteringCards ? (
-            // El drag & drop es para el teléfono y solo sobre la lista completa:
-            // reordenar un subconjunto filtrado generaría posiciones ambiguas.
-            cardGrid(visibleCards.map((item) => <View key={item.id}>{cardRow(item)}</View>))
-          ) : (
-            <Sortable.Grid
-              columns={1}
-              data={visibleCards}
-              keyExtractor={(c) => String(c.id)}
-              rowGap={spacing.sm}
-              onDragEnd={async ({ data }) => {
-                setCards(data);
-                await setCardPositions(deckId, data.map((c) => c.id));
-              }}
-              renderItem={({ item }) => cardRow(item)}
-            />
-          )}
+          ) : cardGrid(visibleCards.map((item, i) => (
+            <EditableCardRow key={item.localKey || item.id} card={item} index={i} total={visibleCards.length}
+              active={activeId === item.id} draft={activeId === item.id ? draft : null}
+              onActivate={activateRow} onChangeDraft={changeDraft}
+              onToggleStar={item.id === "new" ? null : toggleStar}
+              onToggleSuspended={item.id === "new" ? null : toggleSuspended}
+              onGym={item.id === "new" ? null : openGym}
+              onMove={!filteringCards && item.id !== "new" ? moveCard : null} />
+          )))}
 
-          {activeId === "new" && <View style={{ gap: spacing.sm }}>
-            <EditableCardRow card={{ id: "new", source: "manual" }} index={cards.length} total={cards.length + 1} active draft={draft} onChangeDraft={changeDraft} />
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <Button label="Guardar tarjeta" kind="primary" onPress={commitDraft} />
-              <Button label="Cancelar" onPress={async () => {
-                if ((draftRef.current.front || draftRef.current.back) && !await confirmAsync("Descartar tarjeta", "Se perderá el contenido de esta tarjeta nueva.")) return;
-                activeIdRef.current = null; setActiveId(null); setEditError("");
-              }} />
-            </View>
-          </View>}
           <Pressable
             accessibilityRole="button" accessibilityLabel="Nueva tarjeta"
             onPress={addInlineCard}
@@ -711,6 +557,7 @@ export default function DetalleMazo() {
       </ScrollView>
 
       <ConfirmDeleteSheet visible={deleteOpen} name={deck.name} description={`Se borrará el mazo con sus ${cards.length} tarjetas. No se puede deshacer.`} onClose={() => setDeleteOpen(false)} onConfirm={async () => {
+        await autosaveRef.current?.cancel();
         await deleteDeck(deckId); allowNavigationRef.current = true; activeIdRef.current = null; setActiveId(null);
         if (router.canGoBack()) router.back(); else router.replace("/biblioteca");
       }} />
@@ -719,18 +566,6 @@ export default function DetalleMazo() {
         onClose={() => setMenuOpen(false)}
         title={deck.name}
         options={[
-          {
-            icon: "edit-3",
-            label: editMode ? "Reordenar tarjetas" : "Volver a editar",
-            onPress: async () => {
-              if (editMode) { await exitEditMode(); return; }
-              allowNavigationRef.current = false;
-              setEditError("");
-              setEditMode(true);
-              activeIdRef.current = null;
-              setActiveId(null);
-            },
-          },
           { icon: "share-2", label: "Compartir / Exportar", onPress: shareDeck },
           {
             icon: "sliders",

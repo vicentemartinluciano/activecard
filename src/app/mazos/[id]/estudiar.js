@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import ConfettiOverlay from "../../../components/ConfettiOverlay";
+import ChatAuditor from "../../../components/ChatAuditor";
 import FlipCard from "../../../components/FlipCard";
 import ProgressBar from "../../../components/ProgressBar";
 import Skeleton from "../../../components/Skeleton";
@@ -42,7 +43,7 @@ function SummaryHaptic() {
 }
 
 // Modo Quizlet: se estudia el mazo deslizando. Alimenta el algoritmo FSRS
-// igual que el repaso diario, pero sin pasar por el Gimnasio Mental. La
+// igual que el repaso diario, con Gimnasio opcional para esa tarjeta. La
 // sesión NO repite lo que ya estudiaste hoy en este modo (se deriva de
 // review_logs, así que sobrevive a salir y volver a entrar) y, al terminar,
 // ofrece una ronda extra opcional con lo que salió mal.
@@ -65,6 +66,8 @@ export default function Estudiar() {
   const [round, setRound] = useState([]); // tarjetas de la ronda actual
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [gymArmed, setGymArmed] = useState(false);
+  const [phase, setPhase] = useState("card");
   const [counts, setCounts] = useState({ good: 0, hard: 0, again: 0 });
   const [failedIds, setFailedIds] = useState([]);
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
@@ -83,6 +86,8 @@ export default function Estudiar() {
     );
     setIndex(0);
     setFlipped(false);
+    setGymArmed(false);
+    setPhase("card");
     setCounts({ good: 0, hard: 0, again: 0 });
     setFailedIds([]);
     setHistory([]);
@@ -134,7 +139,14 @@ export default function Estudiar() {
     setHistory((h) => [...h, { index, cardId: card.id, prev, logId: updated.logId, rating }]);
     setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
     if (rating === "again") setFailedIds((f) => [...f, card.id]);
+    if (gymArmed) setPhase("gym");
+    else next();
+  };
+
+  const next = () => {
     setFlipped(false);
+    setGymArmed(false);
+    setPhase("card");
     setIndex((i) => i + 1);
   };
 
@@ -152,6 +164,8 @@ export default function Estudiar() {
     }
     setIndex(last.index);
     setFlipped(false);
+    setGymArmed(false);
+    setPhase("card");
   };
 
   const studyAgain = async () => {
@@ -212,7 +226,7 @@ export default function Estudiar() {
   );
 
   const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
-  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && !sessionComplete && index < round.length, flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
+  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && phase === 'card' && !sessionComplete && index < round.length, flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
   useEffect(() => {
     if (!sessionComplete) return;
     syncReviewReminder().catch(() => {});
@@ -296,6 +310,10 @@ export default function Estudiar() {
 
   const card = round[index];
 
+  if (phase === "gym") return (
+    <Screen><Stack.Screen options={{ headerShown: false }} /><ChatAuditor card={card} onDone={next} /></Screen>
+  );
+
   return (
     <Screen safeTop background={<StarField />} style={{ maxWidth: layout.studyMaxWidth, paddingTop: spacing.sm, paddingBottom: spacing.sm }}>
       <Stack.Screen options={{ title: "", headerShown: false }} />
@@ -338,6 +356,8 @@ export default function Estudiar() {
             starred={!!card.starred}
             onToggleStar={() => toggleStar(card)}
             onEdit={() => editCard(card)}
+            gymArmed={gymArmed}
+            onToggleGym={() => setGymArmed((value) => !value)}
           />
         </SwipeCard>
       </View>
@@ -365,6 +385,7 @@ export default function Estudiar() {
           <Feather name="check" size={26} color={ratingColors.good} />
         </Pressable>
       </View>
+      {gymArmed ? <Text style={{ ...type.small, textAlign: "center", color: colors.textMuted }}>Después de calificar, abrimos el Gimnasio para esta tarjeta.</Text> : null}
       {!!keyboardError && <Text style={{ color: colors.danger, textAlign: 'center' }}>{keyboardError}</Text>}
     </Screen>
   );

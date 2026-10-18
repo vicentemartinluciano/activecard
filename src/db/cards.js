@@ -17,10 +17,11 @@ export const FSRS_COLS = [
   "last_review",
 ];
 
-export async function createCard({ deckId, front, back, source = "manual", originCardId = null }) {
+export async function createCard({ deckId, front, back, source = "manual", originCardId = null, draftKey = null }) {
   const db = await getDb();
   const s = newCardState();
-  const res = await db.runAsync(
+  const insert = async (connection) => {
+  const res = await connection.runAsync(
     `INSERT INTO cards (deck_id, front, back, source, origin_card_id, created_at,
        due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses,
        learning_steps, state, last_review, starred, position)
@@ -46,7 +47,17 @@ export async function createCard({ deckId, front, back, source = "manual", origi
       deckId,
     ]
   );
-  return res.lastInsertRowId;
+  const id = res.lastInsertRowId;
+  if (draftKey) await connection.runAsync(
+    "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+    [draftKey, JSON.stringify({ front: front.trim(), back: back.trim(), cardId: id,
+      expected: { front: front.trim(), back: back.trim() } })]
+  );
+  return id;
+  };
+  // La identidad del borrador queda atómica con el INSERT: tras un cierre
+  // inesperado, recuperar la sesión nunca crea una segunda tarjeta.
+  return draftKey ? withDbTransaction(db, insert) : insert(db);
 }
 
 export async function updateCardText(id, front, back, { markReviewed = false, expected = null } = {}) {

@@ -4,10 +4,11 @@
 
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
 import RichText from "./RichText";
+import { StudyInteractionContext } from "./StudyInteractionContext";
 import { colors, radius, spacing, textColors, type } from "../theme";
 import { isStudyControl } from "../lib/studyControls";
 
@@ -46,6 +47,12 @@ export default function FlipCard({
   onEdit,
 }) {
   const { height } = useWindowDimensions();
+  const interactionRef = useContext(StudyInteractionContext);
+  const handleFlip = (event) => {
+    if (interactionRef?.current || interactionRef?.suppressFlipUntil > Date.now()) return;
+    if (Platform.OS === "web" && isStudyControl(event?.target)) return;
+    onFlip();
+  };
   const scaleX = useRef(new Animated.Value(1)).current;
   const [showBack, setShowBack] = useState(flipped);
   const scrollRef = useRef(null);
@@ -81,7 +88,7 @@ export default function FlipCard({
   const Surface = Platform.OS === 'web' ? WebFlipSurface : Pressable;
 
   return (
-    <Surface onPress={onFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
+    <Surface onPress={handleFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
       <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
         <View style={styles.face}>
           {/* ScrollView: el dorso (o el frente) largo se lee scrolleando en
@@ -98,7 +105,7 @@ export default function FlipCard({
             contentContainerStyle={styles.textContent}
             showsVerticalScrollIndicator
           >
-            <Pressable onPress={onFlip} {...(Platform.OS === 'web' ? {
+            <Pressable onPress={handleFlip} {...(Platform.OS === 'web' ? {
               tabIndex: -1, dataSet: { studyFlipText: 'true' }, style: { outlineStyle: 'none' },
             } : {})}>
               <RichText

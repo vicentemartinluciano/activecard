@@ -1,3 +1,4 @@
+import { validColumnWidths } from "./richTable";
 // Conversión entre las marcas de richtext.js y HTML (TipTap) — el puente del
 // editor Notion (NotionField). Sin DOM: un solo code path para jest-expo,
 // nativo y web. Reusa parseRich (única implementación marcas→spans de la app;
@@ -23,6 +24,7 @@ import {
   BLOCK_BY_CHAR,
   BLOCK_SENTINELS,
   IMG_SENTINEL,
+  QUOTE_START_SENTINEL,
   encodeTable,
   parseRich,
 } from "./richtext";
@@ -96,6 +98,11 @@ export function describeBlock(block) {
 
   let kind = "p";
   const blockChar = spans.length ? spans[0].text[0] : undefined;
+  const quoteStart = blockChar === QUOTE_START_SENTINEL;
+  if (quoteStart) {
+    kind = "quote";
+    spans = stripSpanChars(spans, 1);
+  }
   if (blockChar && BLOCK_BY_CHAR[blockChar]) {
     kind = BLOCK_BY_CHAR[blockChar];
     spans = stripSpanChars(spans, 1);
@@ -117,7 +124,7 @@ export function describeBlock(block) {
     // La numeración es un bloque de lista → sin alineación.
     return { kind: "ol", number: Number(m[1]), spans: stripSpanChars(spans, m[0].length), align: null };
   }
-  return { kind, spans, align };
+  return { kind, spans, align, ...(quoteStart ? { quoteStart: true } : {}) };
 }
 
 // La persistencia representa cada párrafo de una cita como una línea con su
@@ -127,7 +134,7 @@ export function groupQuoteRuns(blocks) {
   const grouped = [];
   for (const block of blocks) {
     const previous = grouped[grouped.length - 1];
-    if (block.kind === "quote" && previous?.kind === "quoteGroup") {
+    if (block.kind === "quote" && !block.quoteStart && previous?.kind === "quoteGroup") {
       previous.blocks.push(block);
     } else if (block.kind === "quote") {
       grouped.push({ kind: "quoteGroup", blocks: [block] });
@@ -155,7 +162,8 @@ export function marksToHtml(marcas) {
       out.push(`<table><tbody>${block.rows.map((row) => `<tr>${row.map((cell) => {
         const tag = cell.header ? "th" : "td";
         const span = (name) => Number.isInteger(cell[name]) && cell[name] > 1 && cell[name] <= 100 ? ` ${name}="${cell[name]}"` : "";
-        return `<${tag}${span("colspan")}${span("rowspan")}>${marksToHtml(cell.text) || "<p></p>"}</${tag}>`;
+        const widths = validColumnWidths(cell.colwidth, cell.colspan || 1) ? ` colwidth="${cell.colwidth.join(",")}"` : "";
+        return `<${tag}${span("colspan")}${span("rowspan")}${widths}>${marksToHtml(cell.text) || "<p></p>"}</${tag}>`;
       }).join("")}</tr>`).join("")}</tbody></table>`);
       i++;
       continue;
@@ -196,7 +204,7 @@ export function marksToHtml(marcas) {
     // el editor aparezcan como citas separadas.
     if (block.kind === "quote") {
       const quotes = [];
-      while (i < blocks.length && blocks[i].kind === "quote") {
+      while (i < blocks.length && blocks[i].kind === "quote" && (!quotes.length || !blocks[i].quoteStart)) {
         quotes.push(blocks[i]);
         i++;
       }
@@ -300,14 +308,17 @@ export function htmlToMarks(html) {
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
     .replace(/<style[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<div\s+class=["']tableWrapper["']\s*>/gi, "")
     .replace(/<table\b[^>]*>([\s\S]*?)<\/table\s*>/gi, (_, body) => {
       const rows = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)].map((row) =>
         [...row[1].matchAll(/<(td|th)\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi)].map((cell) => {
           const span = (name) => Math.max(1, Math.min(100, Number(new RegExp(`${name}\\s*=\\s*["']?(\\d+)`, "i").exec(cell[2])?.[1]) || 1));
-          return { text: htmlToMarks(cell[3]), header: cell[1].toLowerCase() === "th", colspan: span("colspan"), rowspan: span("rowspan") };
+          const colwidth = (/\bcolwidth\s*=\s*["']([^"']*)["']/i.exec(cell[2])?.[1] || "").split(",").map(Number);
+          return { text: htmlToMarks(cell[3]), header: cell[1].toLowerCase() === "th", colspan: span("colspan"), rowspan: span("rowspan"),
+            ...(validColumnWidths(colwidth, span("colspan")) ? { colwidth } : {}) };
         })
-      ).filter((row) => row.length);
-      if (!rows.length) return "";
+      );
+      if (!rows.some((row) => row.length)) return "";
       tables.push(rows);
       return `<actable data-index="${tables.length - 1}"></actable>`;
     });
@@ -321,7 +332,7 @@ export function htmlToMarks(html) {
 
   const curStyle = () => (stack.length ? stack[stack.length - 1].style : {});
   const openBlock = (prefix = "", align = null) => {
-    cur = { prefix, spans: [], align };
+    cur = { prefix, spans: [], align, quoteId: quoteStack[quoteStack.length - 1] };
     blocks.push(cur);
   };
   const closeBlock = () => {
@@ -562,14 +573,16 @@ function serializeSpans(items, applied) {
 }
 
 function blocksToMarks(blocks) {
-  const lines = blocks.map((b) => {
+  const lines = blocks.map((b, index) => {
     if (b.prefix === "table") return encodeTable(b.rows);
     if (b.prefix === "hr") return "---";
     if (b.prefix === "img") return `${IMG_SENTINEL}${b.width || 100} ${b.src}`;
     const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));
     // Sentinel de alineación EXPLÍCITA solo en párrafos (las listas van sin
     // alineación). b.align null = "sin tocar" → sin sentinel.
-    const blockSentinel = BLOCK_SENTINELS[b.prefix] || "";
+    const previous = blocks[index - 1];
+    const separateQuote = b.prefix === "quote" && previous?.prefix === "quote" && previous.quoteId !== b.quoteId;
+    const blockSentinel = separateQuote ? QUOTE_START_SENTINEL : BLOCK_SENTINELS[b.prefix] || "";
     const textualPrefix = blockSentinel ? "" : b.prefix || "";
     const sentinel = !textualPrefix && b.align ? ALIGN_SENTINELS[b.align] || "" : "";
     return `${sentinel}${blockSentinel}${textualPrefix}${serializeSpans(items, [])}`;

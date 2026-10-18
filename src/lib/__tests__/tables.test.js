@@ -1,5 +1,16 @@
 import { htmlToMarks, marksToHtml } from "../richhtml";
 import { parseRich, toPlainText } from "../richtext";
+import { tableColumnWidths, tableGrid } from "../richTable";
+
+test("reabrir una tabla con wrapper conserva anchos y celdas combinadas", () => {
+  const html = '<div class="tableWrapper"><table><tr><th colspan="2" colwidth="280,120">Título</th></tr><tr><td rowspan="2" colwidth="280">A</td><td colwidth="120">B</td></tr><tr><td>C</td></tr></table></div>';
+  const marks = htmlToMarks(html);
+  const blocks = parseRich(marks);
+  expect(blocks).toHaveLength(1);
+  expect(tableColumnWidths(blocks[0].rows, 200, 80)).toEqual([280, 120]);
+  expect(tableGrid(blocks[0].rows).cells.at(-1)).toMatchObject({ row: 2, column: 1 });
+  expect(htmlToMarks(marksToHtml(marks))).toBe(marks);
+});
 
 test("una tabla conserva filas, encabezados, formato, imágenes y texto alrededor", () => {
   const html = '<p>Antes</p><table><tbody><tr><th><p>Concepto</p></th><th><p>Ejemplo</p></th></tr><tr><td><p><strong>Oferta</strong></p><p>Segundo párrafo</p></td><td><p>A &amp; B</p><img src="data:image/png;base64,YWJj"></td></tr></tbody></table><p>Después</p>';

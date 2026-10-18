@@ -6,7 +6,9 @@ import { Extension, textInputRule } from "@tiptap/core";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Placeholder } from "@tiptap/extensions";
 import { StarterKit } from "@tiptap/starter-kit";
-import { TableKit } from "@tiptap/extension-table";
+import { Table, TableView, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+
+import { attachEditorTableControls } from "./editorTableControls";
 
 import { compressFile } from "./imageCompress";
 import { Image } from "./tiptapImage";
@@ -23,7 +25,56 @@ const Shortcuts = Extension.create({
   },
 });
 
-export function buildExtensions({ placeholder = "", defaultAlign = "left" } = {}) {
+// En celular el ancho es de presentación: no modificar los colwidth guardados
+// en escritorio al ampliar columnas pequeñas para lectura y scroll lateral.
+function readableColumns(node, minWidth) {
+  const widths = [];
+  node.firstChild?.forEach((cell) => {
+    for (let index = 0; index < cell.attrs.colspan; index++)
+      widths.push(Math.max(minWidth, cell.attrs.colwidth?.[index] || 0));
+  });
+  return widths;
+}
+
+class ReadableTableView extends TableView {
+  constructor(...args) {
+    super(...args);
+    this.fitColumns();
+  }
+
+  update(node) {
+    const updated = super.update(node);
+    if (updated) this.fitColumns();
+    return updated;
+  }
+
+  fitColumns() {
+    const widths = readableColumns(this.node, this.cellMinWidth);
+    Array.from(this.colgroup.children).forEach((col, index) => {
+      col.style.width = `${widths[index]}px`;
+    });
+    this.table.style.width = `${widths.reduce((sum, width) => sum + width, 0)}px`;
+    this.table.style.minWidth = "100%";
+  }
+}
+
+const ReadableTable = Table.extend({
+  renderHTML(props) {
+    const output = Table.config.renderHTML.call(this, props);
+    if (this.options.resizable) return output;
+    const table = this.options.renderWrapper ? output[2] : output;
+    const cols = table[2].slice(2);
+    const widths = readableColumns(props.node, this.options.cellMinWidth);
+    widths.forEach((size, index) => {
+      cols[index][1].style = `width: ${size}px`;
+    });
+    const width = widths.reduce((sum, size) => sum + size, 0);
+    table[1].style = `width: ${width}px; min-width: 100%`;
+    return output;
+  },
+});
+
+export function buildExtensions({ placeholder = "", defaultAlign = "left", tableResizable = false } = {}) {
   return [
     StarterKit.configure({
       // Fuera lo que el formato de ActiveCard no sabe representar.
@@ -34,12 +85,17 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left" } = {}
       strike: {},
       link: false,
       hardBreak: false,
-      trailingNode: false,
+      // Permite salir de una tabla al párrafo siguiente también con teclado móvil.
+      trailingNode: {},
       // Quedan también los atajos tipo Notion: # / ## / ### para títulos,
       // > para cita, ~~ para tachado, --- divisor, - viñeta y 1. numerada.
     }),
     Highlight,
-    TableKit.configure({ table: { resizable: false, renderWrapper: true } }),
+    ReadableTable.configure({ renderWrapper: true, cellMinWidth: tableResizable ? 80 : 200,
+      resizable: tableResizable, View: tableResizable ? TableView : ReadableTableView }),
+    TableRow,
+    TableCell.extend({ content: "(paragraph | heading | bulletList | orderedList | blockquote | horizontalRule | image)+" }),
+    TableHeader.extend({ content: "(paragraph | heading | bulletList | orderedList | blockquote | horizontalRule | image)+" }),
     TColor,
     TextAlign.configure({ types: ["paragraph", "heading", "blockquote"], defaultAlignment: defaultAlign }),
     Image,
@@ -208,40 +264,18 @@ export function applyColor(editor, colorKey, currentKey) {
   chain.run();
 }
 
-// La misma barra accesible en web y en el WebView. Conserva la selección al
-// tocar controles; se actualiza también al mover el cursor entre celdas.
+export const TABLE_ACTIONS = [
+  { key: "addRowAfter", label: "Agregar fila", text: "+ Fila" },
+  { key: "addColumnAfter", label: "Agregar columna", text: "+ Columna" },
+  { key: "deleteRow", label: "Quitar fila", text: "− Fila" },
+  { key: "deleteColumn", label: "Quitar columna", text: "− Columna" },
+  { key: "deleteTable", label: "Eliminar tabla", text: "Eliminar tabla" },
+];
+export const TABLE_BTN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/></svg>';
+export function insertTable(editor) {
+  editor.chain().focus().setTextSelection(editor.state.selection.to)
+    .insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+}
 export function mountTableToolbar(editor, host) {
-  const bar = document.createElement("div");
-  bar.className = "nf-tablebar";
-  bar.setAttribute("role", "toolbar");
-  bar.setAttribute("aria-label", "Tablas");
-  const actions = [
-    ["Insertar tabla", "insertTable"], ["+ Fila", "addRowAfter"],
-    ["− Fila", "deleteRow"], ["+ Columna", "addColumnAfter"],
-    ["− Columna", "deleteColumn"], ["Encabezado", "toggleHeaderRow"],
-    ["Borrar tabla", "deleteTable"],
-  ];
-  const buttons = actions.map(([label, command]) => {
-    const button = document.createElement("button");
-    button.type = "button"; button.textContent = label;
-    button.setAttribute("aria-label", label);
-    button.addEventListener("pointerdown", (event) => event.preventDefault());
-    button.addEventListener("click", () => {
-      const chain = editor.chain().focus();
-      if (command === "insertTable") chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-      else chain[command]().run();
-    });
-    bar.appendChild(button);
-    return { button, command };
-  });
-  const update = () => {
-    const inside = editor.isActive("table");
-    for (const { button, command } of buttons) {
-      button.hidden = command !== "insertTable" && !inside;
-      button.disabled = command === "insertTable" && inside;
-    }
-  };
-  host.appendChild(bar); update();
-  editor.on("transaction", update);
-  return () => { editor.off("transaction", update); bar.remove(); };
+  return attachEditorTableControls(editor, host);
 }

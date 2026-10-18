@@ -7,7 +7,7 @@
 //   web → RN:  postMessage {type:"ready"} | {type:"change", html} | {type:"height", height}
 
 import { Editor } from "@tiptap/core";
-import { BubbleMenuPlugin } from "@tiptap/extension-bubble-menu";
+import { attachEditorToolbar } from "../src/lib/editorToolbar";
 
 import { EDITOR_BODY_CSS, EDITOR_CSS } from "../src/lib/editorCss";
 import {
@@ -29,7 +29,7 @@ import {
   isImageSelected,
   runBubbleAction,
   setImageWidth,
-  mountTableToolbar,
+  mountTableToolbar, insertTable, TABLE_BTN_SVG,
 } from "../src/lib/editorSetup";
 
 const post = (msg) => window.ReactNativeWebView?.postMessage(JSON.stringify(msg));
@@ -58,18 +58,22 @@ imgInput.addEventListener("change", () => {
 });
 
 const imgBtn = document.createElement("button");
-imgBtn.className = "nf-imgbtn";
+imgBtn.className = "nf-btn";
 imgBtn.type = "button";
 imgBtn.title = "Insertar imagen";
 imgBtn.setAttribute("aria-label", "Insertar imagen");
-imgBtn.innerHTML = IMAGE_BTN_SVG;
-imgBtn.addEventListener("click", () => imgInput.click());
-host.appendChild(imgBtn);
+imgBtn.innerHTML = IMAGE_BTN_SVG + "<span>Imagen</span>";
+imgBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+imgBtn.addEventListener("click", () => { host.classList.add("nf-picking"); imgInput.click(); });
+const finishPicker = () => { host.classList.remove("nf-picking", "nf-inserting"); editor.commands.focus(); };
+imgInput.addEventListener("cancel", finishPicker);
+imgInput.addEventListener("change", finishPicker);
+
 
 const bubble = document.createElement("div");
 bubble.className = "nf-bubble";
-bubble.style.visibility = "hidden";
-document.body.appendChild(bubble);
+bubble.hidden = true;
+host.appendChild(bubble);
 
 const row = document.createElement("div");
 row.className = "nf-row";
@@ -98,7 +102,8 @@ for (const def of [FORMAT_BUTTON, ...BUBBLE_BUTTONS, COLOR_BUTTON]) {
   btn.innerHTML = def.html;
   // pointerdown + preventDefault: si no, el botón le roba el foco al editor
   // y se pierde la selección justo antes de aplicar la marca.
-  btn.addEventListener("pointerdown", (e) => {
+  btn.addEventListener("pointerdown", (e) => e.preventDefault());
+  btn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (def.key === "color") {
@@ -118,6 +123,29 @@ for (const def of [FORMAT_BUTTON, ...BUBBLE_BUTTONS, COLOR_BUTTON]) {
   buttons[def.key] = btn;
 }
 
+const insertMenu = document.createElement("div");
+insertMenu.className = "nf-insert-menu";
+insertMenu.setAttribute("aria-label", "Insertar contenido");
+bubble.appendChild(insertMenu);
+insertMenu.appendChild(imgBtn);
+const insertBtn = document.createElement("button");
+insertBtn.type = "button"; insertBtn.className = "nf-btn"; insertBtn.textContent = "+";
+insertBtn.setAttribute("aria-label", "Insertar");
+insertBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+insertBtn.addEventListener("click", () => {
+  host.classList.toggle("nf-inserting");
+  swatches.classList.remove("open"); formats.classList.remove("open");
+  host.dispatchEvent(new Event("nf:position-toolbar"));
+});
+row.appendChild(insertBtn);
+const tableBtn = document.createElement("button");
+tableBtn.type = "button"; tableBtn.className = "nf-btn";
+tableBtn.setAttribute("aria-label", "Insertar tabla");
+tableBtn.innerHTML = TABLE_BTN_SVG + "<span>Tabla</span>";
+tableBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+tableBtn.addEventListener("click", () => { insertTable(editor); host.classList.remove("nf-inserting"); });
+insertMenu.appendChild(tableBtn);
+
 const formatEls = {};
 for (const def of FORMAT_OPTIONS) {
   const btn = document.createElement("button");
@@ -126,7 +154,8 @@ for (const def of FORMAT_OPTIONS) {
   btn.title = def.label;
   btn.setAttribute("aria-label", def.label);
   btn.textContent = def.html;
-  btn.addEventListener("pointerdown", (e) => {
+  btn.addEventListener("pointerdown", (e) => e.preventDefault());
+  btn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     applyFormat(editor, def.key);
@@ -144,7 +173,8 @@ for (const key of COLOR_KEYS) {
   sw.title = key;
   sw.setAttribute("aria-label", key);
   sw.style.background = EDITOR_TEXT_COLORS[key];
-  sw.addEventListener("pointerdown", (e) => {
+  sw.addEventListener("pointerdown", (e) => e.preventDefault());
+  sw.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     applyColor(editor, key, activeStates(editor).colorKey);
@@ -165,7 +195,8 @@ for (const size of IMAGE_SIZES) {
   b.title = size.label;
   b.setAttribute("aria-label", size.label);
   b.textContent = size.html;
-  b.addEventListener("pointerdown", (e) => {
+  b.addEventListener("pointerdown", (e) => e.preventDefault());
+  b.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     setImageWidth(editor, size.pct);
@@ -186,6 +217,7 @@ const editor = new Editor({
     lastHtml = ed.getHTML();
     post({ type: "change", html: lastHtml });
   },
+  onFocus: () => requestAnimationFrame(reportHeight),
   onTransaction: () => {
     const imgSel = isImageSelected(editor);
     bubble.classList.toggle("img-mode", imgSel);
@@ -213,22 +245,7 @@ const editor = new Editor({
 
 mountTableToolbar(editor, host);
 
-editor.registerPlugin(
-  BubbleMenuPlugin({
-    editor,
-    element: bubble,
-    pluginKey: "nfBubble",
-    options: { placement: "top", offset: 8 },
-    shouldShow: ({ editor: ed, from, to }) => {
-      const visible = from !== to && !ed.state.selection.empty;
-      if (!visible) {
-        swatches.classList.remove("open");
-        formats.classList.remove("open");
-      }
-      return visible;
-    },
-  })
-);
+attachEditorToolbar(editor, host, bubble);
 
 // Pegar imágenes desde el portapapeles (además del botón de archivo).
 editor.view.dom.addEventListener("paste", (e) => handleImagePaste(editor, e));
@@ -236,13 +253,21 @@ editor.view.dom.addEventListener("paste", (e) => handleImagePaste(editor, e));
 // --- alto dinámico ---------------------------------------------------------
 let lastHeight = 0;
 const reportHeight = () => {
-  const height = Math.ceil(host.getBoundingClientRect().height);
+  // Los popovers son absolutos: el tamaño del documento no los incluye.
+  // El WebView crece mientras están abiertos y vuelve al contenido al cerrar,
+  // de modo que el menú completo sea tocable incluso en un campo de una línea.
+  let bottom = host.getBoundingClientRect().height;
+  for (const panel of host.querySelectorAll(".nf-bubble,.nf-table-panel")) {
+    if (!panel.hidden) bottom = Math.max(bottom, panel.offsetTop + panel.scrollHeight + 8);
+  }
+  const height = Math.ceil(bottom);
   if (height && height !== lastHeight) {
     lastHeight = height;
     post({ type: "height", height });
   }
 };
 new ResizeObserver(() => requestAnimationFrame(reportHeight)).observe(host);
+host.addEventListener("nf:layout", reportHeight);
 
 // --- API para React Native -------------------------------------------------
 window.__editor = {

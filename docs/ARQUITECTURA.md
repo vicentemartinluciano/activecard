@@ -308,6 +308,12 @@ de lectura y `toPlainText()` elimina formato e imágenes para búsqueda y contex
 Android monta TipTap en WebView usando `assets/editor/editorHtml.js`. Web monta TipTap con
 React DOM. Configuración compartida en `editorSetup.js` evita diferencias.
 
+El mazo y el editor individual comparten `EditableCardRow` y una sola experiencia
+editable. `cardAutosave.js` serializa los guardados; `settings` conserva los
+borradores locales incompletos. `richTable.js` mantiene anchos y celdas combinadas
+al leer; los controles y la pill contextual adaptan los de REANCLA. Ver
+`BIBLIOTECA-Y-ESTUDIO.md` para comportamiento y límites de verificación.
+
 Al cambiar `editor-web/`, `editorSetup.js`, `editorCss.js`, `tiptapImage.js`,
 `tiptapTColor.js` o `tiptapTextAlign.js`, ejecutar `npm run editor:build`.
 

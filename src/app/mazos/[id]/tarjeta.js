@@ -11,18 +11,18 @@ import {
 
 import Collapsible from "../../../components/Collapsible";
 import { useDesktopBeforeNavigate } from "../../../components/DesktopShell";
-import NotionField from "../../../components/NotionField";
+import useCardAutosaveLifecycle from "../../../components/useCardAutosaveLifecycle";
+import EditableCardRow from "../../../components/EditableCardRow";
+import { createCardAutosave, readCardDraft } from "../../../lib/cardAutosave";
 import { useSyncRefresh } from "../../../components/useSyncRefresh";
 import Toast from "../../../components/Toast";
-import { Button, Chip, confirmAsync, Pill, Screen } from "../../../components/ui";
+import { Button, Chip, confirmAsync, EmptyState, Pill, Screen } from "../../../components/ui";
 import {
-  createCard,
   deleteCard,
   getCard,
   listRecentReviews,
   setCardDeck,
   setCardSuspended,
-  updateCardText,
 } from "../../../db/cards";
 import { listDecks } from "../../../db/decks";
 import { colors, font, spacing, type } from "../../../theme";
@@ -53,9 +53,13 @@ export default function EditorTarjeta() {
   const router = useRouter();
   const navigation = useNavigation();
   const allowNavigation = useRef(false);
-  const savingNavigation = useRef(false);
+  const navigationSavingRef = useRef(false);
+  const autosaveRef = useRef(null);
+  const draftRef = useRef({ front: "", back: "" });
+  const [saveStatus, setSaveStatus] = useState("");
 
   const [existing, setExisting] = useState(null);
+  const [loaded, setLoaded] = useState(false);
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
   const [saving, setSaving] = useState(false);
@@ -68,41 +72,27 @@ export default function EditorTarjeta() {
   useFocusEffect(useCallback(() => { allowNavigation.current = false; }, []));
 
   const saveBeforeNavigate = useCallback(async () => {
-    if (!dirty || allowNavigation.current) return true;
-    if (saving || savingNavigation.current) return false;
-    if (!front.trim() || !back.trim()) { setError('Completá el frente y el dorso antes de salir.'); return false; }
-    savingNavigation.current = true;
-    try {
-      if (existing) {
-        await updateCardText(existing.id, front, back, { markReviewed: true, expected: existing });
-        setExisting({ ...existing, front, back });
-      } else {
-        const createdId = await createCard({ deckId, front, back, source: 'manual' });
-        // Keep the new identity when another Stack screen covers this editor.
-        setExisting({ id: createdId, deck_id: deckId, front, back, source: 'manual' });
-        const created = await getCard(createdId);
-        if (created) setExisting({ ...created, front, back });
-      }
-      allowNavigation.current = true;
-      return true;
-    } catch { setError('No pudimos guardar la tarjeta. Volvé a intentar.'); return false; }
-    finally { savingNavigation.current = false; }
-  }, [dirty, saving, front, back, existing, deckId]);
+    if (allowNavigation.current) return true;
+    return autosaveRef.current ? autosaveRef.current.flush() : true;
+  }, []);
+  useCardAutosaveLifecycle(autosaveRef);
+  const changeDraft = (next) => {
+    allowNavigation.current = false;
+    draftRef.current = next;
+    setFront(next.front); setBack(next.back);
+    autosaveRef.current?.change(next);
+  };
   useDesktopBeforeNavigate(saveBeforeNavigate);
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
     return navigation.addListener('beforeRemove', (event) => {
       if (!dirty || allowNavigation.current) return;
       event.preventDefault();
-      saveBeforeNavigate().then((saved) => { if (saved) navigation.dispatch(event.data.action); });
+      if (navigationSavingRef.current) return;
+      navigationSavingRef.current = true;
+      saveBeforeNavigate().then((saved) => { if (saved) { allowNavigation.current = true; navigation.dispatch(event.data.action); } })
+        .finally(() => { navigationSavingRef.current = false; });
     });
   }, [navigation, dirty, saveBeforeNavigate]);
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !dirty) return;
-    const warn = (event) => { if (!allowNavigation.current) { event.preventDefault(); event.returnValue = ''; } };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
 
   useEffect(() => {
     let alive = true;
@@ -113,7 +103,7 @@ export default function EditorTarjeta() {
       listDecks(),
       targetId ? listRecentReviews(Number(targetId), 5) : Promise.resolve([]),
     ])
-      .then(([card, allDecks, reviews]) => {
+      .then(async ([card, allDecks, reviews]) => {
         if (!alive) return;
         if (targetId && !card) { setError("Esta tarjeta se eliminó en otro dispositivo. La copia anterior está en Recuperación."); return; }
         setDecks(allDecks);
@@ -123,6 +113,16 @@ export default function EditorTarjeta() {
           setFront(card.front);
           setBack(card.back);
         }
+        const restored = await readCardDraft(deckId, card?.id);
+        if (!alive) return;
+        const draft = restored || card || { front: "", back: "" };
+        draftRef.current = draft; setFront(draft.front); setBack(draft.back);
+        autosaveRef.current = createCardAutosave({ deckId, card, restored,
+          onSaved: (saved) => setExisting(saved),
+          onStatus: (status, message) => { setSaveStatus(status); setSaving(status === "saving"); setError(message || ""); },
+        });
+        if (restored) autosaveRef.current.change(draft);
+        setLoaded(true);
         setError("");
       })
       .catch(() => {
@@ -134,25 +134,6 @@ export default function EditorTarjeta() {
   // dirty se evalúa al recibir una nueva biblioteca; escribir no recarga el editor.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId, syncReload]);
-
-  const save = async () => {
-    if (!front.trim() || !back.trim() || saving) return;
-    setSaving(true);
-    try {
-      if (existing) {
-        await updateCardText(existing.id, front, back, { markReviewed: true, expected: existing });
-      } else {
-        await createCard({ deckId, front, back, source: "manual" });
-      }
-      allowNavigation.current = true;
-      if (router.canGoBack()) router.back();
-      else router.replace(`/mazos/${deckId}`);
-    } catch {
-      setError("No pudimos guardar la tarjeta.");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const toggleSuspended = async () => {
     if (!existing) return;
@@ -187,7 +168,7 @@ export default function EditorTarjeta() {
     }
     setSaving(true);
     try {
-      await updateCardText(existing.id, front, back, { markReviewed: true, expected: existing });
+      if (!await saveBeforeNavigate()) return;
       await setCardDeck(existing.id, targetDeckId);
       allowNavigation.current = true;
       router.replace(`/mazos/${targetDeckId}`);
@@ -200,11 +181,15 @@ export default function EditorTarjeta() {
   const onDelete = async () => {
     const ok = await confirmAsync("Borrar tarjeta", "No se puede deshacer.");
     if (ok) {
+      if (!await saveBeforeNavigate()) return;
+      await autosaveRef.current?.cancel();
       await deleteCard(existing.id);
       allowNavigation.current = true;
       router.back();
     }
   };
+
+  if (!loaded) return <Screen><Stack.Screen options={{ title: "Tarjeta" }} /><EmptyState text={error || "Cargando tarjeta…"} /><Toast message={error} /></Screen>;
 
   return (
     <Screen style={Platform.OS === 'web' ? { maxWidth: '100%', paddingHorizontal: 20 } : undefined}>
@@ -221,36 +206,9 @@ export default function EditorTarjeta() {
         {existing?.suspended ? (
           <Pill icon="pause-circle" label="Suspendida" color={colors.textMuted} />
         ) : null}
-        <View style={styles.editorFields}>
-        <View style={styles.editorField}>
-          <Text style={type.small}>Frente (pregunta)</Text>
-          <NotionField
-            value={front}
-            onChangeText={setFront}
-            placeholder="¿Cuáles son las 5 fuerzas de Porter?"
-            defaultAlign="center"
-          />
-        </View>
-        <View style={styles.editorField}>
-          <Text style={type.small}>Dorso (respuesta)</Text>
-          <NotionField
-            value={back}
-            onChangeText={setBack}
-            placeholder="Competidores del sector, potenciales, sustitutos…"
-          />
-        </View>
-        </View>
-        <Button
-          label={saving ? "Guardando…" : existing ? "Guardar cambios" : "Crear tarjeta"}
-          kind="primary"
-          onPress={save}
-          disabled={!front.trim() || !back.trim() || saving}
-        />
-        {Platform.OS === 'web' && dirty && <Button label="Descartar cambios" kind="ghost" onPress={async () => {
-          if (!await confirmAsync('Descartar cambios', 'Se perderá el texto que todavía no guardaste.')) return;
-          allowNavigation.current = true;
-          if (router.canGoBack()) router.back(); else router.replace(`/mazos/${deckId}`);
-        }} />}
+        <EditableCardRow card={existing || { id: "new", source: "manual" }} index={0} total={1} active
+          draft={{ front, back }} onChangeDraft={changeDraft} />
+        {saveStatus === "saving" || saveStatus === "draft" ? <Text style={type.small}>{saveStatus === "saving" ? "Guardando…" : "Borrador guardado en este dispositivo · completá ambas caras para estudiar"}</Text> : null}
         {existing ? (
           <>
             <Button
