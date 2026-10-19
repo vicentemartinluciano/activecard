@@ -13,7 +13,7 @@ analiza fuentes y propone acciones sobre la biblioteca.
 
 - Expo SDK 57, React Native, expo-router y JavaScript.
 - Android principal: Samsung Galaxy A15.
-- APK instalada: 1.10.0 / código 5 (15/10, actualización ADB sobre 1.9.0, sin desinstalar). Respaldo previo nuevo en teléfono y PC: 10 mazos y 164 tarjetas. Se comprobaron versión, firma y bitmaps generados en Android; QA visible de launcher pendiente porque el teléfono se bloqueó y requiere desbloqueo humano. No dar animaciones/scroll/resize por verificados. Evidencia en `docs/WIDGETS.md`. Estado histórico del 8/10: Tras reinstalar el 8/10 perdió la clave local de OpenAI. Ese día se inspeccionó el Galaxy A15 por ADB: conserva biblioteca y llega a «Al día»; prueba de mazo web → Android y renombrado Android → web confirmada. El mazo vacío de prueba se borró con autorización; al 8/10, teléfono y nube conservaban 8 mazos y 159 tarjetas. La edición de Teoría de juegos del Gimnasio quedó como alternativa tras un conflicto; su recuperación puntual espera la elección de Martín. Límites diarios compartidos aprobados: OTA `314e1ebd-5b4e-4847-b2ad-538aa3f61be8` ejecutándose en Android, 100/50 visibles y publicados en Supabase; Martín confirmó esos valores en la web tras recargar y sincronizar. Ver evidencia y límites de QA en `docs/SINCRONIZACION.md`.
+- APK instalada: 1.11.0 / código 6, comprobado por ADB el 18/10. No se instaló desde esta revisión. El 19/10 Martín dejó la prueba física a su cargo: no operar el teléfono ni afirmar recepción de OTA, teclado, gestos o widgets como verificados. Ver entrega en `docs/BIBLIOTECA-Y-ESTUDIO.md`, widgets en `docs/WIDGETS.md` y sync en `docs/SINCRONIZACION.md`.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
 - APK privado + EAS Update; web auxiliar en GitHub Pages.
@@ -127,6 +127,8 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   incompletos locales en `settings`, fuera de FSRS, backup y sync. Mantener una
   sola tarjeta con editores montados. Editor individual y lista usan
   `EditableCardRow`. Insertar imagen/tabla desde la pill contextual.
+  No mostrar avisos rutinarios de guardado: alteraban la lista animada y repetían
+  la entrada al escribir. Conservar los errores de persistencia y el borrador.
 
 - Fondo `#09090B`, Plus Jakarta Sans, acento cobalto y progreso verde.
 - Gimnasio con fondo estrellado suave; no alterar el fondo sin pedido explícito.

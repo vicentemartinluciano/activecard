@@ -12,6 +12,11 @@ jest.mock('react-native', () => ({
   Platform: { OS: 'android', select: values => values.android ?? values.default },
   StyleSheet: { create: styles => styles },
   View: 'View', Text: 'Text', ScrollView: 'ScrollView', Pressable: 'Pressable',
+  Animated: {
+    View: 'AnimatedView',
+    Value: class { setValue() {} interpolate() { return 0; } },
+    timing: jest.fn(() => ({ start: jest.fn(), stop: jest.fn() })),
+  },
 }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
 
@@ -49,7 +54,6 @@ jest.mock('../ui', () => {
     InlineAdd: () => null,
   };
 });
-jest.mock('../Stagger', () => ({ __esModule: true, default: ({ children }) => children }));
 jest.mock('../Toast', () => ({ __esModule: true, default: ({ message }) =>
   require('react').createElement(require('react-native').Text, null, message) }));
 jest.mock('../../db/cards', () => ({ listCardsByDeck: jest.fn(), createCard: jest.fn(), getCard: jest.fn(), updateCardText: jest.fn() }));
@@ -133,5 +137,32 @@ test('la tarjeta nueva se guarda sola una vez y conserva el editor activo', asyn
   await act(async () => { finishCreate(3); });
   expect(screen.root.findByType('editable-row').props.card.id).toBe(3);
   expect(screen.root.findByType('editable-row').props.active).toBe(true);
+  jest.useRealTimers();
+});
+
+test('escribir y autoguardar no repiten la entrada ni remontan el editor', async () => {
+  jest.useFakeTimers();
+  const { Animated } = require('react-native');
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([{ id: 1, front: 'Pregunta', back: 'Respuesta' }]);
+  let finishSave;
+  updateCardText.mockImplementation(() => new Promise((resolve) => { finishSave = resolve; }));
+  await act(async () => { screen = create(<DeckScreen />); });
+  await act(async () => screen.root.findByType('editable-row').props.onActivate(1));
+  const editor = screen.root.findByType('editable-row');
+  const entries = Animated.timing.mock.calls.length;
+  for (const front of ['P', 'Pr', 'Pregunta editada']) {
+    await act(async () => editor.props.onChangeDraft({ front, back: 'Respuesta' }));
+    expect(screen.root.findByType('editable-row')).toBe(editor);
+    expect(Animated.timing).toHaveBeenCalledTimes(entries);
+    expect(visibleText()).not.toMatch(/Guardando|Borrador guardado/);
+  }
+  await act(async () => jest.advanceTimersByTime(350));
+  expect(updateCardText).toHaveBeenCalledTimes(1);
+  expect(visibleText()).not.toMatch(/Guardando|Borrador guardado/);
+  expect(Animated.timing).toHaveBeenCalledTimes(entries);
+  await act(async () => finishSave());
+  expect(screen.root.findByType('editable-row')).toBe(editor);
+  expect(Animated.timing).toHaveBeenCalledTimes(entries);
   jest.useRealTimers();
 });

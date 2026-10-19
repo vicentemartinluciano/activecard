@@ -310,7 +310,9 @@ React DOM. Configuración compartida en `editorSetup.js` evita diferencias.
 
 El mazo y el editor individual comparten `EditableCardRow` y una sola experiencia
 editable. `cardAutosave.js` serializa los guardados; `settings` conserva los
-borradores locales incompletos. `richTable.js` mantiene anchos y celdas combinadas
+borradores locales incompletos. No hay avisos rutinarios de guardado: insertar y
+quitar esos avisos entre los hijos de `Stagger` repetía la entrada al escribir.
+Los errores siguen visibles y conservan el borrador. `richTable.js` mantiene anchos y celdas combinadas
 al leer; los controles y la pill contextual adaptan los de REANCLA. Ver
 `BIBLIOTECA-Y-ESTUDIO.md` para comportamiento y límites de verificación.
 

@@ -104,7 +104,6 @@ export default function DetalleMazo() {
   const draftRef = useRef(draft);
   const autosaveRef = useRef(null);
   const activationRef = useRef(0);
-  const [saveStatus, setSaveStatus] = useState("");
 
   useEffect(() => {
     cardsRef.current = cards;
@@ -227,7 +226,7 @@ export default function DetalleMazo() {
     if (activation !== activationRef.current) return;
     const nextDraft = restored || { front: card.front, back: card.back };
     autosaveRef.current = createCardAutosave({ deckId, card: cardId === "new" ? null : card, restored,
-      onStatus: (status, error) => { setSaveStatus(status); setEditError(error || ""); },
+      onStatus: (_status, error) => setEditError(error || ""),
       onSaved: (saved) => {
         const created = cardId === "new" && cardsRef.current.some((item) => item.id === "new");
         const next = cardsRef.current.map((item) => item.id === cardId || item.id === saved.id ? {
@@ -242,7 +241,6 @@ export default function DetalleMazo() {
     activeIdRef.current = cardId;
     draftRef.current = nextDraft;
     setActiveId(cardId); setDraft(nextDraft);
-    setSaveStatus(restored ? "draft" : "");
     if (restored) autosaveRef.current.change(nextDraft);
   }, [commitDraft, deckId]);
 
@@ -388,7 +386,6 @@ export default function DetalleMazo() {
             />
           ) : null}
 
-          {saveStatus === "saving" || saveStatus === "draft" ? <Text style={type.small}>{saveStatus === "saving" ? "Guardando…" : "Borrador guardado en este dispositivo · completá ambas caras para estudiar"}</Text> : null}
           {progress && progress.total > 0 ? (
             <Card style={{ gap: spacing.sm }}>
               <View style={styles.progressHead}>
