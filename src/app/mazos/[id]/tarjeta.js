@@ -56,7 +56,6 @@ export default function EditorTarjeta() {
   const navigationSavingRef = useRef(false);
   const autosaveRef = useRef(null);
   const draftRef = useRef({ front: "", back: "" });
-  const [saveStatus, setSaveStatus] = useState("");
 
   const [existing, setExisting] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -119,7 +118,7 @@ export default function EditorTarjeta() {
         draftRef.current = draft; setFront(draft.front); setBack(draft.back);
         autosaveRef.current = createCardAutosave({ deckId, card, restored,
           onSaved: (saved) => setExisting(saved),
-          onStatus: (status, message) => { setSaveStatus(status); setSaving(status === "saving"); setError(message || ""); },
+          onStatus: (status, message) => { setSaving(status === "saving"); setError(message || ""); },
         });
         if (restored) autosaveRef.current.change(draft);
         setLoaded(true);
@@ -208,7 +207,6 @@ export default function EditorTarjeta() {
         ) : null}
         <EditableCardRow card={existing || { id: "new", source: "manual" }} index={0} total={1} active
           draft={{ front, back }} onChangeDraft={changeDraft} />
-        {saveStatus === "saving" || saveStatus === "draft" ? <Text style={type.small}>{saveStatus === "saving" ? "Guardando…" : "Borrador guardado en este dispositivo · completá ambas caras para estudiar"}</Text> : null}
         {existing ? (
           <>
             <Button

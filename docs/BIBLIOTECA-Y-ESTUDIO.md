@@ -77,9 +77,15 @@ individual desde estudio; distinguir H1/H2/H3 y citas separadas en la respuesta;
 tocar una celda sin girar la tarjeta. Evidencia:
 `outputs/correcciones-editor-estudio/estudio-formato-tabla.png`.
 
-Esto no equivale a QA del Galaxy A15. Faltan teclado, tablas desplazables sin
-calificar por accidente, compartir/importar, detalles animados y subcarpetas sobre
-Android físico. El APK 1.11.0 se construyó el 16/10 (EAS
-`55b278b9-5651-4b6f-a30f-75a1d3616b41`); no se instaló desde esta conversación.
-La revisión del 18/10 requiere publicación posterior: no se construye otro APK
-ni se publica OTA como parte de estas correcciones.
+El 19/10 se quitaron los avisos rutinarios de guardado del mazo y del editor
+individual. Agregarlos y quitarlos desplazaba los hijos de `Stagger` y repetía
+la animación de entrada al escribir; el guardado en cola y los errores continúan.
+Una regresión de la pantalla real comprueba que teclear, iniciar y terminar el
+guardado no remonten el editor ni repitan la entrada.
+
+El APK 1.11.0 se construyó el 16/10 (EAS
+`55b278b9-5651-4b6f-a30f-75a1d3616b41`). ADB confirmó 1.11.0 / código 6
+instalado el 18/10; no se instaló desde esta revisión. El 19/10 Martín dejó la
+prueba física a su cargo: teclado, tablas desplazables sin calificar por accidente,
+compartir/importar, detalles animados, subcarpetas y recepción de OTA. La entrega
+compatible usa runtime 1.11.0 y canal `preview`; no requiere otro APK.
