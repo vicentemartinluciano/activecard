@@ -4,7 +4,7 @@ import { act, create } from 'react-test-renderer';
 import DeckScreen from '../../app/mazos/[id]';
 import { createCard, getCard, listCardsByDeck, updateCardText } from '../../db/cards';
 import { getDeck } from '../../db/decks';
-const mockRouter = { navigate: jest.fn() };
+const mockRouter = { dismissTo: jest.fn() };
 
 // Esta prueba observa las transiciones de carga de la pantalla real. Los
 // componentes host evitan iniciar ScrollView y vistas Expo nativas al resolver
@@ -176,10 +176,10 @@ test('ir a un ancestro guarda primero el texto y conserva el borrador si falla',
   await act(async () => screen.root.findByType('editable-row').props.onActivate(1));
   await act(async () => screen.root.findByType('editable-row').props.onChangeDraft({ front: 'Texto pendiente', back: 'Respuesta' }));
   await act(async () => screen.root.findByProps({ accessibilityLabel: 'Ir a Biblioteca' }).props.onPress());
-  expect(mockRouter.navigate).not.toHaveBeenCalled();
+  expect(mockRouter.dismissTo).not.toHaveBeenCalled();
   expect(screen.root.findByType('editable-row').props.draft.front).toBe('Texto pendiente');
   updateCardText.mockResolvedValueOnce();
   await act(async () => screen.root.findByProps({ accessibilityLabel: 'Ir a Biblioteca' }).props.onPress());
   expect(updateCardText).toHaveBeenLastCalledWith(1, 'Texto pendiente', 'Respuesta', expect.anything());
-  expect(mockRouter.navigate).toHaveBeenCalledWith('/biblioteca');
+  expect(mockRouter.dismissTo).toHaveBeenCalledWith('/biblioteca');
 });

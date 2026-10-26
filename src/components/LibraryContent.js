@@ -40,7 +40,7 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
   return <>
     <FlatList data={rows} keyExtractor={(row) => row.key} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
       ListHeaderComponent={<View style={{ gap: spacing.md, paddingBottom: spacing.sm }}>
-        {folderId != null && <LibraryBreadcrumbs folders={folders} folderId={folderId} onNavigate={(route) => router.navigate(route)} />}
+        {folderId != null && <LibraryBreadcrumbs folders={folders} folderId={folderId} onNavigate={(route) => router.dismissTo(route)} />}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View style={{ flex: 1, minWidth: 0 }}><Text style={type.title}>{title}</Text>
             <Text style={type.small}>{directDecks} {directDecks === 1 ? 'mazo directo' : 'mazos directos'} · {children} {children === 1 ? 'carpeta' : 'carpetas'}</Text></View>

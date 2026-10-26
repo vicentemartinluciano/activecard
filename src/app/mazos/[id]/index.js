@@ -367,7 +367,7 @@ export default function DetalleMazo() {
         }}
       />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
-        <LibraryBreadcrumbs folders={folders} folderId={deck.folder_id} deckName={deck.name} onNavigate={async (route) => { if (await commitDraft()) router.navigate(route); }} />
+        <LibraryBreadcrumbs folders={folders} folderId={deck.folder_id} deckName={deck.name} onNavigate={async (route) => { if (await commitDraft()) router.dismissTo(route); }} />
         {Platform.OS === "web" && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 20 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" style={{ flex: 1 }} onPress={() => setEditingName(true)}><Text style={[type.heading, { fontSize: 28 }]}>{deck.name}</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Detalles del mazo" accessibilityState={{ expanded: showDetails }} onPress={toggleDetails} style={styles.cardAction}><Feather name="sliders" size={21} color={showDetails ? colors.accentText : colors.textMuted} /></Pressable>

@@ -133,12 +133,14 @@ function DesktopWorkspace({ children }) {
   const shown = library && (pinned || preview);
   const floating = narrow || !pinned;
   const tree = libraryTree(folders, decks, query);
-  const open = async (route) => {
+  const open = async (route, ancestor = false) => {
     if (navigating.current || route === path) return;
     navigating.current = true;
     try {
       if (navigationGuard.current && await navigationGuard.current() === false) return;
-      closePreview(); if (narrow) setPinned(false); router.navigate(route);
+      closePreview(); if (narrow) setPinned(false);
+      if (ancestor || route === '/biblioteca') router.dismissTo(route);
+      else router.navigate(route);
     } finally { navigating.current = false; }
   };
   const deckRow = (deck, child = false) => <Pressable key={deck.id} title={deck.name}
@@ -200,8 +202,8 @@ function DesktopWorkspace({ children }) {
           <Feather pointerEvents="none" name="sidebar" size={17} color={colors.textMuted} />
         </Pressable>
         <View accessibilityLabel="Ubicación en la biblioteca" style={styles.breadcrumbs}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca')} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
-          {currentFolder && folderPath(folders, currentFolder.id).map((folder) => <View key={folder.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${folder.name}`} onPress={() => open(`/carpetas/${folder.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{folder.name}</Text></Pressable></View>)}
+          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca', true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
+          {currentFolder && folderPath(folders, currentFolder.id).map((folder) => <View key={folder.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${folder.name}`} onPress={() => open(`/carpetas/${folder.id}`, true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{folder.name}</Text></Pressable></View>)}
           {selectedDeck && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a mazo ${selectedDeck.name}`} onPress={() => open(`/mazos/${selectedDeck.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{selectedDeck.name}</Text></Pressable></>}
         </View>
       </View>}
