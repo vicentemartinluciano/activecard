@@ -1,4 +1,34 @@
-# Biblioteca y estudio — revisión del 18/10/2026
+# Biblioteca y estudio — revisión del 25/10/2026
+
+## Creación y navegación contextual
+
+Biblioteca y cada carpeta permiten Nuevo mazo (Manual o Con IA), Nueva carpeta o
+subcarpeta y Mover mazo existente. `CreationSheet` comparte los formularios con la
+pestaña Crear, que empieza en raíz. El destino muestra su ruta completa y se
+puede cambiar antes de confirmar. Cancelar no inserta registros ni borra una
+preselección pendiente. Un destino eliminado pide elegir otra ubicación.
+
+El borrador de IA v2 conserva carpeta, nombre y elección de mazo nuevo/existente,
+incluyendo reapertura; los borradores anteriores siguen siendo legibles. Elegir
+Nuevo mazo no lo inserta: se crea al confirmar las tarjetas seleccionadas. Mazo
+e identidad del borrador se confirman en la misma transacción, para reintentar
+en ese mazo después de un cierre o fallo de guardado. Al terminar se vuelve al
+contenedor y se abre el mazo, evitando volver a la generación al pulsar Atrás.
+
+`LibraryContent` muestra en raíz las carpetas raíz y los mazos sueltos; Todos los
+mazos conserva el catálogo completo. La búsqueda raíz y los filtros por etiquetas
+incluyen mazos anidados. Buscar en una carpeta incluye descendientes y tarjetas,
+con rutas para distinguir nombres repetidos. Los vacíos se distinguen de una
+búsqueda sin resultados y ofrecen crear contenido cuando corresponde.
+
+`LibraryBreadcrumbs` muestra los ancestros en Android. Web reutiliza el shell;
+el índice despliega todos los ancestros y observa cambios de la base local.
+Navegar desde un mazo drena primero el autoguardado y conserva el borrador si falla.
+
+Opciones de carpeta agrupa renombrar, mover y borrar. Opciones de mazo ofrece
+Mover mazo y Sacar de esta carpeta; ambas muestran origen/destino y requieren
+confirmar el movimiento. Se puede traer un mazo desde otra carpeta, conservando
+su ID, tarjetas e historial. El borrado mantiene la confirmación por nombre exacto.
 
 ## Comportamiento
 
@@ -44,7 +74,7 @@
 ## Carpetas y compatibilidad
 
 SQLite v10 agrega `folders.parent_id` con migración append-only. Las existentes
-quedan en raíz. Crear centraliza las subcarpetas; el detalle permite mover carpetas
+quedan en raíz. Crear y el detalle comparten la creación de subcarpetas; el detalle permite mover carpetas
 y navegar a ancestros/hijos. El índice web refleja el árbol y la búsqueda mantiene
 visibles los ancestros de resultados.
 
@@ -59,7 +89,26 @@ sin `parent_id` y expresa padres mediante identidades estables. No cambia tablas
 ni permisos de Supabase. Clientes anteriores pueden rechazar el nuevo formato:
 actualizar web y Android antes de usar la jerarquía entre dispositivos.
 
-## Verificación y entrega
+## Verificación de navegación del 25/10/2026
+
+[PR #24](https://github.com/vicentemartinluciano/activecard/pull/24): CI con 64
+suites/538 pruebas, ESLint sin warnings, Doctor offline 21/21, verificadores
+SQLite/Postgres y exports Android/web. Las 23 pruebas locales enfocadas cubren
+creación contextual, cancelación, destinos eliminados, reintentos, navegación
+con autoguardado y búsqueda. La suite completa local se interrumpió tras dos
+timeouts bajo carga; la suite completa pasó en CI sin modificar esos tests.
+
+QA sobre el export web de CI, con datos sintéticos: carpetas anidadas, mazo
+manual en su carpeta, origen/destino al mover, raíz frente a catálogo global,
+búsqueda y entrada a IA con destino heredado. Viewport real de 390 × 844 px,
+sin desborde horizontal ni índice inicialmente superpuesto. El recorrido
+carpeta → mazo → ancestro → Atrás vuelve al nivel anterior. Los enlaces de
+ancestros usan dismissTo, conservando el guardado previo del editor.
+
+No se generó ni instaló un APK ni se publicó OTA. La prueba física sigue a
+cargo de Martín; el editor compartido y sus assets no cambian.
+
+## Verificación y entrega anteriores
 
 Pruebas de persistencia de tablas, export privado, árbol, ciclos concurrentes y
 edición de mazos. `verify-library-sqlite.mjs` comprueba migración, repositorios,

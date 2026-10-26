@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import ActionSheet from "../../../components/ActionSheet";
+import DeckMoveSheet from "../../../components/DeckMoveSheet";
+import LibraryBreadcrumbs from "../../../components/LibraryBreadcrumbs";
 import Collapsible from "../../../components/Collapsible";
 import ConfirmDeleteSheet from "../../../components/ConfirmDeleteSheet";
 import useCardAutosaveLifecycle from "../../../components/useCardAutosaveLifecycle";
@@ -72,6 +74,8 @@ export default function DetalleMazo() {
   const [cards, setCards] = useState([]);
   const [allTags, setAllTags] = useState([]);
   const [folders, setFolders] = useState([]);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState(null);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -363,6 +367,7 @@ export default function DetalleMazo() {
         }}
       />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+        <LibraryBreadcrumbs folders={folders} folderId={deck.folder_id} deckName={deck.name} onNavigate={async (route) => { if (await commitDraft()) router.dismissTo(route); }} />
         {Platform.OS === "web" && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 20 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" style={{ flex: 1 }} onPress={() => setEditingName(true)}><Text style={[type.heading, { fontSize: 28 }]}>{deck.name}</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Detalles del mazo" accessibilityState={{ expanded: showDetails }} onPress={toggleDetails} style={styles.cardAction}><Feather name="sliders" size={21} color={showDetails ? colors.accentText : colors.textMuted} /></Pressable>
@@ -564,6 +569,8 @@ export default function DetalleMazo() {
         title={deck.name}
         options={[
           { icon: "share-2", label: "Compartir / Exportar", onPress: shareDeck },
+          { icon: "folder", label: "Mover mazo", onPress: async () => { if (await commitDraft()) { setMoveTarget(deck.folder_id ?? null); setMoveOpen(true); } } },
+          ...(deck.folder_id != null ? [{ icon: "folder-minus", label: "Sacar de esta carpeta", onPress: async () => { if (await commitDraft()) { setMoveTarget(null); setMoveOpen(true); } } }] : []),
           {
             icon: "sliders",
             label: showDetails ? "Ocultar detalles" : "Editar detalles",
@@ -582,6 +589,7 @@ export default function DetalleMazo() {
         ]}
       />
 
+      <DeckMoveSheet visible={moveOpen} deckId={deckId} targetFolderId={moveTarget} onClose={() => setMoveOpen(false)} onMoved={load} />
       <ActionSheet
         visible={studySheet}
         onClose={() => setStudySheet(false)}

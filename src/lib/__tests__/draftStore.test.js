@@ -62,3 +62,17 @@ test("conserva qué tarjetas ya se guardaron y luego elimina el borrador", async
   expect(getDraft()).toBeNull();
   expect(mockStore.generationDraft).toBeNull();
 });
+
+test('conserva carpeta, nombre y selección de nuevo mazo al persistir y recuperar', async () => {
+  await setDraft([{ front: 'F', back: 'D' }], 'Archivo', { folderId: 8, createNewDeck: true });
+  await persistDraft({ ...getDraft(), newDeckName: 'Unidad 2' });
+  const stored = structuredClone(mockStore.generationDraft);
+  await clearDraft();
+  mockStore.generationDraft = stored;
+  expect(await loadDraft()).toMatchObject({ version: 2, folderId: 8, createNewDeck: true, newDeckName: 'Unidad 2' });
+});
+
+test('borradores anteriores conservan destino existente sin forzar un mazo nuevo', async () => {
+  mockStore.generationDraft = { sourceLabel: 'Anterior', deckId: 3, cards: [] };
+  expect(await loadDraft()).toMatchObject({ deckId: 3, folderId: null, createNewDeck: false, newDeckName: '' });
+});

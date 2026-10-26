@@ -1,13 +1,17 @@
 import { Stack, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import NotionField from "../../components/NotionField";
 import Toast from "../../components/Toast";
-import { Button, Card, Chip, InlineAdd, Screen } from "../../components/ui";
+import { Button, Card, Chip, Field, Screen } from "../../components/ui";
 import { createCard } from "../../db/cards";
 import { createDeck, listDecks } from "../../db/decks";
+import { listFolders } from "../../db/folders";
+import FolderPicker from "../../components/FolderPicker";
+import { locationLabel } from "../../lib/libraryLocation";
 import {
+  DRAFT_KEY,
   clearDraft,
   getDraft,
   loadDraft,
@@ -28,6 +32,12 @@ export default function Preseleccion() {
   const [editingKey, setEditingKey] = useState(null);
   const [decks, setDecks] = useState([]);
   const [deckId, setDeckId] = useState(initialDraft?.deckId ?? null);
+  const [folderId, setFolderId] = useState(initialDraft?.folderId ?? null);
+  const [newDeckName, setNewDeckName] = useState(initialDraft?.newDeckName || '');
+  const [createNewDeck, setCreateNewDeck] = useState(!!initialDraft?.createNewDeck);
+  const [folders, setFolders] = useState([]);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
+  const saveLock = useRef(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -40,6 +50,9 @@ export default function Preseleccion() {
         setDraftState(stored);
         setCards(stored?.cards || []);
         setDeckId(stored?.deckId ?? null);
+        setFolderId(stored?.folderId ?? null);
+        setNewDeckName(stored?.newDeckName || '');
+        setCreateNewDeck(!!stored?.createNewDeck);
       })
       .catch(() => {
         if (!alive) return;
@@ -55,13 +68,13 @@ export default function Preseleccion() {
 
   useEffect(() => {
     let alive = true;
-    listDecks()
-      .then((d) => {
+    Promise.all([listDecks(), listFolders()])
+      .then(([d, f]) => {
         if (!alive) return;
-        setDecks(d);
+        setDecks(d); setFolders(f); setLocationsLoaded(true);
         setDeckId((current) => {
           if (current != null && d.some((deck) => deck.id === current)) return current;
-          return d.length === 1 ? d[0].id : null;
+          return getDraft()?.createNewDeck ? null : d.length === 1 ? d[0].id : null;
         });
       })
       .catch(() => {
@@ -76,12 +89,12 @@ export default function Preseleccion() {
   useEffect(() => {
     if (!draftLoaded || !sourceLabel || saving) return undefined;
     const timer = setTimeout(() => {
-      persistDraft({ sourceLabel, cards, deckId }).catch(() => {
+      persistDraft({ sourceLabel, cards, deckId, folderId, createNewDeck, newDeckName }).catch(() => {
         setSaveError("No pudimos actualizar el borrador.");
       });
     }, 350);
     return () => clearTimeout(timer);
-  }, [cards, deckId, draftLoaded, saving, sourceLabel]);
+  }, [cards, deckId, folderId, createNewDeck, newDeckName, draftLoaded, saving, sourceLabel]);
 
   if (!draftLoaded) {
     return (
@@ -130,19 +143,8 @@ export default function Preseleccion() {
       },
     ]);
 
-  const onCreateDeck = async (name) => {
-    try {
-      const id = await createDeck(name);
-      setDecks(await listDecks());
-      setDeckId(id);
-      setSaveError("");
-    } catch {
-      setSaveError("No pudimos crear el mazo.");
-    }
-  };
-
   const save = async () => {
-    if (!deckId || keptCount === 0 || saving) return;
+    if (saveLock.current || keptCount === 0 || saving || (!createNewDeck && !deckId) || (createNewDeck && !deckId && !newDeckName.trim())) return;
     const incomplete = cards.some(
       (card) =>
         card.kept &&
@@ -153,16 +155,24 @@ export default function Preseleccion() {
       setSaveError("Completá el frente y el dorso de todas las tarjetas elegidas.");
       return;
     }
+    saveLock.current = true;
     setSaving(true);
     setEditingKey(null);
     setSaveError("");
     let nextCards = cards;
     let savedNow = 0;
+    let targetId = deckId;
     try {
+      if (createNewDeck && !targetId) {
+        const snapshot = { sourceLabel: draft.sourceLabel, cards, folderId, createNewDeck, newDeckName };
+        targetId = await createDeck(newDeckName, folderId, { draftKey: DRAFT_KEY, draft: snapshot });
+        setDeckId(targetId);
+        await persistDraft({ ...snapshot, deckId: targetId });
+      }
       for (const card of cards) {
         if (card.kept && !card.savedCardId) {
           const savedCardId = await createCard({
-            deckId,
+            deckId: targetId,
             front: card.front,
             back: card.back,
             source: card.manual ? "manual" : "ai",
@@ -174,12 +184,15 @@ export default function Preseleccion() {
           setCards(nextCards);
           // Persistir después de cada alta evita duplicar las ya guardadas si
           // la siguiente tarjeta falla y el usuario reintenta.
-          await persistDraft({ sourceLabel: draft.sourceLabel, cards: nextCards, deckId });
+          await persistDraft({ sourceLabel: draft.sourceLabel, cards: nextCards, deckId: targetId, folderId, createNewDeck, newDeckName });
         }
       }
       await clearDraft();
-      router.replace(`/mazos/${deckId}`);
+      const parentId = createNewDeck ? folderId : decks.find((d) => d.id === targetId)?.folder_id;
+      router.dismissTo(parentId == null ? '/biblioteca' : `/carpetas/${parentId}`);
+      router.push(`/mazos/${targetId}`);
     } catch (error) {
+      try { setFolders(await listFolders()); } catch { /* Mantener el error original. */ }
       const detail = error?.message ? ` ${error.message}` : "";
       setSaveError(
         savedNow > 0
@@ -187,7 +200,7 @@ export default function Preseleccion() {
           : `No pudimos guardar las tarjetas.${detail}`
       );
     } finally {
-      setSaving(false);
+      saveLock.current = false; setSaving(false);
     }
   };
 
@@ -255,18 +268,19 @@ export default function Preseleccion() {
             <Button label="Agregar tarjeta a mano" kind="ghost" onPress={addManual} />
 
             <View style={{ gap: spacing.sm }}>
-              <Text style={type.small}>Guardar en el mazo:</Text>
-              <View style={styles.deckRow}>
-                {decks.map((d) => (
-                  <Chip
-                    key={d.id}
-                    label={d.name}
-                    active={deckId === d.id}
-                    onPress={() => setDeckId(d.id)}
-                  />
-                ))}
-              </View>
-              <InlineAdd placeholder="O crear mazo nuevo…" buttonLabel="Crear" onSubmit={onCreateDeck} />
+              <Text style={type.label}>Guardar las tarjetas elegidas</Text>
+              {!cards.some((c) => c.savedCardId) && !deckId && <View style={styles.deckRow}>
+                <Chip label="Nuevo mazo" active={createNewDeck} onPress={() => setCreateNewDeck(true)} />
+                <Chip label="Mazo existente" active={!createNewDeck} onPress={() => setCreateNewDeck(false)} />
+              </View>}
+              {createNewDeck ? <>
+                <Field accessibilityLabel="Nombre del nuevo mazo" placeholder="Nombre del nuevo mazo…" value={newDeckName} onChangeText={setNewDeckName} editable={!saving && !deckId} />
+                <FolderPicker folders={folders} value={folderId} onChange={setFolderId} disabled={saving || !!deckId || !locationsLoaded} />
+              </> : <View style={styles.deckRow}>
+                {decks.map((d) => <Chip key={d.id} label={`${d.name} · ${locationLabel(folders, d.folder_id)}`} active={deckId === d.id} onPress={() => { if (!saving && !cards.some((c) => c.savedCardId)) setDeckId(d.id); }} />)}
+                {!cards.some((c) => c.savedCardId) && <Button label="Crear un mazo nuevo" onPress={() => { setDeckId(null); setCreateNewDeck(true); }} />}
+              </View>}
+
             </View>
 
             <Button
@@ -279,10 +293,10 @@ export default function Preseleccion() {
               }
               kind="primary"
               onPress={save}
-              disabled={!deckId || keptCount === 0 || saving}
+              disabled={(!deckId && (!createNewDeck || !newDeckName.trim())) || keptCount === 0 || saving || !locationsLoaded || (createNewDeck && !deckId && folderId != null && !folders.some((f) => f.id === folderId))}
             />
-            {!deckId ? (
-              <Text style={type.small}>Elegí o creá un mazo para poder guardar.</Text>
+            {!deckId && !createNewDeck ? (
+              <Text style={type.small}>Elegí un mazo para poder guardar.</Text>
             ) : null}
           </View>
         }

@@ -4,6 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { listDecks } from '../db/decks';
+import { getDb } from '../db/client';
+import { subscribeDatabaseChanges } from '../db/transactions';
 import { listFolders } from '../db/folders';
 import { folderPath } from '../lib/folderTree';
 import { DESKTOP_INDEX_WIDTH, DESKTOP_RAIL_WIDTH, desktopSection, hasLibraryIndex, libraryTree } from '../lib/desktopLayout';
@@ -11,6 +13,7 @@ import { colors, font } from '../theme';
 import { syncIndicator } from '../lib/syncIndicator';
 import { Field } from './ui';
 import { useCloudSync } from './CloudSyncProvider';
+import CreationSheet from './CreationSheet';
 
 const sections = [
   ['inicio', 'Inicio', 'home', '/'],
@@ -67,7 +70,7 @@ function DesktopWorkspace({ children }) {
   const path = usePathname();
   const syncStatus = useCloudSync()?.status;
   const { width } = useWindowDimensions();
-  const [pinned, setPinned] = useState(true);
+  const [pinned, setPinned] = useState(() => width >= 760);
   const [preview, setPreview] = useState(false);
   const [handleActive, setHandleActive] = useState(false);
   const [folders, setFolders] = useState([]);
@@ -75,6 +78,7 @@ function DesktopWorkspace({ children }) {
   const [expanded, setExpanded] = useState({});
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
+  const [creation, setCreation] = useState(null);
   const timer = useRef(null);
   const request = useRef(0);
   const navigationGuard = useRef(null);
@@ -94,6 +98,12 @@ function DesktopWorkspace({ children }) {
   const closePreview = useCallback(() => { clearTimeout(timer.current); setPreview(false); }, []);
   const leavePreview = () => { clearTimeout(timer.current); timer.current = setTimeout(() => setPreview(false), 180); };
   useEffect(() => { refresh(); closePreview(); }, [path, refresh, closePreview]);
+  useEffect(() => {
+    let alive = true;
+    let unsubscribe;
+    getDb().then((db) => { if (alive) unsubscribe = subscribeDatabaseChanges(db, refresh); }).catch(() => {});
+    return () => { alive = false; unsubscribe?.(); };
+  }, [refresh]);
   useEffect(() => () => { clearTimeout(timer.current); request.current++; }, []);
   useEffect(() => {
     const onFocus = () => refresh();
@@ -113,19 +123,24 @@ function DesktopWorkspace({ children }) {
   const selectedDeck = decks.find((deck) => deck.id === selectedId);
   const selectedFolder = selectedDeck?.folder_id || Number(path.match(/^\/carpetas\/(\d+)/)?.[1]);
   const currentFolder = folders.find((folder) => folder.id === selectedFolder);
-  useEffect(() => { if (selectedFolder) setExpanded((value) => ({ ...value, [selectedFolder]: true })); }, [selectedFolder]);
+  useEffect(() => {
+    if (selectedFolder) setExpanded((value) => ({ ...value, ...Object.fromEntries(folderPath(folders, selectedFolder).map((folder) => [folder.id, true])) }));
+  }, [selectedFolder, folders]);
   const section = desktopSection(path);
   const library = hasLibraryIndex(path);
   const narrow = width < 760;
+  useEffect(() => { if (narrow) { setPinned(false); closePreview(); } }, [narrow, closePreview]);
   const shown = library && (pinned || preview);
   const floating = narrow || !pinned;
   const tree = libraryTree(folders, decks, query);
-  const open = async (route) => {
+  const open = async (route, ancestor = false) => {
     if (navigating.current || route === path) return;
     navigating.current = true;
     try {
       if (navigationGuard.current && await navigationGuard.current() === false) return;
-      closePreview(); router.navigate(route);
+      closePreview(); if (narrow) setPinned(false);
+      if (ancestor || route === '/biblioteca') router.dismissTo(route);
+      else router.navigate(route);
     } finally { navigating.current = false; }
   };
   const deckRow = (deck, child = false) => <Pressable key={deck.id} title={deck.name}
@@ -161,7 +176,10 @@ function DesktopWorkspace({ children }) {
         style={[styles.index, { visibility: shown ? 'visible' : 'hidden', opacity: shown ? 1 : 0, transform: [{ translateX: shown ? 0 : -16 }], transition: `opacity 180ms ease, transform 220ms ease, visibility 0s ${shown ? '0s' : '220ms'}`, top: floating ? 48 : 0, bottom: floating ? 12 : 0 }, floating && styles.floating]}>
         <View style={styles.indexHeading}>
           <Field accessibilityLabel="Buscar carpetas y mazos" value={query} onChangeText={setQuery} placeholder="Buscar en el índice" style={styles.search} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Crear contenido" onPress={() => open('/crear')} style={styles.smallButton}><Feather name="plus" size={17} color={colors.textMuted} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Crear contenido" onPress={async () => {
+            if (navigationGuard.current && await navigationGuard.current() === false) return;
+            setCreation('choose');
+          }} style={styles.smallButton}><Feather name="plus" size={17} color={colors.textMuted} /></Pressable>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {error ? <Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.error}>{error} Reintentar</Text></Pressable> : null}
@@ -184,13 +202,14 @@ function DesktopWorkspace({ children }) {
           <Feather pointerEvents="none" name="sidebar" size={17} color={colors.textMuted} />
         </Pressable>
         <View accessibilityLabel="Ubicación en la biblioteca" style={styles.breadcrumbs}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca')} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
-          {currentFolder && folderPath(folders, currentFolder.id).map((folder) => <View key={folder.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${folder.name}`} onPress={() => open(`/carpetas/${folder.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{folder.name}</Text></Pressable></View>)}
+          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca', true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
+          {currentFolder && folderPath(folders, currentFolder.id).map((folder) => <View key={folder.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${folder.name}`} onPress={() => open(`/carpetas/${folder.id}`, true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{folder.name}</Text></Pressable></View>)}
           {selectedDeck && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a mazo ${selectedDeck.name}`} onPress={() => open(`/mazos/${selectedDeck.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{selectedDeck.name}</Text></Pressable></>}
         </View>
       </View>}
       <View style={styles.navigator}><DesktopNavigationContext.Provider value={register}>{children}</DesktopNavigationContext.Provider></View>
     </View>
+    <CreationSheet kind={creation} folderId={currentFolder?.id ?? null} onClose={() => setCreation(null)} />
   </View>;
 }
 
@@ -222,8 +241,8 @@ const styles = StyleSheet.create({
   error: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, padding: 16 },
   edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, minHeight: 0 },
-  toolbar: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  breadcrumbs: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  toolbar: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  breadcrumbs: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   crumb: { flexShrink: 1, minWidth: 0, paddingHorizontal: 4, paddingVertical: 8 },
   trail: { ...font(), color: colors.textMuted, fontSize: 13 },
   navigator: { flex: 1, minWidth: 0, minHeight: 0 },
