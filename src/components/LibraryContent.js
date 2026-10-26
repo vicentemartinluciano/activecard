@@ -67,7 +67,7 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
         if (row.label) return <Text style={[type.label, { marginTop: spacing.md }]}>{row.label}</Text>;
         const item = row.item;
         if (row.kind === 'folder') return <Card onPress={() => router.navigate(`/carpetas/${item.id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Feather name="folder" size={22} color={colors.accentText} /><View style={{ flex: 1, minWidth: 0 }}><Text style={type.body}>{item.name}</Text><Text style={type.small}>{searching ? locationLabel(folders, item.parent_id) : `${item.deck_count ?? 0} mazos directos`}</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
+          <Feather name="folder" size={22} color={colors.accentText} /><View style={{ flex: 1, minWidth: 0 }}><Text style={type.body}>{item.name}</Text><Text style={type.small}>{searching ? locationLabel(folders, item.parent_id) : `${item.deck_count ?? 0} ${item.deck_count === 1 ? 'mazo directo' : 'mazos directos'}`}</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
         </Card>;
         if (row.kind === 'deck') return <View style={{ gap: 4 }}>
           <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center' }}><View style={{ flex: 1, minWidth: 0 }}><DeckListItem deck={item} progress={progressByDeck[item.id]} onPress={() => router.navigate(`/mazos/${item.id}`)} /></View>

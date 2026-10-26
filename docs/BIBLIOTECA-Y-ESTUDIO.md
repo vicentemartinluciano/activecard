@@ -89,7 +89,26 @@ sin `parent_id` y expresa padres mediante identidades estables. No cambia tablas
 ni permisos de Supabase. Clientes anteriores pueden rechazar el nuevo formato:
 actualizar web y Android antes de usar la jerarquía entre dispositivos.
 
-## Verificación y entrega
+## Verificación de navegación del 25/10/2026
+
+[PR #24](https://github.com/vicentemartinluciano/activecard/pull/24): CI con 64
+suites/538 pruebas, ESLint sin warnings, Doctor offline 21/21, verificadores
+SQLite/Postgres y exports Android/web. Las 23 pruebas locales enfocadas cubren
+creación contextual, cancelación, destinos eliminados, reintentos, navegación
+con autoguardado y búsqueda. La suite completa local se interrumpió tras dos
+timeouts bajo carga; la suite completa pasó en CI sin modificar esos tests.
+
+QA sobre el export web de CI, con datos sintéticos: carpetas anidadas, mazo
+manual en su carpeta, origen/destino al mover, raíz frente a catálogo global,
+búsqueda y entrada a IA con destino heredado. Viewport real de 390 × 844 px,
+sin desborde horizontal ni índice inicialmente superpuesto. El recorrido
+carpeta → mazo → ancestro → Atrás vuelve al nivel anterior. Los enlaces de
+ancestros usan dismissTo, conservando el guardado previo del editor.
+
+No se generó ni instaló un APK ni se publicó OTA. La prueba física sigue a
+cargo de Martín; el editor compartido y sus assets no cambian.
+
+## Verificación y entrega anteriores
 
 Pruebas de persistencia de tablas, export privado, árbol, ciclos concurrentes y
 edición de mazos. `verify-library-sqlite.mjs` comprueba migración, repositorios,

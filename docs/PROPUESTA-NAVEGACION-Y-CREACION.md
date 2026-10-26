@@ -1,7 +1,7 @@
 # Propuesta: biblioteca, carpetas y creación contextual
 
 Fecha: 25/10/2026. Martín confirmó los cinco cambios de esta propuesta.
-Estado: implementación local en validación; todavía no publicada.
+Estado: implementado en el PR #24, con CI y revisión web. Sin publicación OTA ni instalación de APK.
 
 ## Diagnóstico
 
@@ -99,7 +99,7 @@ un mazo desde otra carpeta, conservación del destino hasta la preselección de 
 simulada y cancelación sin crear un mazo adicional. Se revisó visualmente el
 formulario en una superficie angosta. Esto no valida el comportamiento de la app.
 
-## Criterios de aceptación y validación posterior a la confirmación
+## Criterios de aceptación y validación
 
 - Crear un mazo manual en raíz y en una carpeta anidada lo inserta con el destino
   correcto en una operación atómica; doble toque y error no duplican mazos.
@@ -123,3 +123,25 @@ formulario en una superficie angosta. Esto no valida el comportamiento de la app
 
 Confirmación recibida: implementar los cinco puntos anteriores en app y web.
 La publicación y la recepción física de una OTA son etapas de evidencia separadas.
+
+## Evidencia de la implementación
+
+- [PR #24](https://github.com/vicentemartinluciano/activecard/pull/24): implementación de los cinco puntos confirmados.
+- CI sobre la implementación: 64 suites y 538 pruebas, ESLint sin warnings,
+  Expo Doctor offline 21/21, los tres verificadores SQLite/Postgres y exports
+  Android/web. El chequeo remoto de parches sigue siendo informativo para el
+  próximo APK, como exige el proyecto.
+- 23 pruebas locales enfocadas pasaron. La primera suite completa en Windows
+  tuvo timeouts en dos pruebas existentes bajo carga de exports simultáneos y
+  se detuvo; la suite completa en CI pasó sin cambiar esas pruebas.
+- Se descargó el export web de CI y se verificó el hash de Biblioteca contra la
+  copia servida localmente. QA con datos sintéticos y sin conectar una cuenta:
+  creación de carpeta/subcarpeta/mazo, destino heredado al entrar a IA,
+  movimiento a raíz y de vuelta, catálogo global, búsqueda sin tildes y rutas.
+- Sobre el export de CI se comprobó 390 × 844 px efectivos, sin desborde
+  horizontal ni índice superpuesto inicialmente. Se verificó el recorrido
+  carpeta → mazo → ancestro → Atrás: vuelve al nivel anterior, sin volver al
+  mismo mazo. El error se corrigió usando dismissTo para los ancestros.
+- El editor compartido no fue modificado; no requiere regenerar su bundle.
+  No se operó el Galaxy A15. Recepción de OTA, teclado y gestos físicos siguen
+  fuera de la evidencia de esta revisión.
