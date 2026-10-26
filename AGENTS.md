@@ -85,9 +85,17 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - Borrar mazos o carpetas requiere escribir el nombre exacto. Al borrar una carpeta, los
   mazos no seleccionados para borrar quedan sueltos.
 - Las ideas son tarjetas reales con `source='hybrid'`; el Gimnasio es una vista derivada.
-- Crear mazos y carpetas se centraliza en la pestaña Crear. Las tarjetas manuales
-  también se crean dentro del mazo, en el mismo editor con autoguardado.
-- Biblioteca consulta, busca, filtra y organiza.
+- Crear, Biblioteca y las carpetas comparten `CreationSheet`: se puede crear un
+  mazo manual/con IA o una carpeta desde la ubicación actual. Crear empieza en
+  raíz; la carpeta de destino queda visible y se puede cambiar. Las tarjetas
+  manuales se crean dentro del mazo, en el mismo editor con autoguardado.
+- Biblioteca comparte `LibraryContent` con las carpetas en web y Android. En raíz
+  muestra carpetas raíz y mazos sueltos; Todos los mazos conserva el catálogo.
+  La búsqueda raíz es global y la de carpeta incluye descendientes. Mover mazos
+  conserva IDs e historial y muestra origen/destino antes de confirmar.
+- La generación conserva `folderId` en el borrador local v2 (lee v1). El nuevo
+  mazo se inserta al confirmar la preselección, junto a su identidad en el
+  borrador. No crear un mazo vacío al elegir el destino de las propuestas.
 - Los datos viven localmente. Martín aprobó sync privada con el acceso/proyecto de REANCLA, datos separados y conversaciones incluidas. No ampliar ese alcance sin una decisión explícita.
 - Por ahora no implementar multiproveedor ni “cualquier API”. OpenAI/Luna es la decisión
   vigente; una eventual versión comercial se evaluará desde un gateway propio.

@@ -3,14 +3,11 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import ActionSheet from "../../components/ActionSheet";
+import CreationSheet from "../../components/CreationSheet";
 import GlowPressable from "../../components/GlowPressable";
 import SectionSwipe from "../../components/SectionSwipe";
 import Stagger from "../../components/Stagger";
-import { Chip, InlineAdd, Screen } from "../../components/ui";
-import { createDeck } from "../../db/decks";
-import { createFolder, listFolders } from "../../db/folders";
-import { folderPath } from "../../lib/folderTree";
+import { Screen } from "../../components/ui";
 import { colors, gradients, HALO_PADDING, radius, spacing, type } from "../../theme";
 
 // Los emojis se quedan: decisión de Martín (se propuso pasarlos a Feather y lo
@@ -25,36 +22,21 @@ function CreationArea({ children }) {
   return <ScrollView contentContainerStyle={{ flexGrow: 1, padding: HALO_PADDING, paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>{children}</ScrollView>;
 }
 
-// Hub de creación: única puerta de entrada para mazos con IA, mazos manuales y carpetas.
+// Hub de creación: comparte los formularios con Biblioteca y carpetas.
 export default function Crear() {
   const router = useRouter();
   const { parentId } = useLocalSearchParams();
   const { width } = useWindowDimensions();
   const desktop = Platform.OS === 'web' && width >= 1000;
-  const [createStep, setCreateStep] = useState(null); // null | "mazo" | "carpeta"
-  const [folders, setFolders] = useState([]);
+  const [createStep, setCreateStep] = useState(null);
   const [folderParent, setFolderParent] = useState(null);
   useFocusEffect(useCallback(() => {
-    listFolders().then(setFolders);
-    if (parentId) { setFolderParent(Number(parentId)); setCreateStep("carpeta"); }
-  }, [parentId]));
-
-  const onCreateDeck = async (name) => {
-    const id = await createDeck(name);
-    setCreateStep(null);
-    router.push(`/mazos/${id}`);
-  };
-
-  const onCreateFolder = async (name) => {
-    const id = await createFolder(name, folderParent);
-    setCreateStep(null);
-    router.push(`/carpetas/${id}`);
-  };
-
-  const handlePress = (key) => {
-    if (key === "ia") router.push("/crear/ia");
-    else setCreateStep(key);
-  };
+    if (parentId) {
+      setFolderParent(Number(parentId)); setCreateStep('carpeta');
+      router.setParams({ parentId: undefined });
+    }
+  }, [parentId, router]));
+  const handlePress = (key) => { setFolderParent(null); setCreateStep(key); };
 
   return (
     <SectionSwipe index={1}>
@@ -99,25 +81,7 @@ export default function Crear() {
       </View>
       </CreationArea>
 
-      <ActionSheet
-        visible={createStep !== null}
-        onClose={() => setCreateStep(null)}
-        title={createStep === "mazo" ? "Nuevo mazo" : "Nueva carpeta"}
-      >
-        {createStep === "mazo" ? (
-          <InlineAdd placeholder="Nombre del mazo nuevo…" buttonLabel="Crear" onSubmit={onCreateDeck} />
-        ) : null}
-        {createStep === "carpeta" ? (
-          <View style={{ gap: spacing.md }}>
-          <Text style={type.label}>Dentro de</Text>
-          <ScrollView style={{ maxHeight: 200 }} contentContainerStyle={{ gap: spacing.sm }}>
-            <Chip label="Biblioteca (raíz)" active={folderParent == null} onPress={() => setFolderParent(null)} />
-            {folders.map((folder) => <Chip key={folder.id} label={folderPath(folders, folder.id).map((part) => part.name).join(" / ")} active={folderParent === folder.id} onPress={() => setFolderParent(folder.id)} />)}
-          </ScrollView>
-          <InlineAdd placeholder="Nombre de la carpeta…" buttonLabel="Crear" onSubmit={onCreateFolder} />
-          </View>
-        ) : null}
-      </ActionSheet>
+      <CreationSheet kind={createStep} folderId={folderParent} onClose={() => setCreateStep(null)} />
     </Screen>
     </SectionSwipe>
   );

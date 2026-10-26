@@ -4,6 +4,7 @@ import { act, create } from 'react-test-renderer';
 import DeckScreen from '../../app/mazos/[id]';
 import { createCard, getCard, listCardsByDeck, updateCardText } from '../../db/cards';
 import { getDeck } from '../../db/decks';
+const mockRouter = { navigate: jest.fn() };
 
 // Esta prueba observa las transiciones de carga de la pantalla real. Los
 // componentes host evitan iniciar ScrollView y vistas Expo nativas al resolver
@@ -23,7 +24,7 @@ jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   useLocalSearchParams: () => ({ id: '7' }),
-  useRouter: () => ({}),
+  useRouter: () => mockRouter,
   useNavigation: () => ({ addListener: () => () => {} }),
   useFocusEffect: (callback) => require('react').useEffect(callback, [callback]),
 }));
@@ -165,4 +166,20 @@ test('escribir y autoguardar no repiten la entrada ni remontan el editor', async
   expect(screen.root.findByType('editable-row')).toBe(editor);
   expect(Animated.timing).toHaveBeenCalledTimes(entries);
   jest.useRealTimers();
+});
+
+test('ir a un ancestro guarda primero el texto y conserva el borrador si falla', async () => {
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([{ id: 1, front: 'Pregunta', back: 'Respuesta' }]);
+  updateCardText.mockRejectedValueOnce(new Error('No se pudo guardar'));
+  await act(async () => { screen = create(<DeckScreen />); });
+  await act(async () => screen.root.findByType('editable-row').props.onActivate(1));
+  await act(async () => screen.root.findByType('editable-row').props.onChangeDraft({ front: 'Texto pendiente', back: 'Respuesta' }));
+  await act(async () => screen.root.findByProps({ accessibilityLabel: 'Ir a Biblioteca' }).props.onPress());
+  expect(mockRouter.navigate).not.toHaveBeenCalled();
+  expect(screen.root.findByType('editable-row').props.draft.front).toBe('Texto pendiente');
+  updateCardText.mockResolvedValueOnce();
+  await act(async () => screen.root.findByProps({ accessibilityLabel: 'Ir a Biblioteca' }).props.onPress());
+  expect(updateCardText).toHaveBeenLastCalledWith(1, 'Texto pendiente', 'Respuesta', expect.anything());
+  expect(mockRouter.navigate).toHaveBeenCalledWith('/biblioteca');
 });

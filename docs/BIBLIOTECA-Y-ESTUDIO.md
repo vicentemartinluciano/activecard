@@ -1,4 +1,34 @@
-# Biblioteca y estudio — revisión del 18/10/2026
+# Biblioteca y estudio — revisión del 25/10/2026
+
+## Creación y navegación contextual
+
+Biblioteca y cada carpeta permiten Nuevo mazo (Manual o Con IA), Nueva carpeta o
+subcarpeta y Mover mazo existente. `CreationSheet` comparte los formularios con la
+pestaña Crear, que empieza en raíz. El destino muestra su ruta completa y se
+puede cambiar antes de confirmar. Cancelar no inserta registros ni borra una
+preselección pendiente. Un destino eliminado pide elegir otra ubicación.
+
+El borrador de IA v2 conserva carpeta, nombre y elección de mazo nuevo/existente,
+incluyendo reapertura; los borradores anteriores siguen siendo legibles. Elegir
+Nuevo mazo no lo inserta: se crea al confirmar las tarjetas seleccionadas. Mazo
+e identidad del borrador se confirman en la misma transacción, para reintentar
+en ese mazo después de un cierre o fallo de guardado. Al terminar se vuelve al
+contenedor y se abre el mazo, evitando volver a la generación al pulsar Atrás.
+
+`LibraryContent` muestra en raíz las carpetas raíz y los mazos sueltos; Todos los
+mazos conserva el catálogo completo. La búsqueda raíz y los filtros por etiquetas
+incluyen mazos anidados. Buscar en una carpeta incluye descendientes y tarjetas,
+con rutas para distinguir nombres repetidos. Los vacíos se distinguen de una
+búsqueda sin resultados y ofrecen crear contenido cuando corresponde.
+
+`LibraryBreadcrumbs` muestra los ancestros en Android. Web reutiliza el shell;
+el índice despliega todos los ancestros y observa cambios de la base local.
+Navegar desde un mazo drena primero el autoguardado y conserva el borrador si falla.
+
+Opciones de carpeta agrupa renombrar, mover y borrar. Opciones de mazo ofrece
+Mover mazo y Sacar de esta carpeta; ambas muestran origen/destino y requieren
+confirmar el movimiento. Se puede traer un mazo desde otra carpeta, conservando
+su ID, tarjetas e historial. El borrado mantiene la confirmación por nombre exacto.
 
 ## Comportamiento
 
@@ -44,7 +74,7 @@
 ## Carpetas y compatibilidad
 
 SQLite v10 agrega `folders.parent_id` con migración append-only. Las existentes
-quedan en raíz. Crear centraliza las subcarpetas; el detalle permite mover carpetas
+quedan en raíz. Crear y el detalle comparten la creación de subcarpetas; el detalle permite mover carpetas
 y navegar a ancestros/hijos. El índice web refleja el árbol y la búsqueda mantiene
 visibles los ancestros de resultados.
 

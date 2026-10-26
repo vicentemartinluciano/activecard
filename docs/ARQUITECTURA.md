@@ -1,7 +1,7 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-16
-APK instalada: 1.10.0 / código 5 (15/10/2026, sobre 1.9.0 sin desinstalar). El estado del teléfono, la cuenta y las pruebas de intercambio
+Última actualización: 2026-10-25
+APK instalada: 1.11.0 / código 6, comprobada por ADB el 18/10; esta revisión no construye ni instala un APK. La prueba física queda a cargo de Martín. El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
 
@@ -52,6 +52,22 @@ La web tiene un shell de escritorio persistente: barra de secciones, índice de
 carpetas/mazos con fijado y vista previa por hover y contenido independiente. Ver
 `WEB-ESCRITORIO.md` para el diseño aprobado y `SINCRONIZACION.md` para la cuenta
 privada y sincronización con conversaciones del Gimnasio.
+
+`LibraryContent` comparte la navegación de Biblioteca y carpetas entre Android
+y web. La raíz distingue En esta ubicación (carpetas raíz/mazos sueltos) y Todos
+los mazos. Buscar en raíz es global; buscar dentro de una carpeta incluye sus
+descendientes y muestra la ubicación de los resultados. `LibraryBreadcrumbs`
+expone los ancestros en Android; web reutiliza la ruta de `DesktopShell` y abre
+los ancestros del elemento activo en el índice.
+
+`CreationSheet` y `FolderPicker` se reutilizan desde Crear, Biblioteca, carpetas
+y el índice web. `createDeck(name, folderId)` inserta el destino y el mazo en una
+transacción. El borrador de generación v2 conserva destino, nombre y modalidad
+de mazo nuevo; lee borradores anteriores. Confirmar la preselección crea el mazo
+y su referencia en `settings` atómicamente antes de guardar las tarjetas.
+`DeckMoveSheet` permite mover desde cualquier carpeta con origen/destino visibles;
+`setDeckFolder` valida ambas referencias en la transacción. No cambia FSRS ni
+identidades y no requiere una migración de esquema ni un módulo nativo.
 
 El pulido visual compartido de web y Android está descrito en `UI-PULIDO.md`:
 primitivas accesibles, ancho de formularios y composición adaptada a ventanas angostas.

@@ -1,6 +1,7 @@
 // Repositorio de mazos y etiquetas (API asíncrona).
 
 import { getDb } from "./client";
+import { withDbTransaction } from "./transactions";
 
 export async function listDecks() {
   const db = await getDb();
@@ -31,13 +32,17 @@ export async function getDeck(id) {
   return { ...deck, tags };
 }
 
-export async function createDeck(name) {
+export async function createDeck(name, folderId = null, { draftKey, draft } = {}) {
+  if (!name.trim()) throw new Error("Escribí un nombre para el mazo.");
   const db = await getDb();
-  const res = await db.runAsync("INSERT INTO decks (name, created_at) VALUES (?, ?)", [
-    name.trim(),
-    new Date().toISOString(),
-  ]);
-  return res.lastInsertRowId;
+  return withDbTransaction(db, async (tx) => {
+    if (folderId != null && !await tx.getFirstAsync("SELECT id FROM folders WHERE id = ?", [folderId])) throw new Error("La carpeta de destino ya no existe. Elegí otra ubicación.");
+    const res = await tx.runAsync("INSERT INTO decks (name, created_at, folder_id) VALUES (?, ?, ?)", [name.trim(), new Date().toISOString(), folderId]);
+    // La identidad del mazo y el borrador de generación se confirman juntos:
+    // reabrir después de un cierre no crea otro mazo para las mismas tarjetas.
+    if (draftKey) await tx.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", [draftKey, JSON.stringify({ ...draft, deckId: res.lastInsertRowId })]);
+    return res.lastInsertRowId;
+  });
 }
 
 export async function renameDeck(id, name) {
@@ -61,7 +66,11 @@ export async function updateDeckIcon(id, icon) {
 // Carpeta del mazo (folders.id) o null para dejarlo suelto.
 export async function setDeckFolder(deckId, folderId) {
   const db = await getDb();
-  await db.runAsync("UPDATE decks SET folder_id = ? WHERE id = ?", [folderId || null, deckId]);
+  return withDbTransaction(db, async (tx) => {
+    if (!await tx.getFirstAsync("SELECT id FROM decks WHERE id = ?", [deckId])) throw new Error("El mazo ya no existe.");
+    if (folderId != null && !await tx.getFirstAsync("SELECT id FROM folders WHERE id = ?", [folderId])) throw new Error("La carpeta de destino ya no existe. Elegí otra ubicación.");
+    await tx.runAsync("UPDATE decks SET folder_id = ? WHERE id = ?", [folderId, deckId]);
+  });
 }
 
 // Mapa { deckId: prioridad } para armar la cola diaria.

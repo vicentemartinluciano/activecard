@@ -1,9 +1,11 @@
 import Feather from "@expo/vector-icons/Feather";
-import { Stack, useRouter } from "expo-router";
-import { useState } from "react";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Button, Card, Chip, Field, Screen } from "../../components/ui";
+import FolderPicker from "../../components/FolderPicker";
+import { listFolders } from "../../db/folders";
 import { setDraft } from "../../lib/draftStore";
 import { pickStudyFile } from "../../lib/files";
 import {
@@ -23,6 +25,10 @@ const SOURCES = [
 // Fuente de material → IA (opcional) → preselección.
 export default function CrearConIA() {
   const router = useRouter();
+  const { folderId } = useLocalSearchParams();
+  const [destination, setDestination] = useState(folderId == null || folderId === 'root' ? null : Number(folderId));
+  const [folders, setFolders] = useState([]);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
   const [mode, setMode] = useState("conceptos_clave");
   const [source, setSource] = useState("texto"); // 'texto' | 'archivo' | 'notion'
   const [text, setText] = useState("");
@@ -31,7 +37,12 @@ export default function CrearConIA() {
   const [busy, setBusy] = useState(null); // string de estado o null
   const [error, setError] = useState(null);
 
-  const customReady = mode !== "personalizado" || customInstruction.trim().length > 0;
+  useEffect(() => {
+    let alive = true;
+    listFolders().then((items) => { if (alive) { setFolders(items); setLocationsLoaded(true); } }).catch(() => { if (alive) setError('No pudimos cargar las ubicaciones. Volvé a intentar desde la carpeta.'); });
+    return () => { alive = false; };
+  }, []);
+  const customReady = locationsLoaded && (destination == null || folders.some((f) => f.id === destination)) && (mode !== "personalizado" || customInstruction.trim().length > 0);
 
   const run = async (fn) => {
     setError(null);
@@ -45,7 +56,7 @@ export default function CrearConIA() {
   };
 
   const goPreselect = async (cards, label) => {
-    await setDraft(cards, label);
+    await setDraft(cards, label, { folderId: destination, createNewDeck: true });
     router.push("/crear/preseleccion");
   };
 
@@ -100,6 +111,7 @@ export default function CrearConIA() {
     <Screen variant="form">
       <Stack.Screen options={{ title: "Generar con IA" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
+        <FolderPicker folders={folders} value={destination} onChange={setDestination} disabled={!locationsLoaded} />
         <Card style={{ gap: spacing.md }}>
           <View style={styles.section}>
             <Text style={type.label}>¿Qué extraer del material?</Text>

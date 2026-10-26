@@ -5,7 +5,7 @@ import { build } from "esbuild";
 const require = createRequire(import.meta.url);
 const Module = require("node:module");
 const compiled = await build({
-  stdin: { contents: `export { migrate } from './src/db/schema'; export { manageDatabase } from './src/db/transactions'; export * from './src/db/folders'; export { createDeck } from './src/db/decks'; export { createCard, reviewCard, getCard } from './src/db/cards'; export * from './src/lib/backup'; export * from './src/lib/backupMerge'; export * from './src/lib/deckExport'; export * from './src/lib/syncDocument'; export * from './src/lib/syncLocal';`, resolveDir: process.cwd() },
+  stdin: { contents: `export { migrate } from './src/db/schema'; export { manageDatabase } from './src/db/transactions'; export * from './src/db/folders'; export { createDeck, getDeck, setDeckFolder } from './src/db/decks'; export { createCard, reviewCard, getCard } from './src/db/cards'; export * from './src/lib/backup'; export * from './src/lib/backupMerge'; export * from './src/lib/deckExport'; export * from './src/lib/syncDocument'; export * from './src/lib/syncLocal';`, resolveDir: process.cwd() },
   bundle: true, write: false, platform: "node", format: "cjs",
   plugins: [{ name: "test-connection", setup(builder) {
     builder.onResolve({ filter: /(?:^|\/)client$/ }, () => ({ path: "connection", namespace: "test" }));
@@ -32,8 +32,20 @@ try {
   const leaf = await api.createFolder("Unidad 1", child);
   await assert.rejects(() => api.moveFolder(root, leaf), /subcarpeta/);
   await assert.rejects(() => api.moveFolder(root, 999), /subcarpeta/);
-  const deck = await api.createDeck("Conceptos");
-  await db.runAsync("UPDATE decks SET folder_id = ? WHERE id = ?", [leaf, deck]);
+  await assert.rejects(() => api.createDeck('Sin destino', 999), /destino/);
+  assert.equal((await raw.getFirstAsync('SELECT COUNT(*) AS n FROM decks')).n, 0);
+  const deck = await api.createDeck("Conceptos", leaf, { draftKey: 'generationDraft', draft: { sourceLabel: 'Texto', cards: [], folderId: leaf, createNewDeck: true } });
+  assert.equal((await api.getDeck(deck)).folder_id, leaf);
+  assert.equal(JSON.parse((await raw.getFirstAsync("SELECT value FROM settings WHERE key='generationDraft'")).value).deckId, deck);
+  await assert.rejects(() => api.setDeckFolder(deck, 999), /destino/);
+  assert.equal((await api.getDeck(deck)).folder_id, leaf);
+  await api.setDeckFolder(deck, root);
+  assert.equal((await api.getDeck(deck)).folder_id, root);
+  await api.setDeckFolder(deck, leaf);
+  await raw.execAsync("CREATE TEMP TRIGGER fail_draft BEFORE INSERT ON settings WHEN NEW.key='failDraft' BEGIN SELECT RAISE(ABORT, 'fallo de borrador'); END;");
+  await assert.rejects(() => api.createDeck('No debe quedar', leaf, { draftKey: 'failDraft', draft: {} }), /fallo de borrador/);
+  assert.equal((await raw.getFirstAsync('SELECT COUNT(*) AS n FROM decks')).n, 1);
+  await raw.execAsync('DROP TRIGGER fail_draft');
   const draftKey = `cardDraft:${deck}:new`;
   const recoveredId = await api.createCard({ deckId: deck, front: "Borrador", back: "Completo", draftKey });
   assert.equal(JSON.parse((await db.getFirstAsync("SELECT value FROM settings WHERE key = ?", [draftKey])).value).cardId, recoveredId);

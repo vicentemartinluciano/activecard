@@ -4,15 +4,18 @@
 
 import { getSetting, setSetting } from "../db/settings";
 
-const DRAFT_KEY = "generationDraft";
+export const DRAFT_KEY = "generationDraft";
 let draft = null;
 
 function normalizeDraft(value) {
   if (!value || !Array.isArray(value.cards) || !value.sourceLabel) return null;
   return {
-    version: 1,
+    version: 2,
     sourceLabel: String(value.sourceLabel),
     deckId: value.deckId == null ? null : Number(value.deckId),
+    folderId: value.folderId == null ? null : Number(value.folderId),
+    createNewDeck: !!value.createNewDeck,
+    newDeckName: String(value.newDeckName || ''),
     cards: value.cards.map((card, index) => ({
       ...card,
       key: card.key ?? `ai-${index}`,
@@ -24,7 +27,7 @@ function normalizeDraft(value) {
 }
 
 // cards: [{front, back}], sourceLabel: texto corto de dónde salieron.
-export async function setDraft(cards, sourceLabel) {
+export async function setDraft(cards, sourceLabel, { folderId = null, createNewDeck = false } = {}) {
   const stamp = Date.now();
   draft = normalizeDraft({
     cards: cards.map((card, index) => ({
@@ -35,6 +38,8 @@ export async function setDraft(cards, sourceLabel) {
     })),
     sourceLabel,
     deckId: null,
+    folderId,
+    createNewDeck,
   });
   await setSetting(DRAFT_KEY, draft);
   return draft;
