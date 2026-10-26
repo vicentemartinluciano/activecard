@@ -1,7 +1,7 @@
 # Propuesta: biblioteca, carpetas y creación contextual
 
 Fecha: 25/10/2026. Martín confirmó los cinco cambios de esta propuesta.
-Estado: implementado en el PR #24, con CI y revisión web. Sin publicación OTA ni instalación de APK.
+Estado: PR #24 integrado; web publicada y OTA Android entregada el 26/10/2026. No se construyó ni instaló otro APK. La recepción y prueba física quedan a cargo de Martín.
 
 ## Diagnóstico
 

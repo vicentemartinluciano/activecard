@@ -16,7 +16,7 @@ analiza fuentes y propone acciones sobre la biblioteca.
 - APK instalada: 1.11.0 / código 6, comprobado por ADB el 18/10. No se instaló desde esta revisión. El 19/10 Martín dejó la prueba física a su cargo: no operar el teléfono ni afirmar recepción de OTA, teclado, gestos o widgets como verificados. Ver entrega en `docs/BIBLIOTECA-Y-ESTUDIO.md`, widgets en `docs/WIDGETS.md` y sync en `docs/SINCRONIZACION.md`.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
-- APK privado + EAS Update; web auxiliar en GitHub Pages.
+- APK privado + EAS Update; web auxiliar en GitHub Pages. Biblioteca contextual entregada en web y OTA `preview`/`1.11.0` el 26/10; artefactos verificados en `docs/BIBLIOTECA-Y-ESTUDIO.md`. Recepción y QA físico a cargo de Martín.
 - Widgets Android: Repaso diario, Mazos y el combinado (tercero desde 1.10.0).
   Diseño de Inicio, botón blanco centrado, racha y reflejo del progreso con overlay
   nativo diurno/nocturno. Mazos desplazables completos: progreso parcial de hoy

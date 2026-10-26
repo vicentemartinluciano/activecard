@@ -1,4 +1,4 @@
-# Biblioteca y estudio — revisión del 25/10/2026
+# Biblioteca y estudio — revisión del 26/10/2026
 
 ## Creación y navegación contextual
 
@@ -105,8 +105,22 @@ sin desborde horizontal ni índice inicialmente superpuesto. El recorrido
 carpeta → mazo → ancestro → Atrás vuelve al nivel anterior. Los enlaces de
 ancestros usan dismissTo, conservando el guardado previo del editor.
 
-No se generó ni instaló un APK ni se publicó OTA. La prueba física sigue a
-cargo de Martín; el editor compartido y sus assets no cambian.
+La entrega se completó el 26/10/2026: PR #24 integrado en `dd6b479`, CI main
+`40260968188` verde y web publicada por el despliegue `40260968162`. El HTML y
+el bundle servido por GitHub Pages coinciden con el artefacto del despliegue
+(SHA-256 del bundle: `896ffbc1e07588f5a2c8d7d03d6c4f5db5686643c3b324849523138369f7149e`).
+
+OTA Android publicada en rama/canal `preview`, runtime `1.11.0`: grupo
+`6249e415-7c45-4dc2-ba25-e5100ddf44a5`, update
+`01a177ed-4aa7-784f-bbee-723467935671`. Se verificó que el canal sirve ese ID y
+que su asset de lanzamiento coincide byte por byte con el export local
+(SHA-256 `a367fb020dec0d6d956cb0b994e6e977215d3c89ca49eae7bf41da9924f5e8a8`).
+El export se generó sin `.env`; las claves de IA siguen exclusivamente en los
+settings locales. Se usó el bundle ya exportado al publicar, sin volver a
+inyectar variables del entorno EAS en el código.
+
+No se construyó ni instaló otro APK. La recepción de la OTA y la prueba física
+siguen a cargo de Martín; el editor compartido y sus assets no cambian.
 
 ## Verificación y entrega anteriores
 

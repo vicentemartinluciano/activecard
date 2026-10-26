@@ -1,6 +1,6 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-25
+Última actualización: 2026-10-26
 APK instalada: 1.11.0 / código 6, comprobada por ADB el 18/10; esta revisión no construye ni instala un APK. La prueba física queda a cargo de Martín. El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
@@ -71,6 +71,11 @@ identidades y no requiere una migración de esquema ni un módulo nativo.
 
 El pulido visual compartido de web y Android está descrito en `UI-PULIDO.md`:
 primitivas accesibles, ancho de formularios y composición adaptada a ventanas angostas.
+
+La Biblioteca contextual se integró mediante el PR #24 (`dd6b479`) y se publicó
+en web y OTA Android el 26/10/2026. La OTA usa canal `preview` y runtime `1.11.0`;
+la verificación de artefactos y sus identificadores están en
+`BIBLIOTECA-Y-ESTUDIO.md`. No se construyó ni instaló otro APK ni se operó el teléfono.
 
 ## Stack
 
