@@ -139,7 +139,9 @@ function DesktopWorkspace({ children }) {
     try {
       if (navigationGuard.current && await navigationGuard.current() === false) return;
       closePreview(); if (narrow) setPinned(false);
-      if (ancestor || route === '/biblioteca') router.dismissTo(route);
+      // POP_TO vuelve por el stack de mazos/carpetas, pero no cambia la tab
+      // activa cuando ya estamos en Inicio, Crear o Progreso.
+      if (ancestor || route === '/biblioteca' && section === 'biblioteca') router.dismissTo(route);
       else router.navigate(route);
     } finally { navigating.current = false; }
   };
