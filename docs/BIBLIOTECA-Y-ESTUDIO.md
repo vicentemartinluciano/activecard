@@ -100,6 +100,29 @@ entrada táctil emulada: flecha tenue y sin desborde horizontal. Evidencia local
 Estas comprobaciones no sustituyen el teclado, los gestos ni la recepción de
 OTA en el Galaxy A15. No se construyó ni instaló un APK para este cambio.
 
+Entrega publicada el 27/10/2026, autorizada por Martín con la QA física completa
+diferida a su disponibilidad. [PR #26](https://github.com/vicentemartinluciano/activecard/pull/26)
+integrado en `f192edaa18bffe46f638a81ef8a4ab78e396a091`.
+[CI main 40600559698](https://github.com/vicentemartinluciano/activecard/actions/runs/40600559698)
+verde: 67 suites/557 pruebas, lint sin warnings, Doctor offline 21/21,
+verificadores SQLite/Postgres y exports Android/web.
+
+Web publicada por el
+[despliegue 40600559714](https://github.com/vicentemartinluciano/activecard/actions/runs/40600559714).
+El HTML y el bundle servido coinciden con su artefacto de Pages. SHA-256 del
+bundle: `1e73b24df2f626d5deb83c13e60c5d55121ee904ad3cd78a31eab06a1a1b341d`.
+
+OTA Android en rama/canal `preview`, runtime `1.11.0`: grupo
+`a3d3492b-cb77-455c-a3f5-64913b4a03ed`, update
+`01a17faa-9156-77ad-86f0-ce560d79e179`. El manifest del canal sirve ese ID;
+el asset descargado coincide byte por byte con el export local, SHA-256
+`fed29854a72eba163af19ea5568df3262af84cb7fefe749db888d8cb51e1cbbc`.
+Se exportó sin `.env`, se comprobó que no incluyera sus claves y se publicó
+con `--skip-bundler` para no volver a inyectar variables remotas de EAS.
+Evidencia local en `.desktop-preview/toggles/pages-verification.json`,
+`ota-privacy-check.json` y `ota-verification.json`. La publicación no acredita
+recepción en el teléfono ni QA nativa; no se operó el dispositivo.
+
 ## Carpetas y compatibilidad
 
 SQLite v10 agrega `folders.parent_id` con migración append-only. Las existentes

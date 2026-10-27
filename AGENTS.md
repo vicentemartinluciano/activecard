@@ -16,7 +16,7 @@ analiza fuentes y propone acciones sobre la biblioteca.
 - APK instalada: 1.11.0 / código 6, comprobado por ADB el 18/10. No se instaló desde esta revisión. El 19/10 Martín dejó la prueba física a su cargo: no operar el teléfono ni afirmar recepción de OTA, teclado, gestos o widgets como verificados. Ver entrega en `docs/BIBLIOTECA-Y-ESTUDIO.md`, widgets en `docs/WIDGETS.md` y sync en `docs/SINCRONIZACION.md`.
 - Package: `com.marti.activecard`.
 - Datos locales en SQLite; cuenta/sync privada con Supabase. Migración y permisos verificados; primera publicación remota y lectura web verificadas el 8 de octubre. Transferencias limitadas a cuatro filas simultáneas, avance visible y timeout por solicitud. Ver `docs/SINCRONIZACION.md`.
-- APK privado + EAS Update; web auxiliar en GitHub Pages. Biblioteca contextual entregada en web y OTA `preview`/`1.11.0` el 26/10; artefactos verificados en `docs/BIBLIOTECA-Y-ESTUDIO.md`. Recepción y QA físico a cargo de Martín.
+- APK privado + EAS Update; web auxiliar en GitHub Pages. Desplegables entregados en web y OTA `preview`/`1.11.0` el 27/10; artefactos verificados en `docs/BIBLIOTECA-Y-ESTUDIO.md`. Martín autorizó desplegar y difirió la QA física completa; recepción y QA físico a su cargo.
 - Widgets Android: Repaso diario, Mazos y el combinado (tercero desde 1.10.0).
   Diseño de Inicio, botón blanco centrado, racha y reflejo del progreso con overlay
   nativo diurno/nocturno. Mazos desplazables completos: progreso parcial de hoy
@@ -134,9 +134,11 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - Un solo modo editable para los mazos. Guardado automático en cola; borradores
   incompletos locales en `settings`, fuera de FSRS, backup y sync. Mantener una
   sola tarjeta con editores montados. Editor individual y lista usan
-  `EditableCardRow`. Insertar imagen/tabla desde la pill contextual.
+  `EditableCardRow`. Insertar imagen/tabla/desplegable desde la pill contextual.
   No mostrar avisos rutinarios de guardado: alteraban la lista animada y repetían
   la entrada al escribir. Conservar los errores de persistencia y el borrador.
+  Desplegables con sangría de 20 px: flecha con hover/foco de teclado en web,
+  tenue en tacto. Al estudiar empiezan cerrados; abrir no gira ni califica.
 
 - Fondo `#09090B`, Plus Jakarta Sans, acento cobalto y progreso verde.
 - Gimnasio con fondo estrellado suave; no alterar el fondo sin pedido explícito.
