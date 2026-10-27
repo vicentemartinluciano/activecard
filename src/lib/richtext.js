@@ -35,6 +35,20 @@ const ALIGN_STRIP_RE = /^[\uE000\uE001\uE002]/;
 // lo omite (as\u00ED no ensucia previews / b\u00FAsqueda / contexto de IA).
 export const IMG_SENTINEL = "\uE010";
 export const TABLE_SENTINEL = "\uE030";
+export const TOGGLE_SENTINEL = "\uE031";
+
+// El estado abierto/cerrado es de presentación; solo persistimos el contenido.
+export function encodeToggle(summary, content) {
+  return TOGGLE_SENTINEL + encodeURIComponent(JSON.stringify({ summary, content }));
+}
+
+export function decodeToggle(line) {
+  if (!line.startsWith(TOGGLE_SENTINEL)) return null;
+  try {
+    const value = JSON.parse(decodeURIComponent(line.slice(1)));
+    return typeof value?.summary === "string" && typeof value?.content === "string" ? value : null;
+  } catch { return null; }
+}
 // Inicio explícito de otra cita contigua; las líneas E023 siguen perteneciendo
 // a la misma cita. Conserva la lectura de todas las tarjetas anteriores.
 export const QUOTE_START_SENTINEL = "\uE024";
@@ -150,13 +164,15 @@ export function parseRich(text) {
 
     const nextAlign = ALIGN_BY_CHAR[lines[i + 1][0]] ? lines[i + 1][0] : "";
     const nextContent = nextAlign ? lines[i + 1].slice(1) : lines[i + 1];
-    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(QUOTE_START_SENTINEL) || nextContent.startsWith(IMG_SENTINEL) || nextContent.startsWith(TABLE_SENTINEL)) continue;
+    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(QUOTE_START_SENTINEL) || nextContent.startsWith(IMG_SENTINEL) || nextContent.startsWith(TABLE_SENTINEL) || nextContent.startsWith(TOGGLE_SENTINEL)) continue;
 
     lines[i + 1] = `${nextAlign || legacy[1]}${BLOCK_SENTINELS.quote}${nextContent}`;
     lines.splice(i, 1);
     i--;
   }
   return lines.map((line) => {
+    const toggle = decodeToggle(line);
+    if (toggle) return { type: "toggle", ...toggle, spans: [] };
     const rows = decodeTable(line);
     if (rows) return { type: "table", rows, spans: [] };
     const isListItem = line.startsWith("- ");
@@ -173,6 +189,7 @@ export function parseRich(text) {
 export function toPlainText(text) {
   return parseRich(text)
     .map((block) => {
+      if (block.type === "toggle") return [toPlainText(block.summary), toPlainText(block.content)].filter(Boolean).join("\n");
       if (block.type === "table") return block.rows.map((row) => row.map((cell) => toPlainText(cell.text)).join(" | ")).join("\n");
       const plain = block.spans.map((s) => s.text).join("")
         .replace(ALIGN_STRIP_RE, "")
@@ -182,6 +199,15 @@ export function toPlainText(text) {
       return plain.startsWith(IMG_SENTINEL) ? "" : plain;
     })
     .join("\n");
+}
+
+// Una imagen dentro de un desplegable también completa una cara, aunque su
+// título esté vacío. Un contenedor vacío sigue siendo un borrador incompleto.
+export function hasRichContent(text) {
+  return Boolean(toPlainText(text).trim()) || parseRich(text).some((block) =>
+    block.type === "table" ||
+    (block.type === "toggle" && hasRichContent(block.content)) ||
+    block.spans.some((span) => span.text.includes(IMG_SENTINEL)));
 }
 
 // Envuelve (o desenvuelve, si ya está envuelto exacto) el rango [start, end)

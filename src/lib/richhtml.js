@@ -26,6 +26,7 @@ import {
   IMG_SENTINEL,
   QUOTE_START_SENTINEL,
   encodeTable,
+  encodeToggle,
   parseRich,
 } from "./richtext";
 import { textColors } from "../theme";
@@ -80,6 +81,7 @@ const OL_RE = /^(\d{1,4})\. /;
 // interpretados: "---" = divisor, "N. " = ítem de lista numerada. Es la única
 // definición de esto en la app — la usan marksToHtml y el render (RichText).
 export function describeBlock(block) {
+  if (block.type === "toggle") return { kind: "toggle", summary: block.summary, content: block.content, spans: [] };
   if (block.type === "table") return { kind: "table", rows: block.rows, spans: [] };
   // Las listas nunca llevan alineación (align null → el render las deja a la
   // izquierda, no heredan el default de la cara).
@@ -157,6 +159,13 @@ export function marksToHtml(marcas) {
   let i = 0;
   while (i < blocks.length) {
     const block = blocks[i];
+
+    if (block.kind === "toggle") {
+      const summary = parseRich(block.summary).flatMap((part) => part.spans);
+      out.push(`<details data-type="toggle"><summary>${spansToHtml(summary)}</summary><div data-type="toggle-content">${marksToHtml(block.content) || "<p></p>"}</div></details>`);
+      i++;
+      continue;
+    }
 
     if (block.kind === "table") {
       out.push(`<table><tbody>${block.rows.map((row) => `<tr>${row.map((cell) => {
@@ -304,17 +313,39 @@ function alignFromAttrs(attrs) {
 
 export function htmlToMarks(html) {
   const tables = [];
-  const src = (html == null ? "" : String(html))
+  const toggles = [];
+  const cleaned = (html == null ? "" : String(html))
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<style[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<style[\s\S]*?<\/style\s*>/gi, "");
+  // Extraer pares balanceados antes de tablas: un desplegable puede contener
+  // tablas y otros desplegables. No usar una regex no codiciosa para anidación.
+  let depth = 0, start = 0, bodyStart = 0, cursor = 0, extracted = "";
+  for (const match of cleaned.matchAll(/<(\/?)details\b(?:"[^"]*"|'[^']*'|[^'">])*>/gi)) {
+    if (!match[1]) {
+      if (depth++ === 0) { start = match.index; bodyStart = start + match[0].length; }
+    } else if (depth > 0 && --depth === 0) {
+      const body = cleaned.slice(bodyStart, match.index);
+      const summary = /<summary\b[^>]*>([\s\S]*?)<\/summary\s*>/i.exec(body);
+      const content = (summary ? body.replace(summary[0], "") : body).trim()
+        .replace(/^<div\b[^>]*data-type=["']toggle-content["'][^>]*>([\s\S]*)<\/div\s*>$/i, "$1");
+      toggles.push({ summary: htmlToMarks(summary?.[1] || ""), content: htmlToMarks(content) });
+      extracted += cleaned.slice(cursor, start) + `<actoggle data-index="${toggles.length - 1}"></actoggle>`;
+      cursor = match.index + match[0].length;
+    }
+  }
+  const src = (extracted + cleaned.slice(cursor))
     .replace(/<div\s+class=["']tableWrapper["']\s*>/gi, "")
     .replace(/<table\b[^>]*>([\s\S]*?)<\/table\s*>/gi, (_, body) => {
       const rows = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)].map((row) =>
         [...row[1].matchAll(/<(td|th)\b([^>]*)>([\s\S]*?)<\/\1\s*>/gi)].map((cell) => {
           const span = (name) => Math.max(1, Math.min(100, Number(new RegExp(`${name}\\s*=\\s*["']?(\\d+)`, "i").exec(cell[2])?.[1]) || 1));
           const colwidth = (/\bcolwidth\s*=\s*["']([^"']*)["']/i.exec(cell[2])?.[1] || "").split(",").map(Number);
-          return { text: htmlToMarks(cell[3]), header: cell[1].toLowerCase() === "th", colspan: span("colspan"), rowspan: span("rowspan"),
+          const content = cell[3].replace(/<actoggle data-index="(\d+)"><\/actoggle>/g, (_, index) => {
+            const toggle = toggles[Number(index)];
+            return marksToHtml(encodeToggle(toggle.summary, toggle.content));
+          });
+          return { text: htmlToMarks(content), header: cell[1].toLowerCase() === "th", colspan: span("colspan"), rowspan: span("rowspan"),
             ...(validColumnWidths(colwidth, span("colspan")) ? { colwidth } : {}) };
         })
       );
@@ -359,6 +390,11 @@ export function htmlToMarks(html) {
     liJustOpened = false;
 
     if (!closing) {
+      if (tag === "actoggle") {
+        closeBlock();
+        blocks.push({ prefix: "toggle", ...toggles[Number(/data-index="(\d+)"/.exec(attrs)?.[1])], spans: [] });
+        continue;
+      }
       if (tag === "actable") {
         closeBlock();
         blocks.push({ prefix: "table", rows: tables[Number(/data-index="(\d+)"/.exec(attrs)?.[1])], spans: [] });
@@ -574,6 +610,7 @@ function serializeSpans(items, applied) {
 
 function blocksToMarks(blocks) {
   const lines = blocks.map((b, index) => {
+    if (b.prefix === "toggle") return encodeToggle(b.summary, b.content);
     if (b.prefix === "table") return encodeTable(b.rows);
     if (b.prefix === "hr") return "---";
     if (b.prefix === "img") return `${IMG_SENTINEL}${b.width || 100} ${b.src}`;

@@ -6,7 +6,9 @@
 // construye aparte y no puede importar el theme en runtime. Mantener en
 // sintonía con src/theme/index.js si el theme cambia.
 
-export const EDITOR_CSS = `
+import { TOGGLE_CSS } from "./toggleCss";
+
+export const EDITOR_CSS = TOGGLE_CSS + `
 .nf-root .tableWrapper { overflow-x: auto; max-width: 100%; margin: 12px 0; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 .nf-root table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 360px; }
 .nf-root td, .nf-root th { position: relative; min-width: 160px; border: 1px solid #ffffff24; padding: 10px 12px; vertical-align: top; text-align: left; line-height: 1.5; overflow-wrap: anywhere; }
@@ -137,7 +139,7 @@ export const EDITOR_CSS = `
 .nf-swatches { display: none; }
 .nf-swatches.open { display: flex; }
 .nf-formats { display: none; }
-.nf-formats.open { display: flex; }
+.nf-formats.open { display: flex; flex-wrap: wrap; }
 .nf-format-btn { min-width: 30px; font-size: 12px; font-weight: 700; }
 /* Con una imagen seleccionada, la barrita muestra SOLO los tamaños. */
 .nf-imgrow { display: none; }

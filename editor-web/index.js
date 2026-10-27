@@ -8,6 +8,7 @@
 
 import { Editor } from "@tiptap/core";
 import { attachEditorToolbar } from "../src/lib/editorToolbar";
+import { TOGGLE_ICON } from "../src/lib/tiptapToggle";
 
 import { EDITOR_BODY_CSS, EDITOR_CSS } from "../src/lib/editorCss";
 import {
@@ -145,6 +146,13 @@ tableBtn.innerHTML = TABLE_BTN_SVG + "<span>Tabla</span>";
 tableBtn.addEventListener("pointerdown", (event) => event.preventDefault());
 tableBtn.addEventListener("click", () => { insertTable(editor); host.classList.remove("nf-inserting"); });
 insertMenu.appendChild(tableBtn);
+const toggleBtn = document.createElement("button");
+toggleBtn.type = "button"; toggleBtn.className = "nf-btn";
+toggleBtn.setAttribute("aria-label", "Insertar desplegable");
+toggleBtn.innerHTML = TOGGLE_ICON + "<span>Desplegable</span>";
+toggleBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+toggleBtn.addEventListener("click", () => { editor.chain().focus().insertToggle().run(); host.classList.remove("nf-inserting"); });
+insertMenu.appendChild(toggleBtn);
 
 const formatEls = {};
 for (const def of FORMAT_OPTIONS) {

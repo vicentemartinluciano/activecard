@@ -109,6 +109,7 @@ export default function FlipCard({
               tabIndex: -1, dataSet: { studyFlipText: 'true' }, style: { outlineStyle: 'none' },
             } : {})}>
               <RichText
+                key={`${cardId}:${showBack}`}
                 text={faceText}
                 style={styles.text}
                 defaultAlign={showBack ? "left" : "center"}

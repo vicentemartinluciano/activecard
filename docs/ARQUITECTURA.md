@@ -322,12 +322,27 @@ Sentinels Unicode privados representan:
 - título 1, 2 y 3;
 - cita;
 - imagen con ancho porcentual y data URI.
+- tabla (`E030`) con celdas, combinaciones y anchos;
+- desplegable (`E031`) con título en marcas y contenido recursivo. El estado
+  abierto/cerrado es local a la vista; no altera el contenido ni la sincronización.
 
 `richhtml.js` convierte marcas ↔ HTML sin depender del DOM. `RichText` renderiza la vista
 de lectura y `toPlainText()` elimina formato e imágenes para búsqueda y contexto de IA.
 
 Android monta TipTap en WebView usando `assets/editor/editorHtml.js`. Web monta TipTap con
 React DOM. Configuración compartida en `editorSetup.js` evita diferencias.
+
+`tiptapToggle.js` define los desplegables: insertar desde + o convertir una
+selección desde formato; el primer bloque pasa a ser título y los siguientes,
+contenido. Admiten listas, imágenes, tablas y otros desplegables. Enter desde el
+título entra al contenido; Enter en el último párrafo vacío sale; Texto o
+Backspace al inicio del título desarman el contenedor conservando el contenido.
+El editor los abre para escribir. `RichToggle` los inicia cerrados al estudiar y
+su toque no gira ni califica la tarjeta. En web, la flecha se revela al pasar el
+cursor por el bloque o al enfocarla con teclado; en tacto queda tenue. `toggleCss.js`
+comparte el aspecto entre lectura web y editor. La búsqueda y el contexto de IA
+incluyen todo el texto, aunque esté plegado. Backup y sync conservan el bloque en
+`front/back`, sin migraciones ni permisos nuevos.
 
 El mazo y el editor individual comparten `EditableCardRow` y una sola experiencia
 editable. `cardAutosave.js` serializa los guardados; `settings` conserva los
@@ -338,7 +353,7 @@ al leer; los controles y la pill contextual adaptan los de REANCLA. Ver
 `BIBLIOTECA-Y-ESTUDIO.md` para comportamiento y límites de verificación.
 
 Al cambiar `editor-web/`, `editorSetup.js`, `editorCss.js`, `tiptapImage.js`,
-`tiptapTColor.js` o `tiptapTextAlign.js`, ejecutar `npm run editor:build`.
+`tiptapTColor.js`, `tiptapTextAlign.js`, `tiptapToggle.js` o `toggleCss.js`, ejecutar `npm run editor:build`.
 
 Las imágenes manuales se comprimen en canvas, se guardan inline y se dimensionan S/M/G.
 En Android su proporción sale de `Image.onLoad`, no de `Image.getSize`.

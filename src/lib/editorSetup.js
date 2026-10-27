@@ -14,6 +14,7 @@ import { compressFile } from "./imageCompress";
 import { Image } from "./tiptapImage";
 import { EDITOR_TEXT_COLORS, TColor } from "./tiptapTColor";
 import { ALIGNMENTS, TextAlign } from "./tiptapTextAlign";
+import { Toggle, ToggleContent, ToggleSummary } from "./tiptapToggle";
 
 // Atajos de tipeo propios. "->" se transforma en la flecha → (el conector de
 // las tarjetas). Los otros ya vienen de StarterKit: "---" = divisor,
@@ -91,11 +92,12 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left", table
       // > para cita, ~~ para tachado, --- divisor, - viñeta y 1. numerada.
     }),
     Highlight,
+    Toggle, ToggleSummary, ToggleContent,
     ReadableTable.configure({ renderWrapper: true, cellMinWidth: tableResizable ? 80 : 200,
       resizable: tableResizable, View: tableResizable ? TableView : ReadableTableView }),
     TableRow,
-    TableCell.extend({ content: "(paragraph | heading | bulletList | orderedList | blockquote | horizontalRule | image)+" }),
-    TableHeader.extend({ content: "(paragraph | heading | bulletList | orderedList | blockquote | horizontalRule | image)+" }),
+    TableCell.extend({ content: "(paragraph | heading | bulletList | orderedList | blockquote | horizontalRule | image | toggle)+" }),
+    TableHeader.extend({ content: "(paragraph | heading | bulletList | orderedList | blockquote | horizontalRule | image | toggle)+" }),
     TColor,
     TextAlign.configure({ types: ["paragraph", "heading", "blockquote"], defaultAlignment: defaultAlign }),
     Image,
@@ -176,6 +178,7 @@ export const FORMAT_OPTIONS = [
   { key: "quote", label: "Cita", html: "❝" },
   { key: "bulletList", label: "Viñetas", html: "•" },
   { key: "orderedList", label: "Lista numerada", html: "1." },
+  { key: "toggle", label: "Desplegable", html: "▸" },
 ];
 
 export const BUBBLE_BUTTONS = [
@@ -212,6 +215,7 @@ export function activeStates(editor) {
 }
 
 export function currentFormat(editor) {
+  if (editor.state.selection.$from.parent.type.name === "toggleSummary") return "toggle";
   if (editor.isActive("heading", { level: 1 })) return "heading1";
   if (editor.isActive("heading", { level: 2 })) return "heading2";
   if (editor.isActive("heading", { level: 3 })) return "heading3";
@@ -222,6 +226,13 @@ export function currentFormat(editor) {
 }
 
 export function applyFormat(editor, key) {
+  if (editor.state.selection.$from.parent.type.name === "toggleSummary") {
+    editor.commands.unwrapToggle();
+    if (key === "toggle") { editor.commands.focus(); return; }
+  } else if (key === "toggle") {
+    editor.chain().focus().convertToToggle().run();
+    return;
+  }
   // Primero saca cualquier contenedor incompatible; después aplica el bloque
   // elegido. Son comandos separados para que TipTap no deje un título dentro
   // de una lista o una cita dentro de otra cita.
