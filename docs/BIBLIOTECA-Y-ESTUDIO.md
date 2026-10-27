@@ -1,4 +1,4 @@
-# Biblioteca y estudio — revisión del 26/10/2026
+# Biblioteca y estudio — revisión del 27/10/2026
 
 ## Creación y navegación contextual
 
@@ -70,6 +70,35 @@ su ID, tarjetas e historial. El borrado mantiene la confirmación por nombre exa
   a la barra y tarjeta ampliada (máximo web 1120 px). FSRS y sus notas no cambian.
   El rayo también está disponible al estudiar por mazo o Puntos débiles: tras
   calificar abre el Gimnasio para esa tarjeta, y se apaga al pasar a la siguiente.
+
+## Desplegables dentro de las tarjetas (27/10/2026)
+
+El + de la pill contextual agrega «Desplegable». El selector de formato convierte
+los bloques seleccionados: primero el título, luego el contenido. Texto o Backspace
+al inicio del título desarman el bloque conservando su contenido. Enter entra al
+cuerpo y, en su último párrafo vacío, sale. Se admiten desplegables anidados,
+formato, listas, imágenes y tablas, también dentro de celdas.
+
+El editor los inicia abiertos para escribir; estudiar los inicia cerrados para
+cada tarjeta/cara. Abrirlos no gira ni califica. En web de escritorio la flecha
+se revela al pasar el cursor por el bloque y al enfocarla con teclado. En tacto
+queda tenue (40 %) y el encabezado tiene al menos 44 px de alto. El espacio de
+la flecha se conserva para evitar movimientos al aparecer. La sangría es de
+20 px por nivel para reducir el ancho perdido, también al anidar bloques.
+
+El contenido usa U+E031 dentro de `front/back`; no requiere migraciones ni
+módulos nativos. El estado plegado es solo visual. Búsqueda/IA incluyen el texto
+interior; autoguardado reconoce imágenes incluso dentro de bloques sin título,
+y conserva un desplegable vacío como borrador incompleto. Backup y sync llevan
+el contenido con el resto de la tarjeta.
+
+QA local con los componentes web reales en una página de prueba: crear desde
+la pill, escribir título/cuerpo, plegar y abrir al estudiar. Escritorio: flecha
+oculta en reposo y visible con hover. Navegador con viewport real de 390 × 844 y
+entrada táctil emulada: flecha tenue y sin desborde horizontal. Evidencia local:
+`.desktop-preview/toggles/desktop.png` y `.desktop-preview/toggles/mobile.png`.
+Estas comprobaciones no sustituyen el teclado, los gestos ni la recepción de
+OTA en el Galaxy A15. No se construyó ni instaló un APK para este cambio.
 
 ## Carpetas y compatibilidad
 

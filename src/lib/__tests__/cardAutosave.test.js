@@ -1,6 +1,7 @@
 import { createCardAutosave } from "../cardAutosave";
 import { createCard, getCard, updateCardText } from "../../db/cards";
 import { setSetting } from "../../db/settings";
+import { encodeToggle, IMG_SENTINEL } from "../richtext";
 jest.mock("../../db/cards", () => ({ createCard: jest.fn(), getCard: jest.fn(), updateCardText: jest.fn() }));
 jest.mock("../../db/settings", () => ({ getSetting: jest.fn(), setSetting: jest.fn() }));
 beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); setSetting.mockResolvedValue(); updateCardText.mockResolvedValue(); });
@@ -13,6 +14,18 @@ test("un borrador incompleto queda local y no crea tarjetas vacías para estudia
   expect(createCard).not.toHaveBeenCalled();
   expect(setSetting).toHaveBeenCalledWith("cardDraft:7:new", expect.objectContaining({ front: "A medio escribir", back: "" }));
   expect(saver.isPending()).toBe(false);
+});
+
+test("autoguarda una imagen dentro del desplegable y conserva vacío como borrador", async () => {
+  createCard.mockResolvedValue(12);
+  const saver = createCardAutosave({ deckId: 7 });
+  saver.change({ front: "Pregunta", back: encodeToggle("", "") });
+  await saver.flush();
+  expect(createCard).not.toHaveBeenCalled();
+  const back = encodeToggle("", encodeToggle("", IMG_SENTINEL + "100 data:image/png;base64,AA=="));
+  saver.change({ front: "Pregunta", back });
+  await saver.flush();
+  expect(createCard).toHaveBeenCalledWith(expect.objectContaining({ front: "Pregunta", back }));
 });
 
 test("escribir durante la creación reutiliza la identidad y guarda también el texto más nuevo", async () => {

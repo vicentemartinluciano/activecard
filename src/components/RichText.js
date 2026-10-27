@@ -12,6 +12,7 @@ import { tableGrid, tableColumnWidths } from "../lib/richTable";
 import { parseRich } from "../lib/richtext";
 import { colors, font, radius, spacing, textColors } from "../theme";
 import { StudyInteractionContext } from "./StudyInteractionContext";
+import RichToggle from "./RichToggle";
 
 // Imagen inline (data URI). Toma el aspect ratio real para no deformarla y
 // respetar el ancho elegido. width = % del ancho (100 = a todo lo ancho); se
@@ -137,6 +138,11 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {
+        if (block.kind === "toggle") return (
+          <RichToggle key={`${i}:${block.summary}`} title={<RichText text={block.summary || "Desplegable"} style={style} />}>
+            <RichText text={block.content} style={style} defaultAlign={defaultAlign} />
+          </RichToggle>
+        );
         if (block.kind === "table") return <TableBlock key={i} rows={block.rows} style={style} />;
         if (block.kind === "quoteGroup") {
           return (

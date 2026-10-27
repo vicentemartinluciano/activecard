@@ -31,6 +31,7 @@ import {
   mountTableToolbar, insertTable, TABLE_BTN_SVG,
 } from "../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
+import { TOGGLE_ICON } from "../lib/tiptapToggle";
 import { colors, radius } from "../theme";
 
 // El CSS del editor se inyecta una sola vez en el documento de la app.
@@ -243,6 +244,8 @@ export default function NotionField({
             </>
           )}
           <div className="nf-insert-menu" aria-label="Insertar contenido">
+            <button type="button" className="nf-btn" aria-label="Insertar desplegable" onPointerDown={stop}
+              onClick={(e) => { stop(e); editor.chain().focus().insertToggle().run(); tableToolbarRef.current.classList.remove("nf-inserting"); }} dangerouslySetInnerHTML={{ __html: TOGGLE_ICON + "<span>Desplegable</span>" }} />
             <button type="button" className="nf-btn" aria-label="Insertar imagen" onPointerDown={stop}
                   onClick={(e) => { stop(e); tableToolbarRef.current.classList.add("nf-picking"); fileInputRef.current?.click(); }} dangerouslySetInnerHTML={{ __html: IMAGE_BTN_SVG + "<span>Imagen</span>" }} />
             <button type="button" className="nf-btn" aria-label="Insertar tabla" onPointerDown={stop}

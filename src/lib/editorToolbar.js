@@ -3,6 +3,7 @@
 import { positionEditorPanel } from "./editorGeometry";
 import { NodeSelection } from "@tiptap/pm/state";
 export function currentFormatLabel(editor) {
+  if (editor.state.selection.$from.parent.type.name === "toggleSummary") return "Desplegable";
   if (editor.isActive("heading")) return `Título ${editor.getAttributes("heading").level}`;
   if (editor.isActive("blockquote")) return "Cita";
   if (editor.isActive("bulletList")) return "Viñetas";

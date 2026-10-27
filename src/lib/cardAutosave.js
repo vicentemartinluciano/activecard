@@ -1,6 +1,6 @@
 import { createCard, getCard, updateCardText } from "../db/cards";
 import { getSetting, setSetting } from "../db/settings";
-import { toPlainText } from "./richtext";
+import { hasRichContent } from "./richtext";
 
 const keyFor = (deckId, cardId) => `cardDraft:${deckId}:${cardId ?? "new"}`;
 export async function readCardDraft(deckId, cardId = null) {
@@ -12,8 +12,7 @@ export async function readCardDraft(deckId, cardId = null) {
   }
   return null;
 }
-const complete = (draft) => [draft.front, draft.back].every((text) =>
-  toPlainText(text).trim() || text.includes("\uE010") || text.includes("\uE030"));
+const complete = (draft) => [draft.front, draft.back].every(hasRichContent);
 
 // Una sola cola por sesión: si se sigue escribiendo durante un INSERT/UPDATE,
 // la siguiente vuelta guarda el texto nuevo, con la identidad y base recién
