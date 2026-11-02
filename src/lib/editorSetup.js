@@ -233,6 +233,10 @@ export function applyFormat(editor, key) {
     chain.run();
     return;
   }
+  const inSummary = toggleSummaryDepth(editor.state.selection.$from) != null;
+  const defaultAlign = editor.extensionManager.extensions.find((extension) => extension.name === "textAlign")?.options.defaultAlignment || "left";
+  const quoteAlign = editor.getAttributes("blockquote").textAlign;
+  const preservedAlign = inSummary ? (quoteAlign && quoteAlign !== defaultAlign ? quoteAlign : editor.state.selection.$from.parent.attrs.textAlign) : null;
   // Primero saca cualquier contenedor incompatible; después aplica el bloque
   // elegido. Son comandos separados para que TipTap no deje un título dentro
   // de una lista o una cita dentro de otra cita.
@@ -248,6 +252,7 @@ export function applyFormat(editor, key) {
   else if (key === "bulletList") chain.setParagraph().toggleBulletList();
   else if (key === "orderedList") chain.setParagraph().toggleOrderedList();
   else chain.setParagraph();
+  if (preservedAlign) chain.setTextAlign(preservedAlign);
   chain.run();
 }
 

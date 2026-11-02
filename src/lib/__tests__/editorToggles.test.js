@@ -174,6 +174,32 @@ test("un encabezado anterior inline se reabre sin perder estilos ni contenido", 
   expect(editor.state.doc.firstChild.firstChild.firstChild.type.name).toBe("paragraph");
 });
 
+test("cambiar entre cita, texto y título conserva la alineación al reabrir", () => {
+  editor.commands.setContent(details('<h2 style="text-align: right">Título</h2>', '<p>Detalle</p>'));
+  for (const format of ["quote", "paragraph", "heading3"]) {
+    selectTitle();
+    applyFormat(editor, format);
+    const saved = htmlToMarks(editor.getHTML());
+    editor.commands.setContent(marksToHtml(saved));
+    expect(editor.state.doc.firstChild.firstChild.firstChild.attrs.textAlign).toBe("right");
+    expect(editor.state.doc.firstChild.lastChild.textContent).toBe("Detalle");
+  }
+});
+
+test("el formato del cuerpo es independiente del encabezado", () => {
+  editor.commands.setContent(details('<h2>Título</h2>', '<p>Detalle</p>'));
+  let position;
+  editor.state.doc.descendants((node, pos) => { if (node.isTextblock && node.textContent === "Detalle") position = pos + 1; });
+  editor.commands.setTextSelection(position);
+  applyFormat(editor, "heading1");
+  expect(activeStates(editor)).toMatchObject({ formatKey: "heading1", toggleActive: false });
+  expect(editor.state.doc.firstChild.firstChild.firstChild.attrs.level).toBe(2);
+  const saved = htmlToMarks(editor.getHTML());
+  editor.commands.setContent(marksToHtml(saved));
+  expect(editor.state.doc.firstChild.lastChild.firstChild.attrs.level).toBe(1);
+  expect(editor.state.doc.firstChild.firstChild.firstChild.attrs.level).toBe(2);
+});
+
 test("datos vacíos y dañados no se interpretan como estructuras válidas", () => {
   const empty = encodeToggle("", "");
   expect(decodeToggle(empty)).toEqual({ summary: "", content: "" });
