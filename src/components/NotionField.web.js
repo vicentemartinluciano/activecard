@@ -155,7 +155,7 @@ export default function NotionField({
               type="button"
               title={FORMAT_BUTTON.label}
               aria-label={FORMAT_BUTTON.label}
-              className={`nf-btn${state.formatKey !== "paragraph" ? " is-active" : ""}`}
+              className={`nf-btn${state.formatKey !== "paragraph" || state.toggleActive ? " is-active" : ""}`}
               onPointerDown={stop}
                   onClick={(e) => {
                 stop(e);
@@ -212,7 +212,8 @@ export default function NotionField({
                 type="button"
                 title={option.label}
                 aria-label={option.label}
-                className={`nf-btn nf-format-btn${state.formatKey === option.key ? " is-active" : ""}`}
+                className={`nf-btn nf-format-btn${option.key === "toggle" ? " nf-toggle-option" : ""}${(option.key === "toggle" ? state.toggleActive : state.formatKey === option.key) ? " is-active" : ""}`}
+                aria-pressed={option.key === "toggle" ? !!state.toggleActive : state.formatKey === option.key}
                 onPointerDown={stop}
                   onClick={(e) => {
                   stop(e);

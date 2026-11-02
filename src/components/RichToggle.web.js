@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { TOGGLE_CSS } from "../lib/toggleCss";
 
-export default function RichToggle({ title, children }) {
+export default function RichToggle({ title, children, arrowOffset = 0 }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (document.querySelector("style[data-activecard-toggles]")) return;
@@ -12,7 +12,7 @@ export default function RichToggle({ title, children }) {
   }, []);
   const toggle = (event) => { event.stopPropagation(); setOpen((value) => !value); };
   return (
-    <div className={`ac-toggle${open ? " is-open" : ""}`}>
+    <div className={`ac-toggle${open ? " is-open" : ""}`} style={{ "--ac-toggle-offset": `${arrowOffset}px` }}>
       <div className="ac-toggle-title" role="button" tabIndex={0} aria-expanded={open}
         data-study-action="toggle" onClick={toggle}
         onKeyDown={(event) => {

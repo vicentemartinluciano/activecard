@@ -335,8 +335,14 @@ React DOM. Configuración compartida en `editorSetup.js` evita diferencias.
 `tiptapToggle.js` define los desplegables: insertar desde + o convertir una
 selección desde formato; el primer bloque pasa a ser título y los siguientes,
 contenido. Admiten listas, imágenes, tablas y otros desplegables. Enter desde el
-título entra al contenido; Enter en el último párrafo vacío sale; Texto o
-Backspace al inicio del título desarman el contenedor conservando el contenido.
+título entra al contenido; Enter en el último párrafo vacío sale; desactivar
+Desplegable o usar Backspace al inicio del título desarma el contenedor conservando
+el formato y el contenido. Texto cambia el formato sin quitar el desplegable.
+El encabezado admite bloques completos (párrafo, H1/H2/H3, cita, viñetas y
+numeración), no solo texto inline. `Desplegable` tiene un estado independiente
+del formato en la pill. Su string `summary` usa las mismas marcas de bloque que
+el resto de la tarjeta; no hay cambio de esquema ni de versión del respaldo.
+Los encabezados inline anteriores se leen como párrafos con sus marcas intactas.
 El editor los abre para escribir. `RichToggle` los inicia cerrados al estudiar y
 su toque no gira ni califica la tarjeta. En web, la flecha se revela al pasar el
 cursor por el bloque o al enfocarla con teclado; en tacto queda tenue. `toggleCss.js`

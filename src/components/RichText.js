@@ -138,11 +138,16 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {
-        if (block.kind === "toggle") return (
-          <RichToggle key={`${i}:${block.summary}`} title={<RichText text={block.summary || "Desplegable"} style={style} />}>
-            <RichText text={block.content} style={style} defaultAlign={defaultAlign} />
-          </RichToggle>
-        );
+        if (block.kind === "toggle") {
+          const title = describeBlock(parseRich(block.summary)[0]);
+          const scale = { heading1: 1.55, heading2: 1.3, heading3: 1.12 }[title.kind];
+          const lineHeight = scale ? baseSize * scale * 1.22 + 8 : StyleSheet.flatten(style)?.lineHeight || baseSize * 1.45;
+          return (
+            <RichToggle key={`${i}:${block.summary}`} arrowOffset={Math.max(0, (lineHeight - 24) / 2)} title={<RichText text={block.summary || "Desplegable"} style={style} defaultAlign={defaultAlign} />}>
+              <RichText text={block.content} style={style} defaultAlign={defaultAlign} />
+            </RichToggle>
+          );
+        }
         if (block.kind === "table") return <TableBlock key={i} rows={block.rows} style={style} />;
         if (block.kind === "quoteGroup") {
           return (

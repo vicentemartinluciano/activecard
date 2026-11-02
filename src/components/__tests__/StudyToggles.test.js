@@ -5,7 +5,7 @@ import { Animated } from "react-native";
 import FlipCard from "../FlipCard";
 import SwipeCard from "../SwipeCard";
 import useStudyKeyboard from "../useStudyKeyboard";
-import { encodeToggle } from "../../lib/richtext";
+import { encodeToggle, BLOCK_SENTINELS } from "../../lib/richtext";
 
 jest.mock("react-native", () => jest.requireActual("react-native-web"));
 jest.mock("../RichToggle", () => jest.requireActual("../RichToggle.web"));
@@ -20,7 +20,7 @@ function Study({ cardId = 1 }) {
   const ref = useRef(null);
   useStudyKeyboard({ enabled: true, flipped: true, flip, grade, isBusy: () => false });
   return <SwipeCard ref={ref} cardId={cardId} onSwipeLeft={grade} onSwipeUp={grade} onSwipeRight={grade}>
-    <FlipCard cardId={cardId} front="Pregunta" back={encodeToggle("**Explicación**", "Detalle\n" + encodeToggle("Más", "Profundidad"))}
+    <FlipCard cardId={cardId} front="Pregunta" back={encodeToggle(BLOCK_SENTINELS.heading2 + "[[azul:**Explicación**]]", "Detalle\n" + encodeToggle("Más", "Profundidad"))}
       flipped onFlip={flip} />
   </SwipeCard>;
 }
@@ -58,4 +58,12 @@ test("otra tarjeta con contenido idéntico vuelve a empezar cerrada", async () =
   await act(async () => root.render(<Study cardId={2} />));
   expect(host.querySelector('[data-study-action="toggle"]').getAttribute("aria-expanded")).toBe("false");
   expect(host.textContent).not.toContain("Detalle");
+});
+
+test("el encabezado de estudio conserva el tamaño y el color del título", () => {
+  const title = host.querySelector('[data-study-action="toggle"]');
+  expect(title.textContent).toBe("Explicación");
+  const elements = [...title.querySelectorAll("*")];
+  expect(elements.some((element) => element.style.color === "rgb(110, 139, 235)")).toBe(true);
+  expect(elements.some((element) => parseFloat(element.style.fontSize) > 24)).toBe(true);
 });
