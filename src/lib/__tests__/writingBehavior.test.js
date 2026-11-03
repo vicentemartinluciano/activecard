@@ -154,7 +154,7 @@ test("Tab y los controles táctiles anidan y levantan desplegables conservando t
   runBubbleAction(editor, "outdent"); expect(editor.getHTML()).toBe(original);
 });
 test.each(["bold", "clear", "heading2"])("deshacer %s no borra el texto recién escrito", action => {
-  load("<p>Uno </p>"); select("Uno ", 4); editor.commands.insertContent("Dos");
+  load("<p>Uno</p>"); select("Uno", 3); editor.commands.insertContent(" Dos");
   select("Uno Dos", 4, 3);
   if (action === "heading2") applyFormat(editor, action);
   else {
