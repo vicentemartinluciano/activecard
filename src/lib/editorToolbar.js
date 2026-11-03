@@ -2,8 +2,11 @@
 // El foco y el cursor solos no muestran controles sobre la escritura.
 import { positionEditorPanel } from "./editorGeometry";
 import { NodeSelection } from "@tiptap/pm/state";
+import { currentFormat } from "./editorSetup";
+import { toggleSummaryDepth } from "./tiptapToggle";
 export function currentFormatLabel(editor) {
-  if (editor.state.selection.$from.parent.type.name === "toggleSummary") return "Desplegable";
+  const labels = { paragraph: "Texto", heading1: "Título 1", heading2: "Título 2", heading3: "Título 3", quote: "Cita", bulletList: "Viñetas", orderedList: "Numerada" };
+  if (toggleSummaryDepth(editor.state.selection.$from) != null) return `${labels[currentFormat(editor)]} · Desplegable`;
   if (editor.isActive("heading")) return `Título ${editor.getAttributes("heading").level}`;
   if (editor.isActive("blockquote")) return "Cita";
   if (editor.isActive("bulletList")) return "Viñetas";

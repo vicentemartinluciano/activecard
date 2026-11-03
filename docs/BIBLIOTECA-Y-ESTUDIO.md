@@ -1,4 +1,4 @@
-# Biblioteca y estudio — revisión del 27/10/2026
+# Biblioteca y estudio — revisión del 02/11/2026
 
 ## Creación y navegación contextual
 
@@ -74,8 +74,9 @@ su ID, tarjetas e historial. El borrado mantiene la confirmación por nombre exa
 ## Desplegables dentro de las tarjetas (27/10/2026)
 
 El + de la pill contextual agrega «Desplegable». El selector de formato convierte
-los bloques seleccionados: primero el título, luego el contenido. Texto o Backspace
-al inicio del título desarman el bloque conservando su contenido. Enter entra al
+los bloques seleccionados: primero el título, luego el contenido. Desactivar
+Desplegable o usar Backspace al inicio del título desarma el bloque conservando
+su formato y contenido. Texto cambia el formato sin quitar el desplegable. Enter entra al
 cuerpo y, en su último párrafo vacío, sale. Se admiten desplegables anidados,
 formato, listas, imágenes y tablas, también dentro de celdas.
 
@@ -122,6 +123,23 @@ con `--skip-bundler` para no volver a inyectar variables remotas de EAS.
 Evidencia local en `.desktop-preview/toggles/pages-verification.json`,
 `ota-privacy-check.json` y `ota-verification.json`. La publicación no acredita
 recepción en el teléfono ni QA nativa; no se operó el dispositivo.
+
+### Formatos combinables (02/11/2026)
+
+El encabezado conserva el bloque completo: párrafo, H1/H2/H3, cita, viñetas o
+lista numerada. Se puede cambiar su formato manteniendo el desplegable activo;
+la pill refleja ambos estados. Desactivarlo devuelve el bloque con su formato,
+marcas y contenido. El cuerpo mantiene su formato independiente. Los títulos
+enriquecidos también se renderizan al estudiar, con la flecha alineada con su
+primera línea y la sangría de 20 px. Se conservan los desplegables anteriores;
+no requiere migración de SQLite ni de respaldos.
+
+Regresiones automatizadas: conversión/reapertura/restauración de encabezados,
+citas con varios párrafos, numeración inicial, estilos y alineación; estados
+simultáneos de formato/desplegable en la pill; lectura enriquecida sin activar
+el giro ni la calificación. QA visual local sobre los componentes web: cambiar
+Título 2 a Título 1 azul, reabrir y conservar el cuerpo. Evidencias en
+`.desktop-preview/toggles/formats-menu.png` y `formats-desktop.png`.
 
 ## Carpetas y compatibilidad
 

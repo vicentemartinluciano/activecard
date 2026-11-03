@@ -139,6 +139,8 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   la entrada al escribir. Conservar los errores de persistencia y el borrador.
   Desplegables con sangría de 20 px: flecha con hover/foco de teclado en web,
   tenue en tacto. Al estudiar empiezan cerrados; abrir no gira ni califica.
+  El formato del encabezado es independiente de Desplegable: conserva títulos,
+  citas y listas al convertir, reabrir o desactivar. Texto no quita el desplegable.
 
 - Fondo `#09090B`, Plus Jakarta Sans, acento cobalto y progreso verde.
 - Gimnasio con fondo estrellado suave; no alterar el fondo sin pedido explícito.

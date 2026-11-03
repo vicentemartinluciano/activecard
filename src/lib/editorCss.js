@@ -141,6 +141,7 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 .nf-formats { display: none; }
 .nf-formats.open { display: flex; flex-wrap: wrap; }
 .nf-format-btn { min-width: 30px; font-size: 12px; font-weight: 700; }
+.nf-format-btn.nf-toggle-option { border-left: 1px solid #ffffff26; border-radius: 0 6px 6px 0; padding: 0 10px; }
 /* Con una imagen seleccionada, la barrita muestra SOLO los tamaños. */
 .nf-imgrow { display: none; }
 .nf-bubble.img-mode .nf-row:not(.nf-imgrow) { display: none; }

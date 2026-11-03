@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { colors } from "../theme";
 import { StudyInteractionContext } from "./StudyInteractionContext";
 
-export default function RichToggle({ title, children }) {
+export default function RichToggle({ title, children, arrowOffset = 0 }) {
   const [open, setOpen] = useState(false);
   const interactionRef = useContext(StudyInteractionContext);
   const guard = (active) => {
@@ -19,7 +19,7 @@ export default function RichToggle({ title, children }) {
         onTouchStart={() => guard(true)} onTouchEnd={() => guard(false)} onTouchCancel={() => guard(false)}
         onPress={(event) => { event.stopPropagation(); guard(false); setOpen((value) => !value); }}
         style={({ pressed }) => [styles.title, pressed && styles.pressed]}>
-        <View style={styles.arrow} pointerEvents="none">
+        <View style={[styles.arrow, { marginTop: arrowOffset }]} pointerEvents="none">
           <Feather name={open ? "chevron-down" : "chevron-right"} size={15} color={colors.textMuted} />
         </View>
         <View style={styles.text}>{title}</View>

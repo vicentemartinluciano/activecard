@@ -157,7 +157,7 @@ insertMenu.appendChild(toggleBtn);
 const formatEls = {};
 for (const def of FORMAT_OPTIONS) {
   const btn = document.createElement("button");
-  btn.className = "nf-btn nf-format-btn";
+  btn.className = `nf-btn nf-format-btn${def.key === "toggle" ? " nf-toggle-option" : ""}`;
   btn.type = "button";
   btn.title = def.label;
   btn.setAttribute("aria-label", def.label);
@@ -241,9 +241,11 @@ const editor = new Editor({
       buttons[def.key].classList.toggle("is-active", !!state[def.key]);
     }
     buttons.color.classList.toggle("is-active", !!state.colorKey);
-    buttons.format.classList.toggle("is-active", state.formatKey !== "paragraph");
+    buttons.format.classList.toggle("is-active", state.formatKey !== "paragraph" || state.toggleActive);
     for (const def of FORMAT_OPTIONS) {
-      formatEls[def.key].classList.toggle("is-active", state.formatKey === def.key);
+      const active = def.key === "toggle" ? state.toggleActive : state.formatKey === def.key;
+      formatEls[def.key].classList.toggle("is-active", active);
+      formatEls[def.key].setAttribute("aria-pressed", String(active));
     }
     for (const key of COLOR_KEYS) {
       swatchEls[key].classList.toggle("is-active", state.colorKey === key);

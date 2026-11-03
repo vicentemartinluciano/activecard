@@ -3,11 +3,15 @@
 export const TOGGLE_CSS = `
 .nf-toggle, .ac-toggle { position: relative; padding-left: 20px; margin: 5px 0; min-width: 0; text-align: left; }
 .nf-toggle-summary { min-height: 32px; line-height: 1.5; padding: 4px 0; box-sizing: border-box; }
-.nf-toggle-summary:has(> br:only-child)::before { content: attr(data-placeholder); color: #8B8B98; pointer-events: none; float: left; height: 0; }
+.nf-toggle-summary:has(> p:only-child > br:only-child)::before { content: attr(data-placeholder); color: #8B8B98; pointer-events: none; float: left; height: 0; }
+.nf-root .ProseMirror .nf-toggle-summary > :first-child { margin-top: 0; }
+.nf-root .ProseMirror .nf-toggle-summary > :last-child { margin-bottom: 0; }
+.nf-toggle:has(> .nf-toggle-inner > .nf-toggle-summary > h1) > .ac-toggle-arrow { top: 3px; }
+.nf-toggle:has(> .nf-toggle-inner > .nf-toggle-summary > h2) > .ac-toggle-arrow { top: 1px; }
 .nf-toggle [data-type="toggle-content"], .ac-toggle-content { padding: 2px 0 4px; }
 .nf-toggle:not(.is-open) > .nf-toggle-inner > [data-type="toggle-content"] { display: none; }
 .ac-toggle-title { display: block; width: 100%; min-height: 32px; padding: 4px 0; box-sizing: border-box; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.ac-toggle-arrow { position: absolute; left: -3px; top: 0; width: 22px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 5px; padding: 0; background: transparent; color: #B7B7C2; cursor: pointer; }
+.ac-toggle-arrow { position: absolute; left: -3px; top: var(--ac-toggle-offset, 0px); width: 22px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 5px; padding: 0; background: transparent; color: #B7B7C2; cursor: pointer; }
 .ac-toggle-arrow svg { display: block; width: 14px; height: 14px; opacity: .4; transition: opacity 140ms ease, transform 140ms ease; }
 .is-open > .ac-toggle-arrow svg, .is-open > .ac-toggle-title .ac-toggle-arrow svg { transform: rotate(90deg); }
 .ac-toggle-arrow:hover { background: #ffffff0b; }

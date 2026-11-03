@@ -161,8 +161,7 @@ export function marksToHtml(marcas) {
     const block = blocks[i];
 
     if (block.kind === "toggle") {
-      const summary = parseRich(block.summary).flatMap((part) => part.spans);
-      out.push(`<details data-type="toggle"><summary>${spansToHtml(summary)}</summary><div data-type="toggle-content">${marksToHtml(block.content) || "<p></p>"}</div></details>`);
+      out.push(`<details data-type="toggle"><summary>${marksToHtml(block.summary) || "<p></p>"}</summary><div data-type="toggle-content">${marksToHtml(block.content) || "<p></p>"}</div></details>`);
       i++;
       continue;
     }
