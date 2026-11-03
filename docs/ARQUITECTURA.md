@@ -328,14 +328,20 @@ Sentinels Unicode privados representan:
 
 `richhtml.js` convierte marcas ↔ HTML sin depender del DOM. `RichText` renderiza la vista
 de lectura y `toPlainText()` elimina formato e imágenes para búsqueda y contexto de IA.
+`richContent.js` extiende el formato con E032 (listas complejas recursivas) y E033
+(bloques con spans exactos) cuando las marcas anteriores perderían estructura,
+estilos, saltos internos o caracteres literales. La lectura sigue aceptando todas
+las tarjetas anteriores; el contenido nuevo requiere clientes actualizados.
+Ver reglas de escritura, pill, historial y compatibilidad en `EDITOR-ESCRITURA.md`.
 
 Android monta TipTap en WebView usando `assets/editor/editorHtml.js`. Web monta TipTap con
 React DOM. Configuración compartida en `editorSetup.js` evita diferencias.
 
 `tiptapToggle.js` define los desplegables: insertar desde + o convertir una
 selección desde formato; el primer bloque pasa a ser título y los siguientes,
-contenido. Admiten listas, imágenes, tablas y otros desplegables. Enter desde el
-título entra al contenido; Enter en el último párrafo vacío sale; desactivar
+contenido. Admiten listas, imágenes, tablas y otros desplegables. Enter en el
+título abierto lo divide y mueve el resto al comienzo del cuerpo; cerrado crea
+un hermano. Shift+Enter conserva un salto interno. Enter en el último párrafo vacío sale; desactivar
 Desplegable o usar Backspace al inicio del título desarma el contenedor conservando
 el formato y el contenido. Texto cambia el formato sin quitar el desplegable.
 El encabezado admite bloques completos (párrafo, H1/H2/H3, cita, viñetas y

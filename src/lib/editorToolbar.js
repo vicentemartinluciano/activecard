@@ -5,7 +5,8 @@ import { NodeSelection } from "@tiptap/pm/state";
 import { currentFormat } from "./editorSetup";
 import { toggleSummaryDepth } from "./tiptapToggle";
 export function currentFormatLabel(editor) {
-  const labels = { paragraph: "Texto", heading1: "Título 1", heading2: "Título 2", heading3: "Título 3", quote: "Cita", bulletList: "Viñetas", orderedList: "Numerada" };
+  const labels = { paragraph: "Texto", heading1: "Título 1", heading2: "Título 2", heading3: "Título 3", quote: "Cita", bulletList: "Viñetas", orderedList: "Numerada", mixed: "Varios formatos" };
+  if (currentFormat(editor) === "mixed") return labels.mixed;
   if (toggleSummaryDepth(editor.state.selection.$from) != null) return `${labels[currentFormat(editor)]} · Desplegable`;
   if (editor.isActive("heading")) return `Título ${editor.getAttributes("heading").level}`;
   if (editor.isActive("blockquote")) return "Cita";

@@ -29,6 +29,7 @@ import {
   runBubbleAction,
   setImageWidth,
   mountTableToolbar, insertTable, TABLE_BTN_SVG,
+  STRUCTURE_BUTTONS, canStructureAction,
 } from "../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
 import { TOGGLE_ICON } from "../lib/tiptapToggle";
@@ -204,6 +205,14 @@ export default function NotionField({
               e.currentTarget.closest(".nf-bubble").querySelectorAll(".nf-formats,.nf-swatches").forEach((panel) => panel.classList.remove("open"));
               root.dispatchEvent(new Event("nf:position-toolbar"));
             }}>+</button>
+          </div>
+          <div className="nf-row nf-structure">
+            <span className="nf-format-label" />
+            {STRUCTURE_BUTTONS.filter(action => action.key === "clear" || state.inList || state.toggleActive).map(action => <button key={action.key} type="button" className="nf-btn"
+              aria-label={action.label} title={action.label} disabled={!canStructureAction(editor, action.key)}
+              onPointerDown={stop} onClick={event => { stop(event); runBubbleAction(editor, action.key); }}>
+              {action.html}
+            </button>)}
           </div>
           <div className="nf-row nf-formats">
             {FORMAT_OPTIONS.map((option) => (
