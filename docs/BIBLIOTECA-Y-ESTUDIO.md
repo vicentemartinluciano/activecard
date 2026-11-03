@@ -141,6 +141,26 @@ el giro ni la calificación. QA visual local sobre los componentes web: cambiar
 Título 2 a Título 1 azul, reabrir y conservar el cuerpo. Evidencias en
 `.desktop-preview/toggles/formats-menu.png` y `formats-desktop.png`.
 
+Entrega completa el 02/11/2026: [PR #27](https://github.com/vicentemartinluciano/activecard/pull/27)
+integrado en `536b2fbf9d93de6172541711e5fc44caafd4d48f`.
+[CI main 41550193917](https://github.com/vicentemartinluciano/activecard/actions/runs/41550193917)
+verde, con 67 suites/569 pruebas, lint, Doctor offline 21/21, SQLite/Postgres y
+exports Android/web. [Web publicada por 41550193927](https://github.com/vicentemartinluciano/activecard/actions/runs/41550193927):
+el HTML y el bundle servido coinciden con el artefacto de Pages, SHA-256
+`646fa24112e6b82385bd40457f38ac194c9663a9ab28d49f53ad484b3ed86d74`.
+
+OTA Android publicada en rama/canal `preview`, runtime `1.11.0`: grupo
+`e11bd4a6-544c-475f-9600-a6c430661c1a`, update
+`01a19ebf-3053-75db-9f6a-7a575c778428`. El manifest del canal sirve ese ID y
+el asset remoto coincide byte por byte con el export local, SHA-256
+`ef69e0ad4bbd0c971f109e011c2c2a695268c58d24488d220b866fbf2bbb1eba`.
+Se exportó sin `.env`, se controló que sus claves no estuvieran en el bundle
+y se publicó ese export con `--skip-bundler`. Evidencia local:
+`.desktop-preview/toggles/formats-pages-verification.json`,
+`formats-privacy-check.json` y `formats-ota-verification.json`.
+No requiere otro APK. No se operó el teléfono ni se afirmó recepción de la
+OTA o QA física; Martín las mantiene a su cargo.
+
 ## Carpetas y compatibilidad
 
 SQLite v10 agrega `folders.parent_id` con migración append-only. Las existentes
