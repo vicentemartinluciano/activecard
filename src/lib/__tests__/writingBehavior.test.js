@@ -48,6 +48,14 @@ test("Enter con selección en el título reemplaza el rango y mueve el resto al 
   expect(editor.state.doc.firstChild.firstChild.textContent).toBe("Uno ");
   expect(editor.state.doc.firstChild.lastChild.firstChild.textContent).toBe("Dos");
 });
+test("el espacio que baja del título y los espacios literales se conservan al reabrir", () => {
+  load(details("<h2>Pregunta y detalle</h2>", "<p>  Dos  espacios  </p>"));
+  select("Pregunta y detalle", 8); key("Enter");
+  const saved = reopen();
+  expect(editor.state.doc.firstChild.lastChild.firstChild.textContent).toBe(" y detalle");
+  expect(editor.state.doc.firstChild.lastChild.lastChild.textContent).toBe("  Dos  espacios  ");
+  expect(htmlToMarks(editor.getHTML())).toBe(saved);
+});
 test.each(["<ul><li><p>UnoDos</p></li></ul>", "<blockquote><p>UnoDos</p><p>Otra línea</p></blockquote>"])("dividir un encabezado enriquecido mantiene un documento válido: %s", title => {
   load(details(title)); select("UnoDos", 3); key("Enter");
   expect(editor.state.doc.firstChild.firstChild.textContent).toBe("Uno");

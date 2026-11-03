@@ -41,6 +41,16 @@ const WritingQuote = Blockquote.extend({
   addInputRules() { return [wrappingInputRule({ find: /^"\s$/, type: this.type })]; },
 });
 
+// La normalización HTML no debe quitar espacios del texto al reabrir una cara.
+// Solo los bloques de texto preservan espacios; la estructura entre bloques
+// sigue pasando por el parser normal.
+const WritingStarterKit = StarterKit.extend({
+  addExtensions() {
+    return this.parent().map(extension => ["paragraph", "heading"].includes(extension.name)
+      ? extension.extend({ whitespace: "pre" }) : extension);
+  },
+});
+
 // En celular el ancho es de presentación: no modificar los colwidth guardados
 // en escritorio al ampliar columnas pequeñas para lectura y scroll lateral.
 function readableColumns(node, minWidth) {
@@ -92,7 +102,7 @@ const ReadableTable = Table.extend({
 
 export function buildExtensions({ placeholder = "", defaultAlign = "left", tableResizable = false } = {}) {
   return [
-    StarterKit.configure({
+    WritingStarterKit.configure({
       // Fuera lo que el formato de ActiveCard no sabe representar.
       heading: { levels: [1, 2, 3] },
       blockquote: false,
@@ -104,7 +114,7 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left", table
       // Permite salir de una tabla al párrafo siguiente también con teclado móvil.
       trailingNode: {},
       // Quedan también los atajos tipo Notion: # / ## / ### para títulos,
-      // > para cita, ~~ para tachado, --- divisor, - viñeta y 1. numerada.
+      // > para desplegable, " para cita, ~~ tachado, --- divisor, - viñeta y 1. numerada.
     }),
     WritingQuote,
     Highlight,

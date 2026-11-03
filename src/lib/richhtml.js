@@ -408,7 +408,7 @@ export function htmlToMarks(html) {
     cur = null;
   };
   const pushText = (text) => {
-    const clean = decodeEntities(text.replace(/[\r\n\t]+/g, " "));
+    const clean = decodeEntities(text);
     if (!clean) return;
     if (!cur && !clean.trim()) return; // whitespace entre bloques: ignorar
     if (!cur) openBlock();
