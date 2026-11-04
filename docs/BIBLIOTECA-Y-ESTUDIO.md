@@ -161,6 +161,44 @@ y se publicó ese export con `--skip-bundler`. Evidencia local:
 No requiere otro APK. No se operó el teléfono ni se afirmó recepción de la
 OTA o QA física; Martín las mantiene a su cargo.
 
+### Escritura y formato (04/11/2026)
+
+[PR #28](https://github.com/vicentemartinluciano/activecard/pull/28), integrado en
+`9162a37c7f1a858fd97aaac5661b7a71a0f33f39`, corrige Enter en el encabezado
+desplegable, las selecciones y el borrado en sus límites. Shift+Enter conserva
+saltos internos. El guardado conserva listas anidadas, estilos combinados,
+caracteres literales, espacios y reinicios de numeración. Convertir un ítem no
+absorbe sus hermanos. La pill agrega tachado, quitar estilos y sangría táctil;
+deshacer formato conserva lo recién escrito. Reglas y compatibilidad de E032/E033
+en [EDITOR-ESCRITURA.md](EDITOR-ESCRITURA.md).
+
+[CI main 41768967837](https://github.com/vicentemartinluciano/activecard/actions/runs/41768967837)
+verde: 69 suites/617 pruebas, lint estricto, Doctor offline 21/21,
+SQLite/Postgres reales y exports Android/web. Se comprobó sobre los componentes
+web reales dividir el título, guardar/reabrir con espacios intactos y cambiar
+sangría desde la pill conservando descendientes. Viewports reales de 390 y
+1280 px sin desbordamiento. Capturas en
+`.desktop-preview/writing-audit/escritura-movil.png` y `escritura-desktop.png`.
+El botón «Guardar y reabrir» de esas capturas pertenece al arnés de prueba.
+
+[Web publicada por 41768968045](https://github.com/vicentemartinluciano/activecard/actions/runs/41768968045):
+HTML y JavaScript servidos coinciden byte por byte con el artefacto de Pages.
+Bundle `_expo/static/js/web/index-bbd84d368d03cbf011cfe492588608c4.js`, SHA-256
+`d7c72ac845c14e8fa0d606ababbaef8d606cf348fbf51356bccfc3c3b77b2b18`.
+
+OTA Android en rama/canal `preview`, runtime `1.11.0`: grupo
+`c477d032-edd1-4355-96e9-15b1c604981b`, update
+`01a1a4ba-e3fb-783d-b7c2-c38e602397e5`, sobre el commit de código `9162a37`.
+El manifest del canal sirve ese ID. El bundle remoto coincide byte por byte con
+el export local y con el hash del asset, SHA-256
+`35815cdc192fb4a18b6b2c677b33d91f4334354e61dd2b0a0c85d42009177991`.
+Se exportó sin `.env`, se verificaron los secretos locales y la presencia de
+los formatos nuevos, y se publicó con `--skip-bundler`. Evidencia local en
+`.desktop-preview/writing-audit/pages-verification.json`, `privacy-check.json`
+y `ota-verification.json`. Los clientes anteriores deben actualizarse antes de
+editar contenido con los formatos nuevos. No se construyó ni instaló un APK ni
+se operó el teléfono. Recepción y QA física a cargo de Martín.
+
 ## Carpetas y compatibilidad
 
 SQLite v10 agrega `folders.parent_id` con migración append-only. Las existentes

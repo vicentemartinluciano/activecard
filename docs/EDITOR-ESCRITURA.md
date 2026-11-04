@@ -3,6 +3,8 @@
 Revisión del 03/11/2026. Alcance aprobado por Martín: comportamiento de escritura,
 conservación del formato y pill contextual, tomando como referencia las reglas
 documentadas de Notion y el caso de Enter en un desplegable abierto.
+Entregada el 04/11/2026 en web y OTA Android `preview`/`1.11.0`, mediante PR #28.
+Identificadores, hashes y evidencia en `BIBLIOTECA-Y-ESTUDIO.md`.
 
 ## Reglas de edición
 
