@@ -602,9 +602,10 @@ próximo APK; no exige actualizar módulos nativos para publicar una OTA compati
 - Imágenes base64 no deben cargarse en listados livianos.
 
 
-## Experiencia simple (revisión en preparación, 04/11/2026)
+## Experiencia simple (entregada el 04/11/2026)
 
-Ver `EXPERIENCIA-SIMPLE.md` para alcance, evidencia vigente y entrega pendiente.
+Ver `EXPERIENCIA-SIMPLE.md` para alcance cerrado, evidencia y límites de validación.
+Fuente `39e1631` (PR #29), publicada en web y OTA preview compatible con 1.11.0.
 Los menús contextuales de ActionSheet flotan sobre el contenido con animación de
 entrada y respetan movimiento reducido. CardActions comparte mover/suspender/eliminar
 entre la lista editable y el editor individual. cardManagement pausa la cola antes

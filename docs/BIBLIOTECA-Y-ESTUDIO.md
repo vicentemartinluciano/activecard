@@ -1,4 +1,57 @@
-# Biblioteca y estudio — revisión del 04/11/2026 (en preparación)
+# Biblioteca y estudio — entrega del 04/11/2026
+
+
+## Entrega verificada — 04/11/2026
+
+Fuente de código `39e1631cd686c6bd3652b621a279fa021fb357ab`,
+[PR #29](https://github.com/vicentemartinluciano/activecard/pull/29).
+[CI del PR](https://github.com/vicentemartinluciano/activecard/actions/runs/41871262778)
+y [CI de main](https://github.com/vicentemartinluciano/activecard/actions/runs/41873831027)
+aprobados: 74 suites / 644 pruebas, ESLint sin avisos, Doctor offline 21/21,
+verificadores SQLite/Postgres y formatos, exports Android/web.
+
+[Web pública](https://vicentemartinluciano.github.io/activecard/), publicada por
+[Pages 41873831022](https://github.com/vicentemartinluciano/activecard/actions/runs/41873831022).
+HTML y los seis archivos JavaScript coinciden byte por byte con su artefacto.
+Bundle principal `index-9964cd006066483cb2c276b5b8205207.js`, SHA-256
+`6ee10ea4e1381f91f38498c6d1e44a24c455721a5234a77d0c61a161f08eaa82`.
+
+OTA Android publicada el 04/11 a las 17:20:34 UTC, rama/canal `preview`,
+runtime `1.11.0`: grupo `35cab969-6ebe-47bf-9592-35cf391d066f`,
+update `01a1a793-a8b4-7765-b1be-77ddd8742e2b`.
+El endpoint del canal sirve ese ID; el asset de lanzamiento coincide byte por byte
+con el export local y con el hash del manifest. SHA-256:
+`8cb88b514071c256608bbc5ed2aa3a8373531d5e74b3b62c18ec258164f6eea3`.
+Export sin dotenv, sin claves configuradas en el bundle, publicado con
+`--skip-bundler` para reutilizar esos bytes.
+
+Evidencia reproducible local en `.desktop-preview/release-2026-11-04/` del
+checkout principal: `web-verification.json`, `ota-verification.json`,
+`ota-privacy.json` y `publication.json`. No contienen claves ni headers de assets.
+Las capturas durables están en
+`C:/Users/marti/.codex/visualizations/2026/10/25/01a174e9-c73a-7070-9cbb-22f1500a7847/`.
+
+QA web de la aplicación exportada por CI, con datos sintéticos en localhost:
+crear carpeta y mazo dentro, autoguardar, menú flotante de tres acciones,
+suspender/reactivar, cancelar borrado, mover tarjeta entre mazos y borrarla en
+destino; Inicio → Biblioteca, Gimnasio, mover mazo y abrir destino, orden manual
+persistente tras recarga y Estudiar → Mi orden → Empezar con la tarjeta esperada.
+Escritorio y viewport medido de 390 × 844 px; innerWidth y scrollWidth de 390.
+Ajustes agrupados e Importar neutro también comprobados.
+
+La preselección enriquecida se revisó a 390 × 844 con el componente real y
+RichText, sobre ocho propuestas sintéticas compiladas; rutas/base/borrador
+aislados y editor de modificación sustituido. Guardar permanece visible al
+desplazar, desplegables abren y descartar/recuperar actualiza el conteo.
+Esto acredita presentación e interacción de preselección, no una llamada al
+modelo ni persistencia de esa fixture. La persistencia atómica y los reintentos
+están cubiertos por Jest y SQLite real; formatos por el verificador del editor.
+
+No hubo llamada real de generación, login de QA ni cambios a las tarjetas de
+referencia. No se construyó ni instaló APK ni se operó el Galaxy A15. La recepción
+de OTA y QA física siguen a cargo de Martín por decisión previa. Publicación,
+artefactos, revisión web y prueba física son evidencias distintas.
+
 
 ## Creación y navegación contextual
 
