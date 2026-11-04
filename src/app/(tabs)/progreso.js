@@ -114,7 +114,6 @@ export default function Progreso() {
       <Screen safeTop style={Platform.OS === 'web' ? { maxWidth: '100%', paddingHorizontal: 32 } : undefined}>
         <View style={styles.appbar}>
           <Text style={styles.titulo}>Progreso</Text>
-          <Pill label="Últimos 3 meses" />
         </View>
 
         <ScrollView
@@ -166,6 +165,7 @@ export default function Progreso() {
                         </Text>
                         <Text style={type.small}>últimos 30 días</Text>
                       </View>
+                      <Text style={type.small}>Evolución de las últimas 12 semanas</Text>
                       <RecallScoreChart series={serie} anchoBase={metricWidth} />
                     </View>
 
@@ -180,6 +180,7 @@ export default function Progreso() {
                           />
                         ) : null}
                       </View>
+                      <Text style={type.small}>Últimos 84 días</Text>
                       <ActivityHeatmap activity={actividad} />
                     </View>
                   </MetricCarousel>
@@ -200,7 +201,7 @@ export default function Progreso() {
                 <Text style={type.label}>Lo que viene</Text>
                 <Pill icon="calendar" label="7 días" />
               </View>
-              <ForecastList forecast={forecast} limit={limits.maxReviews} />
+              <ForecastList forecast={forecast} limit={limits.maxReviews} newLimit={limits.maxNew} />
             </Card>
 
             <Card style={{ gap: spacing.sm }}>

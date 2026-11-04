@@ -1,5 +1,4 @@
-// Deslizamiento horizontal entre las secciones de tabs (Inicio ⇄ Crear ⇄
-// Biblioteca). Gesto por react-native-gesture-handler (ya presente): al soltar
+// Deslizamiento horizontal entre Inicio, Biblioteca, Gimnasio y Progreso. Gesto por react-native-gesture-handler (ya presente): al soltar
 // con desplazamiento+velocidad suficientes, salta a la sección vecina. Se
 // activa SOLO en horizontal (activeOffsetX) y falla si arranca vertical
 // (failOffsetY), así no roba el scroll de las listas.
@@ -9,7 +8,7 @@ import { Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
-const ORDER = ["/", "/crear", "/biblioteca", "/progreso"]; // el orden de las tabs
+const ORDER = ["/", "/biblioteca", "/gimnasio", "/progreso"]; // el orden de las tabs
 
 export default function SectionSwipe({ index, children }) {
   const router = useRouter();

@@ -12,7 +12,7 @@ import { colors, font, radius, spacing, type } from "../theme";
 
 const DURACION = 5000;
 
-export default function Toast({ message, tone = "error", onRetry, onDismiss }) {
+export default function Toast({ message, tone = "error", onRetry, onDismiss, onAction, actionLabel = 'Abrir destino' }) {
   const y = useRef(new Animated.Value(40)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -24,10 +24,10 @@ export default function Toast({ message, tone = "error", onRetry, onDismiss }) {
     ]).start();
     // Los avisos con acción no se van solos: si ofrecemos "Reintentar", el
     // usuario tiene que llegar a tocarlo.
-    if (onRetry) return undefined;
+    if (onRetry || onAction) return undefined;
     const t = setTimeout(() => onDismiss && onDismiss(), DURACION);
     return () => clearTimeout(t);
-  }, [message, onRetry, onDismiss, y, opacity]);
+  }, [message, onRetry, onAction, onDismiss, y, opacity]);
 
   if (!message) return null;
 
@@ -47,15 +47,16 @@ export default function Toast({ message, tone = "error", onRetry, onDismiss }) {
         color={esError ? "#FFC9CB" : colors.successBright}
       />
       <Text style={[styles.text, esError && { color: "#FFC9CB" }]}>{message}</Text>
-      {onRetry ? (
-        <Pressable onPress={onRetry} hitSlop={8}>
-          <Text style={styles.action}>Reintentar</Text>
+      {onRetry || onAction ? (
+        <Pressable accessibilityRole="button" onPress={onRetry || onAction} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={styles.action}>{onRetry ? 'Reintentar' : actionLabel}</Text>
         </Pressable>
       ) : (
         <Pressable onPress={onDismiss} hitSlop={8}>
           <Feather name="x" size={15} color={colors.textMuted} />
         </Pressable>
       )}
+      {onAction && onDismiss && <Pressable accessibilityRole="button" accessibilityLabel="Cerrar aviso" onPress={onDismiss} style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}><Feather name="x" size={16} color={colors.textMuted} /></Pressable>}
     </Animated.View>
   );
 }

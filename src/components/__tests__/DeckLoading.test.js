@@ -2,7 +2,7 @@ import React from 'react';
 import { act, create } from 'react-test-renderer';
 
 import DeckScreen from '../../app/mazos/[id]';
-import { createCard, getCard, listCardsByDeck, updateCardText } from '../../db/cards';
+import { createCard, deleteCard, setCardDeck, getCard, listCardsByDeck, updateCardText } from '../../db/cards';
 import { getDeck } from '../../db/decks';
 const mockRouter = { dismissTo: jest.fn() };
 
@@ -30,6 +30,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-native-sortables', () => ({ default: {}, __esModule: true }));
 jest.mock('../DesktopShell', () => ({ useDesktopBeforeNavigate: () => {} }));
+jest.mock('../CardActions', () => (props) => require('react').createElement('card-actions', props));
 jest.mock('../EditableCardRow', () => (props) => require('react').createElement('editable-row', props));
 jest.mock('../Collapsible', () => () => null);
 jest.mock('../ConfirmDeleteSheet', () => () => null);
@@ -57,7 +58,7 @@ jest.mock('../ui', () => {
 });
 jest.mock('../Toast', () => ({ __esModule: true, default: ({ message }) =>
   require('react').createElement(require('react-native').Text, null, message) }));
-jest.mock('../../db/cards', () => ({ listCardsByDeck: jest.fn(), createCard: jest.fn(), getCard: jest.fn(), updateCardText: jest.fn() }));
+jest.mock('../../db/cards', () => ({ listCardsByDeck: jest.fn(), createCard: jest.fn(), deleteCard: jest.fn(), setCardDeck: jest.fn(), getCard: jest.fn(), updateCardText: jest.fn() }));
 jest.mock('../../db/decks', () => ({ getDeck: jest.fn(), listTags: async () => [] }));
 jest.mock('../../db/folders', () => ({ listFolders: async () => [] }));
 jest.mock('../../db/progress', () => ({ getDeckDailyProgress: async () => null }));
@@ -182,4 +183,62 @@ test('ir a un ancestro guarda primero el texto y conserva el borrador si falla',
   await act(async () => screen.root.findByProps({ accessibilityLabel: 'Ir a Biblioteca' }).props.onPress());
   expect(updateCardText).toHaveBeenLastCalledWith(1, 'Texto pendiente', 'Respuesta', expect.anything());
   expect(mockRouter.dismissTo).toHaveBeenCalledWith('/biblioteca');
+});
+
+
+test('eliminar desde el menú de la fila conserva el editor ante un error y lo retira al reintentar', async () => {
+  jest.useFakeTimers();
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([{ id: 1, deck_id: 7, front: 'Pregunta', back: 'Respuesta' }]);
+  deleteCard.mockRejectedValueOnce(new Error('Disco ocupado')).mockResolvedValueOnce();
+  await act(async () => { screen = create(<DeckScreen />); });
+  await act(async () => screen.root.findByType('editable-row').props.onActivate(1));
+  await act(async () => screen.root.findByType('editable-row').props.onChangeDraft({ front: 'Edición pendiente', back: 'Respuesta' }));
+  await act(async () => { const row = screen.root.findByType('editable-row'); row.props.onOptions(row.props.card); });
+  const actions = screen.root.findByType('card-actions').props;
+  await act(async () => { await expect(actions.onDelete(actions.card)).rejects.toThrow('Disco ocupado'); });
+  expect(screen.root.findByType('editable-row').props.draft.front).toBe('Edición pendiente');
+  expect(screen.root.findByType('editable-row').props.active).toBe(true);
+  await act(async () => actions.onDelete(actions.card));
+  expect(screen.root.findAllByType('editable-row')).toHaveLength(0);
+  expect(deleteCard).toHaveBeenCalledTimes(2);
+  await act(async () => screen.unmount()); screen = null;
+  jest.useRealTimers();
+});
+
+test('el menú mantiene la identidad local al eliminar mientras termina la creación', async () => {
+  jest.useFakeTimers();
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([]);
+  let finish;
+  createCard.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  deleteCard.mockResolvedValue();
+  await act(async () => { screen = create(<DeckScreen />); });
+  await act(async () => screen.root.findByProps({ accessibilityLabel: 'Nueva tarjeta' }).props.onPress());
+  await act(async () => screen.root.findByType('editable-row').props.onChangeDraft({ front: 'Nueva', back: 'Completa' }));
+  await act(async () => jest.advanceTimersByTime(350));
+  await act(async () => { const row = screen.root.findByType('editable-row'); row.props.onOptions(row.props.card); });
+  const actions = screen.root.findByType('card-actions').props;
+  let removing;
+  await act(async () => { removing = actions.onDelete(actions.card); });
+  await act(async () => { finish(31); await removing; });
+  expect(deleteCard).toHaveBeenCalledWith(31);
+  expect(screen.root.findAllByType('editable-row')).toHaveLength(0);
+  await act(async () => screen.unmount()); screen = null;
+  jest.useRealTimers();
+});
+
+test('mover desde la fila guarda la edición y conserva las otras tarjetas', async () => {
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([{ id: 1, deck_id: 7, front: 'Pregunta', back: 'Respuesta' }, { id: 2, deck_id: 7, front: 'Otra', back: 'Queda' }]);
+  updateCardText.mockResolvedValue(); setCardDeck.mockResolvedValue();
+  await act(async () => { screen = create(<DeckScreen />); });
+  await act(async () => screen.root.findAllByType('editable-row')[0].props.onActivate(1));
+  await act(async () => screen.root.findAllByType('editable-row')[0].props.onChangeDraft({ front: 'Editada', back: 'Respuesta' }));
+  await act(async () => { const row = screen.root.findAllByType('editable-row')[0]; row.props.onOptions(row.props.card); });
+  const actions = screen.root.findByType('card-actions').props;
+  await act(async () => actions.onMove(actions.card, 8));
+  expect(setCardDeck).toHaveBeenCalledWith(1, 8);
+  expect(updateCardText).toHaveBeenCalledWith(1, 'Editada', 'Respuesta', expect.anything());
+  expect(screen.root.findByType('editable-row').props.card.id).toBe(2);
 });

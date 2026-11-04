@@ -6,7 +6,7 @@ import { locationLabel } from '../lib/libraryLocation';
 import { normalizeSearch } from '../lib/search';
 import { colors, spacing, type } from '../theme';
 import ActionSheet from './ActionSheet';
-import FolderPicker from './FolderPicker';
+import LocationBrowser from './LocationBrowser';
 import { Button, Card, Field } from './ui';
 
 // Sin deckId permite traer un mazo desde cualquier carpeta a la ubicación actual.
@@ -33,7 +33,7 @@ export default function DeckMoveSheet({ visible, deckId = null, targetFolderId =
     lock.current = true; setBusy(true); setError('');
     try {
       await setDeckFolder(deck.id, destination);
-      await onMoved?.(); onClose();
+      await onMoved?.({ deckId: deck.id, fromFolderId: deck.folder_id, targetFolderId: destination }); onClose();
     } catch (e) {
       setError(e.message || 'No pudimos mover el mazo.');
       try { setFolders(await listFolders()); } catch { /* Conservar el error de la operación. */ }
@@ -54,8 +54,9 @@ export default function DeckMoveSheet({ visible, deckId = null, targetFolderId =
           </ScrollView>
         </>}
         {deck && <View style={{ gap: 4 }}><Text style={type.body}>{deck.name}</Text><Text style={type.small}>Desde: {locationLabel(folders, deck.folder_id)}</Text></View>}
-        <FolderPicker folders={folders} value={destination} onChange={setDestination} disabled={busy} label="Mover a" />
-        <Button label={busy ? 'Moviendo…' : 'Confirmar movimiento'} kind="primary" disabled={busy || !deck || (deck.folder_id ?? null) === destination} onPress={move} />
+        <LocationBrowser folders={folders} value={destination} onChange={setDestination} disabled={busy} />
+        <Text style={type.small}>Se moverá a: {locationLabel(folders, destination)}</Text>
+        <Button label={busy ? 'Moviendo…' : 'Mover aquí'} kind="primary" disabled={busy || !deck || (deck.folder_id ?? null) === destination || destination != null && !folders.some((folder) => folder.id === destination)} onPress={move} />
       </>}
       {!!error && <Text accessibilityRole="alert" style={[type.small, { color: colors.danger }]}>{error}</Text>}
       <Button label="Cancelar" disabled={busy} onPress={onClose} />

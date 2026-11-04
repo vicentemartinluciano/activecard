@@ -6,6 +6,7 @@ import { openDatabaseAsync } from "expo-sqlite";
 
 import { migrate } from "./schema";
 import { manageDatabase } from "./transactions";
+import { databaseErrorMessage } from "../lib/databaseError";
 
 let dbPromise = null;
 
@@ -16,7 +17,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // distinto según en qué momento de la carrera se pise (visto en pruebas
 // reales): "Access Handles cannot be created…" y, justo después, "Invalid
 // VFS state". Reintentar ante cualquiera de los dos cubre la carrera.
-const TRANSIENT_ERRORS = ["Access Handle", "Invalid VFS state"];
+const TRANSIENT_ERRORS = ["Access Handle", "Invalid VFS state", "NoModificationAllowedError"];
 
 async function openWithRetry() {
   let lastError = null;
@@ -30,7 +31,7 @@ async function openWithRetry() {
       await sleep(400 * (attempt + 1));
     }
   }
-  throw lastError;
+  throw new Error(databaseErrorMessage(lastError, lastError?.message || 'No pudimos abrir la biblioteca.'), { cause: lastError });
 }
 
 export function getDb() {

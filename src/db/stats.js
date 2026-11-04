@@ -121,9 +121,10 @@ export async function getActivityMap(days = 84, now = new Date()) {
 // aparecer y contarlas sería asustar al pedo. Todo lo vencido de antes se
 // acumula en el primer día, que es como se va a sentir.
 export async function getForecast(days = 7, now = new Date()) {
+  if (days <= 0) return [];
   const db = await getDb();
   const rows = await db.getAllAsync(
-    `SELECT c.due AS due FROM cards c
+    `SELECT c.due AS due, c.reps AS reps FROM cards c
      JOIN decks d ON d.id = c.deck_id
      WHERE d.priority > 0 AND c.suspended = 0`,
   );
@@ -132,10 +133,11 @@ export async function getForecast(days = 7, now = new Date()) {
   const out = Array.from({ length: days }, (_, i) => {
     const d = new Date(hoy);
     d.setDate(d.getDate() + i);
-    return { day: localDayKey(d), date: d, count: 0 };
+    return { day: localDayKey(d), date: d, count: 0, newCount: 0 };
   });
 
   for (const r of rows) {
+    if (r.reps === 0) { if (out[0]) out[0].newCount++; continue; }
     const diff = Math.floor((startOfDay(new Date(r.due)) - hoy) / 86400000);
     if (diff < 0)
       out[0].count++; // atrasadas: pesan hoy

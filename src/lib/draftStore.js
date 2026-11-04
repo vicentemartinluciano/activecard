@@ -27,7 +27,7 @@ function normalizeDraft(value) {
 }
 
 // cards: [{front, back}], sourceLabel: texto corto de dónde salieron.
-export async function setDraft(cards, sourceLabel, { folderId = null, createNewDeck = false } = {}) {
+export async function setDraft(cards, sourceLabel, { folderId = null, deckId = null, createNewDeck = false } = {}) {
   const stamp = Date.now();
   draft = normalizeDraft({
     cards: cards.map((card, index) => ({
@@ -37,7 +37,7 @@ export async function setDraft(cards, sourceLabel, { folderId = null, createNewD
       savedCardId: null,
     })),
     sourceLabel,
-    deckId: null,
+    deckId,
     folderId,
     createNewDeck,
   });

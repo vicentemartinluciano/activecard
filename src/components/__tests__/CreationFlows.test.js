@@ -10,16 +10,16 @@ import { listFolders } from '../../db/folders';
 import { persistDraft } from '../../lib/draftStore';
 
 let mockDraft;
-const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() };
-jest.mock('expo-router', () => ({ useRouter: () => mockRouter, Stack: { Screen: () => null } }));
+const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn(), setParams: jest.fn() };
+jest.mock('expo-router', () => ({ useRouter: () => mockRouter, useLocalSearchParams: () => ({}), Stack: { Screen: () => null } }));
 jest.mock('react-native', () => ({
   Platform: { OS: 'android', select: (v) => v.android ?? v.default },
-  StyleSheet: { create: (s) => s },
+  StyleSheet: { create: (s) => s, flatten: (s) => Array.isArray(s) ? Object.assign({}, ...s) : s },
   Text: 'text', View: 'view', ScrollView: 'scroll', Pressable: 'press', ActivityIndicator: 'busy',
   FlatList: ({ data, renderItem, ListHeaderComponent, ListFooterComponent }) => require('react').createElement('list', null, ListHeaderComponent, data.map((item) => require('react').createElement('row', { key: item.key }, renderItem({ item }))), ListFooterComponent),
 }));
-jest.mock('../ui', () => Object.fromEntries(['Button', 'Field', 'Chip', 'Card', 'Screen'].map((name) => [name, (props) => require('react').createElement(name, props, props.children)])));
-jest.mock('../ActionSheet', () => ({ visible, children }) => visible ? require('react').createElement('sheet', null, children) : null);
+jest.mock('../ui', () => Object.fromEntries(['Button', 'Field', 'Chip', 'Card', 'Screen', 'EmptyState'].map((name) => [name, (props) => require('react').createElement(name, props, props.children)])));
+jest.mock('../ActionSheet', () => ({ visible, children, options = [], onClose, closeOnSelect = true }) => visible ? require('react').createElement('sheet', null, options.map((option) => require('react').createElement('Button', { key: option.label, ...option, onPress: () => { if (closeOnSelect) onClose(); return option.onPress(); } })), children) : null);
 jest.mock('../FolderPicker', () => (props) => require('react').createElement('folder-picker', props));
 jest.mock('../NotionField', () => () => null);
 jest.mock('@expo/vector-icons/Feather', () => () => null);
@@ -37,7 +37,7 @@ beforeAll(() => {
 });
 beforeEach(() => {
   listFolders.mockResolvedValue([{ id: 8, name: 'Operaciones' }]);
-  listDecks.mockResolvedValue([]);
+  listDecks.mockResolvedValue([{ id: 20, name: 'Unidad', folder_id: 8 }]);
   createDeck.mockResolvedValue(20);
   createCard.mockResolvedValue(30);
   mockDraft = { sourceLabel: 'Texto', folderId: 8, createNewDeck: true, newDeckName: 'Unidad', cards: [{ key: 'a', front: 'Pregunta', back: 'Respuesta', kept: true }] };
@@ -106,12 +106,13 @@ test('Biblioteca alterna raíz y todos los mazos y busca contenido anidado', asy
   const decks = [{ id: 1, name: 'Suelto', folder_id: null }, { id: 2, name: 'Unidad 1', folder_id: 8 }];
   await act(async () => { screen = create(<LibraryContent folders={folders} decks={decks} />); });
   expect(screen.root.findAllByType('deck-item').map((r) => r.props.deck.id)).toEqual([1]);
+  await act(async () => button('Filtros').props.onPress());
   await act(async () => screen.root.findAllByType('Chip').find((c) => c.props.label === 'Todos los mazos').props.onPress());
   expect(screen.root.findAllByType('deck-item').map((r) => r.props.deck.id)).toEqual([1, 2]);
   await act(async () => screen.root.findByType('Field').props.onChangeText('unidad'));
   expect(screen.root.findAllByType('deck-item').map((r) => r.props.deck.id)).toEqual([2]);
-  await act(async () => button('Nuevo mazo').props.onPress());
-  expect(button('Manual')).toBeDefined();
+  await act(async () => button('Nuevo').props.onPress());
+  expect(button('Mazo manual')).toBeDefined();
 });
 
 test('mover desde otra carpeta muestra origen/destino y bloquea un doble envío', async () => {
@@ -123,8 +124,8 @@ test('mover desde otra carpeta muestra origen/destino y bloquea un doble envío'
   await act(async () => { screen = create(<DeckMoveSheet visible targetFolderId={8} onMoved={moved} onClose={close} />); });
   await act(async () => screen.root.findByType('Card').props.onPress());
   expect(JSON.stringify(screen.toJSON())).toContain('Otra materia');
-  expect(screen.root.findByType('folder-picker').props.value).toBe(8);
-  const submit = button('Confirmar movimiento').props.onPress;
+  expect(JSON.stringify(screen.toJSON())).toContain('Operaciones');
+  const submit = button('Mover aquí').props.onPress;
   await act(async () => { submit(); submit(); });
   expect(setDeckFolder).toHaveBeenCalledTimes(1);
   expect(setDeckFolder).toHaveBeenCalledWith(2, 8);

@@ -60,8 +60,11 @@ descendientes y muestra la ubicación de los resultados. `LibraryBreadcrumbs`
 expone los ancestros en Android; web reutiliza la ruta de `DesktopShell` y abre
 los ancestros del elemento activo en el índice.
 
-`CreationSheet` y `FolderPicker` se reutilizan desde Crear, Biblioteca, carpetas
-y el índice web. `createDeck(name, folderId)` inserta el destino y el mazo en una
+`CreationSheet` se abre desde Nuevo en Biblioteca, carpetas y el índice web.
+La navegación principal es Inicio / Biblioteca / Gimnasio / Progreso. La ruta
+legacy Crear redirige a la ubicación de Biblioteca con el menú abierto.
+`LocationBrowser` comparte rutas, búsqueda y selección jerárquica; `FolderPicker`
+y `DeckPicker` conservan la elección anterior hasta confirmar un cambio. `createDeck(name, folderId)` inserta el destino y el mazo en una
 transacción. El borrador de generación v2 conserva destino, nombre y modalidad
 de mazo nuevo; lee borradores anteriores. Confirmar la preselección crea el mazo
 y su referencia en `settings` atómicamente antes de guardar las tarjetas.
@@ -97,8 +100,9 @@ src/
 │   ├── _layout.js                 init global, fuentes, backup y recordatorio
 │   ├── (tabs)/
 │   │   ├── index.js               Inicio
-│   │   ├── crear.js               Hub de creación
+│   │   ├── crear.js               Redirección de accesos anteriores
 │   │   ├── biblioteca.js          Búsqueda y organización
+│   │   ├── gimnasio.js            Chat general y acceso a ideas/historial
 │   │   └── progreso.js            Estadísticas
 │   ├── repaso.js                  Repaso diario
 │   ├── crear/
@@ -113,7 +117,7 @@ src/
 │   │   ├── chat.js                Chat general o contextual
 │   │   ├── historial.js           Chats persistidos
 │   │   ├── nueva.js               Selector de tarjeta de origen
-│   │   ├── index.js               Mazos con ideas
+│   │   ├── ideas.js               Mazos con ideas
 │   │   ├── [deckId].js            Ideas de un mazo
 │   │   └── charla.js              Transcript histórico de una idea
 │   ├── ajustes.js
@@ -397,7 +401,9 @@ texto / archivo / Notion
         ↓
 generator.js + GENERATOR_SYSTEM
         ↓
-JSON { cards: [{ front, back }] }
+JSON { cards: [{ front, back: bloques }] }
+        ↓
+generatedCardFormat.js → marcas del editor
         ↓
 generationDraft en settings
         ↓
@@ -410,7 +416,15 @@ PDF entra como archivo base64; TXT y Markdown como texto. Notion convierte bloqu
 descarga imágenes y conserva marcadores que `resolveImageMarkers()` reemplaza por data
 URI. El tope preventivo de archivos es aproximadamente 18 MB.
 
-La preselección puede guardar parcialmente y recuerda qué tarjetas ya fueron insertadas.
+La IA describe párrafos, títulos, citas, listas recursivas/numeradas, tablas,
+separadores y desplegables como bloques JSON legibles. `generatedCardFormat.js`
+valida y convierte esos bloques con los mismos codificadores del editor; conserva
+respuestas legacy con back string. No se pide al modelo codificar sentinels.
+Los marcadores de imagen se resuelven también dentro de listas, tablas y desplegables.
+La preselección usa RichText para revisar el formato; destino/cantidad van arriba y
+Guardar queda fuera de la lista. Crear desde un mazo conserva su deckId. Cada alta
+junto a savedCardId del borrador se confirma en una transacción para recuperar un
+guardado interrumpido sin duplicar tarjetas. La IA nunca salta la confirmación.
 
 ## Gimnasio Mental
 
@@ -448,7 +462,7 @@ create_folder | rename_folder | delete_folder
 La app valida IDs contra el catálogo enviado. Una búsqueda con varias coincidencias pide
 elección y vuelve a llamar al modelo con la tarjeta real. Toda mutación muestra preview y
 requiere confirmación. Borrar mazo o carpeta exige escribir el nombre exacto; borrar una
-carpeta permite elegir qué mazos hijos también se eliminan.
+carpeta conserva los mazos sueltos y sube sus subcarpetas al padre anterior.
 
 Una `create_card` híbrida puede guardar `connections` y aparecer en la vista de ideas.
 
@@ -586,3 +600,19 @@ próximo APK; no exige actualizar módulos nativos para publicar una OTA compati
 - `***negrita+cursiva***` no se conserva con fidelidad.
 - Notion web requiere archivo por CORS.
 - Imágenes base64 no deben cargarse en listados livianos.
+
+
+## Experiencia simple (revisión en preparación, 04/11/2026)
+
+Ver `EXPERIENCIA-SIMPLE.md` para alcance, evidencia vigente y entrega pendiente.
+Los menús contextuales de ActionSheet flotan sobre el contenido con animación de
+entrada y respetan movimiento reducido. CardActions comparte mover/suspender/eliminar
+entre la lista editable y el editor individual. cardManagement pausa la cola antes
+de eliminar, espera una identidad ya insertándose y reanuda el editor si falla.
+Mover conserva FSRS e historial y traslada un borrador incompleto a su clave nueva;
+eliminar limpia borradores y logs por las relaciones existentes, en una transacción.
+El orden manual se activa desde el menú del mazo. El + y Estudiar → elegir → Empezar
+se mantienen. Filtros no depende del foco; source=ai se etiqueta Con IA, sin nuevo
+estado de revisión. Progreso distingue nuevas disponibles de vencimientos aprendidos.
+Ajustes agrupa Cuenta, Estudio, Integraciones y Datos; importar es una acción neutra
+hasta elegir reemplazo. No hay migración ni cambio de runtime/dependencias nativas.

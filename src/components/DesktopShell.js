@@ -18,8 +18,7 @@ import CreationSheet from './CreationSheet';
 const sections = [
   ['inicio', 'Inicio', 'home', '/'],
   ['biblioteca', 'Biblioteca', 'book-open', '/biblioteca'],
-  ['crear', 'Crear', 'plus-square', '/crear'],
-  ['gimnasio', 'Gimnasio', 'zap', '/gimnasio/chat'],
+  ['gimnasio', 'Gimnasio', 'zap', '/gimnasio'],
   ['progreso', 'Progreso', 'trending-up', '/progreso'],
 ];
 
@@ -141,7 +140,7 @@ function DesktopWorkspace({ children }) {
       closePreview(); if (narrow) setPinned(false);
       // POP_TO vuelve por el stack de mazos/carpetas, pero no cambia la tab
       // activa cuando ya estamos en Inicio, Crear o Progreso.
-      if (ancestor || route === '/biblioteca' && section === 'biblioteca') router.dismissTo(route);
+      if (ancestor || route === '/biblioteca' && (path === '/biblioteca' || path.startsWith('/mazos') || path.startsWith('/carpetas'))) router.dismissTo(route);
       else router.navigate(route);
     } finally { navigating.current = false; }
   };
@@ -166,10 +165,10 @@ function DesktopWorkspace({ children }) {
     </View>;
   };
   return <View style={styles.shell}>
-    <View style={styles.rail}>
+    {!narrow && <View style={styles.rail}>
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
       <RailButton separator label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
-    </View>
+    </View>}
     <View style={{ width: library && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
       {library && <View dataSet={{ libraryIndex: 'true' }} testID="desktop-library-index"
         onPointerEnter={() => { clearTimeout(timer.current); refresh(); }} onPointerLeave={leavePreview}

@@ -84,7 +84,10 @@ export async function getDeckPriorities() {
 
 export async function deleteDeck(id) {
   const db = await getDb();
-  await db.runAsync("DELETE FROM decks WHERE id = ?", [id]);
+  await withDbTransaction(db, async (tx) => {
+    await tx.runAsync("DELETE FROM decks WHERE id = ?", [id]);
+    await tx.runAsync("DELETE FROM settings WHERE key LIKE ?", [`cardDraft:${id}:%`]);
+  });
 }
 
 // --- Etiquetas ---

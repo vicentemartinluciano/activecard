@@ -4,7 +4,7 @@ export const DESKTOP_INDEX_WIDTH = 280;
 export function desktopSection(path) {
   if (path.startsWith('/gimnasio')) return 'gimnasio';
   if (path.startsWith('/mazos') || path.startsWith('/carpetas') || path === '/biblioteca') return 'biblioteca';
-  if (path.startsWith('/crear')) return 'crear';
+  if (path.startsWith('/crear')) return 'biblioteca';
   if (path.startsWith('/progreso')) return 'progreso';
   if (path.startsWith('/ajustes')) return 'ajustes';
   return 'inicio';

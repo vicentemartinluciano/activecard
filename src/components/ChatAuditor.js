@@ -217,7 +217,7 @@ function ActionPreview({ message, onConfirm, onChoose, onToggleDeleteDeck, busy 
   );
 }
 
-export default function ChatAuditor({ card = null, chatId = null, onDone = null }) {
+export default function ChatAuditor({ card = null, chatId = null, onDone = null, root = false }) {
   const router = useRouter();
   const params = useLocalSearchParams();
   const routeChatId = params.chatId ? Number(params.chatId) : null;
@@ -607,13 +607,14 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null 
     >
       <StarField />
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar Gimnasio" onPress={close} style={styles.backButton} hitSlop={8}>
+        {!root && <Pressable accessibilityRole="button" accessibilityLabel="Cerrar Gimnasio" onPress={close} style={styles.backButton} hitSlop={8}>
           <Feather name="arrow-left" size={23} color={colors.text} />
-        </Pressable>
+        </Pressable>}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><BrainMark size={26} /><Text style={styles.title}>Gimnasio</Text></View>
           <Text style={styles.saved}>Conversá, investigá y trabajá con tus tarjetas</Text>
         </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Ver ideas" onPress={() => router.push("/gimnasio/ideas")} style={styles.iconButton}><Feather name="zap" size={20} color={colors.text} /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Historial de conversaciones" onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
           <Feather name="clock" size={20} color={colors.text} />
         </Pressable>

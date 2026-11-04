@@ -61,7 +61,7 @@ export default function GimnasioMental() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: activeFolder ? activeFolder.name : "Gimnasio Mental" }} />
+      <Stack.Screen options={{ title: activeFolder ? activeFolder.name : "Ideas" }} />
       <FlatList
         data={visibleDecks}
         keyExtractor={(d) => String(d.id)}
@@ -92,7 +92,7 @@ export default function GimnasioMental() {
                   {ideaFolders.map((f) => (
                     <GlowPressable
                       key={f.id}
-                      onPress={() => router.push(`/gimnasio?folderId=${f.id}`)}
+                      onPress={() => router.push(`/gimnasio/ideas?folderId=${f.id}`)}
                       halo={glow.haloViolet}
                       style={[styles.tileSurface, styles.folderTile, styles.gymTile]}
                     >

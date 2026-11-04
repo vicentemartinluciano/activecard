@@ -9,6 +9,8 @@ import {
   View,
 } from "react-native";
 
+import CardActions from "../../../components/CardActions";
+import { moveManagedCard, removeManagedCard } from "../../../lib/cardManagement";
 import Collapsible from "../../../components/Collapsible";
 import { useDesktopBeforeNavigate } from "../../../components/DesktopShell";
 import useCardAutosaveLifecycle from "../../../components/useCardAutosaveLifecycle";
@@ -16,15 +18,12 @@ import EditableCardRow from "../../../components/EditableCardRow";
 import { createCardAutosave, readCardDraft } from "../../../lib/cardAutosave";
 import { useSyncRefresh } from "../../../components/useSyncRefresh";
 import Toast from "../../../components/Toast";
-import { Button, Chip, confirmAsync, EmptyState, Pill, Screen } from "../../../components/ui";
+import { EmptyState, Pill, Screen } from "../../../components/ui";
 import {
-  deleteCard,
   getCard,
   listRecentReviews,
-  setCardDeck,
   setCardSuspended,
 } from "../../../db/cards";
-import { listDecks } from "../../../db/decks";
 import { colors, font, spacing, type } from "../../../theme";
 
 const RATING_LABEL = {
@@ -61,8 +60,8 @@ export default function EditorTarjeta() {
   const [loaded, setLoaded] = useState(false);
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [decks, setDecks] = useState([]);
+  const existingRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [recentReviews, setRecentReviews] = useState([]);
   const [error, setError] = useState("");
   const [syncReload, setSyncReload] = useState(0);
@@ -99,16 +98,14 @@ export default function EditorTarjeta() {
     const targetId = cardId || (syncReload > 0 ? existing?.id : null);
     Promise.all([
       targetId ? getCard(Number(targetId)) : Promise.resolve(null),
-      listDecks(),
       targetId ? listRecentReviews(Number(targetId), 5) : Promise.resolve([]),
     ])
-      .then(async ([card, allDecks, reviews]) => {
+      .then(async ([card, reviews]) => {
         if (!alive) return;
         if (targetId && !card) { setError("Esta tarjeta se eliminó en otro dispositivo. La copia anterior está en Recuperación."); return; }
-        setDecks(allDecks);
         setRecentReviews(reviews);
         if (card) {
-          setExisting(card);
+          existingRef.current = card; setExisting(card);
           setFront(card.front);
           setBack(card.back);
         }
@@ -117,8 +114,8 @@ export default function EditorTarjeta() {
         const draft = restored || card || { front: "", back: "" };
         draftRef.current = draft; setFront(draft.front); setBack(draft.back);
         autosaveRef.current = createCardAutosave({ deckId, card, restored,
-          onSaved: (saved) => setExisting(saved),
-          onStatus: (status, message) => { setSaving(status === "saving"); setError(message || ""); },
+          onSaved: (saved) => { existingRef.current = { ...existingRef.current, id: saved.id, deck_id: saved.deck_id, front: saved.front, back: saved.back, source: saved.source }; setExisting(existingRef.current); },
+          onStatus: (_status, message) => setError(message || ""),
         });
         if (restored) autosaveRef.current.change(draft);
         setLoaded(true);
@@ -134,58 +131,26 @@ export default function EditorTarjeta() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId, syncReload]);
 
+  const resolveCard = () => existingRef.current || { id: "new", deck_id: deckId, ...draftRef.current };
   const toggleSuspended = async () => {
-    if (!existing) return;
-    const next = existing.suspended ? 0 : 1;
-    if (next === 1) {
-      const ok = await confirmAsync(
-        "Suspender tarjeta",
-        "Dejará de aparecer en repasos y progreso hasta que la reactives."
-      );
-      if (!ok) return;
-    }
-    try {
-      await setCardSuspended(existing.id, next);
-      setExisting((card) => ({ ...card, suspended: next }));
-      setError("");
-    } catch {
-      setError("No pudimos cambiar el estado de la tarjeta.");
-    }
+    const current = existingRef.current;
+    if (!current) return;
+    const suspended = current.suspended ? 0 : 1;
+    await setCardSuspended(current.id, suspended);
+    existingRef.current = { ...existingRef.current, suspended };
+    setExisting(existingRef.current);
   };
-
-  const moveToDeck = async (targetDeckId) => {
-    if (!existing || targetDeckId === existing.deck_id || saving) return;
-    const target = decks.find((deck) => deck.id === targetDeckId);
-    const ok = await confirmAsync(
-      "Mover tarjeta",
-      `Se moverá a "${target?.name || "otro mazo"}".`
-    );
-    if (!ok) return;
-    if (!front.trim() || !back.trim()) {
-      setError("Completá el frente y el dorso antes de moverla.");
-      return;
-    }
-    setSaving(true);
-    try {
-      if (!await saveBeforeNavigate()) return;
-      await setCardDeck(existing.id, targetDeckId);
-      allowNavigation.current = true;
-      router.replace(`/mazos/${targetDeckId}`);
-    } catch {
-      setError("No pudimos mover la tarjeta.");
-      setSaving(false);
-    }
+  const leaveAfterOperation = (route) => {
+    autosaveRef.current = null; allowNavigation.current = true;
+    router.replace(route);
   };
-
-  const onDelete = async () => {
-    const ok = await confirmAsync("Borrar tarjeta", "No se puede deshacer.");
-    if (ok) {
-      if (!await saveBeforeNavigate()) return;
-      await autosaveRef.current?.cancel();
-      await deleteCard(existing.id);
-      allowNavigation.current = true;
-      router.back();
-    }
+  const remove = async () => {
+    await removeManagedCard({ deckId, autosave: autosaveRef.current, resolveCard });
+    leaveAfterOperation(`/mazos/${deckId}`);
+  };
+  const move = async (_card, targetDeckId) => {
+    await moveManagedCard({ autosave: autosaveRef.current, resolveCard, targetDeckId });
+    leaveAfterOperation(`/mazos/${targetDeckId}`);
   };
 
   if (!loaded) return <Screen><Stack.Screen options={{ title: "Tarjeta" }} /><EmptyState text={error || "Cargando tarjeta…"} /><Toast message={error} /></Screen>;
@@ -206,16 +171,9 @@ export default function EditorTarjeta() {
           <Pill icon="pause-circle" label="Suspendida" color={colors.textMuted} />
         ) : null}
         <EditableCardRow card={existing || { id: "new", source: "manual" }} index={0} total={1} active
-          draft={{ front, back }} onChangeDraft={changeDraft} />
+          draft={{ front, back }} onChangeDraft={changeDraft} onOptions={() => setMenuOpen(true)} />
         {existing ? (
           <>
-            <Button
-              label={existing.suspended ? "Reactivar en el estudio" : "Suspender del estudio"}
-              kind="ghost"
-              onPress={toggleSuspended}
-              disabled={saving}
-            />
-
             <Collapsible
               icon="activity"
               title="Estado de aprendizaje"
@@ -264,30 +222,11 @@ export default function EditorTarjeta() {
               </View>
             </Collapsible>
 
-            {decks.length > 1 ? (
-              <Collapsible
-                icon="folder"
-                title="Mover a otro mazo"
-                summary={decks.find((deck) => deck.id === existing.deck_id)?.name}
-              >
-                <View style={styles.deckRow}>
-                  {decks.map((deck) => (
-                    <Chip
-                      key={deck.id}
-                      label={deck.name}
-                      active={deck.id === existing.deck_id}
-                      onPress={() => moveToDeck(deck.id)}
-                    />
-                  ))}
-                </View>
-              </Collapsible>
-            ) : null}
-
-            <Button label="Borrar tarjeta" kind="danger" onPress={onDelete} />
           </>
         ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
+      <CardActions card={menuOpen ? resolveCard() : null} onClose={() => setMenuOpen(false)} onDelete={remove} onMove={move} onSuspend={toggleSuspended} onError={setError} />
       <Toast message={error} onDismiss={() => setError("")} />
     </Screen>
   );

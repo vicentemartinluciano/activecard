@@ -17,7 +17,7 @@ export const FSRS_COLS = [
   "last_review",
 ];
 
-export async function createCard({ deckId, front, back, source = "manual", originCardId = null, draftKey = null }) {
+export async function createCard({ deckId, front, back, source = "manual", originCardId = null, draftKey = null, generationDraft = null }) {
   const db = await getDb();
   const s = newCardState();
   const insert = async (connection) => {
@@ -53,11 +53,15 @@ export async function createCard({ deckId, front, back, source = "manual", origi
     [draftKey, JSON.stringify({ front: front.trim(), back: back.trim(), cardId: id,
       expected: { front: front.trim(), back: back.trim() } })]
   );
+  if (generationDraft) await connection.runAsync(
+    "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+    [generationDraft.key, JSON.stringify({ ...generationDraft.value, cards: generationDraft.value.cards.map((card) => card.key === generationDraft.cardKey ? { ...card, savedCardId: id } : card) })]
+  );
   return id;
   };
   // La identidad del borrador queda atómica con el INSERT: tras un cierre
   // inesperado, recuperar la sesión nunca crea una segunda tarjeta.
-  return draftKey ? withDbTransaction(db, insert) : insert(db);
+  return draftKey || generationDraft ? withDbTransaction(db, insert) : insert(db);
 }
 
 export async function updateCardText(id, front, back, { markReviewed = false, expected = null } = {}) {
@@ -88,7 +92,24 @@ export async function updateCardText(id, front, back, { markReviewed = false, ex
 
 export async function deleteCard(id) {
   const db = await getDb();
-  await db.runAsync("DELETE FROM cards WHERE id = ?", [id]);
+  await withDbTransaction(db, async (tx) => {
+    await tx.runAsync("DELETE FROM cards WHERE id = ?", [id]);
+    for (const row of await cardDraftsFor(tx, id)) {
+      await tx.runAsync("DELETE FROM settings WHERE key = ?", [row.key]);
+    }
+  });
+}
+
+// Incluye el alias local `new` de un INSERT interrumpido. Así no se recupera
+// después un borrador que corresponde a una tarjeta eliminada o movida.
+async function cardDraftsFor(db, id) {
+  const rows = await db.getAllAsync("SELECT key, value FROM settings WHERE key LIKE 'cardDraft:%'");
+  return rows.flatMap((row) => {
+    try {
+      const draft = JSON.parse(row.value);
+      return row.key.endsWith(`:${id}`) || draft?.cardId === id ? [{ ...row, draft }] : [];
+    } catch { return []; }
+  });
 }
 
 export async function getCard(id) {
@@ -143,12 +164,25 @@ export async function setCardSuspended(id, suspended) {
 
 export async function setCardDeck(id, deckId) {
   const db = await getDb();
-  await db.runAsync(
+  await withDbTransaction(db, async (tx) => {
+    const card = await tx.getFirstAsync("SELECT id, deck_id FROM cards WHERE id = ?", [id]);
+    if (!card) throw new Error("Esta tarjeta ya no está disponible.");
+    if (!await tx.getFirstAsync("SELECT id FROM decks WHERE id = ?", [deckId])) throw new Error("El mazo de destino ya no está disponible.");
+    if (card.deck_id === deckId) return;
+    await tx.runAsync(
     `UPDATE cards SET deck_id = ?,
        position = (SELECT COALESCE(MAX(position), 0) + 1 FROM cards WHERE deck_id = ?)
      WHERE id = ?`,
     [deckId, deckId, id]
-  );
+    );
+    const drafts = await cardDraftsFor(tx, id);
+    const validDrafts = drafts.filter((row) => typeof row.draft?.front === 'string' && typeof row.draft?.back === 'string');
+    const preferred = validDrafts.find((row) => row.key === `cardDraft:${card.deck_id}:${id}`) || validDrafts[0];
+    for (const row of drafts) await tx.runAsync("DELETE FROM settings WHERE key = ?", [row.key]);
+    if (preferred) await tx.runAsync("INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)", [
+      `cardDraft:${deckId}:${id}`, JSON.stringify({ ...preferred.draft, cardId: id }),
+    ]);
+  });
 }
 
 export async function listRecentReviews(cardId, limit = 5) {

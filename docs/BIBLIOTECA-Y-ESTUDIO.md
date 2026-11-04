@@ -1,12 +1,14 @@
-# Biblioteca y estudio — revisión del 02/11/2026
+# Biblioteca y estudio — revisión del 04/11/2026 (en preparación)
 
 ## Creación y navegación contextual
 
-Biblioteca y cada carpeta permiten Nuevo mazo (Manual o Con IA), Nueva carpeta o
-subcarpeta y Mover mazo existente. `CreationSheet` comparte los formularios con la
-pestaña Crear, que empieza en raíz. El destino muestra su ruta completa y se
-puede cambiar antes de confirmar. Cancelar no inserta registros ni borra una
-preselección pendiente. Un destino eliminado pide elegir otra ubicación.
+Biblioteca y cada carpeta muestran Nuevo: Mazo manual, Mazo con IA y Carpeta.
+Crear deja de ser una sección principal; los accesos anteriores siguen redirigiendo
+a la Biblioteca correspondiente. Crear con IA lleva directo al material, heredando
+la carpeta. El destino manual muestra su ruta y permite Cambiar → recorrer → Usar
+esta carpeta; Cancelar cambio conserva nombre y destino. Cancelar no inserta datos.
+La navegación principal tiene Inicio, Biblioteca, Gimnasio y Progreso. Web angosta
+usa las mismas cuatro tabs y retira el rail lateral.
 
 El borrador de IA v2 conserva carpeta, nombre y elección de mazo nuevo/existente,
 incluyendo reapertura; los borradores anteriores siguen siendo legibles. Elegir
@@ -25,10 +27,11 @@ búsqueda sin resultados y ofrecen crear contenido cuando corresponde.
 el índice despliega todos los ancestros y observa cambios de la base local.
 Navegar desde un mazo drena primero el autoguardado y conserva el borrador si falla.
 
-Opciones de carpeta agrupa renombrar, mover y borrar. Opciones de mazo ofrece
-Mover mazo y Sacar de esta carpeta; ambas muestran origen/destino y requieren
-confirmar el movimiento. Se puede traer un mazo desde otra carpeta, conservando
-su ID, tarjetas e historial. El borrado mantiene la confirmación por nombre exacto.
+Las carpetas tienen opciones en la lista y al abrirlas: renombrar, mover y borrar.
+Mover un mazo se inicia desde sus opciones y usa el mismo selector jerárquico,
+con origen/destino visibles y confirmación. Elegir Biblioteca lo deja suelto. No hay
+acción duplicada de Sacar de esta carpeta ni chips que lo muevan directamente.
+El borrado de mazos/carpetas mantiene la confirmación por nombre exacto.
 
 ## Comportamiento
 
@@ -39,13 +42,16 @@ su ID, tarjetas e historial. El borrado mantiene la confirmación por nombre exa
   se inserta al completar ambas caras; INSERT e identidad del borrador son atómicos.
   Los borradores incompletos quedan en `settings` local, se recuperan al recargar y
   no entran en FSRS, backup ni sync. Los conflictos conservan el borrador y avisan.
-  No hay botones Guardar/Cancelar ni cambio entre edición y reordenamiento.
+  No hay botones Guardar/Cancelar para la tarjeta. Ordenar tarjetas activa
+  explícitamente las flechas sobre la lista completa; Listo las oculta.
   El editor individual reutiliza `EditableCardRow` y el mismo autoguardado.
 - El Gimnasio contextual queda a la izquierda de la estrella. Tocar el nombre del
-  mazo permite renombrarlo. Un botón pequeño en el encabezado despliega los
-  detalles con animación; cerrado no ocupa una tarjeta propia.
+  mazo permite renombrarlo. Los detalles, vista web y orden se agrupan en el menú
+  del mazo. Cada tarjeta tiene un menú flotante con Mover a otro mazo, Suspender /
+  Reactivar y Eliminar. Eliminar muestra contenido y efecto; un error conserva la
+  edición y permite reintentar. No hay una acción Editar redundante.
 - Reordenar usa flechas en la tarjeta sobre la lista completa sin filtros, en el
-  mismo modo editable. Las dos columnas web fluyen verticalmente sin huecos entre
+  modo de orden explícito, conservando la edición directa. Las dos columnas web fluyen verticalmente sin huecos entre
   tarjetas de distinta altura.
 - Compartir genera un JSON de un solo mazo con tarjetas, imágenes, tablas y
   etiquetas. Excluye carpeta, identidades de sync, programación personal,
