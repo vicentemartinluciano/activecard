@@ -1,4 +1,4 @@
-import { htmlToMarks, marksToHtml } from "../richhtml";
+import { describeBlock, htmlToMarks, marksToHtml } from "../richhtml";
 import { parseRich, toPlainText } from "../richtext";
 import { tableColumnWidths, tableGrid } from "../richTable";
 
@@ -38,7 +38,7 @@ test("los spans de celdas se conservan y HTML ejecutable no se vuelve contenido"
 
 test("una cita vacía anterior no absorbe el bloque de tabla", () => {
   const marks = htmlToMarks('<blockquote><p></p></blockquote><table><tr><td><p>Tabla</p></td></tr></table>');
-  expect(parseRich(marks).map((block) => block.type)).toEqual(["p", "table"]);
+  expect(parseRich(marks).map(describeBlock).map(block => block.kind)).toEqual(["quote", "table"]);
   expect(toPlainText(marks)).toBe("\nTabla");
   expect(htmlToMarks(marksToHtml(marks))).toBe(marks);
 });

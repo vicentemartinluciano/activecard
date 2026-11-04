@@ -22,7 +22,11 @@ export const TColor = Mark.create({
     return {
       color: {
         default: null,
-        parseHTML: (element) => element.getAttribute("data-color"),
+        parseHTML: (element) => element.getAttribute("data-color") || Object.keys(EDITOR_TEXT_COLORS).find(key => {
+          const color = document.createElement("span");
+          color.style.color = EDITOR_TEXT_COLORS[key];
+          return color.style.color === element.style.color;
+        }) || null,
         renderHTML: (attributes) => {
           if (!attributes.color || !EDITOR_TEXT_COLORS[attributes.color]) return {};
           return {
@@ -35,7 +39,7 @@ export const TColor = Mark.create({
   },
 
   parseHTML() {
-    return [{ tag: "span[data-color]" }];
+    return [{ tag: "span[data-color]" }, { tag: "span[style]", getAttrs: element => element.style.color ? null : false }];
   },
 
   renderHTML({ HTMLAttributes }) {

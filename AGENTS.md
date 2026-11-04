@@ -141,6 +141,12 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   tenue en tacto. Al estudiar empiezan cerrados; abrir no gira ni califica.
   El formato del encabezado es independiente de Desplegable: conserva títulos,
   citas y listas al convertir, reabrir o desactivar. Texto no quita el desplegable.
+  Escritura revisada: Enter divide el encabezado abierto y mueve el resto al
+  cuerpo; cerrado crea un hermano. Shift+Enter conserva un salto interno.
+  La pill incluye tachado, quitar estilos y sangría táctil. E032/E033 conservan
+  listas complejas y spans exactos; el lector nuevo conserva tarjetas anteriores,
+  pero clientes anteriores deben actualizarse antes de editar esos formatos.
+  Reglas y compatibilidad en `docs/EDITOR-ESCRITURA.md`.
 
 - Fondo `#09090B`, Plus Jakarta Sans, acento cobalto y progreso verde.
 - Gimnasio con fondo estrellado suave; no alterar el fondo sin pedido explícito.

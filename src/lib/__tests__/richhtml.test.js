@@ -70,14 +70,12 @@ describe("marcas ↔ HTML: marcas anidadas", () => {
     expect(span).toMatchObject({ text: "a", bold: true, italic: true, underline: true });
   });
 
-  test("negrita+cursiva SOLAS: se conserva negrita y se descarta cursiva (limitación heredada)", () => {
-    // *** no es expresable en la gramática de richtext.js: la regla es
-    // determinística (bold gana) y por lo tanto idempotente.
+  test("negrita+cursiva se conservan juntas incluso sin una tercera marca", () => {
     const marcas = htmlToMarks("<p><strong><em>a</em></strong></p>");
-    expect(marcas).toBe("**a**");
     const [span] = parseRich(marcas)[0].spans;
     expect(span.bold).toBe(true);
-    expect(span.italic).toBeFalsy();
+    expect(span.italic).toBe(true);
+    expect(roundTrip(marcas)).toBe(marcas);
   });
 });
 
@@ -111,8 +109,8 @@ describe("divisor (---) y lista numerada", () => {
     expect(roundTrip("1. uno\n2. dos")).toBe("1. uno\n2. dos");
   });
 
-  test("la numeración se regenera consecutiva (aunque venga desordenada)", () => {
-    expect(roundTrip("1. uno\n5. dos\n9. tres")).toBe("1. uno\n2. dos\n3. tres");
+  test("los reinicios de numeración se conservan al reabrir", () => {
+    expect(roundTrip("1. uno\n5. dos\n9. tres")).toBe("1. uno\n5. dos\n9. tres");
   });
 
   test("<ol start> respeta el número inicial en ambas direcciones", () => {
@@ -348,8 +346,10 @@ describe("HTML de TipTap real", () => {
     expect(htmlToMarks('<p><span style="color: #123456">x</span></p>')).toBe("x");
   });
 
-  test("<br> corta línea", () => {
-    expect(htmlToMarks("<p>uno<br>dos</p>")).toBe("uno\ndos");
+  test("<br> conserva un salto dentro del mismo párrafo", () => {
+    const saved = htmlToMarks("<p>uno<br>dos</p>");
+    expect(toPlainText(saved)).toBe("uno\ndos");
+    expect(marksToHtml(saved)).toBe("<p>uno<br>dos</p>");
   });
 });
 

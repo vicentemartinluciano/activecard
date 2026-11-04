@@ -1,4 +1,5 @@
 import { validColumnWidths } from "./richTable";
+import { encodeFormatted, encodeList } from "./richContent";
 // Conversión entre las marcas de richtext.js y HTML (TipTap) — el puente del
 // editor Notion (NotionField). Sin DOM: un solo code path para jest-expo,
 // nativo y web. Reusa parseRich (única implementación marcas→spans de la app;
@@ -11,12 +12,10 @@ import { validColumnWidths } from "./richTable";
 //   - títulos/cita       ↔ sentinel privado invisible al inicio de la línea
 //   - "→" es un carácter literal (el atajo "->" lo inserta el editor)
 //
-// Limitaciones heredadas (documentadas, no resolubles sin cambiar richtext.js):
-//   - negrita+cursiva SOLAS en el mismo tramo no son expresables (***a***
-//     se parsea mal): al volver a marcas se conserva bold y se descarta italic
-//     (idempotente). Con otra marca en el medio sí se expresa: **__*a*__**.
-//   - texto literal con secuencias de marcador (ej. "2**3") se reinterpreta
-//     al recargar — el formato no tiene escape, igual que hoy.
+// Cuando la gramática anterior no alcanza (estilos combinados, marcadores
+// literales o saltos internos), una línea estructurada conserva todos los spans.
+// Las listas complejas guardan sus ítems recursivamente; las simples mantienen
+// las marcas anteriores.
 
 import {
   ALIGN_BY_CHAR,
@@ -43,7 +42,7 @@ function escapeHtml(s) {
 // Un span a HTML, anidando de adentro hacia afuera (en HTML el orden no
 // tiene la ambigüedad del lado de las marcas).
 function spanToHtml(span) {
-  let html = escapeHtml(span.text);
+  let html = escapeHtml(span.text).replace(/\n/g, "<br>");
   if (span.italic) html = `<em>${html}</em>`;
   if (span.bold) html = `<strong>${html}</strong>`;
   if (span.underline) html = `<u>${html}</u>`;
@@ -81,6 +80,8 @@ const OL_RE = /^(\d{1,4})\. /;
 // interpretados: "---" = divisor, "N. " = ítem de lista numerada. Es la única
 // definición de esto en la app — la usan marksToHtml y el render (RichText).
 export function describeBlock(block) {
+  if (block.type === "formatted") return { ...block, kind: block.kind };
+  if (block.type === "list") return { kind: "list", ordered: block.ordered, start: block.start, items: block.items, spans: [] };
   if (block.type === "toggle") return { kind: "toggle", summary: block.summary, content: block.content, spans: [] };
   if (block.type === "table") return { kind: "table", rows: block.rows, spans: [] };
   // Las listas nunca llevan alineación (align null → el render las deja a la
@@ -160,6 +161,13 @@ export function marksToHtml(marcas) {
   while (i < blocks.length) {
     const block = blocks[i];
 
+    if (block.kind === "list") {
+      const tag = block.ordered ? "ol" : "ul";
+      out.push(`<${tag}${block.ordered && block.start !== 1 ? ` start="${block.start}"` : ""}>${block.items.map(item => `<li>${marksToHtml(item) || "<p></p>"}</li>`).join("")}</${tag}>`);
+      i++;
+      continue;
+    }
+
     if (block.kind === "toggle") {
       out.push(`<details data-type="toggle"><summary>${marksToHtml(block.summary) || "<p></p>"}</summary><div data-type="toggle-content">${marksToHtml(block.content) || "<p></p>"}</div></details>`);
       i++;
@@ -196,7 +204,7 @@ export function marksToHtml(marcas) {
       const tag = block.kind === "li" ? "ul" : "ol";
       const start = block.kind === "ol" ? block.number : 1;
       const items = [];
-      while (i < blocks.length && blocks[i].kind === block.kind) {
+      while (i < blocks.length && blocks[i].kind === block.kind && (tag !== "ol" || blocks[i].number === start + items.length)) {
         items.push(blocks[i].spans);
         i++;
       }
@@ -333,7 +341,7 @@ export function htmlToMarks(html) {
       cursor = match.index + match[0].length;
     }
   }
-  const src = (extracted + cleaned.slice(cursor))
+  let src = (extracted + cleaned.slice(cursor))
     .replace(/<div\s+class=["']tableWrapper["']\s*>/gi, "")
     .replace(/<table\b[^>]*>([\s\S]*?)<\/table\s*>/gi, (_, body) => {
       const rows = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)].map((row) =>
@@ -353,6 +361,37 @@ export function htmlToMarks(html) {
       return `<actable data-index="${tables.length - 1}"></actable>`;
     });
 
+  // Extraer listas complejas balanceadas. Cada ítem vuelve a pasar por este
+  // conversor, por lo que conserva sublistas, párrafos, tablas y desplegables.
+  const lists = [];
+  let listDepth = 0, listStart = 0, listBody = 0, listCursor = 0, listOutput = "", listAttrs = "", listTag = "";
+  for (const match of src.matchAll(/<(\/?)((?:ul|ol))\b([^>]*)>/gi)) {
+    if (!match[1]) {
+      if (listDepth++ === 0) { listStart = match.index; listBody = match.index + match[0].length; listTag = match[2].toLowerCase(); listAttrs = match[3]; }
+    } else if (listDepth > 0 && --listDepth === 0) {
+      const body = src.slice(listBody, match.index);
+      const complex = /<(?:ul|ol|blockquote|h[1-3]|actoggle|actable|img|hr)\b/i.test(body) || /<\/p>\s*<p\b/i.test(body);
+      if (!complex) continue;
+      const items = [];
+      let itemDepth = 0, itemStart = 0;
+      for (const item of body.matchAll(/<(\/?)li\b[^>]*>/gi)) {
+        if (!item[1]) { if (itemDepth++ === 0) itemStart = item.index + item[0].length; }
+        else if (itemDepth > 0 && --itemDepth === 0) {
+          const content = body.slice(itemStart, item.index)
+            .replace(/<actoggle data-index="(\d+)"><\/actoggle>/g, (_, index) => marksToHtml(encodeToggle(toggles[index].summary, toggles[index].content)))
+            .replace(/<actable data-index="(\d+)"><\/actable>/g, (_, index) => marksToHtml(encodeTable(tables[index])));
+          items.push(htmlToMarks(content));
+        }
+      }
+      if (!items.length) continue;
+      const start = Math.max(1, Number(/start\s*=\s*["']?(\d+)/i.exec(listAttrs)?.[1]) || 1);
+      lists.push({ ordered: listTag === "ol", start, items });
+      listOutput += src.slice(listCursor, listStart) + `<aclist data-index="${lists.length - 1}"></aclist>`;
+      listCursor = match.index + match[0].length;
+    }
+  }
+  src = listOutput + src.slice(listCursor);
+
   const blocks = []; // { prefix: "" | "- " | "N. " | "hr", spans: [] }
   let cur = null;
   const stack = []; // pila de estilos inline: { tag, style }
@@ -369,7 +408,7 @@ export function htmlToMarks(html) {
     cur = null;
   };
   const pushText = (text) => {
-    const clean = decodeEntities(text.replace(/[\r\n\t]+/g, " "));
+    const clean = decodeEntities(text);
     if (!clean) return;
     if (!cur && !clean.trim()) return; // whitespace entre bloques: ignorar
     if (!cur) openBlock();
@@ -389,6 +428,11 @@ export function htmlToMarks(html) {
     liJustOpened = false;
 
     if (!closing) {
+      if (tag === "aclist") {
+        closeBlock();
+        blocks.push({ prefix: "list", list: lists[Number(/data-index="(\d+)"/.exec(attrs)?.[1])], spans: [] });
+        continue;
+      }
       if (tag === "actoggle") {
         closeBlock();
         blocks.push({ prefix: "toggle", ...toggles[Number(/data-index="(\d+)"/.exec(attrs)?.[1])], spans: [] });
@@ -399,7 +443,12 @@ export function htmlToMarks(html) {
         blocks.push({ prefix: "table", rows: tables[Number(/data-index="(\d+)"/.exec(attrs)?.[1])], spans: [] });
         continue;
       }
-      if (tag === "br" || tag === "hr") {
+      if (tag === "br") {
+        if (!cur) openBlock();
+        cur.spans.push({ text: "\n", ...curStyle() });
+        continue;
+      }
+      if (tag === "hr") {
         closeBlock();
         if (tag === "hr") {
           blocks.push({ prefix: "hr", spans: [] });
@@ -531,8 +580,8 @@ const rankOf = (mark) => (mark.startsWith("color:") ? 0 : RANK[mark]);
 
 // Marcadores presentes en un span, en orden canónico.
 // ***a*** NO es expresable en la gramática de richtext.js: si el span tiene
-// bold+italic y NINGUNA otra marca que pueda ir entre medio, bold gana y se
-// descarta italic (regla determinística → el round-trip es idempotente).
+// bold+italic y ninguna marca intermedia, el candidato anterior no alcanza.
+// blocksToMarks detecta la diferencia y conserva ambos en una línea estructurada.
 function marksOf(span) {
   const colorKey = span.color && textColors[span.color] ? span.color : null;
   const bold = !!span.bold;
@@ -609,11 +658,13 @@ function serializeSpans(items, applied) {
 
 function blocksToMarks(blocks) {
   const lines = blocks.map((b, index) => {
+    if (b.prefix === "list") return encodeList(b.list);
     if (b.prefix === "toggle") return encodeToggle(b.summary, b.content);
     if (b.prefix === "table") return encodeTable(b.rows);
     if (b.prefix === "hr") return "---";
     if (b.prefix === "img") return `${IMG_SENTINEL}${b.width || 100} ${b.src}`;
-    const items = mergeSpans(b.spans).map((span) => ({ span, marks: marksOf(span) }));
+    const spans = mergeSpans(b.spans);
+    const items = spans.map((span) => ({ span, marks: marksOf(span) }));
     // Sentinel de alineación EXPLÍCITA solo en párrafos (las listas van sin
     // alineación). b.align null = "sin tocar" → sin sentinel.
     const previous = blocks[index - 1];
@@ -621,7 +672,17 @@ function blocksToMarks(blocks) {
     const blockSentinel = separateQuote ? QUOTE_START_SENTINEL : BLOCK_SENTINELS[b.prefix] || "";
     const textualPrefix = blockSentinel ? "" : b.prefix || "";
     const sentinel = !textualPrefix && b.align ? ALIGN_SENTINELS[b.align] || "" : "";
-    return `${sentinel}${blockSentinel}${textualPrefix}${serializeSpans(items, [])}`;
+    const candidate = `${sentinel}${blockSentinel}${textualPrefix}${serializeSpans(items, [])}`;
+    const expected = { kind: b.prefix === "- " ? "li" : /^\d+\. $/.test(b.prefix) ? "ol" : b.prefix || "p",
+      spans, align: b.align || null, ...(separateQuote ? { quoteStart: true } : {}),
+      ...(/^\d+\. $/.test(b.prefix) ? { number: Number(b.prefix.split(".")[0]) } : {}) };
+    const decoded = parseRich(candidate).map(describeBlock);
+    const signature = block => JSON.stringify({ kind: block.kind, align: block.align || null, number: block.number,
+      spans: mergeSpans(block.spans).map(span => ({ text: span.text, flags: flagsKey(span) })) });
+    // Una cita vacía nueva no debe activar la recuperación de citas del formato
+    // antiguo y absorber el párrafo normal que venga después.
+    const legacyEmptyQuote = b.prefix === "quote" && spans.length === 0;
+    return !legacyEmptyQuote && decoded.length === 1 && signature(decoded[0]) === signature(expected) ? candidate : encodeFormatted(expected);
   });
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
   return lines.join("\n");

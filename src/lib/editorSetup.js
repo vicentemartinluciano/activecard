@@ -2,7 +2,10 @@
 // (nativo, editor-web/index.js) y el editor de la web (NotionField.web.js).
 // Así las dos plataformas tienen exactamente las mismas marcas y atajos.
 
-import { Extension, textInputRule } from "@tiptap/core";
+import { Extension, textInputRule, wrappingInputRule } from "@tiptap/core";
+import { Blockquote } from "@tiptap/extension-blockquote";
+import { Plugin } from "@tiptap/pm/state";
+import { closeHistory } from "@tiptap/pm/history";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Placeholder } from "@tiptap/extensions";
 import { StarterKit } from "@tiptap/starter-kit";
@@ -23,6 +26,28 @@ const Shortcuts = Extension.create({
   name: "activecardShortcuts",
   addInputRules() {
     return [textInputRule({ find: /->$/, replace: "→" })];
+  },
+  addProseMirrorPlugins() {
+    return [new Plugin({ props: { handleDOMEvents: { beforeinput: (_view, event) => {
+      if (event.inputType !== "insertLineBreak" || event.isComposing || !event.cancelable) return false;
+      if (!this.editor.commands.setHardBreak()) return false;
+      event.preventDefault();
+      return true;
+    } } } })];
+  },
+});
+
+const WritingQuote = Blockquote.extend({
+  addInputRules() { return [wrappingInputRule({ find: /^"\s$/, type: this.type })]; },
+});
+
+// La normalización HTML no debe quitar espacios del texto al reabrir una cara.
+// Solo los bloques de texto preservan espacios; la estructura entre bloques
+// sigue pasando por el parser normal.
+const WritingStarterKit = StarterKit.extend({
+  addExtensions() {
+    return this.parent().map(extension => ["paragraph", "heading"].includes(extension.name)
+      ? extension.extend({ whitespace: "pre" }) : extension);
   },
 });
 
@@ -77,20 +102,21 @@ const ReadableTable = Table.extend({
 
 export function buildExtensions({ placeholder = "", defaultAlign = "left", tableResizable = false } = {}) {
   return [
-    StarterKit.configure({
+    WritingStarterKit.configure({
       // Fuera lo que el formato de ActiveCard no sabe representar.
       heading: { levels: [1, 2, 3] },
-      blockquote: {},
+      blockquote: false,
       code: false,
       codeBlock: false,
       strike: {},
       link: false,
-      hardBreak: false,
+      hardBreak: {},
       // Permite salir de una tabla al párrafo siguiente también con teclado móvil.
       trailingNode: {},
       // Quedan también los atajos tipo Notion: # / ## / ### para títulos,
-      // > para cita, ~~ para tachado, --- divisor, - viñeta y 1. numerada.
+      // > para desplegable, " para cita, ~~ tachado, --- divisor, - viñeta y 1. numerada.
     }),
+    WritingQuote,
     Highlight,
     Toggle, ToggleSummary, ToggleContent,
     ReadableTable.configure({ renderWrapper: true, cellMinWidth: tableResizable ? 80 : 200,
@@ -185,9 +211,25 @@ export const BUBBLE_BUTTONS = [
   { key: "bold", label: "Negrita", html: '<b style="font-size:15px">B</b>' },
   { key: "italic", label: "Cursiva", html: '<i style="font-family:Georgia,serif;font-size:15px">I</i>' },
   { key: "underline", label: "Subrayado", html: '<u style="font-size:15px">U</u>' },
+  { key: "strike", label: "Tachado", html: '<s style="font-size:15px">S</s>' },
   { key: "highlight", label: "Resaltado", html: HIGHLIGHTER_SVG },
   { key: "align", label: "Alineación", html: ALIGN_SVG },
 ];
+
+export const STRUCTURE_BUTTONS = [
+  { key: "outdent", label: "Reducir sangría", html: "⇤" },
+  { key: "indent", label: "Aumentar sangría", html: "⇥" },
+  { key: "clear", label: "Quitar estilos del texto", html: "Tx" },
+];
+export function canStructureAction(editor, key) {
+  if (toggleSummaryDepth(editor.state.selection.$from) != null) {
+    if (key === "indent") return editor.can().indentToggle();
+    if (key === "outdent") return editor.can().outdentToggle();
+  }
+  if (key === "indent") return editor.can().sinkListItem("listItem");
+  if (key === "outdent") return editor.can().liftListItem("listItem");
+  return true;
+}
 
 // El botón de color abre la fila de swatches (no aplica nada por sí mismo).
 export const COLOR_BUTTON = {
@@ -206,6 +248,9 @@ export function activeStates(editor) {
     editor.isActive({ textAlign: "center" }) || editor.isActive({ textAlign: "right" });
   state.formatKey = currentFormat(editor);
   state.toggleActive = toggleSummaryDepth(editor.state.selection.$from) != null;
+  state.inList = editor.isActive("bulletList") || editor.isActive("orderedList");
+  state.canIndent = canStructureAction(editor, "indent");
+  state.canOutdent = canStructureAction(editor, "outdent");
   for (const key of COLOR_KEYS) {
     if (editor.isActive("tcolor", { color: key })) {
       state.colorKey = key;
@@ -216,6 +261,21 @@ export function activeStates(editor) {
 }
 
 export function currentFormat(editor) {
+  if (!editor.state.selection.empty) {
+    const formats = new Set();
+    const { from, to } = editor.state.selection;
+    editor.state.doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isTextblock || pos >= to || pos + node.nodeSize <= from) return;
+      const $pos = editor.state.doc.resolve(pos + 1);
+      let key = node.type.name === "heading" ? `heading${node.attrs.level}` : "paragraph";
+      if (key === "paragraph") for (let depth = $pos.depth - 1; depth > 0; depth--) {
+        const type = $pos.node(depth).type.name;
+        if (["blockquote", "bulletList", "orderedList"].includes(type)) { key = type === "blockquote" ? "quote" : type; break; }
+      }
+      formats.add(key);
+    });
+    if (formats.size > 1) return "mixed";
+  }
   if (editor.isActive("heading", { level: 1 })) return "heading1";
   if (editor.isActive("heading", { level: 2 })) return "heading2";
   if (editor.isActive("heading", { level: 3 })) return "heading3";
@@ -226,6 +286,7 @@ export function currentFormat(editor) {
 }
 
 export function applyFormat(editor, key) {
+  editor.commands.command(({ tr }) => { closeHistory(tr); return true; });
   if (key === "toggle") {
     const chain = editor.chain().focus();
     if (toggleSummaryDepth(editor.state.selection.$from) != null) chain.unwrapToggle();
@@ -258,10 +319,19 @@ export function applyFormat(editor, key) {
 
 // Aplica la acción de un botón del bubble.
 export function runBubbleAction(editor, key) {
-  const chain = editor.chain().focus();
+  const chain = editor.chain().focus().command(({ tr }) => { closeHistory(tr); return true; });
   if (key === "bold") chain.toggleBold();
   else if (key === "italic") chain.toggleItalic();
   else if (key === "underline") chain.toggleUnderline();
+  else if (key === "strike") chain.toggleStrike();
+  else if (key === "clear") chain.unsetAllMarks();
+  else if (key === "indent") {
+    if (toggleSummaryDepth(editor.state.selection.$from) != null) chain.indentToggle();
+    else chain.sinkListItem("listItem");
+  } else if (key === "outdent") {
+    if (toggleSummaryDepth(editor.state.selection.$from) != null) chain.outdentToggle();
+    else chain.liftListItem("listItem");
+  }
   else if (key === "highlight") chain.toggleHighlight();
   else if (key === "align") {
     // Cicla izquierda → centro → derecha → izquierda.
@@ -274,7 +344,7 @@ export function runBubbleAction(editor, key) {
 
 // Elegir un color reemplaza el anterior; volver a elegir el mismo lo saca.
 export function applyColor(editor, colorKey, currentKey) {
-  const chain = editor.chain().focus();
+  const chain = editor.chain().focus().command(({ tr }) => { closeHistory(tr); return true; });
   if (currentKey === colorKey) chain.unsetMark("tcolor");
   else chain.setMark("tcolor", { color: colorKey });
   chain.run();

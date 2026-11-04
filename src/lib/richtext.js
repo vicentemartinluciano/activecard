@@ -1,4 +1,5 @@
 import { validColumnWidths } from "./richTable";
+import { decodeFormatted, decodeList, LIST_SENTINEL, FORMATTED_SENTINEL } from "./richContent";
 
 // Formato liviano tipo Notion, guardado como marcas dentro del mismo TEXT
 // de front/back — sin migración de esquema, 100% compatible con tarjetas
@@ -164,13 +165,17 @@ export function parseRich(text) {
 
     const nextAlign = ALIGN_BY_CHAR[lines[i + 1][0]] ? lines[i + 1][0] : "";
     const nextContent = nextAlign ? lines[i + 1].slice(1) : lines[i + 1];
-    if (BLOCK_BY_CHAR[nextContent[0]] || nextContent.startsWith(QUOTE_START_SENTINEL) || nextContent.startsWith(IMG_SENTINEL) || nextContent.startsWith(TABLE_SENTINEL) || nextContent.startsWith(TOGGLE_SENTINEL)) continue;
+    if (BLOCK_BY_CHAR[nextContent[0]] || [QUOTE_START_SENTINEL, IMG_SENTINEL, TABLE_SENTINEL, TOGGLE_SENTINEL, LIST_SENTINEL, FORMATTED_SENTINEL].some(prefix => nextContent.startsWith(prefix))) continue;
 
     lines[i + 1] = `${nextAlign || legacy[1]}${BLOCK_SENTINELS.quote}${nextContent}`;
     lines.splice(i, 1);
     i--;
   }
   return lines.map((line) => {
+    const formatted = decodeFormatted(line);
+    if (formatted) return { type: "formatted", ...formatted };
+    const list = decodeList(line);
+    if (list) return { type: "list", ...list, spans: [] };
     const toggle = decodeToggle(line);
     if (toggle) return { type: "toggle", ...toggle, spans: [] };
     const rows = decodeTable(line);
@@ -189,6 +194,8 @@ export function parseRich(text) {
 export function toPlainText(text) {
   return parseRich(text)
     .map((block) => {
+      if (block.type === "list") return block.items.map(toPlainText).join("\n");
+      if (block.type === "formatted") return block.spans.map(span => span.text).join("");
       if (block.type === "toggle") return [toPlainText(block.summary), toPlainText(block.content)].filter(Boolean).join("\n");
       if (block.type === "table") return block.rows.map((row) => row.map((cell) => toPlainText(cell.text)).join(" | ")).join("\n");
       const plain = block.spans.map((s) => s.text).join("")
@@ -205,6 +212,7 @@ export function toPlainText(text) {
 // título esté vacío. Un contenedor vacío sigue siendo un borrador incompleto.
 export function hasRichContent(text) {
   return Boolean(toPlainText(text).trim()) || parseRich(text).some((block) =>
+    (block.type === "list" && block.items.some(hasRichContent)) ||
     block.type === "table" ||
     (block.type === "toggle" && hasRichContent(block.content)) ||
     block.spans.some((span) => span.text.includes(IMG_SENTINEL)));

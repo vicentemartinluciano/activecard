@@ -117,6 +117,11 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 .nf-insert-menu > .nf-btn { justify-content: flex-start; gap: 12px; padding: 10px 12px; min-height: 42px; }
 .nf-bubble * { box-sizing: border-box; }
 .nf-row { display: flex; gap: 4px; align-items: center; }
+.nf-bubble > .nf-row:first-child { gap: 2px; flex-wrap: wrap; }
+.nf-structure { border-top: 1px solid #ffffff12; padding-top: 4px; }
+.nf-format-label { flex: 1; min-width: 0; font-size: 11px; color: #8B8B98; padding-left: 6px; }
+.nf-btn:disabled { opacity: .35; cursor: default; }
+.nf-btn[hidden] { display: none; }
 .nf-btn {
   min-width: 32px;
   height: 32px;

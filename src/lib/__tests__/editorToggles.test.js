@@ -82,14 +82,16 @@ test("insertar desde título crea un hermano y desde el cuerpo permite anidar", 
   expect(editor.state.selection.$from.node(1).lastChild.firstChild.type.name).toBe("toggle");
 });
 
-test("beforeinput móvil entra al contenido de tabla sin duplicar Enter", () => {
+test("beforeinput móvil divide el título y conserva la tabla después del texto movido", () => {
   editor.commands.setContent(details("Título", "<table><tr><td><p>Celda</p></td></tr></table>"));
   selectTitle();
   const event = new InputEvent("beforeinput", { inputType: "insertParagraph", bubbles: true, cancelable: true });
   editor.view.dom.dispatchEvent(event);
   expect(event.defaultPrevented).toBe(true);
   expect(editor.state.selection.$from.parent.type.name).toBe("paragraph");
-  expect(editor.state.selection.$from.parent.textContent).toBe("Celda");
+  expect(editor.state.selection.$from.parent.textContent).toBe("Título");
+  expect(editor.state.doc.firstChild.firstChild.textContent).toBe("");
+  expect(editor.state.doc.firstChild.lastChild.lastChild.type.name).toBe("table");
   expect(editor.state.selection.$from.parentOffset).toBe(0);
 });
 

@@ -138,6 +138,14 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {
+        if (block.kind === "list") return (
+          <View key={i}>
+            {block.items.map((item, index) => <View key={index} style={styles.liRow}>
+              <Text style={[style, styles.bullet]}>{block.ordered ? `${block.start + index}.` : "•"}</Text>
+              <RichText text={item} style={style} containerStyle={{ flex: 1 }} defaultAlign="left" />
+            </View>)}
+          </View>
+        );
         if (block.kind === "toggle") {
           const title = describeBlock(parseRich(block.summary)[0]);
           const scale = { heading1: 1.55, heading2: 1.3, heading3: 1.12 }[title.kind];

@@ -6,6 +6,8 @@ import FlipCard from "../FlipCard";
 import SwipeCard from "../SwipeCard";
 import useStudyKeyboard from "../useStudyKeyboard";
 import { encodeToggle, BLOCK_SENTINELS } from "../../lib/richtext";
+import { htmlToMarks } from "../../lib/richhtml";
+import RichText from "../RichText";
 
 jest.mock("react-native", () => jest.requireActual("react-native-web"));
 jest.mock("../RichToggle", () => jest.requireActual("../RichToggle.web"));
@@ -66,4 +68,18 @@ test("el encabezado de estudio conserva el tamaño y el color del título", () =
   const elements = [...title.querySelectorAll("*")];
   expect(elements.some((element) => element.style.color === "rgb(110, 139, 235)")).toBe(true);
   expect(elements.some((element) => parseFloat(element.style.fontSize) > 24)).toBe(true);
+});
+
+test("estudio conserva niveles de lista, negrita+cursiva y saltos internos del editor", async () => {
+  const saved = htmlToMarks('<ul><li><p>Padre</p><ul><li><p><strong><em>Hijo</em></strong><br>Segunda línea</p></li></ul></li></ul>');
+  await act(async () => root.render(<RichText text={saved} style={{ color: "#E9E9EF", fontSize: 17 }} />));
+  expect(host.textContent).toContain("Padre"); expect(host.textContent).toContain("Hijo\nSegunda línea");
+  const spans = [...host.querySelectorAll("*")];
+  const child = spans.find(element => element.textContent === "Hijo" && getComputedStyle(element).fontStyle === "italic");
+  expect(child).toBeDefined(); expect(getComputedStyle(child).fontFamily).toContain("700");
+  expect(host.textContent).not.toMatch(/%7B|\uE03/);
+  // Dos filas de viñeta, una contenida dentro de la otra: la sangría es real.
+  const bullets = spans.filter(element => element.textContent === "•");
+  expect(bullets).toHaveLength(2);
+  expect(bullets[0].parentElement.contains(bullets[1])).toBe(true);
 });

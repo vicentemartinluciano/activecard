@@ -31,6 +31,7 @@ import {
   runBubbleAction,
   setImageWidth,
   mountTableToolbar, insertTable, TABLE_BTN_SVG,
+  STRUCTURE_BUTTONS, canStructureAction,
 } from "../src/lib/editorSetup";
 
 const post = (msg) => window.ReactNativeWebView?.postMessage(JSON.stringify(msg));
@@ -87,6 +88,22 @@ bubble.appendChild(swatches);
 const formats = document.createElement("div");
 formats.className = "nf-row nf-formats";
 bubble.appendChild(formats);
+
+const structure = document.createElement("div");
+structure.className = "nf-row nf-structure";
+bubble.appendChild(structure);
+const formatLabel = document.createElement("span");
+formatLabel.className = "nf-format-label";
+structure.appendChild(formatLabel);
+const structureButtons = {};
+for (const action of STRUCTURE_BUTTONS) {
+  const button = document.createElement("button");
+  button.type = "button"; button.className = "nf-btn";
+  button.title = action.label; button.setAttribute("aria-label", action.label); button.textContent = action.html;
+  button.addEventListener("pointerdown", event => event.preventDefault());
+  button.addEventListener("click", () => runBubbleAction(editor, action.key));
+  structure.appendChild(button); structureButtons[action.key] = button;
+}
 
 const buttons = {};
 for (const def of [FORMAT_BUTTON, ...BUBBLE_BUTTONS, COLOR_BUTTON]) {
@@ -237,6 +254,10 @@ const editor = new Editor({
       return;
     }
     const state = activeStates(editor);
+    for (const action of STRUCTURE_BUTTONS) {
+      structureButtons[action.key].disabled = !canStructureAction(editor, action.key);
+      structureButtons[action.key].hidden = action.key !== "clear" && !state.inList && !state.toggleActive;
+    }
     for (const def of BUBBLE_BUTTONS) {
       buttons[def.key].classList.toggle("is-active", !!state[def.key]);
     }
