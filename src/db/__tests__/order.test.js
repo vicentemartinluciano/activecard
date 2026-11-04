@@ -78,7 +78,13 @@ function fakeDb() {
       }
       throw new Error(`sql no soportado por el doble: ${sql}`);
     },
+    async getFirstAsync(sql, params = []) {
+      if (sql.includes("FROM cards")) return cards.get(params[0]);
+      if (sql.includes("FROM decks")) return [1, 2].includes(params[0]) ? { id: params[0] } : null;
+      throw new Error(`sql no soportado por el doble: ${sql}`);
+    },
     async getAllAsync(sql, params = []) {
+      if (sql.includes("FROM settings")) return [];
       if (sql.includes("FROM review_logs")) {
         return reviews
           .filter((review) => review.card_id === params[0])

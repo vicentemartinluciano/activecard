@@ -5,7 +5,7 @@ import { build } from "esbuild";
 const require = createRequire(import.meta.url);
 const Module = require("node:module");
 const compiled = await build({
-  stdin: { contents: `export { migrate } from './src/db/schema'; export { manageDatabase } from './src/db/transactions'; export * from './src/db/folders'; export { createDeck, getDeck, setDeckFolder } from './src/db/decks'; export { createCard, reviewCard, getCard } from './src/db/cards'; export * from './src/lib/backup'; export * from './src/lib/backupMerge'; export * from './src/lib/deckExport'; export * from './src/lib/syncDocument'; export * from './src/lib/syncLocal';`, resolveDir: process.cwd() },
+  stdin: { contents: `export { migrate } from './src/db/schema'; export { manageDatabase } from './src/db/transactions'; export * from './src/db/folders'; export { createDeck, getDeck, setDeckFolder } from './src/db/decks'; export { createCard, reviewCard, getCard, setCardDeck, deleteCard, FSRS_COLS } from './src/db/cards'; export * from './src/lib/backup'; export * from './src/lib/backupMerge'; export * from './src/lib/deckExport'; export * from './src/lib/syncDocument'; export * from './src/lib/syncLocal';`, resolveDir: process.cwd() },
   bundle: true, write: false, platform: "node", format: "cjs",
   plugins: [{ name: "test-connection", setup(builder) {
     builder.onResolve({ filter: /(?:^|\/)client$/ }, () => ({ path: "connection", namespace: "test" }));
@@ -52,6 +52,45 @@ try {
   await db.runAsync("DELETE FROM cards WHERE id = ?", [recoveredId]);
   const card = await api.createCard({ deckId: deck, front: "Pregunta", back: "Respuesta" });
   await api.reviewCard(await api.getCard(card), "good", "daily", new Date("2026-10-16T12:00:00Z"));
+  // Mover una tarjeta mantiene identidad, programación e historial, y lleva
+  // su borrador incompleto al nuevo mazo dentro de la misma transacción.
+  const targetDeck = await api.createDeck('Destino', root);
+  const beforeMove = await api.getCard(card);
+  const draftValue = JSON.stringify({ cardId: card, front: 'Parcial', back: '', expected: { front: beforeMove.front, back: beforeMove.back } });
+  await raw.runAsync('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', [`cardDraft:${deck}:${card}`, draftValue]);
+  await raw.runAsync('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', [`cardDraft:${deck}:new`, draftValue]);
+  await api.setCardDeck(card, targetDeck);
+  const movedCard = await api.getCard(card);
+  assert.equal(movedCard.id, beforeMove.id);
+  assert.equal(movedCard.deck_id, targetDeck);
+  for (const column of api.FSRS_COLS) assert.equal(movedCard[column], beforeMove[column]);
+  assert.equal((await raw.getFirstAsync('SELECT COUNT(*) AS n FROM review_logs WHERE card_id=?', [card])).n, 1);
+  assert.equal(await raw.getFirstAsync('SELECT key FROM settings WHERE key=?', [`cardDraft:${deck}:${card}`]), undefined);
+  assert.equal(await raw.getFirstAsync('SELECT key FROM settings WHERE key=?', [`cardDraft:${deck}:new`]), undefined);
+  assert.equal(JSON.parse((await raw.getFirstAsync('SELECT value FROM settings WHERE key=?', [`cardDraft:${targetDeck}:${card}`])).value).front, 'Parcial');
+  await assert.rejects(() => api.setCardDeck(card, 999999), /destino/);
+  assert.equal((await api.getCard(card)).deck_id, targetDeck);
+  await api.setCardDeck(card, deck);
+  await raw.runAsync('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', [`cardDraft:${deck}:${card}`, 'null']);
+  await api.setCardDeck(card, targetDeck);
+  assert.equal(await raw.getFirstAsync('SELECT key FROM settings WHERE key=?', [`cardDraft:${targetDeck}:${card}`]), undefined);
+  await api.setCardDeck(card, deck);
+  await raw.runAsync('DELETE FROM decks WHERE id=?', [targetDeck]);
+  const disposable = await api.createCard({ deckId: deck, front: 'Eliminar', back: 'Esta' });
+  await api.reviewCard(await api.getCard(disposable), 'hard', 'daily');
+  await raw.runAsync('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', [`cardDraft:${deck}:new`, JSON.stringify({ cardId: disposable, front: 'Edición', back: '' })]);
+  await api.deleteCard(disposable);
+  assert.equal(await api.getCard(disposable), undefined);
+  assert.equal((await raw.getFirstAsync('SELECT COUNT(*) AS n FROM review_logs WHERE card_id=?', [disposable])).n, 0);
+  assert.equal(await raw.getFirstAsync('SELECT key FROM settings WHERE key=?', [`cardDraft:${deck}:new`]), undefined);
+  // Una interrupción entre INSERT y guardado de preselección no duplica el alta.
+  const generated = await api.createCard({ deckId: deck, front: 'IA', back: 'Revisada', generationDraft: { key: 'generationDraft', cardKey: 'a', value: { sourceLabel: 'Texto', deckId: deck, cards: [{ key: 'a', kept: true }] } } });
+  assert.equal(JSON.parse((await raw.getFirstAsync("SELECT value FROM settings WHERE key='generationDraft'")).value).cards[0].savedCardId, generated);
+  await raw.execAsync("CREATE TEMP TRIGGER fail_generation BEFORE INSERT ON settings WHEN NEW.key='failGeneration' BEGIN SELECT RAISE(ABORT, 'fallo de preselección'); END;");
+  await assert.rejects(() => api.createCard({ deckId: deck, front: 'No debe quedar', back: 'Nada', generationDraft: { key: 'failGeneration', cardKey: 'a', value: { cards: [{ key: 'a' }] } } }), /fallo de preselección/);
+  assert.equal((await raw.getFirstAsync('SELECT COUNT(*) AS n FROM cards')).n, 2);
+  await raw.execAsync('DROP TRIGGER fail_generation');
+  await api.deleteCard(generated);
   await raw.runAsync("INSERT INTO settings(key,value) VALUES('privateKey','NO-COMPARTIR')");
   const backup = await api.buildBackup(db);
   await api.restoreBackup(db, backup);
@@ -89,5 +128,5 @@ try {
   const importedDeck = await raw.getFirstAsync("SELECT * FROM decks WHERE id = ?", [importedCard.deck_id]);
   assert.equal(importedDeck.folder_id, importedLeaf.id);
   assert.equal((await raw.getFirstAsync("SELECT value FROM settings WHERE key='privateKey'")).value, "NO-COMPARTIR");
-  console.log("OK: SQLite real, carpetas anidadas, rechazo de ciclos, borrado conservador, respaldo/restauración, referencias de sync, export privado e importación con IDs remapeados.");
+  console.log("OK: SQLite real, tarjetas movidas/eliminadas con historial y borradores, preselección atómica, carpetas anidadas, rechazo de ciclos, borrado conservador, respaldo/restauración, referencias de sync, export privado e importación con IDs remapeados.");
 } finally { sqlite.close(); delete globalThis.activecardLibraryTestDb; }

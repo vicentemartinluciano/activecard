@@ -217,16 +217,25 @@ describe("getActivityMap", () => {
 describe("getForecast", () => {
   test("reparte por día y acumula lo atrasado en hoy", async () => {
     allRows = [
-      { due: new Date(2026, 6, 20, 8, 0).toISOString() }, // atrasada
-      { due: new Date(2026, 6, 28, 23, 0).toISOString() }, // hoy
-      { due: new Date(2026, 6, 30, 8, 0).toISOString() }, // en 2 días
-      { due: new Date(2026, 7, 20, 8, 0).toISOString() }, // fuera de la ventana
+      { reps: 2, due: new Date(2026, 6, 20, 8, 0).toISOString() }, // atrasada
+      { reps: 2, due: new Date(2026, 6, 28, 23, 0).toISOString() }, // hoy
+      { reps: 2, due: new Date(2026, 6, 30, 8, 0).toISOString() }, // en 2 días
+      { reps: 2, due: new Date(2026, 7, 20, 8, 0).toISOString() }, // fuera de la ventana
     ];
     const f = await getForecast(7, NOW);
     expect(f).toHaveLength(7);
     expect(f[0].count).toBe(2); // la atrasada + la de hoy
     expect(f[2].count).toBe(1);
     expect(f.reduce((a, d) => a + d.count, 0)).toBe(3); // la lejana no entra
+  });
+
+  test("separa nuevas disponibles de vencimientos aprendidos", async () => {
+    allRows = [{ reps: 0, due: new Date(2026, 6, 20).toISOString() }, { reps: 3, due: NOW.toISOString() }];
+    const forecast = await getForecast(7, NOW);
+    expect(forecast[0].newCount).toBe(1);
+    expect(forecast[0].count).toBe(1);
+    expect(forecast.slice(1).every((day) => day.newCount === 0)).toBe(true);
+    expect(await getForecast(0, NOW)).toEqual([]);
   });
 
   test("excluye los mazos pausados", async () => {

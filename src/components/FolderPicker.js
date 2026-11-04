@@ -1,24 +1,24 @@
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { locationLabel } from '../lib/libraryLocation';
-import { normalizeSearch } from '../lib/search';
 import { colors, spacing, type } from '../theme';
-import { Button, Chip, Field } from './ui';
+import LocationBrowser from './LocationBrowser';
+import { Button } from './ui';
 
-export default function FolderPicker({ folders, value, onChange, disabled = false, label = 'Dentro de', allowed = () => true }) {
+export default function FolderPicker({ folders, value, onChange, disabled = false, label = 'Se creará en', allowed = () => true }) {
   const [expanded, setExpanded] = useState(false);
-  const [query, setQuery] = useState('');
+  const [candidate, setCandidate] = useState(value);
   const missing = value != null && !folders.some((f) => f.id === value);
   return <View style={{ gap: spacing.sm }}>
-    <Text style={type.label}>{label}</Text>
-    <Text style={[type.small, missing && { color: colors.danger }]}>{missing ? 'La carpeta de destino ya no existe. Elegí otra ubicación.' : locationLabel(folders, value)}</Text>
-    <Button label={expanded ? 'Cerrar ubicaciones' : 'Cambiar ubicación'} disabled={disabled} onPress={() => setExpanded((v) => !v)} />
-    {expanded && <View style={{ gap: spacing.sm }}>
-      <Field accessibilityLabel="Buscar ubicación" placeholder="Buscar carpeta…" value={query} onChangeText={setQuery} editable={!disabled} />
-      <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.sm }}>
-        {allowed(null) && !query.trim() && <Chip label="Biblioteca (raíz)" active={value == null} onPress={() => { if (!disabled) { onChange(null); setExpanded(false); } }} />}
-        {folders.filter((f) => allowed(f.id) && normalizeSearch(locationLabel(folders, f.id)).includes(normalizeSearch(query.trim()))).map((f) => <Chip key={f.id} label={locationLabel(folders, f.id)} active={value === f.id} onPress={() => { if (!disabled) { onChange(f.id); setExpanded(false); } }} />)}
-      </ScrollView>
-    </View>}
+    {!expanded ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      <View style={{ flex: 1, minWidth: 0 }}><Text style={type.small}>{label}</Text><Text style={[type.body, missing && { color: colors.danger }]}>{missing ? 'La carpeta ya no existe. Elegí otra ubicación.' : locationLabel(folders, value)}</Text></View>
+      <Button label="Cambiar" kind="ghost" disabled={disabled} onPress={() => { setCandidate(value); setExpanded(true); }} />
+    </View> : <>
+      <LocationBrowser folders={folders} value={candidate} onChange={setCandidate} disabled={disabled} allowed={allowed} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Button label="Cancelar cambio" disabled={disabled} onPress={() => setExpanded(false)} />
+        <Button label="Usar esta carpeta" kind="primary" disabled={disabled || !allowed(candidate) || candidate != null && !folders.some((folder) => folder.id === candidate)} onPress={() => { onChange(candidate); setExpanded(false); }} />
+      </View>
+    </>}
   </View>;
 }

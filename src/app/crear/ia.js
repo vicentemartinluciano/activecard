@@ -1,9 +1,12 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Button, Card, Chip, Field, Screen } from "../../components/ui";
+import Collapsible from "../../components/Collapsible";
+import { getDeck } from "../../db/decks";
+import { locationLabel } from "../../lib/libraryLocation";
 import FolderPicker from "../../components/FolderPicker";
 import { listFolders } from "../../db/folders";
 import { setDraft } from "../../lib/draftStore";
@@ -25,7 +28,9 @@ const SOURCES = [
 // Fuente de material → IA (opcional) → preselección.
 export default function CrearConIA() {
   const router = useRouter();
-  const { folderId } = useLocalSearchParams();
+  const { folderId, deckId } = useLocalSearchParams();
+  const [targetDeck, setTargetDeck] = useState(null);
+  const lock = useRef(false);
   const [destination, setDestination] = useState(folderId == null || folderId === 'root' ? null : Number(folderId));
   const [folders, setFolders] = useState([]);
   const [locationsLoaded, setLocationsLoaded] = useState(false);
@@ -39,24 +44,26 @@ export default function CrearConIA() {
 
   useEffect(() => {
     let alive = true;
-    listFolders().then((items) => { if (alive) { setFolders(items); setLocationsLoaded(true); } }).catch(() => { if (alive) setError('No pudimos cargar las ubicaciones. Volvé a intentar desde la carpeta.'); });
+    setLocationsLoaded(false); setTargetDeck(null);
+    Promise.all([listFolders(), deckId ? getDeck(Number(deckId)) : Promise.resolve(null)]).then(([items, deck]) => { if (alive) { setFolders(items); setTargetDeck(deck); if (deckId && !deck) { setError('El mazo de destino ya no existe. Volvé a Biblioteca.'); return; } if (deck) setDestination(deck.folder_id ?? null); setLocationsLoaded(true); } }).catch(() => { if (alive) setError('No pudimos cargar las ubicaciones. Volvé a intentar desde la carpeta.'); });
     return () => { alive = false; };
-  }, []);
+  }, [deckId]);
   const customReady = locationsLoaded && (destination == null || folders.some((f) => f.id === destination)) && (mode !== "personalizado" || customInstruction.trim().length > 0);
 
   const run = async (fn) => {
-    setError(null);
+    if (lock.current) return;
+    lock.current = true; setError(null);
     try {
       await fn();
     } catch (e) {
       setError(e.message || String(e));
     } finally {
-      setBusy(null);
+      lock.current = false; setBusy(null);
     }
   };
 
   const goPreselect = async (cards, label) => {
-    await setDraft(cards, label, { folderId: destination, createNewDeck: true });
+    await setDraft(cards, label, { folderId: destination, deckId: targetDeck?.id ?? null, createNewDeck: !targetDeck });
     router.push("/crear/preseleccion");
   };
 
@@ -111,38 +118,8 @@ export default function CrearConIA() {
     <Screen variant="form">
       <Stack.Screen options={{ title: "Generar con IA" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
-        <FolderPicker folders={folders} value={destination} onChange={setDestination} disabled={!locationsLoaded} />
+        {targetDeck ? <Text style={type.small}>Se agregarán a {locationLabel(folders, targetDeck.folder_id)} / {targetDeck.name}</Text> : <FolderPicker folders={folders} value={destination} onChange={setDestination} disabled={!locationsLoaded} />}
         <Card style={{ gap: spacing.md }}>
-          <View style={styles.section}>
-            <Text style={type.label}>¿Qué extraer del material?</Text>
-            <View style={styles.chipRow}>
-              <Chip
-                label="Solo conceptos clave"
-                active={mode === "conceptos_clave"}
-                onPress={() => setMode("conceptos_clave")}
-              />
-              <Chip
-                label="Creación completa"
-                active={mode === "completo"}
-                onPress={() => setMode("completo")}
-              />
-              <Chip
-                label="Personalizado"
-                active={mode === "personalizado"}
-                onPress={() => setMode("personalizado")}
-              />
-            </View>
-            {mode === "personalizado" ? (
-              <Field
-                value={customInstruction}
-                onChangeText={setCustomInstruction}
-                placeholder="Ej: extraé solo fechas y nombres propios, en tarjetas cortas…"
-                multiline
-                style={{ minHeight: 80 }}
-              />
-            ) : null}
-          </View>
-
           <View style={styles.section}>
             <Text style={type.label}>Fuente del material</Text>
             <View style={styles.sourceRow}>
@@ -229,6 +206,38 @@ export default function CrearConIA() {
           </Card>
         ) : null}
 
+        <Collapsible title="Opciones de generación" summary={mode === 'conceptos_clave' ? 'Conceptos clave' : mode === 'completo' ? 'Creación completa' : 'Personalizado'}>
+          <View style={styles.section}>
+            <Text style={type.label}>¿Qué extraer del material?</Text>
+            <View style={styles.chipRow}>
+              <Chip
+                label="Solo conceptos clave"
+                active={mode === "conceptos_clave"}
+                onPress={() => setMode("conceptos_clave")}
+              />
+              <Chip
+                label="Creación completa"
+                active={mode === "completo"}
+                onPress={() => setMode("completo")}
+              />
+              <Chip
+                label="Personalizado"
+                active={mode === "personalizado"}
+                onPress={() => setMode("personalizado")}
+              />
+            </View>
+            {mode === "personalizado" ? (
+              <Field
+                value={customInstruction}
+                onChangeText={setCustomInstruction}
+                placeholder="Ej: extraé solo fechas y nombres propios, en tarjetas cortas…"
+                multiline
+                style={{ minHeight: 80 }}
+              />
+            ) : null}
+          </View>
+
+        </Collapsible>
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
     </Screen>

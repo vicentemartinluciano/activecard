@@ -4,7 +4,10 @@ import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter }
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { databaseErrorMessage } from "../../../lib/databaseError";
 import ActionSheet from "../../../components/ActionSheet";
+import CardActions from "../../../components/CardActions";
+import { moveManagedCard, removeManagedCard } from "../../../lib/cardManagement";
 import DeckMoveSheet from "../../../components/DeckMoveSheet";
 import LibraryBreadcrumbs from "../../../components/LibraryBreadcrumbs";
 import Collapsible from "../../../components/Collapsible";
@@ -17,7 +20,7 @@ import PercentSlider from "../../../components/PercentSlider";
 import ProgressBar from "../../../components/ProgressBar";
 import Stagger from "../../../components/Stagger";
 import Toast from "../../../components/Toast";
-import { Button, Card, Chip, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
+import { Button, Chip, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
 import { useDesktopBeforeNavigate } from "../../../components/DesktopShell";
 import {
   listCardsByDeck,
@@ -31,7 +34,6 @@ import {
   getDeck,
   listTags,
   renameDeck,
-  setDeckFolder,
   setDeckTags,
   updateDeckIcon,
   updateDeckPriority,
@@ -42,7 +44,6 @@ import { getDeckRecallScore } from "../../../db/stats";
 import { getSetting, setSetting, listCardDrafts } from "../../../db/settings";
 import { createCardAutosave, readCardDraft } from "../../../lib/cardAutosave";
 import { exportDeck } from "../../../lib/backupIO";
-import { folderPath } from "../../../lib/folderTree";
 import { filterDeckCards } from "../../../lib/search";
 import { colors, font, glow, gradients, radius, spacing, type } from "../../../theme";
 
@@ -76,6 +77,7 @@ export default function DetalleMazo() {
   const [folders, setFolders] = useState([]);
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState(null);
+  const [moveResult, setMoveResult] = useState(null);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -98,9 +100,9 @@ export default function DetalleMazo() {
   const [loadedDeckId, setLoadedDeckId] = useState(null);
   const [cardQuery, setCardQuery] = useState("");
   const [cardFilter, setCardFilter] = useState(null);
-  // Los chips de filtro solo se muestran con el buscador enfocado, igual que
-  // las etiquetas de Biblioteca: la lista de tarjetas empieza más arriba.
-  const [cardSearchFocused, setCardSearchFocused] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [cardMenu, setCardMenu] = useState(null);
   const allowNavigationRef = useRef(false);
   const savingDraftRef = useRef(false);
   const cardsRef = useRef(cards);
@@ -147,8 +149,8 @@ export default function DetalleMazo() {
         setRecallScore(await getDeckRecallScore(deckId));
       }
       setLoadError("");
-    } catch {
-      setLoadError("No pudimos cargar este mazo.");
+    } catch (error) {
+      setLoadError(databaseErrorMessage(error, "No pudimos cargar este mazo."));
     }
   }, [deckId]);
 
@@ -218,7 +220,30 @@ export default function DetalleMazo() {
       cardsRef.current = next;
       return next;
     });
-  }, []);
+    getDeckDailyProgress(deckId).then(setProgress).catch(() => {});
+    getDeckRecallScore(deckId).then(setRecallScore).catch(() => {});
+  }, [deckId]);
+
+  const cardKey = (card) => card.localKey || card.id;
+  const managedOperation = async (target, targetDeckId) => {
+    activationRef.current++;
+    const key = cardKey(target);
+    const resolveCard = () => cardsRef.current.find((item) => cardKey(item) === key);
+    const current = resolveCard();
+    const active = current && current.id === activeIdRef.current;
+    const autosave = active ? autosaveRef.current : null;
+    const options = { deckId, autosave, resolveCard, targetDeckId };
+    const removed = targetDeckId == null ? await removeManagedCard(options) : await moveManagedCard(options);
+    if (active) {
+      activationRef.current++;
+      autosaveRef.current = null; activeIdRef.current = null; setActiveId(null);
+    }
+    cardsRef.current = cardsRef.current.filter((item) => cardKey(item) !== cardKey(removed));
+    setCards(cardsRef.current); setEditError("");
+    if (targetDeckId != null) setMoveResult({ targetDeckId });
+    getDeckDailyProgress(deckId).then(setProgress).catch(() => {});
+    getDeckRecallScore(deckId).then(setRecallScore).catch(() => {});
+  };
 
   const activateRow = useCallback(async (cardId) => {
     if (cardId === activeIdRef.current) return;
@@ -325,9 +350,10 @@ export default function DetalleMazo() {
   };
 
   const saveName = async () => {
-    if (name.trim()) await renameDeck(deckId, name);
-    setEditingName(false);
-    load();
+    try {
+      if (name.trim()) await renameDeck(deckId, name);
+      setEditingName(false); await load();
+    } catch { setEditError("No pudimos renombrar el mazo. El nombre sigue abierto para reintentar."); }
   };
 
   const onDelete = () => setDeleteOpen(true);
@@ -361,7 +387,6 @@ export default function DetalleMazo() {
           title: deck.name,
           headerTitle: () => <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" onPress={() => setEditingName(true)}><Text style={type.label}>{deck.name}</Text></Pressable>,
           headerRight: () => <View style={{ flexDirection: "row" }}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Detalles del mazo" accessibilityState={{ expanded: showDetails }} onPress={toggleDetails} style={styles.cardAction}><Feather name="sliders" size={20} color={showDetails ? colors.accentText : colors.textMuted} /></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Opciones del mazo" onPress={() => setMenuOpen(true)} style={styles.cardAction}><Feather name="more-horizontal" size={22} color={colors.text} /></Pressable>
           </View>,
         }}
@@ -370,10 +395,6 @@ export default function DetalleMazo() {
         <LibraryBreadcrumbs folders={folders} folderId={deck.folder_id} deckName={deck.name} onNavigate={async (route) => { if (await commitDraft()) router.dismissTo(route); }} />
         {Platform.OS === "web" && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 20 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" style={{ flex: 1 }} onPress={() => setEditingName(true)}><Text style={[type.heading, { fontSize: 28 }]}>{deck.name}</Text></Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Detalles del mazo" accessibilityState={{ expanded: showDetails }} onPress={toggleDetails} style={styles.cardAction}><Feather name="sliders" size={21} color={showDetails ? colors.accentText : colors.textMuted} /></Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={twoColumns ? 'Mostrar tarjetas en lista' : 'Mostrar tarjetas en dos columnas'} accessibilityState={{ selected: twoColumns }} onPress={toggleColumns} style={({ hovered }) => ({ width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: hovered || twoColumns ? colors.surfaceHigh : 'transparent' })}>
-            <Feather name={twoColumns ? 'list' : 'columns'} size={21} color={twoColumns ? colors.accentText : colors.textMuted} />
-          </Pressable>
           <Button label="Estudiar" kind="primary" onPress={() => setStudySheet(true)} />
           <Pressable accessibilityRole="button" accessibilityLabel="Opciones del mazo" onPress={() => setMenuOpen(true)} style={{ padding: 10 }}><Feather name="more-horizontal" size={20} color={colors.textMuted} /></Pressable>
         </View>}
@@ -392,7 +413,7 @@ export default function DetalleMazo() {
           ) : null}
 
           {progress && progress.total > 0 ? (
-            <Card style={{ gap: spacing.sm }}>
+            <View style={{ gap: spacing.sm }}>
               <View style={styles.progressHead}>
                 <Text style={type.label}>Progreso de hoy</Text>
                 {recallScore != null ? (
@@ -402,8 +423,8 @@ export default function DetalleMazo() {
               <Text style={type.small}>
                 {progress.reviewedToday}/{progress.total} tarjetas repasadas
               </Text>
-              <ProgressBar pct={progress.pct} gradient={gradients.progress} glowStyle={glow.green} style={Platform.OS === 'web' ? { height: 14, marginTop: 4 } : undefined} />
-            </Card>
+              <ProgressBar pct={progress.pct} gradient={gradients.progress} glowStyle={glow.green} />
+            </View>
           ) : null}
 
           <Collapsible triggerHidden open={showDetails}>
@@ -421,25 +442,6 @@ export default function DetalleMazo() {
                 </View>
                 <InlineAdd placeholder="Etiqueta nueva…" onSubmit={addTag} />
               </View>
-
-              {folders.length > 0 ? (
-                <View style={{ gap: spacing.sm }}>
-                  <Text style={type.label}>Carpeta</Text>
-                  <View style={styles.tagRow}>
-                    {folders.map((f) => (
-                      <Chip
-                        key={f.id}
-                        label={folderPath(folders, f.id).map((part) => part.name).join(" / ")}
-                        active={deck.folder_id === f.id}
-                        onPress={async () => {
-                          await setDeckFolder(deckId, deck.folder_id === f.id ? null : f.id);
-                          load();
-                        }}
-                      />
-                    ))}
-                  </View>
-                </View>
-              ) : null}
 
               <View style={{ gap: spacing.sm }}>
                 <Text style={type.label}>Prioridad en el repaso diario</Text>
@@ -484,10 +486,7 @@ export default function DetalleMazo() {
                   onChangeText={setCardQuery}
                   placeholder="Buscar dentro del mazo…"
                   style={styles.cardSearchField}
-                  onFocus={() => setCardSearchFocused(true)}
-                  // El delay es obligatorio: sin él el blur se traga el tap
-                  // sobre el chip y el filtro nunca se aplica.
-                  onBlur={() => setTimeout(() => setCardSearchFocused(false), 120)}
+
                 />
                 {cardQuery ? (
                   <Pressable onPress={() => setCardQuery("")} hitSlop={8}>
@@ -495,9 +494,8 @@ export default function DetalleMazo() {
                   </Pressable>
                 ) : null}
               </View>
-              {/* Con un filtro puesto siguen a la vista aunque el buscador
-                  pierda el foco: si no, no habría cómo sacarlo. */}
-              {cardSearchFocused || cardFilter != null ? (
+              <Button label={`Filtros${cardFilter ? " (1)" : ""}`} kind="ghost" onPress={() => setFiltersOpen((open) => !open)} />
+              {filtersOpen || cardFilter != null ? (
                 <View style={styles.tagRow}>
                   <Chip
                     label="Todas"
@@ -515,7 +513,7 @@ export default function DetalleMazo() {
                     onPress={() => setCardFilter(cardFilter === "idea" ? null : "idea")}
                   />
                   <Chip
-                    label="🤖 Sin revisar"
+                    label="Con IA"
                     active={cardFilter === "unreviewed"}
                     onPress={() =>
                       setCardFilter(cardFilter === "unreviewed" ? null : "unreviewed")
@@ -533,6 +531,7 @@ export default function DetalleMazo() {
             </View>
           ) : null}
 
+          {reordering && <View style={styles.tagRow}><Text style={type.small}>Usá las flechas para ordenar las tarjetas.</Text><Button label="Listo" kind="ghost" onPress={() => setReordering(false)} /></View>}
           {cards.length === 0 ? (
             <EmptyState text="Este mazo no tiene tarjetas todavía." />
           ) : visibleCards.length === 0 ? (
@@ -542,9 +541,9 @@ export default function DetalleMazo() {
               active={activeId === item.id} draft={activeId === item.id ? draft : null}
               onActivate={activateRow} onChangeDraft={changeDraft}
               onToggleStar={item.id === "new" ? null : toggleStar}
-              onToggleSuspended={item.id === "new" ? null : toggleSuspended}
+              onOptions={setCardMenu}
               onGym={item.id === "new" ? null : openGym}
-              onMove={!filteringCards && item.id !== "new" ? moveCard : null} />
+              onMove={reordering && !filteringCards && item.id !== "new" ? moveCard : null} />
           )))}
 
           <Pressable
@@ -558,9 +557,13 @@ export default function DetalleMazo() {
         </View>
       </ScrollView>
 
+      <CardActions card={cardMenu} onClose={() => setCardMenu(null)} onDelete={(card) => managedOperation(card)} onMove={managedOperation} onSuspend={(card) => toggleSuspended(card.id)} onError={setEditError} />
       <ConfirmDeleteSheet visible={deleteOpen} name={deck.name} description={`Se borrará el mazo con sus ${cards.length} tarjetas. No se puede deshacer.`} onClose={() => setDeleteOpen(false)} onConfirm={async () => {
-        await autosaveRef.current?.cancel();
-        await deleteDeck(deckId); allowNavigationRef.current = true; activeIdRef.current = null; setActiveId(null);
+        const autosave = autosaveRef.current;
+        activationRef.current++; await autosave?.pause();
+        try { await deleteDeck(deckId); autosave?.forget(); }
+        catch (error) { autosave?.resume(); throw error; }
+        autosaveRef.current = null; allowNavigationRef.current = true; activeIdRef.current = null; setActiveId(null);
         if (router.canGoBack()) router.back(); else router.replace("/biblioteca");
       }} />
       <ActionSheet
@@ -568,9 +571,11 @@ export default function DetalleMazo() {
         onClose={() => setMenuOpen(false)}
         title={deck.name}
         options={[
+          ...(Platform.OS === "web" ? [{ icon: twoColumns ? "list" : "columns", label: twoColumns ? "Mostrar en lista" : "Mostrar en dos columnas", onPress: toggleColumns }] : []),
           { icon: "share-2", label: "Compartir / Exportar", onPress: shareDeck },
           { icon: "folder", label: "Mover mazo", onPress: async () => { if (await commitDraft()) { setMoveTarget(deck.folder_id ?? null); setMoveOpen(true); } } },
-          ...(deck.folder_id != null ? [{ icon: "folder-minus", label: "Sacar de esta carpeta", onPress: async () => { if (await commitDraft()) { setMoveTarget(null); setMoveOpen(true); } } }] : []),
+          { icon: "list", label: "Ordenar tarjetas", onPress: () => { setCardQuery(""); setCardFilter(null); setReordering(true); } },
+          { icon: "cpu", label: "Generar tarjetas con IA", onPress: async () => { if (await commitDraft()) router.push(`/crear/ia?deckId=${deckId}`); } },
           {
             icon: "sliders",
             label: showDetails ? "Ocultar detalles" : "Editar detalles",
@@ -589,7 +594,7 @@ export default function DetalleMazo() {
         ]}
       />
 
-      <DeckMoveSheet visible={moveOpen} deckId={deckId} targetFolderId={moveTarget} onClose={() => setMoveOpen(false)} onMoved={load} />
+      <DeckMoveSheet visible={moveOpen} deckId={deckId} targetFolderId={moveTarget} onClose={() => setMoveOpen(false)} onMoved={async (result) => { setMoveResult(result); await load(); }} />
       <ActionSheet
         visible={studySheet}
         onClose={() => setStudySheet(false)}
@@ -614,6 +619,7 @@ export default function DetalleMazo() {
         <HeroButton label="Empezar" onPress={startStudy} style={{ marginTop: spacing.md }} />
       </ActionSheet>
 
+      <Toast message={moveResult ? moveResult.targetDeckId ? 'Tarjeta movida. Su historial se conservó.' : 'Mazo movido. Sus tarjetas e historial se conservaron.' : ''} tone="success" onDismiss={() => setMoveResult(null)} onAction={moveResult ? () => { const route = moveResult.targetDeckId ? `/mazos/${moveResult.targetDeckId}` : moveResult.targetFolderId == null ? '/biblioteca' : `/carpetas/${moveResult.targetFolderId}`; setMoveResult(null); router.push(route); } : undefined} />
       <Toast
         message={editError || loadError}
         onRetry={!editError && loadError ? load : undefined}
@@ -628,8 +634,8 @@ export default function DetalleMazo() {
 
 const styles = StyleSheet.create({
   cardAction: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

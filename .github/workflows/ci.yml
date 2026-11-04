@@ -66,6 +66,7 @@ jobs:
         run: |
           node scripts/verify-sync-sqlite.mjs
           node scripts/verify-library-sqlite.mjs
+          node scripts/verify-generated-format.mjs
           node scripts/verify-sync-sql.mjs
 
       - name: Export Android de control

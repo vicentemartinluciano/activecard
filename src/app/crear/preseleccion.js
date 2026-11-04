@@ -2,6 +2,8 @@ import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import DeckPicker from "../../components/DeckPicker";
+import RichText from "../../components/RichText";
 import NotionField from "../../components/NotionField";
 import Toast from "../../components/Toast";
 import { Button, Card, Chip, Field, Screen } from "../../components/ui";
@@ -9,7 +11,7 @@ import { createCard } from "../../db/cards";
 import { createDeck, listDecks } from "../../db/decks";
 import { listFolders } from "../../db/folders";
 import FolderPicker from "../../components/FolderPicker";
-import { locationLabel } from "../../lib/libraryLocation";
+import { hasRichContent } from "../../lib/richtext";
 import {
   DRAFT_KEY,
   clearDraft,
@@ -17,7 +19,6 @@ import {
   loadDraft,
   persistDraft,
 } from "../../lib/draftStore";
-import { toPlainText } from "../../lib/richtext";
 import { colors, font, radius, spacing, type } from "../../theme";
 
 // Preselección: revisar lo que propuso la IA antes de que toque el mazo.
@@ -74,7 +75,7 @@ export default function Preseleccion() {
         setDecks(d); setFolders(f); setLocationsLoaded(true);
         setDeckId((current) => {
           if (current != null && d.some((deck) => deck.id === current)) return current;
-          return getDraft()?.createNewDeck ? null : d.length === 1 ? d[0].id : null;
+          return current != null || getDraft()?.createNewDeck ? current : d.length === 1 ? d[0].id : null;
         });
       })
       .catch(() => {
@@ -149,7 +150,7 @@ export default function Preseleccion() {
       (card) =>
         card.kept &&
         !card.savedCardId &&
-        (!card.front.trim() || !card.back.trim())
+        (!hasRichContent(card.front) || !hasRichContent(card.back))
     );
     if (incomplete) {
       setSaveError("Completá el frente y el dorso de todas las tarjetas elegidas.");
@@ -163,6 +164,7 @@ export default function Preseleccion() {
     let savedNow = 0;
     let targetId = deckId;
     try {
+      if (targetId && !(await listDecks()).some((deck) => deck.id === targetId)) throw new Error("El mazo de destino ya no existe. Elegí otro mazo.");
       if (createNewDeck && !targetId) {
         const snapshot = { sourceLabel: draft.sourceLabel, cards, folderId, createNewDeck, newDeckName };
         targetId = await createDeck(newDeckName, folderId, { draftKey: DRAFT_KEY, draft: snapshot });
@@ -176,6 +178,7 @@ export default function Preseleccion() {
             front: card.front,
             back: card.back,
             source: card.manual ? "manual" : "ai",
+            generationDraft: { key: DRAFT_KEY, cardKey: card.key, value: { sourceLabel: draft.sourceLabel, cards: nextCards, deckId: targetId, folderId, createNewDeck, newDeckName } },
           });
           savedNow += 1;
           nextCards = nextCards.map((candidate) =>
@@ -212,10 +215,26 @@ export default function Preseleccion() {
         keyExtractor={(c) => String(c.key)}
         contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
         ListHeaderComponent={
-          <Text style={[type.small, { marginBottom: spacing.sm }]}>
-            De: {draft.sourceLabel}. Tocá una tarjeta para editarla con tus palabras; descartá
-            las que no sirvan.
-          </Text>
+          <View style={{ gap: spacing.md, paddingBottom: spacing.md }}>
+            <Text style={type.label}>{keptCount} de {cards.length} tarjetas elegidas</Text>
+            <Text style={type.small}>De: {draft.sourceLabel}. Tocá el contenido para editar; descartá lo que no sirva.</Text>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={type.label}>Guardar las tarjetas elegidas</Text>
+              {!cards.some((c) => c.savedCardId) && !deckId && <View style={styles.deckRow}>
+                <Chip label="Nuevo mazo" active={createNewDeck} onPress={() => setCreateNewDeck(true)} />
+                <Chip label="Mazo existente" active={!createNewDeck} onPress={() => setCreateNewDeck(false)} />
+              </View>}
+              {createNewDeck ? <>
+                <Field accessibilityLabel="Nombre del nuevo mazo" placeholder="Nombre del nuevo mazo…" value={newDeckName} onChangeText={setNewDeckName} editable={!saving && !deckId} />
+                <FolderPicker folders={folders} value={folderId} onChange={setFolderId} disabled={saving || !!deckId || !locationsLoaded} />
+              </> : <View style={{ gap: spacing.sm }}>
+                <DeckPicker decks={decks} folders={folders} value={deckId} onChange={setDeckId} disabled={saving || cards.some((card) => card.savedCardId)} />
+                {!cards.some((c) => c.savedCardId) && <Button label="Crear un mazo nuevo" kind="ghost" onPress={() => { setDeckId(null); setCreateNewDeck(true); }} />}
+              </View>}
+
+            </View>
+
+          </View>
         }
         renderItem={({ item }) => (
           <Card level="high" style={[styles.card, !item.kept && styles.cardDiscarded]}>
@@ -239,15 +258,11 @@ export default function Preseleccion() {
               </View>
             ) : (
               <Pressable
-                disabled={!!item.savedCardId}
+                disabled={saving || !!item.savedCardId}
                 onPress={() => setEditingKey(item.key)}
               >
-                <Text style={[styles.front, !item.kept && styles.textDiscarded]}>
-                  {toPlainText(item.front) || "(sin frente — tocá para editar)"}
-                </Text>
-                <Text style={[type.small, !item.kept && styles.textDiscarded]} numberOfLines={3}>
-                  {toPlainText(item.back) || "(sin dorso)"}
-                </Text>
+                <RichText text={item.front || '(sin frente — tocá para editar)'} style={[styles.front, !item.kept && styles.textDiscarded]} />
+                <RichText text={item.back || '(sin dorso)'} style={[type.body, !item.kept && styles.textDiscarded]} />
               </Pressable>
             )}
             <View style={styles.cardActions}>
@@ -257,6 +272,7 @@ export default function Preseleccion() {
                 <Button
                   label={item.kept ? "Descartar" : "Recuperar"}
                   kind={item.kept ? "ghost" : "primary"}
+                  disabled={saving}
                   onPress={() => toggleKept(item.key)}
                 />
               )}
@@ -265,24 +281,12 @@ export default function Preseleccion() {
         )}
         ListFooterComponent={
           <View style={{ gap: spacing.lg, marginTop: spacing.md }}>
-            <Button label="Agregar tarjeta a mano" kind="ghost" onPress={addManual} />
+            <Button label="Agregar tarjeta a mano" kind="ghost" disabled={saving} onPress={addManual} />
 
-            <View style={{ gap: spacing.sm }}>
-              <Text style={type.label}>Guardar las tarjetas elegidas</Text>
-              {!cards.some((c) => c.savedCardId) && !deckId && <View style={styles.deckRow}>
-                <Chip label="Nuevo mazo" active={createNewDeck} onPress={() => setCreateNewDeck(true)} />
-                <Chip label="Mazo existente" active={!createNewDeck} onPress={() => setCreateNewDeck(false)} />
-              </View>}
-              {createNewDeck ? <>
-                <Field accessibilityLabel="Nombre del nuevo mazo" placeholder="Nombre del nuevo mazo…" value={newDeckName} onChangeText={setNewDeckName} editable={!saving && !deckId} />
-                <FolderPicker folders={folders} value={folderId} onChange={setFolderId} disabled={saving || !!deckId || !locationsLoaded} />
-              </> : <View style={styles.deckRow}>
-                {decks.map((d) => <Chip key={d.id} label={`${d.name} · ${locationLabel(folders, d.folder_id)}`} active={deckId === d.id} onPress={() => { if (!saving && !cards.some((c) => c.savedCardId)) setDeckId(d.id); }} />)}
-                {!cards.some((c) => c.savedCardId) && <Button label="Crear un mazo nuevo" onPress={() => { setDeckId(null); setCreateNewDeck(true); }} />}
-              </View>}
-
-            </View>
-
+          </View>
+        }
+      />
+      <View style={{ paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
             <Button
               label={
                 saving
@@ -295,12 +299,7 @@ export default function Preseleccion() {
               onPress={save}
               disabled={(!deckId && (!createNewDeck || !newDeckName.trim())) || keptCount === 0 || saving || !locationsLoaded || (createNewDeck && !deckId && folderId != null && !folders.some((f) => f.id === folderId))}
             />
-            {!deckId && !createNewDeck ? (
-              <Text style={type.small}>Elegí un mazo para poder guardar.</Text>
-            ) : null}
-          </View>
-        }
-      />
+      </View>
       <Toast message={saveError} onDismiss={() => setSaveError("")} />
     </Screen>
   );

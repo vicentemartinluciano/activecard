@@ -15,7 +15,7 @@ import { colors, font, tabular, type } from "../theme";
 
 const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
-export default function ForecastList({ forecast = [], limit }) {
+export default function ForecastList({ forecast = [], limit, newLimit = 0 }) {
   if (forecast.length === 0) return null;
 
   // La escala llega al máximo entre el día más cargado y el tope, para que la
@@ -59,26 +59,11 @@ export default function ForecastList({ forecast = [], limit }) {
         })}
       </View>
 
-      {total === 0 ? (
-        // Siete ceros sin explicación se leen como "esto está roto".
-        <Text style={[type.small, Platform.OS === 'web' && { fontSize: 14, lineHeight: 22 }]}>
-          No hay nada agendado para los próximos días. Cuando estudies tarjetas nuevas van a
-          empezar a aparecer acá.
-        </Text>
-      ) : limit ? (
-        <Text style={[type.small, Platform.OS === 'web' && { fontSize: 14, lineHeight: 22 }]}>
-          La rayita es tu tope de <Text style={styles.fuerte}>{limit}</Text>.
-          {excedido ? (
-            <Text>
-              {" "}
-              El <Text style={styles.alerta}>{DIAS[excedido.date.getDay()]}</Text> te pasás:
-              conviene adelantar algunas hoy.
-            </Text>
-          ) : (
-            <Text> La semana entra cómoda.</Text>
-          )}
-        </Text>
-      ) : null}
+      <Text style={type.small}>{forecast[0].newCount || 0} tarjetas nuevas disponibles · hasta {newLimit} por día.</Text>
+      <Text style={type.small}>
+        {total === 0 ? 'No hay vencimientos de tarjetas aprendidas en estos 7 días.' : `Vencimientos de tarjetas aprendidas. ${limit ? `La marca indica tu límite de ${limit} repasos diarios.` : ''}`}
+        {excedido ? (forecast[0].count > limit ? ' Lo acumulado supera el límite de hoy; la cola diaria lo distribuye según tus prioridades.' : ' Hay un día que supera tu límite; podés anticipar algunos repasos desde el mazo.') : ''}
+      </Text>
     </View>
   );
 }

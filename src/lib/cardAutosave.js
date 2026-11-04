@@ -24,10 +24,12 @@ export function createCardAutosave({ deckId, card = null, restored = null, onSav
   let revision = 0;
   let persisted = 0;
   let pending = null;
+  let paused = false;
   let timer;
   const flush = () => {
     clearTimeout(timer);
     if (pending) return pending;
+    if (paused) return Promise.resolve(false);
     pending = (async () => {
       try {
         while (persisted < revision) {
@@ -76,11 +78,15 @@ export function createCardAutosave({ deckId, card = null, restored = null, onSav
       revision++;
       onStatus("saving");
       clearTimeout(timer);
-      timer = setTimeout(flush, 350);
+      if (!paused) timer = setTimeout(flush, 350);
     },
     flush,
     dispose: flush,
     isPending: () => persisted < revision,
-    async cancel() { clearTimeout(timer); await pending; persisted = revision; await setSetting(key, null); },
+    draftKey: key,
+    async pause() { paused = true; clearTimeout(timer); await pending; },
+    resume() { paused = false; if (persisted < revision) timer = setTimeout(flush, 350); },
+    forget() { paused = true; clearTimeout(timer); persisted = revision; },
+    async cancel() { paused = true; clearTimeout(timer); await pending; await setSetting(key, null); persisted = revision; },
   };
 }

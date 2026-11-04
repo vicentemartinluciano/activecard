@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import GlowPressable from "../../components/GlowPressable";
 import ProgressBar from "../../components/ProgressBar";
+import { databaseErrorMessage } from "../../lib/databaseError";
 import SectionSwipe from "../../components/SectionSwipe";
 import Sheen from "../../components/Sheen";
 import Skeleton from "../../components/Skeleton";
@@ -64,7 +65,7 @@ export default function Inicio() {
       setStats(null);
       // Antes esto quedaba en silencio y la pantalla aparecía vacía sin decir
       // por qué. Ahora al menos se avisa y se puede reintentar.
-      setError("No se pudo leer el repaso de hoy.");
+      setError(databaseErrorMessage(e, "No se pudo leer el repaso de hoy."));
     } finally {
       setLoaded(true);
     }
@@ -150,7 +151,7 @@ export default function Inicio() {
             accessibilityRole="button"
             accessibilityLabel="Abrir Gimnasio Mental"
             hitSlop={8}
-            onPress={() => router.push("/gimnasio/chat")}
+            onPress={() => router.navigate("/gimnasio")}
             style={({ pressed }) => [styles.gymShortcut, pressed && { opacity: 0.7 }]}
           >
             <Feather name="zap" size={20} color={textColors.violeta} />

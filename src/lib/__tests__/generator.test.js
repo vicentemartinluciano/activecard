@@ -1,5 +1,5 @@
 import { resolveImageMarkers } from "../generator";
-import { IMG_SENTINEL } from "../richtext";
+import { decodeToggle, encodeToggle, IMG_SENTINEL } from "../richtext";
 
 describe("resolveImageMarkers", () => {
   const DATA = "data:image/png;base64,AAAA";
@@ -30,4 +30,11 @@ describe("resolveImageMarkers", () => {
     const [card] = resolveImageMarkers([{ front: "[IMG:1]", back: "b" }], map);
     expect(card.front).toBe(marker);
   });
+});
+
+
+test('resuelve imágenes dentro de un desplegable sin perder la estructura', () => {
+  const back = encodeToggle('Ejemplo', 'Texto\n[IMG:1]');
+  const [card] = resolveImageMarkers([{ front: 'Pregunta', back }], { 1: 'data:image/png;base64,AAAA' });
+  expect(decodeToggle(card.back)).toEqual({ summary: 'Ejemplo', content: `Texto\n${IMG_SENTINEL}100 data:image/png;base64,AAAA` });
 });

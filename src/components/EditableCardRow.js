@@ -26,7 +26,7 @@ function EditableCardRow({
   onActivate,
   onChangeDraft,
   onToggleStar,
-  onToggleSuspended,
+  onOptions,
   onGym,
   onMove,
 }) {
@@ -46,12 +46,11 @@ function EditableCardRow({
             <Feather name="star" size={18} color={colors.textMuted} />
           )}
         </Pressable>}
-        <Text style={styles.headLabel}>Tarjeta</Text>
         {card.source === "hybrid" ? (
           <Pill icon="zap" label="Idea" color={textColors.violeta} style={styles.ideaPill} />
         ) : null}
         {card.source === "ai" ? (
-          <Pill icon="cpu" label="Sin revisar" color={colors.accentText} style={styles.ideaPill} />
+          <Pill icon="cpu" label="Con IA" color={colors.accentText} style={styles.ideaPill} />
         ) : null}
         {card.suspended ? (
           <Pill
@@ -68,17 +67,14 @@ function EditableCardRow({
           <Pressable accessibilityRole="button" accessibilityLabel="Subir tarjeta" disabled={index === 0} onPress={() => onMove(card.id, -1)} style={[styles.move, index === 0 && { opacity: .3 }]}><Feather name="arrow-up" size={16} color={colors.textMuted} /></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Bajar tarjeta" disabled={index === total - 1} onPress={() => onMove(card.id, 1)} style={[styles.move, index === total - 1 && { opacity: .3 }]}><Feather name="arrow-down" size={16} color={colors.textMuted} /></Pressable>
         </> : null}
-        {onToggleSuspended && <Pressable accessibilityRole="button" accessibilityLabel={card.suspended ? "Reanudar tarjeta" : "Suspender tarjeta"} accessibilityState={{ selected: !!card.suspended }} onPress={() => onToggleSuspended(card.id)} hitSlop={2} style={styles.action}>
-          <Feather
-            name={card.suspended ? "play-circle" : "pause-circle"}
-            size={18}
-            color={card.suspended ? colors.accentText : colors.textMuted}
-          />
+        {onOptions && <Pressable accessibilityRole="button" accessibilityLabel="Opciones de la tarjeta" onPress={() => onOptions(card)} style={styles.action}>
+          <Feather name="more-horizontal" size={20} color={colors.textMuted} />
         </Pressable>}
       </View>
 
       {active ? (
         <>
+          <Text style={type.small}>Frente</Text>
           <NotionField
             value={draft.front}
             minHeight={56}
@@ -86,6 +82,7 @@ function EditableCardRow({
             placeholder="Frente"
             defaultAlign="center"
           />
+          <Text style={type.small}>Dorso</Text>
           <NotionField
             value={draft.back}
             minHeight={56}
@@ -155,17 +152,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   action: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  move: { width: 28, height: 36, alignItems: "center", justifyContent: "center" },
+  move: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   box: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
     marginBottom: spacing.sm,
@@ -173,6 +166,8 @@ const styles = StyleSheet.create({
   },
   boxBack: {
     marginBottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
   },
   boxTextFront: { ...type.body, fontSize: 16, lineHeight: 23.2 },
   boxText: { ...type.body, fontSize: 16, lineHeight: 23.2 },

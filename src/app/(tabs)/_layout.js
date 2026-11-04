@@ -1,13 +1,14 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Tabs } from "expo-router";
-import { Platform } from "react-native";
+import { Platform, useWindowDimensions } from "react-native";
 
 import { colors, font } from "../../theme";
 
 export default function TabsLayout() {
+  const { width } = useWindowDimensions();
   return (
     <Tabs
-      tabBar={Platform.OS === "web" ? () => null : undefined}
+      tabBar={Platform.OS === "web" && width >= 760 ? () => null : undefined}
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,
@@ -31,16 +32,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="crear"
-        options={{
-          title: "Crear",
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="plus-square" color={color} size={size} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="crear" options={{ href: null, headerShown: false }} />
       <Tabs.Screen
         name="biblioteca"
         options={{
@@ -51,6 +43,7 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="gimnasio" options={{ title: "Gimnasio", headerShown: false, tabBarIcon: ({ color, size }) => <Feather name="zap" color={color} size={size} /> }} />
       <Tabs.Screen
         name="progreso"
         options={{

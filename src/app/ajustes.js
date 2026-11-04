@@ -259,8 +259,26 @@ export default function Ajustes() {
     <Screen style={Platform.OS === 'web' ? { maxWidth: 1120 } : undefined}>
       <Stack.Screen options={{ title: "Ajustes" }} />
       <ScrollView contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}>
+        <Text style={type.label}>Cuenta y sincronización</Text>
         <AccountPanel />
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Tu nombre</Text>
+          <Text style={type.small}>Con esto te saluda la pantalla de Inicio.</Text>
+          <View style={styles.nameRow}>
+            <Field
+              value={userName}
+              onChangeText={setUserName}
+              placeholder="Tu nombre"
+              style={{ flex: 1 }}
+            />
+            <Button label="Guardar" kind="primary" onPress={saveName} />
+          </View>
+          {nameStatus ? <Text style={type.small}>{nameStatus}</Text> : null}
+        </Card>
+
+
         <Stagger style={{ marginBottom: 0 }}>
+        <Text style={type.label}>Estudio</Text>
         <Collapsible
           icon="calendar"
           title="Carga diaria"
@@ -291,8 +309,8 @@ export default function Ajustes() {
           </View>
           <Text style={type.small}>
             Lo que sobra pasa al día siguiente, empezando por los mazos de mayor prioridad. El
-            tope de tarjetas nuevas protege las semanas que vienen: cada nueva que aceptás hoy
-            vuelve mañana, en cuatro días y en dos semanas.
+            tope de tarjetas nuevas protege la carga futura: cada nueva incorpora repasos que
+            FSRS programa según tus respuestas.
           </Text>
         </Collapsible>
 
@@ -354,34 +372,7 @@ export default function Ajustes() {
           ))}
         </Collapsible>
 
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Respaldo</Text>
-          <Text style={type.small}>
-            Exportá un archivo con todos tus mazos, tarjetas y conexiones. Sirve como backup y
-            para recuperar tus datos o trasladarlos manualmente. Con tu cuenta conectada,
-            la sincronización entre el celular y la web se hace automáticamente.
-          </Text>
-          {Platform.OS !== "web" ? (
-            <Text style={type.small}>
-              {lastAuto
-                ? `Copia automática en el teléfono: ${new Date(lastAuto).toLocaleDateString("es-AR")}.`
-                : "Se guarda una copia automática en el teléfono cada semana."}
-            </Text>
-          ) : null}
-          <Button
-            label={backupBusy ? "Un momento…" : "Exportar datos"}
-            onPress={doExport}
-            disabled={backupBusy}
-          />
-          <Button
-            label={backupBusy ? "Un momento…" : "Importar datos"}
-            kind="danger"
-            onPress={doImport}
-            disabled={backupBusy}
-          />
-          {backupStatus ? <Text style={type.small}>{backupStatus}</Text> : null}
-        </Card>
-
+        <Text style={type.label}>Integraciones</Text>
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Conexión con la IA</Text>
           <Text style={type.small}>
@@ -411,25 +402,34 @@ export default function Ajustes() {
           {keysStatus ? <Text style={type.small}>{keysStatus}</Text> : null}
         </Card>
 
+        <Text style={type.label}>Datos</Text>
         <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Tu nombre</Text>
-          <Text style={type.small}>Con esto te saluda la pantalla de Inicio.</Text>
-          <View style={styles.nameRow}>
-            <Field
-              value={userName}
-              onChangeText={setUserName}
-              placeholder="Tu nombre"
-              style={{ flex: 1 }}
-            />
-            <Button label="Guardar" kind="primary" onPress={saveName} />
-          </View>
-          {nameStatus ? <Text style={type.small}>{nameStatus}</Text> : null}
+          <Text style={styles.sectionTitle}>Respaldo</Text>
+          <Text style={type.small}>
+            Exportá un archivo con todos tus mazos, tarjetas y conexiones. Sirve como backup y
+            para recuperar tus datos o trasladarlos manualmente. Con tu cuenta conectada,
+            la sincronización entre el celular y la web se hace automáticamente.
+          </Text>
+          {Platform.OS !== "web" ? (
+            <Text style={type.small}>
+              {lastAuto
+                ? `Copia automática en el teléfono: ${new Date(lastAuto).toLocaleDateString("es-AR")}.`
+                : "Se guarda una copia automática en el teléfono cada semana."}
+            </Text>
+          ) : null}
+          <Button
+            label={backupBusy ? "Un momento…" : "Exportar datos"}
+            onPress={doExport}
+            disabled={backupBusy}
+          />
+          <Button
+            label={backupBusy ? "Un momento…" : "Importar datos"}
+            onPress={doImport}
+            disabled={backupBusy}
+          />
+          {backupStatus ? <Text style={type.small}>{backupStatus}</Text> : null}
         </Card>
 
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Gimnasio Mental</Text>
-          <Button label="Ver mis ideas" onPress={() => router.push("/gimnasio")} />
-        </Card>
         </Stagger>
       </ScrollView>
       <ActionSheet
