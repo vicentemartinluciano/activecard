@@ -19,7 +19,7 @@ Identificadores, hashes y evidencia en `BIBLIOTECA-Y-ESTUDIO.md`.
 | Backspace al inicio del encabezado | Quita el contenedor y conserva formato y contenido. |
 | Backspace al inicio del primer párrafo del cuerpo / Delete al final del encabezado | Une ambos textos. Conserva los bloques restantes y sus marcas. No atraviesa tablas ni límites de celda. |
 | Ctrl/Cmd+Enter | Abre/cierra el desplegable del cursor. Cerrar retira la selección del contenido oculto. |
-| Ctrl/Cmd+Alt+C / V | Copia el formato del texto o bloque actual y lo pega en el texto o bloque destino (incluye Frente ↔ Dorso y entre tarjetas). |
+| Ctrl/Cmd+Alt+F | Activa/desactiva el pincel de formato desde la selección o cursor actual; con el pincel activo sobre otra palabra o selección, aplica el formato y se desactiva (`Ctrl/Cmd+Alt+C` y `Ctrl/Cmd+Alt+V` siguen disponibles). |
 | Tab / Shift+Tab | Aumenta/reduce el nivel de un ítem de lista o de un desplegable. Para anidar un desplegable tiene que haber un desplegable hermano anterior. |
 | `>` y espacio | Crea un desplegable. |
 | `"` y espacio | Crea una cita. |
@@ -34,16 +34,20 @@ en Texto, H1/H2/H3, Cita, Viñetas y Numerada. Cambiar ese formato no lo desacti
 
 ## Pill contextual
 
-La barra conserva foco y selección. Ofrece tachado, copiar formato, pegar formato
-y quitar estilos del texto; esta última acción respeta títulos, listas y
-desplegables. Al copiar formato desde una selección parcial se toman las marcas
-inline; desde un bloque completo o cursor sin selección se captura también el tipo
-de bloque y la alineación, aplicándolos al pegar sobre un bloque completo (o solo
-las marcas inline sobre una selección parcial o palabra bajo el cursor). La
-segunda fila indica el formato del bloque o «Varios formatos» si la selección es
-mixta. Sangría y reducción de sangría tienen botones táctiles cuando se edita
-una lista o un encabezado desplegable; se deshabilitan si la estructura no admite
-la operación.
+La barra vive en una única fila principal compacta y conserva foco y selección.
+Ofrece selector de formato, negrita, cursiva, subrayado, tachado, resaltado,
+alineación, color de texto, pincel de copiar formato, quitar estilos del texto
+y `+` para insertar (desplegable, imagen o tabla); al editar una lista o un
+encabezado desplegable suma en esa misma fila los botones táctiles de sangría y
+reducción de sangría (deshabilitados si la estructura no admite la operación).
+Quitar estilos del texto respeta títulos, listas y desplegables. Al activar el
+pincel (`Copiar formato` o `Ctrl/Cmd+Alt+F`) desde una selección parcial se
+toman las marcas inline; desde un bloque completo o cursor sin selección se
+captura también el tipo de bloque y la alineación. Al marcar el nuevo texto (o
+confirmar con `Ctrl/Cmd+Alt+F` en otra palabra/selección), el formato copiado
+se aplica automáticamente en el destino —incluyendo Frente ↔ Dorso y entre
+tarjetas— y el pincel se desactiva; tocarlo de nuevo sin cambiar la selección
+también lo desactiva.
 
 Los cambios explícitos de formato y color abren un grupo de historial. Deshacer
 la acción conserva el texto recién escrito. Dividir, unir y mover desplegables

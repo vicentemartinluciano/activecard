@@ -118,9 +118,6 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 .nf-bubble * { box-sizing: border-box; }
 .nf-row { display: flex; gap: 4px; align-items: center; }
 .nf-bubble > .nf-row:first-child { gap: 2px; flex-wrap: wrap; }
-.nf-structure { border-top: 1px solid #ffffff12; padding-top: 4px; flex-wrap: wrap; gap: 2px; }
-.nf-structure .nf-btn { min-width: 28px; height: 28px; padding: 0 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.nf-format-label { flex: 1 1 auto; min-width: 0; font-size: 11px; color: #8B8B98; padding-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nf-btn:disabled { opacity: .35; cursor: default; }
 .nf-btn[hidden] { display: none; }
 .nf-btn {

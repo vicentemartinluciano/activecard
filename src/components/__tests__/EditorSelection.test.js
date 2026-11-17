@@ -3,7 +3,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import NotionField from "../NotionField.web";
 import { encodeToggle, BLOCK_SENTINELS } from "../../lib/richtext";
-import { setCopiedFormat } from "../../lib/editorSetup";
+import { getCopiedFormat, setCopiedFormat } from "../../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../../lib/richhtml";
 
 let mockEditor;
@@ -109,7 +109,80 @@ test("la barra actualiza marcas, color y título al seleccionar otro texto sin e
   }
 });
 
-test("copiar formato desde la pill habilita Pegar formato en otro editor y aplica el formato entre Frente y Dorso", async () => {
+test("la pill vive en una sola fila sin nf-structure y aplica el pincel automáticamente al marcar otro texto", async () => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, writable: true, value: jest.fn() });
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+  const rect = { left: 0, right: 100, top: 0, bottom: 24, width: 100, height: 24 };
+  Range.prototype.getBoundingClientRect = () => rect;
+  Range.prototype.getClientRects = () => [rect];
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  const onBackChange = jest.fn();
+  const originalElementFromPoint = document.elementFromPoint;
+  try {
+    await act(async () => root.render(
+      <div>
+        <div data-testid="front"><NotionField value={"**Frente** uno"} onChangeText={() => {}} defaultAlign="center" /></div>
+        <div data-testid="back"><NotionField value={"Dorso destino"} onChangeText={onBackChange} /></div>
+      </div>
+    ));
+    const [frontEditor, backEditor] = mockEditors;
+    const frontButton = (label) => host.querySelector(`[data-testid="front"] [aria-label="${label}"]`);
+
+    expect(host.querySelector(".nf-structure")).toBeNull();
+    expect(host.querySelector(".nf-format-label")).toBeNull();
+    expect(frontButton("Pegar formato")).toBeNull();
+    expect(frontButton("Quitar estilos del texto")).not.toBeNull();
+    expect(frontButton("Aumentar sangría").hidden).toBe(true);
+    expect(frontButton("Reducir sangría").hidden).toBe(true);
+
+    const copyBtn = frontButton("Copiar formato");
+    expect(copyBtn.querySelector("svg")).not.toBeNull();
+    expect(copyBtn.getAttribute("aria-pressed")).toBe("false");
+
+    await act(async () => frontEditor.commands.setTextSelection({ from: 1, to: 7 }));
+    await act(async () => copyBtn.click());
+
+    expect(copyBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(copyBtn.classList.contains("is-active")).toBe(true);
+    expect(getCopiedFormat()).not.toBeNull();
+
+    // Tocar de nuevo sobre la misma selección desactiva el pincel sin cambiar texto.
+    await act(async () => copyBtn.click());
+    expect(copyBtn.getAttribute("aria-pressed")).toBe("false");
+    expect(getCopiedFormat()).toBeNull();
+
+    // Re-activar pincel y arrastrar en el otro campo: no aplica hasta soltar el puntero.
+    await act(async () => copyBtn.click());
+    expect(copyBtn.getAttribute("aria-pressed")).toBe("true");
+
+    document.elementFromPoint = () => backEditor.view.dom;
+    await act(async () => {
+      backEditor.view.dom.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      backEditor.commands.setTextSelection({ from: 1, to: 6 });
+    });
+    expect(backEditor.getHTML()).not.toContain("<strong>Dorso</strong>");
+    expect(getCopiedFormat()).not.toBeNull();
+
+    await act(async () => {
+      backEditor.view.dom.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    });
+
+    expect(backEditor.getHTML()).toContain("<strong>Dorso</strong>");
+    expect(onBackChange).toHaveBeenLastCalledWith("**Dorso** destino");
+    expect(getCopiedFormat()).toBeNull();
+    expect(copyBtn.getAttribute("aria-pressed")).toBe("false");
+    expect(copyBtn.classList.contains("is-active")).toBe(false);
+  } finally {
+    document.elementFromPoint = originalElementFromPoint;
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
+
+test("al seleccionar nuevo texto directamente sin arrastre de puntero también se pasa el formato y se desactiva el pincel", async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   Object.defineProperty(globalThis, "fetch", { configurable: true, writable: true, value: jest.fn() });
   globalThis.ResizeObserver = class { observe() {} disconnect() {} };
@@ -129,23 +202,16 @@ test("copiar formato desde la pill habilita Pegar formato en otro editor y aplic
     ));
     const [frontEditor, backEditor] = mockEditors;
     const frontButton = (label) => host.querySelector(`[data-testid="front"] [aria-label="${label}"]`);
-    const backButton = (label) => host.querySelector(`[data-testid="back"] [aria-label="${label}"]`);
-
-    expect(backButton("Pegar formato").disabled).toBe(true);
-    expect(frontButton("Copiar formato").getAttribute("aria-pressed")).toBe("false");
 
     await act(async () => frontEditor.commands.setTextSelection({ from: 1, to: 7 }));
     await act(async () => frontButton("Copiar formato").click());
-
     expect(frontButton("Copiar formato").getAttribute("aria-pressed")).toBe("true");
-    expect(frontButton("Copiar formato").classList.contains("is-active")).toBe(true);
-    expect(backButton("Pegar formato").disabled).toBe(false);
 
     await act(async () => backEditor.commands.setTextSelection({ from: 1, to: 6 }));
-    await act(async () => backButton("Pegar formato").click());
 
     expect(backEditor.getHTML()).toContain("<strong>Dorso</strong>");
     expect(onBackChange).toHaveBeenLastCalledWith("**Dorso**");
+    expect(frontButton("Copiar formato").getAttribute("aria-pressed")).toBe("false");
   } finally {
     await act(async () => root.unmount());
     host.remove();

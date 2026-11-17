@@ -156,8 +156,10 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   citas y listas al convertir, reabrir o desactivar. Texto no quita el desplegable.
   Escritura revisada: Enter divide el encabezado abierto y mueve el resto al
   cuerpo; cerrado crea un hermano. Shift+Enter conserva un salto interno.
-  La pill incluye tachado, quitar estilos, sangría táctil y `Copiar`/`Pegar` formato
-  (`Ctrl/Cmd+Alt+C` y `Ctrl/Cmd+Alt+V`, sincronizados entre Frente, Dorso y tarjetas).
+  La pill reúne en una sola fila formato, estilos inline, color, pincel de copiar
+  formato estilo Word (`Ctrl/Cmd+Alt+F`, además de `Ctrl/Cmd+Alt+C/V`, sincronizado
+  entre Frente, Dorso y tarjetas y con aplicación automática al marcar nuevo texto),
+  quitar estilos, sangría táctil contextual e insertar (`+`).
   Cada tarjeta guardada ofrece `Duplicar tarjeta` desde su encabezado, conservando las
   tres acciones de `CardActions`. Los filtros del mazo suman `Con fallos`, `Nuevas` y
   `Vencidas hoy`. Estudio muestra el mazo de origen en repaso diario/puntos débiles,

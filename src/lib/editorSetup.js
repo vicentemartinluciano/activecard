@@ -24,22 +24,97 @@ import { Toggle, ToggleContent, ToggleSummary, toggleSummaryDepth } from "./tipt
 // "- " = viñeta, "1. " = lista numerada.
 const Shortcuts = Extension.create({
   name: "activecardShortcuts",
+  addStorage() {
+    return { pointerSelecting: false };
+  },
   addInputRules() {
     return [textInputRule({ find: /->$/, replace: "→" })];
   },
   addKeyboardShortcuts() {
     return {
+      "Mod-Alt-f": () => {
+        if (!hasCopiedFormat()) return Boolean(copyFormatFromEditor(this.editor));
+        if (isSameCopyOrigin(this.editor)) {
+          setCopiedFormat(null);
+          this.editor.view.dispatch(
+            this.editor.state.tr.setMeta("nfFormatPainter", true).setMeta("addToHistory", false)
+          );
+          return true;
+        }
+        return pasteFormatToEditor(this.editor);
+      },
       "Mod-Alt-c": () => Boolean(copyFormatFromEditor(this.editor)),
       "Mod-Alt-v": () => pasteFormatToEditor(this.editor),
     };
   },
+  onSelectionUpdate({ editor, transaction }) {
+    if (
+      !this.storage.pointerSelecting &&
+      hasCopiedFormat() &&
+      !editor.state.selection.empty &&
+      !transaction.getMeta("nfFormatPainter") &&
+      !isSameCopyOrigin(editor)
+    ) {
+      pasteFormatToEditor(editor);
+    }
+  },
   addProseMirrorPlugins() {
-    return [new Plugin({ props: { handleDOMEvents: { beforeinput: (_view, event) => {
-      if (event.inputType !== "insertLineBreak" || event.isComposing || !event.cancelable) return false;
-      if (!this.editor.commands.setHardBreak()) return false;
-      event.preventDefault();
-      return true;
-    } } } })];
+    const storage = this.storage;
+    const editor = this.editor;
+    const finishPointerSelection = () => {
+      if (!storage.pointerSelecting) return;
+      storage.pointerSelecting = false;
+      if (
+        hasCopiedFormat() &&
+        !editor.isDestroyed &&
+        !editor.state.selection.empty &&
+        !isSameCopyOrigin(editor)
+      ) {
+        pasteFormatToEditor(editor);
+      }
+    };
+    const cancelPointerSelection = () => {
+      storage.pointerSelecting = false;
+    };
+    return [
+      new Plugin({
+        view() {
+          if (typeof document === "undefined") return {};
+          document.addEventListener("pointerup", finishPointerSelection);
+          document.addEventListener("mouseup", finishPointerSelection);
+          document.addEventListener("touchend", finishPointerSelection);
+          document.addEventListener("pointercancel", cancelPointerSelection);
+          document.addEventListener("touchcancel", cancelPointerSelection);
+          return {
+            destroy() {
+              document.removeEventListener("pointerup", finishPointerSelection);
+              document.removeEventListener("mouseup", finishPointerSelection);
+              document.removeEventListener("touchend", finishPointerSelection);
+              document.removeEventListener("pointercancel", cancelPointerSelection);
+              document.removeEventListener("touchcancel", cancelPointerSelection);
+            },
+          };
+        },
+        props: {
+          handleDOMEvents: {
+            pointerdown: () => { storage.pointerSelecting = true; return false; },
+            mousedown: () => { storage.pointerSelecting = true; return false; },
+            touchstart: () => { storage.pointerSelecting = true; return false; },
+            pointerup: () => { finishPointerSelection(); return false; },
+            mouseup: () => { finishPointerSelection(); return false; },
+            touchend: () => { finishPointerSelection(); return false; },
+            pointercancel: () => { cancelPointerSelection(); return false; },
+            touchcancel: () => { cancelPointerSelection(); return false; },
+            beforeinput: (_view, event) => {
+              if (event.inputType !== "insertLineBreak" || event.isComposing || !event.cancelable) return false;
+              if (!editor.commands.setHardBreak()) return false;
+              event.preventDefault();
+              return true;
+            },
+          },
+        },
+      }),
+    ];
   },
 });
 
@@ -195,6 +270,7 @@ export { EDITOR_TEXT_COLORS };
 const HIGHLIGHTER_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>`;
 // Ícono de alineación (un botón que cicla izquierda → centro → derecha).
 const ALIGN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/></svg>`;
+export const PAINTBRUSH_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.37 2.63a2.12 2.12 0 0 1 3 3L14 13l-4 1 1-4Z"/><path d="M9 14c-2.5 1-4 3.5-4 6 2.5 0 5-1.5 6-4"/></svg>`;
 
 export const FORMAT_BUTTON = {
   key: "format",
@@ -223,15 +299,13 @@ export const BUBBLE_BUTTONS = [
 ];
 
 export const STRUCTURE_BUTTONS = [
+  { key: "copyFormat", label: "Copiar formato", html: PAINTBRUSH_SVG },
+  { key: "clear", label: "Quitar estilos del texto", html: "Tx" },
   { key: "outdent", label: "Reducir sangría", html: "⇤" },
   { key: "indent", label: "Aumentar sangría", html: "⇥" },
-  { key: "copyFormat", label: "Copiar formato", html: "Copiar" },
-  { key: "pasteFormat", label: "Pegar formato", html: "Pegar" },
-  { key: "clear", label: "Quitar estilos del texto", html: "Tx" },
 ];
 export function canStructureAction(editor, key) {
   if (key === "copyFormat") return !isImageSelected(editor);
-  if (key === "pasteFormat") return hasCopiedFormat() && !isImageSelected(editor);
   if (toggleSummaryDepth(editor.state.selection.$from) != null) {
     if (key === "indent") return editor.can().indentToggle();
     if (key === "outdent") return editor.can().outdentToggle();
@@ -242,7 +316,18 @@ export function canStructureAction(editor, key) {
 }
 
 let copiedFormatState = null;
+let copiedSelectionOrigin = null;
 const formatListeners = new Set();
+
+function isSameCopyOrigin(editor) {
+  return Boolean(
+    copiedSelectionOrigin &&
+      copiedSelectionOrigin.editor === editor &&
+      copiedSelectionOrigin.doc === editor.state.doc &&
+      copiedSelectionOrigin.from === editor.state.selection.from &&
+      copiedSelectionOrigin.to === editor.state.selection.to
+  );
+}
 
 export function getCopiedFormat() {
   return copiedFormatState;
@@ -252,8 +337,9 @@ export function hasCopiedFormat() {
   return Boolean(copiedFormatState);
 }
 
-export function setCopiedFormat(format, { notify = true } = {}) {
+export function setCopiedFormat(format, { notify = true, origin = null } = {}) {
   copiedFormatState = format ? { ...format } : null;
+  copiedSelectionOrigin = format ? origin : null;
   if (notify) {
     for (const listener of formatListeners) {
       listener(copiedFormatState);
@@ -273,8 +359,13 @@ function hasAncestor($pos, name) {
   return false;
 }
 
-export function copyFormatFromEditor(editor) {
+export function copyFormatFromEditor(editor, { toggle = false } = {}) {
   if (!editor || isImageSelected(editor)) return null;
+  if (toggle && copiedFormatState && isSameCopyOrigin(editor)) {
+    setCopiedFormat(null);
+    editor.view.dispatch(editor.state.tr.setMeta("nfFormatPainter", true).setMeta("addToHistory", false));
+    return null;
+  }
   const { from, to, empty, $from, $to } = editor.state.selection;
   let marks = null;
   if (!empty) {
@@ -352,13 +443,20 @@ export function copyFormatFromEditor(editor) {
     fullBlock,
     hasInlineMarks,
   };
-  setCopiedFormat(snapshot);
+  setCopiedFormat(snapshot, { origin: { editor, doc: editor.state.doc, from, to } });
   editor.view.dispatch(editor.state.tr.setMeta("nfFormatPainter", true).setMeta("addToHistory", false));
   return snapshot;
 }
 
-export function pasteFormatToEditor(editor, format = copiedFormatState) {
+export function pasteFormatToEditor(editor, format = copiedFormatState, { disarm = true } = {}) {
   if (!editor || !format || isImageSelected(editor)) return false;
+  const prevCopied = copiedFormatState;
+  const prevOrigin = copiedSelectionOrigin;
+  if (disarm && copiedFormatState) {
+    // Desarmar antes de despachar transacciones para evitar reentrada en onSelectionUpdate.
+    copiedFormatState = null;
+    copiedSelectionOrigin = null;
+  }
   const { from, to, empty, $from, $to } = editor.state.selection;
   let expandedWord = false;
   let wordFrom = from;
@@ -485,6 +583,13 @@ export function pasteFormatToEditor(editor, format = copiedFormatState) {
       closeHistory(tr);
       return true;
     });
+    if (disarm && prevCopied) {
+      setCopiedFormat(null);
+      editor.view.dispatch(editor.state.tr.setMeta("nfFormatPainter", true).setMeta("addToHistory", false));
+    }
+  } else if (disarm && prevCopied) {
+    copiedFormatState = prevCopied;
+    copiedSelectionOrigin = prevOrigin;
   }
   return applied;
 }
@@ -579,11 +684,7 @@ export function applyFormat(editor, key) {
 // Aplica la acción de un botón del bubble.
 export function runBubbleAction(editor, key) {
   if (key === "copyFormat") {
-    copyFormatFromEditor(editor);
-    return;
-  }
-  if (key === "pasteFormat") {
-    pasteFormatToEditor(editor);
+    copyFormatFromEditor(editor, { toggle: true });
     return;
   }
   const chain = editor.chain().focus().command(({ tr }) => { closeHistory(tr); return true; });

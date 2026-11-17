@@ -206,20 +206,19 @@ export default function NotionField({
               }}
               dangerouslySetInnerHTML={{ __html: COLOR_BUTTON.html }}
             />
-            <button type="button" className="nf-btn" aria-label="Insertar" onPointerDown={stop}
-                  onClick={(e) => {
-              stop(e);
-              const root = tableToolbarRef.current;
-              root.classList.toggle("nf-inserting");
-              e.currentTarget.closest(".nf-bubble").querySelectorAll(".nf-formats,.nf-swatches").forEach((panel) => panel.classList.remove("open"));
-              root.dispatchEvent(new Event("nf:position-toolbar"));
-            }}>+</button>
-          </div>
-          <div className="nf-row nf-structure">
-            <span className="nf-format-label" />
-            {STRUCTURE_BUTTONS.filter(action => !["outdent", "indent"].includes(action.key) || state.inList || state.toggleActive).map(action => {
+            <div className="nf-sep" />
+            {STRUCTURE_BUTTONS.map((action) => {
               const isCopy = action.key === "copyFormat";
+              const isIndent = action.key === "outdent" || action.key === "indent";
               const active = isCopy && !!state.hasCopiedFormat;
+              const disabled =
+                action.key === "indent"
+                  ? !state.canIndent
+                  : action.key === "outdent"
+                  ? !state.canOutdent
+                  : isCopy
+                  ? !!imgSelected
+                  : !canStructureAction(editor, action.key);
               return (
                 <button
                   key={action.key}
@@ -228,14 +227,28 @@ export default function NotionField({
                   aria-label={action.label}
                   title={action.label}
                   aria-pressed={isCopy ? active : undefined}
-                  disabled={!canStructureAction(editor, action.key)}
+                  hidden={isIndent && !(state.inList || state.toggleActive)}
+                  disabled={disabled}
                   onPointerDown={stop}
-                  onClick={event => { stop(event); runBubbleAction(editor, action.key); }}
-                >
-                  {action.html}
-                </button>
+                  onClick={(e) => {
+                    stop(e);
+                    runBubbleAction(editor, action.key);
+                    const bubble = e.currentTarget.closest(".nf-bubble");
+                    bubble.querySelector(".nf-formats").classList.remove("open");
+                    bubble.querySelector(".nf-swatches").classList.remove("open");
+                  }}
+                  dangerouslySetInnerHTML={{ __html: action.html }}
+                />
               );
             })}
+            <button type="button" className="nf-btn" aria-label="Insertar" onPointerDown={stop}
+                  onClick={(e) => {
+              stop(e);
+              const root = tableToolbarRef.current;
+              root.classList.toggle("nf-inserting");
+              e.currentTarget.closest(".nf-bubble").querySelectorAll(".nf-formats,.nf-swatches").forEach((panel) => panel.classList.remove("open"));
+              root.dispatchEvent(new Event("nf:position-toolbar"));
+            }}>+</button>
           </div>
           <div className="nf-row nf-formats">
             {FORMAT_OPTIONS.map((option) => (

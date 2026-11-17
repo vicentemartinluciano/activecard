@@ -89,25 +89,6 @@ const formats = document.createElement("div");
 formats.className = "nf-row nf-formats";
 bubble.appendChild(formats);
 
-const structure = document.createElement("div");
-structure.className = "nf-row nf-structure";
-bubble.appendChild(structure);
-const formatLabel = document.createElement("span");
-formatLabel.className = "nf-format-label";
-structure.appendChild(formatLabel);
-const structureButtons = {};
-for (const action of STRUCTURE_BUTTONS) {
-  const button = document.createElement("button");
-  button.type = "button"; button.className = "nf-btn";
-  button.title = action.label; button.setAttribute("aria-label", action.label); button.textContent = action.html;
-  if (action.key === "pasteFormat") button.disabled = true;
-  if (action.key === "copyFormat") button.setAttribute("aria-pressed", "false");
-  if (["outdent", "indent"].includes(action.key)) button.hidden = true;
-  button.addEventListener("pointerdown", event => event.preventDefault());
-  button.addEventListener("click", () => runBubbleAction(editor, action.key));
-  structure.appendChild(button); structureButtons[action.key] = button;
-}
-
 const buttons = {};
 for (const def of [FORMAT_BUTTON, ...BUBBLE_BUTTONS, COLOR_BUTTON]) {
   if (def.key === "color") {
@@ -142,6 +123,31 @@ for (const def of [FORMAT_BUTTON, ...BUBBLE_BUTTONS, COLOR_BUTTON]) {
   });
   row.appendChild(btn);
   buttons[def.key] = btn;
+}
+
+const structureSep = document.createElement("div");
+structureSep.className = "nf-sep";
+row.appendChild(structureSep);
+const structureButtons = {};
+for (const action of STRUCTURE_BUTTONS) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "nf-btn";
+  button.title = action.label;
+  button.setAttribute("aria-label", action.label);
+  button.innerHTML = action.html;
+  if (action.key === "copyFormat") button.setAttribute("aria-pressed", "false");
+  if (["outdent", "indent"].includes(action.key)) button.hidden = true;
+  button.addEventListener("pointerdown", (event) => event.preventDefault());
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    runBubbleAction(editor, action.key);
+    swatches.classList.remove("open");
+    formats.classList.remove("open");
+  });
+  row.appendChild(button);
+  structureButtons[action.key] = button;
 }
 
 const insertMenu = document.createElement("div");
