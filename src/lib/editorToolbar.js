@@ -84,7 +84,8 @@ export function attachEditorToolbar(editor, host, bubble) {
       Math.max(4, root.width - bounds.width - 4)
     );
     bubble.style.left = `${x}px`;
-    positionEditorPanel(host, bubble, cursor, true);
+    const coarse = !!window.matchMedia?.("(pointer: coarse)")?.matches;
+    positionEditorPanel(host, bubble, cursor, true, coarse ? 30 : 8);
   };
   const schedule = () => {
     if (frame != null) cancelAnimationFrame(frame);

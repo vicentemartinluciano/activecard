@@ -9,7 +9,7 @@
 
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import NotionField from "./NotionField";
@@ -33,6 +33,10 @@ function EditableCardRow({
 }) {
   const front = active ? draft.front : card.front;
   const back = active ? draft.back : card.back;
+  // RN Web da zIndex 0 a cada View: la pill de una cara quedaba debajo de la
+  // otra. La cara con foco pasa arriba para que su panel no se tape.
+  const [focusedFace, setFocusedFace] = useState(null);
+  const faceLayer = (face) => Platform.OS === "web" && { zIndex: focusedFace === face ? 2 : 1 };
 
   return (
     <View style={[styles.row, active && styles.rowActive, Platform.OS === "web" && { breakInside: "avoid", display: "inline-flex", width: "100%", marginBottom: 20 }]}>
@@ -78,7 +82,7 @@ function EditableCardRow({
 
       {active ? (
         <View style={styles.activeBody}>
-          <View style={styles.fieldGroup}>
+          <View style={[styles.fieldGroup, faceLayer("front")]} onFocus={() => setFocusedFace("front")}>
             <Text style={styles.faceLabel}>Frente</Text>
             <NotionField
               value={draft.front}
@@ -88,7 +92,7 @@ function EditableCardRow({
               defaultAlign="center"
             />
           </View>
-          <View style={[styles.fieldGroup, styles.fieldGroupBack]}>
+          <View style={[styles.fieldGroup, styles.fieldGroupBack, faceLayer("back")]} onFocus={() => setFocusedFace("back")}>
             <Text style={styles.faceLabel}>Dorso</Text>
             <NotionField
               value={draft.back}

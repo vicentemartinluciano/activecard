@@ -15,19 +15,21 @@ export function visibleEditorBounds(host) {
   return { top: Math.max(0, top - root.top), bottom: Math.max(0, bottom - root.top) };
 }
 
-export function floatingPanelPosition({ top, bottom, anchorTop, anchorBottom, height, preferAbove = false }) {
+// gapBelow: en pantallas táctiles las gotas de selección de Android ocupan
+// ~22 dp debajo de la línea; el panel se aleja para no quedar tapado.
+export function floatingPanelPosition({ top, bottom, anchorTop, anchorBottom, height, preferAbove = false, gapBelow = 8 }) {
   const start = Math.max(0, top) + 4;
   const end = Math.max(start + 44, bottom - 4);
   const above = Math.max(0, anchorTop - start - 8);
-  const below = Math.max(0, end - anchorBottom - 8);
+  const below = Math.max(0, end - anchorBottom - gapBelow);
   const useAbove = (preferAbove && above >= height) || (below < height && above > below);
   const maxHeight = Math.max(44, end - start);
   const panelHeight = Math.min(height, maxHeight);
-  const ideal = useAbove ? anchorTop - panelHeight - 8 : anchorBottom + 8;
+  const ideal = useAbove ? anchorTop - panelHeight - 8 : anchorBottom + gapBelow;
   return { top: Math.max(start, Math.min(ideal, end - panelHeight)), maxHeight };
 }
 
-export function positionEditorPanel(host, panel, anchor, preferAbove = false) {
+export function positionEditorPanel(host, panel, anchor, preferAbove = false, gapBelow = 8) {
   const root = host.getBoundingClientRect();
   const viewport = visibleEditorBounds(host);
   panel.style.maxHeight = `${Math.max(44, viewport.bottom - viewport.top - 8)}px`;
@@ -38,6 +40,7 @@ export function positionEditorPanel(host, panel, anchor, preferAbove = false) {
     anchorBottom: anchor.bottom - root.top,
     height,
     preferAbove,
+    gapBelow,
   });
   panel.style.top = `${position.top}px`;
   panel.style.maxHeight = `${position.maxHeight}px`;
