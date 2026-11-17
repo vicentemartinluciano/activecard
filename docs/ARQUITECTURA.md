@@ -606,7 +606,7 @@ próximo APK; no exige actualizar módulos nativos para publicar una OTA compati
 
 - `EditableCardRow` y `mazos/[id]/index.js` incorporan `Duplicar tarjeta` (`duplicateCard`) y acceso rápido `+ Nueva`; `filterDeckCards` suma filtros `Con fallos`, `Nuevas` y `Vencidas hoy`.
 - `previewIntervals` en `lib/scheduler.js` expone en `repaso.js` y `estudiar.js` el intervalo proyectado FSRS por nota junto al mazo de origen y aviso de reformulación en Gimnasio cuando `lapses >= 3`; `Progreso` agrega acceso directo por rayo en `Puntos débiles`.
-- `editorSetup.js` agrega `copyFormatFromEditor` / `pasteFormatToEditor` (`Ctrl/Cmd+Alt+C/V`, botones `Copiar`/`Pegar` y sincronización entre `NotionField` web y WebView).
+- `editorSetup.js` implementa el pincel de copiar formato estilo Word (`copyFormatFromEditor` / `pasteFormatToEditor`, atajo `Ctrl/Cmd+Alt+F` además de `Ctrl/Cmd+Alt+C/V`, botón único de pincel con aplicación automática al marcar nuevo texto, fila única sin `.nf-structure` en `NotionField.web.js` / `editor-web/index.js` y sincronización entre Frente, Dorso y WebViews).
 - `GYM_ASSISTANT_SYSTEM`, `gymAssistant.js` (`normalizeActionBack`) y `ChatAuditor.js` (`ActionPreview` con `RichText`) habilitan bloques JSON ricos y priorizan `edit_card` sobre la tarjeta origen; `finishGym` relee la tarjeta editada al volver al repaso.
 - Ajustes de navegación/UI: accesos directos en `LibraryContent`/`DeckListItem`, recientes en `Inicio`, cabecera compacta en `Gimnasio/Ideas`, rótulos `Frente`/`Dorso` y badge `Pregunta`/`Respuesta` en `FlipCard`.
 
