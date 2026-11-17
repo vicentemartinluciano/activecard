@@ -18,16 +18,19 @@ import {
   buildExtensions,
   BUBBLE_BUTTONS,
   COLOR_BUTTON,
+  colorButtonHtml,
   COLOR_KEYS,
   currentImageWidth,
   EDITOR_TEXT_COLORS,
   FORMAT_BUTTON,
+  formatButtonHtml,
   FORMAT_OPTIONS,
   handleImagePaste,
   IMAGE_BTN_SVG,
   IMAGE_SIZES,
   insertImageFile,
   isImageSelected,
+  PLUS_SVG,
   runBubbleAction,
   setImageWidth,
   mountTableToolbar, insertTable, TABLE_BTN_SVG,
@@ -111,14 +114,18 @@ for (const def of [FORMAT_BUTTON, ...BUBBLE_BUTTONS, COLOR_BUTTON]) {
     if (def.key === "color") {
       swatches.classList.toggle("open");
       formats.classList.remove("open");
+      host.classList.remove("nf-inserting");
+      host.dispatchEvent(new Event("nf:position-toolbar"));
     } else if (def.key === "format") {
       formats.classList.toggle("open");
       swatches.classList.remove("open");
-    }
-    else {
+      host.classList.remove("nf-inserting");
+      host.dispatchEvent(new Event("nf:position-toolbar"));
+    } else {
       runBubbleAction(editor, def.key);
       swatches.classList.remove("open");
       formats.classList.remove("open");
+      host.classList.remove("nf-inserting");
     }
   });
   row.appendChild(btn);
@@ -145,6 +152,7 @@ for (const action of STRUCTURE_BUTTONS) {
     runBubbleAction(editor, action.key);
     swatches.classList.remove("open");
     formats.classList.remove("open");
+    host.classList.remove("nf-inserting");
   });
   row.appendChild(button);
   structureButtons[action.key] = button;
@@ -156,7 +164,10 @@ insertMenu.setAttribute("aria-label", "Insertar contenido");
 bubble.appendChild(insertMenu);
 insertMenu.appendChild(imgBtn);
 const insertBtn = document.createElement("button");
-insertBtn.type = "button"; insertBtn.className = "nf-btn"; insertBtn.textContent = "+";
+insertBtn.type = "button";
+insertBtn.className = "nf-btn";
+insertBtn.title = "Insertar";
+insertBtn.innerHTML = PLUS_SVG;
 insertBtn.setAttribute("aria-label", "Insertar");
 insertBtn.addEventListener("pointerdown", (event) => event.preventDefault());
 insertBtn.addEventListener("click", () => {
@@ -273,7 +284,17 @@ const editor = new Editor({
       buttons[def.key].classList.toggle("is-active", !!state[def.key]);
     }
     buttons.color.classList.toggle("is-active", !!state.colorKey);
+    const colorTag = state.colorKey || "";
+    if (buttons.color.dataset.color !== colorTag) {
+      buttons.color.innerHTML = colorButtonHtml(state.colorKey);
+      buttons.color.dataset.color = colorTag;
+    }
     buttons.format.classList.toggle("is-active", state.formatKey !== "paragraph" || state.toggleActive);
+    const fmtTag = `${state.formatKey || "paragraph"}:${!!state.toggleActive}`;
+    if (buttons.format.dataset.fmt !== fmtTag) {
+      buttons.format.innerHTML = formatButtonHtml(state);
+      buttons.format.dataset.fmt = fmtTag;
+    }
     for (const def of FORMAT_OPTIONS) {
       const active = def.key === "toggle" ? state.toggleActive : state.formatKey === def.key;
       formatEls[def.key].classList.toggle("is-active", active);

@@ -16,16 +16,19 @@ import {
   buildExtensions,
   BUBBLE_BUTTONS,
   COLOR_BUTTON,
+  colorButtonHtml,
   COLOR_KEYS,
   currentImageWidth,
   EDITOR_TEXT_COLORS,
   FORMAT_BUTTON,
+  formatButtonHtml,
   FORMAT_OPTIONS,
   handleImagePaste,
   IMAGE_BTN_SVG,
   IMAGE_SIZES,
   insertImageFile,
   isImageSelected,
+  PLUS_SVG,
   runBubbleAction,
   setImageWidth,
   mountTableToolbar, insertTable, TABLE_BTN_SVG,
@@ -167,13 +170,15 @@ export default function NotionField({
               aria-label={FORMAT_BUTTON.label}
               className={`nf-btn${state.formatKey !== "paragraph" || state.toggleActive ? " is-active" : ""}`}
               onPointerDown={stop}
-                  onClick={(e) => {
+              onClick={(e) => {
                 stop(e);
                 const bubble = e.currentTarget.closest(".nf-bubble");
                 bubble.querySelector(".nf-formats").classList.toggle("open");
                 bubble.querySelector(".nf-swatches").classList.remove("open");
+                tableToolbarRef.current?.classList.remove("nf-inserting");
+                tableToolbarRef.current?.dispatchEvent(new Event("nf:position-toolbar"));
               }}
-              dangerouslySetInnerHTML={{ __html: FORMAT_BUTTON.html }}
+              dangerouslySetInnerHTML={{ __html: formatButtonHtml(state) }}
             />
             {BUBBLE_BUTTONS.map((b) => (
               <button
@@ -183,10 +188,13 @@ export default function NotionField({
                 aria-label={b.label}
                 className={`nf-btn${state[b.key] ? " is-active" : ""}`}
                 onPointerDown={stop}
-                  onClick={(e) => {
+                onClick={(e) => {
                   stop(e);
                   runBubbleAction(editor, b.key);
-                  e.currentTarget.closest(".nf-bubble").querySelector(".nf-formats").classList.remove("open");
+                  const bubble = e.currentTarget.closest(".nf-bubble");
+                  bubble.querySelector(".nf-formats").classList.remove("open");
+                  bubble.querySelector(".nf-swatches").classList.remove("open");
+                  tableToolbarRef.current?.classList.remove("nf-inserting");
                 }}
                 dangerouslySetInnerHTML={{ __html: b.html }}
               />
@@ -198,13 +206,15 @@ export default function NotionField({
               aria-label={COLOR_BUTTON.label}
               className={`nf-btn${state.colorKey ? " is-active" : ""}`}
               onPointerDown={stop}
-                  onClick={(e) => {
+              onClick={(e) => {
                 stop(e);
-                const row = e.currentTarget.closest(".nf-bubble").querySelector(".nf-swatches");
-                row.classList.toggle("open");
-                e.currentTarget.closest(".nf-bubble").querySelector(".nf-formats").classList.remove("open");
+                const bubble = e.currentTarget.closest(".nf-bubble");
+                bubble.querySelector(".nf-swatches").classList.toggle("open");
+                bubble.querySelector(".nf-formats").classList.remove("open");
+                tableToolbarRef.current?.classList.remove("nf-inserting");
+                tableToolbarRef.current?.dispatchEvent(new Event("nf:position-toolbar"));
               }}
-              dangerouslySetInnerHTML={{ __html: COLOR_BUTTON.html }}
+              dangerouslySetInnerHTML={{ __html: colorButtonHtml(state.colorKey) }}
             />
             <div className="nf-sep" />
             {STRUCTURE_BUTTONS.map((action) => {
@@ -236,19 +246,27 @@ export default function NotionField({
                     const bubble = e.currentTarget.closest(".nf-bubble");
                     bubble.querySelector(".nf-formats").classList.remove("open");
                     bubble.querySelector(".nf-swatches").classList.remove("open");
+                    tableToolbarRef.current?.classList.remove("nf-inserting");
                   }}
                   dangerouslySetInnerHTML={{ __html: action.html }}
                 />
               );
             })}
-            <button type="button" className="nf-btn" aria-label="Insertar" onPointerDown={stop}
-                  onClick={(e) => {
-              stop(e);
-              const root = tableToolbarRef.current;
-              root.classList.toggle("nf-inserting");
-              e.currentTarget.closest(".nf-bubble").querySelectorAll(".nf-formats,.nf-swatches").forEach((panel) => panel.classList.remove("open"));
-              root.dispatchEvent(new Event("nf:position-toolbar"));
-            }}>+</button>
+            <button
+              type="button"
+              className="nf-btn"
+              title="Insertar"
+              aria-label="Insertar"
+              onPointerDown={stop}
+              onClick={(e) => {
+                stop(e);
+                const root = tableToolbarRef.current;
+                root.classList.toggle("nf-inserting");
+                e.currentTarget.closest(".nf-bubble").querySelectorAll(".nf-formats,.nf-swatches").forEach((panel) => panel.classList.remove("open"));
+                root.dispatchEvent(new Event("nf:position-toolbar"));
+              }}
+              dangerouslySetInnerHTML={{ __html: PLUS_SVG }}
+            />
           </div>
           <div className="nf-row nf-formats">
             {FORMAT_OPTIONS.map((option) => (

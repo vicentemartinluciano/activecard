@@ -96,11 +96,14 @@ test("la barra actualiza marcas, color y título al seleccionar otro texto sin e
     expect(document.querySelector('[aria-label="Negrita"]').classList.contains("is-active")).toBe(true);
     await act(async () => mockEditor.chain().setMark("tcolor", { color: "rojo" }).setHeading({ level: 1 }).run());
     expect(document.querySelector('[aria-label="Color del texto"]').classList.contains("is-active")).toBe(true);
+    expect(document.querySelector('[aria-label="Color del texto"]').innerHTML).toContain("#");
     expect(document.querySelector('[aria-label="Título 1"]').classList.contains("is-active")).toBe(true);
+    expect(document.querySelector('[aria-label="Cambiar formato"]').textContent).toContain("H1");
     // El segundo párrafo cambió de posición al pasar el primero a heading,
     // pero conserva su contenido y no tiene ninguna de esas marcas.
     const pos = mockEditor.state.doc.firstChild.nodeSize + 1;
     await act(async () => mockEditor.commands.setTextSelection({ from: pos, to: pos + 3 }));
+    expect(document.querySelector('[aria-label="Cambiar formato"]').textContent).toContain("¶");
     for (const label of ["Negrita", "Color del texto", "Título 1"])
       expect(document.querySelector(`[aria-label="${label}"]`).classList.contains("is-active")).toBe(false);
   } finally {
@@ -134,9 +137,12 @@ test("la pill vive en una sola fila sin nf-structure y aplica el pincel automát
     expect(host.querySelector(".nf-structure")).toBeNull();
     expect(host.querySelector(".nf-format-label")).toBeNull();
     expect(frontButton("Pegar formato")).toBeNull();
-    expect(frontButton("Quitar estilos del texto")).not.toBeNull();
+    expect(frontButton("Quitar estilos del texto").querySelector("svg")).not.toBeNull();
+    expect(frontButton("Insertar").querySelector("svg")).not.toBeNull();
     expect(frontButton("Aumentar sangría").hidden).toBe(true);
     expect(frontButton("Reducir sangría").hidden).toBe(true);
+    const firstRowStyle = getComputedStyle(host.querySelector('[data-testid="front"] .nf-bubble > .nf-row:first-child'));
+    expect(firstRowStyle.flexWrap).toBe("nowrap");
 
     const copyBtn = frontButton("Copiar formato");
     expect(copyBtn.querySelector("svg")).not.toBeNull();
