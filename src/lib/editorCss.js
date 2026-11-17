@@ -103,60 +103,109 @@ export const EDITOR_CSS = TOGGLE_CSS + `
   z-index: 65;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: #1C1C22;
-  border: 1px solid #FFFFFF1F;
-  border-radius: 10px;
-  padding: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  z-index: 65;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100% - 8px);
+  background: rgba(24, 24, 30, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 11px;
+  padding: 4px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 .nf-bubble[hidden] { display: none !important; }
-.nf-insert-menu { display: none; gap: 4px; }
-.nf-inserting .nf-insert-menu { display: flex; flex-direction: column; }
-.nf-insert-menu > .nf-btn { justify-content: flex-start; gap: 12px; padding: 10px 12px; min-height: 42px; }
+.nf-insert-menu {
+  display: none;
+  gap: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 4px;
+  flex-wrap: wrap;
+}
+.nf-inserting .nf-insert-menu { display: flex; flex-direction: row; }
+.nf-insert-menu > .nf-btn {
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  height: 28px;
+  min-height: 28px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+}
+.nf-insert-menu > .nf-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.nf-insert-menu > .nf-btn svg { width: 14px; height: 14px; }
 .nf-bubble * { box-sizing: border-box; }
 .nf-row { display: flex; gap: 4px; align-items: center; }
-.nf-bubble > .nf-row:first-child { gap: 2px; flex-wrap: wrap; }
+.nf-bubble > .nf-row:first-child {
+  gap: 1px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nf-bubble > .nf-row:first-child::-webkit-scrollbar { display: none; }
 .nf-btn:disabled { opacity: .35; cursor: default; }
 .nf-btn[hidden] { display: none; }
 .nf-btn {
-  min-width: 32px;
-  height: 32px;
-  padding: 0 6px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 5px;
   border: none;
   border-radius: 7px;
   background: transparent;
   color: #E9E9EF;
-  font-size: 15px;
+  font-size: 13.5px;
+  font-weight: 600;
   line-height: 1;
+  flex-shrink: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.12s ease, color 0.12s ease;
 }
-.nf-btn:hover { background: #FFFFFF14; }
-.nf-btn.is-active { background: #1C2647; color: #8FA6F3; }
-.nf-btn svg { width: 17px; height: 17px; display: block; }
-.nf-sep { width: 1px; height: 20px; background: #FFFFFF1F; margin: 0 2px; }
+.nf-btn:hover { background: rgba(255, 255, 255, 0.1); }
+.nf-btn.is-active,
+.nf-inserting .nf-bubble [aria-label="Insertar"] {
+  background: #213163;
+  color: #9EB1FF;
+  box-shadow: inset 0 0 0 1px rgba(143, 166, 243, 0.28);
+}
+.nf-btn svg { width: 16px; height: 16px; display: block; }
+.nf-btn svg.nf-chevron { width: 10px; height: 10px; opacity: 0.7; margin-left: 2px; flex-shrink: 0; }
+.nf-btn[aria-label="Cambiar formato"] { gap: 2px; padding: 0 6px; }
+.nf-sep { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.12); margin: 0 3px; flex-shrink: 0; }
 .nf-swatches { display: none; }
-.nf-swatches.open { display: flex; }
+.nf-swatches.open {
+  display: flex;
+  gap: 6px;
+  padding: 6px 4px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
 .nf-formats { display: none; }
-.nf-formats.open { display: flex; flex-wrap: wrap; }
-.nf-format-btn { min-width: 30px; font-size: 12px; font-weight: 700; }
-.nf-format-btn.nf-toggle-option { border-left: 1px solid #ffffff26; border-radius: 0 6px 6px 0; padding: 0 10px; }
+.nf-formats.open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 4px;
+}
+.nf-format-btn { min-width: 28px; font-size: 12px; font-weight: 700; }
+.nf-format-btn.nf-toggle-option { border-left: 1px solid rgba(255, 255, 255, 0.15); border-radius: 0 6px 6px 0; padding: 0 10px; }
 /* Con una imagen seleccionada, la barrita muestra SOLO los tamaños. */
 .nf-imgrow { display: none; }
 .nf-bubble.img-mode .nf-row:not(.nf-imgrow) { display: none; }
 .nf-bubble.img-mode .nf-imgrow { display: flex; }
 .nf-swatch {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
+  transition: transform 0.1s ease;
 }
+.nf-swatch:hover { transform: scale(1.1); }
 .nf-swatch.is-active { border-color: #FFFFFF; }
 `;
 

@@ -75,9 +75,9 @@ export function attachEditorToolbar(editor, host, bubble) {
     }
     const root = host.getBoundingClientRect();
     const cursor = editor.view.coordsAtPos(selection.head);
-    const width = Math.min(host.classList.contains("nf-page") ? 322 : 350, root.width - 8);
-    bubble.style.width = `${width}px`;
-    bubble.style.maxWidth = `${width}px`;
+    const maxWidth = Math.max(240, root.width - 8);
+    bubble.style.width = "max-content";
+    bubble.style.maxWidth = `${maxWidth}px`;
     const bounds = bubble.getBoundingClientRect();
     const x = Math.min(
       Math.max(4, cursor.left - root.left - bounds.width / 2),

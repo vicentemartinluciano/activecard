@@ -34,17 +34,17 @@ en Texto, H1/H2/H3, Cita, Viñetas y Numerada. Cambiar ese formato no lo desacti
 
 ## Pill contextual
 
-La barra vive en una única fila principal compacta y conserva foco y selección.
-Ofrece selector de formato, negrita, cursiva, subrayado, tachado, resaltado,
-alineación, color de texto, pincel de copiar formato, quitar estilos del texto
-y `+` para insertar (desplegable, imagen o tabla); al editar una lista o un
-encabezado desplegable suma en esa misma fila los botones táctiles de sangría y
-reducción de sangría (deshabilitados si la estructura no admite la operación).
-Quitar estilos del texto respeta títulos, listas y desplegables. Al activar el
-pincel (`Copiar formato` o `Ctrl/Cmd+Alt+F`) desde una selección parcial se
-toman las marcas inline; desde un bloque completo o cursor sin selección se
-captura también el tipo de bloque y la alineación. Al marcar el nuevo texto (o
-confirmar con `Ctrl/Cmd+Alt+F` en otra palabra/selección), el formato copiado
+La barra se ajusta al contenido en una única fila horizontal compacta sin cortes
+(`width: max-content`, desplazamiento lateral en anchos muy reducidos) y conserva
+foco y selección. Reúne selector dinámico de formato (insignia del bloque activo),
+estilos inline, alineación, selector de color (barra inferior con el color activo),
+pincel de copiar formato, quitar estilos del texto, sangría táctil contextual (cuando
+se edita una lista o encabezado desplegable) y `+` para insertar en chips horizontales
+(desplegable, imagen o tabla). Quitar estilos del texto respeta títulos, listas y
+desplegables. Al activar el pincel (`Copiar formato` o `Ctrl/Cmd+Alt+F`) desde una
+selección parcial se toman las marcas inline; desde un bloque completo o cursor sin
+selección se captura también el tipo de bloque y la alineación. Al marcar el nuevo
+texto (o confirmar con `Ctrl/Cmd+Alt+F` en otra palabra/selección), el formato copiado
 se aplica automáticamente en el destino —incluyendo Frente ↔ Dorso y entre
 tarjetas— y el pincel se desactiva; tocarlo de nuevo sin cambiar la selección
 también lo desactiva.

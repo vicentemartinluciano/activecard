@@ -271,11 +271,34 @@ const HIGHLIGHTER_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentCol
 // Ícono de alineación (un botón que cicla izquierda → centro → derecha).
 const ALIGN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/></svg>`;
 export const PAINTBRUSH_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.37 2.63a2.12 2.12 0 0 1 3 3L14 13l-4 1 1-4Z"/><path d="M9 14c-2.5 1-4 3.5-4 6 2.5 0 5-1.5 6-4"/></svg>`;
+export const CLEAR_FORMAT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M5 20h6"/><path d="M13 4 8 20"/><path d="m15 15 5 5"/><path d="m20 15-5 5"/></svg>`;
+export const OUTDENT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H11"/><path d="M21 12H11"/><path d="M21 18H11"/><path d="m7 8-4 4 4 4"/></svg>`;
+export const INDENT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H11"/><path d="M21 12H11"/><path d="M21 18H11"/><path d="m3 8 4 4-4 4"/></svg>`;
+export const PLUS_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`;
+
+const CHEVRON_SVG = `<svg class="nf-chevron" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 4.5 3 3 3-3"/></svg>`;
+const FORMAT_BADGES = {
+  paragraph: "¶",
+  heading1: "H1",
+  heading2: "H2",
+  heading3: "H3",
+  quote: "❝",
+  bulletList: "•",
+  orderedList: "1.",
+  mixed: "¶",
+};
+
+export function formatButtonHtml({ formatKey = "paragraph", toggleActive = false } = {}) {
+  const badge = toggleActive && formatKey === "paragraph"
+    ? "▸"
+    : FORMAT_BADGES[formatKey] || FORMAT_BADGES.paragraph;
+  return `<span style="font-size:13px;font-weight:700;line-height:1">${badge}</span>${CHEVRON_SVG}`;
+}
 
 export const FORMAT_BUTTON = {
   key: "format",
   label: "Cambiar formato",
-  html: '<span style="font-size:16px;font-weight:700">¶</span>',
+  html: formatButtonHtml(),
 };
 
 export const FORMAT_OPTIONS = [
@@ -300,9 +323,9 @@ export const BUBBLE_BUTTONS = [
 
 export const STRUCTURE_BUTTONS = [
   { key: "copyFormat", label: "Copiar formato", html: PAINTBRUSH_SVG },
-  { key: "clear", label: "Quitar estilos del texto", html: "Tx" },
-  { key: "outdent", label: "Reducir sangría", html: "⇤" },
-  { key: "indent", label: "Aumentar sangría", html: "⇥" },
+  { key: "clear", label: "Quitar estilos del texto", html: CLEAR_FORMAT_SVG },
+  { key: "outdent", label: "Reducir sangría", html: OUTDENT_SVG },
+  { key: "indent", label: "Aumentar sangría", html: INDENT_SVG },
 ];
 export function canStructureAction(editor, key) {
   if (key === "copyFormat") return !isImageSelected(editor);
@@ -594,11 +617,19 @@ export function pasteFormatToEditor(editor, format = copiedFormatState, { disarm
   return applied;
 }
 
+export function colorButtonHtml(colorKey) {
+  const bar =
+    colorKey && EDITOR_TEXT_COLORS[colorKey]
+      ? EDITOR_TEXT_COLORS[colorKey]
+      : "linear-gradient(90deg,#E5484D,#FFC53D,#46A758,#6E8BEB)";
+  return `<span style="display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1"><span style="font-size:13px;font-weight:700">A</span><span style="width:14px;height:2.5px;border-radius:2px;background:${bar}"></span></span>`;
+}
+
 // El botón de color abre la fila de swatches (no aplica nada por sí mismo).
 export const COLOR_BUTTON = {
   key: "color",
   label: "Color del texto",
-  html: '<span style="display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1"><span style="font-size:13px;font-weight:700">A</span><span style="width:14px;height:3px;border-radius:2px;background:linear-gradient(90deg,#E5484D,#FFC53D,#46A758,#6E8BEB)"></span></span>',
+  html: colorButtonHtml(null),
 };
 
 // Estado activo de cada botón, para pintarlos en el bubble.
