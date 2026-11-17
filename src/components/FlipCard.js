@@ -5,7 +5,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useContext, useEffect, useRef, useState } from "react";
-import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import RichText from "./RichText";
 import { StudyInteractionContext } from "./StudyInteractionContext";
@@ -73,14 +73,18 @@ export default function FlipCard({
       return;
     }
     if (showBack === flipped) return;
-    Animated.timing(scaleX, { toValue: 0, duration: 110, useNativeDriver: true }).start(
-      ({ finished }) => {
-        if (!finished) return;
-        setShowBack(flipped);
-        scrollRef.current?.scrollTo({ y: 0, animated: false });
-        Animated.timing(scaleX, { toValue: 1, duration: 110, useNativeDriver: true }).start();
-      }
-    );
+    const half = (to) => Animated.timing(scaleX, {
+      toValue: to,
+      duration: 120,
+      useNativeDriver: true,
+      easing: to === 0 ? Easing.in(Easing.cubic) : Easing.out(Easing.cubic),
+    });
+    half(0).start(({ finished }) => {
+      if (!finished) return;
+      setShowBack(flipped);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      half(1).start();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId, flipped, showBack]);
 
@@ -89,7 +93,7 @@ export default function FlipCard({
 
   return (
     <Surface onPress={handleFlip} accessibilityRole="button" accessibilityLabel={showBack ? "Volver a la pregunta" : "Mostrar respuesta"} style={[styles.wrapper, height < 700 && { minHeight: 220 }]}>
-      <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
+      <Animated.View style={[styles.card, { transform: [{ scaleX }, { scaleY: scaleX.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
         <View style={styles.face}>
           {/* ScrollView: el dorso (o el frente) largo se lee scrolleando en
               vertical. El swipe horizontal lo sigue tomando el PanResponder del
