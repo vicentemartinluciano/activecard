@@ -31,7 +31,7 @@ export function positionEditorPanel(host, panel, anchor, preferAbove = false) {
   const root = host.getBoundingClientRect();
   const viewport = visibleEditorBounds(host);
   panel.style.maxHeight = `${Math.max(44, viewport.bottom - viewport.top - 8)}px`;
-  const height = panel.getBoundingClientRect().height;
+  const height = panel.offsetHeight || panel.getBoundingClientRect().height;
   const position = floatingPanelPosition({
     ...viewport,
     anchorTop: anchor.top - root.top,

@@ -207,6 +207,20 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 }
 .nf-swatch:hover { transform: scale(1.1); }
 .nf-swatch.is-active { border-color: #FFFFFF; }
+@keyframes nf-pop { from { opacity: 0; transform: translateY(4px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes nf-reveal { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.nf-bubble:not([hidden]) { animation: nf-pop 140ms cubic-bezier(.16,1,.3,1); transform-origin: 50% 100%; }
+.nf-formats.open, .nf-swatches.open, .nf-inserting .nf-insert-menu { animation: nf-reveal 120ms ease-out; }
+@media (pointer: coarse) {
+  .nf-btn { height: 34px; min-width: 34px; }
+  .nf-bubble > .nf-row:first-child { gap: 2px; }
+  .nf-sep { margin: 0 4px; height: 18px; }
+  .nf-insert-menu > .nf-btn { height: 34px; min-height: 34px; }
+  .nf-swatch { width: 26px; height: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-bubble:not([hidden]), .nf-formats.open, .nf-swatches.open, .nf-inserting .nf-insert-menu { animation: none; }
+}
 `;
 
 // Solo para la página del WebView (nativo): ahí el editor ES toda la página.

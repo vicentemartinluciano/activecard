@@ -78,7 +78,7 @@ export function attachEditorToolbar(editor, host, bubble) {
     const maxWidth = Math.max(240, root.width - 8);
     bubble.style.width = "max-content";
     bubble.style.maxWidth = `${maxWidth}px`;
-    const bounds = bubble.getBoundingClientRect();
+    const bounds = { width: bubble.offsetWidth || bubble.getBoundingClientRect().width };
     const x = Math.min(
       Math.max(4, cursor.left - root.left - bounds.width / 2),
       Math.max(4, root.width - bounds.width - 4)
