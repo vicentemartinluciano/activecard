@@ -541,7 +541,11 @@ export default function DetalleMazo() {
                 <Button label={`Filtros${cardFilter ? " (1)" : ""}`} kind={filtersOpen || cardFilter != null ? "primary" : "ghost"} onPress={() => setFiltersOpen((open) => !open)} />
               </View>
               {filtersOpen || cardFilter != null ? (
-                <View style={styles.tagRow}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.md }}
+                >
                   <Chip
                     label="Todas"
                     active={cardFilter == null}
@@ -586,7 +590,7 @@ export default function DetalleMazo() {
                       setCardFilter(cardFilter === "suspended" ? null : "suspended")
                     }
                   />
-                </View>
+                </ScrollView>
               ) : null}
               <View style={styles.cardsToolbar}>
                 <Text style={type.label}>
