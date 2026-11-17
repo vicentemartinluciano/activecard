@@ -5,8 +5,9 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text } from "react-native";
+import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
+import BrainMark from "../../components/BrainMark";
 import Toast from "../../components/Toast";
 import { Card, EmptyState, Screen } from "../../components/ui";
 import { listIdeaCards } from "../../db/cards";
@@ -43,29 +44,72 @@ export default function IdeasDelMazo() {
   useFocusEffect(refresh);
 
   return (
-    <Screen>
-      <Stack.Screen options={{ title: deck ? deck.name : "Ideas" }} />
+    <Screen safeTop style={Platform.OS === "web" ? { maxWidth: 880, padding: 24 } : undefined}>
+      <Stack.Screen options={{ title: deck ? deck.name : "Ideas", headerShown: false }} />
+      <View style={styles.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Volver a Ideas"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/gimnasio/ideas"))}
+          style={styles.headerButton}
+        >
+          <Feather name="arrow-left" size={23} color={colors.text} />
+        </Pressable>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+            <BrainMark size={26} />
+            <Text style={styles.headerTitle}>Gimnasio</Text>
+          </View>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {deck ? `Ideas · ${deck.name}` : "Ideas del mazo"}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Historial de conversaciones"
+          onPress={() => router.push("/gimnasio/historial")}
+          style={styles.iconButton}
+        >
+          <Feather name="clock" size={20} color={colors.text} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Nueva conversación"
+          onPress={() => router.push("/gimnasio/chat")}
+          style={styles.iconButton}
+        >
+          <Feather name="edit-3" size={20} color={colors.text} />
+        </Pressable>
+      </View>
       <FlatList
         data={ideas}
         keyExtractor={(c) => String(c.id)}
-        contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
+        contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.md, paddingBottom: spacing.xl }}
         ListEmptyComponent={<EmptyState text="Este mazo ya no tiene ideas." />}
         renderItem={({ item }) => (
           <Card
             level="high"
-            onPress={() => router.push(`/mazos/${id}/tarjeta?cardId=${item.id}`)}
             style={styles.item}
           >
-            <Text style={styles.front} numberOfLines={2}>
-              {toPlainText(item.front)}
-            </Text>
-            <Text style={type.small} numberOfLines={1}>
-              {toPlainText(item.back)}
-            </Text>
-            <Text style={styles.date}>
-              {new Date(item.created_at).toLocaleDateString("es-AR")}
-            </Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Editar idea ${toPlainText(item.front)}`}
+              onPress={() => router.push(`/mazos/${id}/tarjeta?cardId=${item.id}`)}
+              style={({ pressed }) => [{ gap: spacing.xs }, pressed && { opacity: 0.75 }]}
+            >
+              <Text style={styles.front} numberOfLines={2}>
+                {toPlainText(item.front)}
+              </Text>
+              <Text style={type.small} numberOfLines={1}>
+                {toPlainText(item.back)}
+              </Text>
+              <Text style={styles.date}>
+                {new Date(item.created_at).toLocaleDateString("es-AR")}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ver la charla de esta idea"
               onPress={() => router.push(`/gimnasio/charla?cardId=${item.id}`)}
               style={({ pressed }) => [styles.chatLink, pressed && { opacity: 0.65 }]}
             >
@@ -87,6 +131,37 @@ export default function IdeasDelMazo() {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+  },
+  headerTitle: {
+    ...type.heading,
+    fontSize: 22,
+  },
+  subtitle: {
+    ...type.small,
+    fontSize: 13,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(21,21,24,0.7)",
+  },
   item: {
     borderRadius: radius.md,
     gap: spacing.xs,

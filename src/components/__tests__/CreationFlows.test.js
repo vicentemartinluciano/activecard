@@ -26,7 +26,7 @@ jest.mock('@expo/vector-icons/Feather', () => () => null);
 jest.mock('../DeckListItem', () => (props) => require('react').createElement('deck-item', props));
 jest.mock('../LibraryBreadcrumbs', () => () => null);
 jest.mock('../Toast', () => (props) => require('react').createElement('toast', props));
-jest.mock('../../db/decks', () => ({ createDeck: jest.fn(), listDecks: jest.fn(), setDeckFolder: jest.fn() }));
+jest.mock('../../db/decks', () => ({ createDeck: jest.fn(), listDecks: jest.fn(), setDeckFolder: jest.fn(), deleteDeck: jest.fn() }));
 jest.mock('../../db/cards', () => ({ createCard: jest.fn() }));
 jest.mock('../../db/folders', () => ({ createFolder: jest.fn(), listFolders: jest.fn() }));
 jest.mock('../../lib/draftStore', () => ({ DRAFT_KEY: 'generationDraft', getDraft: () => mockDraft, loadDraft: jest.fn(async () => mockDraft), persistDraft: jest.fn(async (value) => { mockDraft = value; }), clearDraft: jest.fn() }));

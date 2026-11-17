@@ -32,9 +32,7 @@ function greeting(date = new Date()) {
 }
 
 function HomeDeckArea({ children }) {
-  return Platform.OS === 'web'
-    ? <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 24 }}>{children}</ScrollView>
-    : <View style={{ gap: 28 }}>{children}</View>;
+  return <View style={{ flex: 1, gap: Platform.OS === "web" ? 24 : 28 }}>{children}</View>;
 }
 
 export default function Inicio() {
@@ -104,7 +102,7 @@ export default function Inicio() {
 
   const remaining = stats ? stats.remaining : null;
   const completedToday = stats && stats.total > 0 && stats.remaining === 0;
-  const visibleRecent = homeDecks(inProgressDecks, recentDecks, workspaceHeight);
+  const visibleRecent = homeDecks(inProgressDecks, recentDecks, desktop ? workspaceHeight : 520);
 
   if (!loaded) {
     return (
@@ -161,7 +159,7 @@ export default function Inicio() {
 
       <ScrollView contentContainerStyle={[styles.body, desktop && { paddingHorizontal: spacing.lg }]}>
         <View style={Platform.OS === 'web' ? { flexDirection: 'row', flexWrap: 'wrap', gap: 28, paddingTop: 24 } : undefined}>
-        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 460, minWidth: 0, ...(desktop ? { height: workspaceHeight } : { width: '100%' }) } : undefined}>
+        <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 460, minWidth: 0, ...(desktop ? { minHeight: workspaceHeight } : { width: '100%' }) } : undefined}>
         <View style={Platform.OS === 'web' ? { flex: 1 } : undefined}>
         {/* El hero: una luz gira por el borde de forma permanente (BorderLight)
             y el halo cobalto se enciende al tocar la tarjeta O al apretar el
@@ -252,25 +250,40 @@ export default function Inicio() {
               <Card
                 key={d.id}
                 level="high"
-                onPress={() => router.push(`/mazos/${d.id}/estudiar`)}
-                style={styles.deckRow}
+                style={[styles.deckRow, styles.deckProgressCard]}
               >
-                <Feather name={d.icon || "book"} size={22} color={colors.accentText} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.deckName} numberOfLines={2}>{d.name}</Text>
-                  <ProgressBar
-                    pct={d.progress.pct}
-                    gradient={gradients.progress}
-                    glowStyle={glow.green}
-                    style={{ marginTop: 8 }}
-                  />
-                </View>
-                <Text style={styles.deckPct}>{Math.round(d.progress.pct)}%</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Abrir mazo ${d.name}`}
+                  onPress={() => router.push(`/mazos/${d.id}`)}
+                  style={({ pressed }) => [styles.deckProgressMain, pressed && { opacity: 0.75 }]}
+                >
+                  <Feather name={d.icon || "book"} size={22} color={colors.accentText} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.deckName} numberOfLines={2}>{d.name}</Text>
+                    <ProgressBar
+                      pct={d.progress.pct}
+                      gradient={gradients.progress}
+                      glowStyle={glow.green}
+                      style={{ marginTop: 8 }}
+                    />
+                  </View>
+                  <Text style={styles.deckPct}>{Math.round(d.progress.pct)}%</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Continuar estudio de ${d.name}`}
+                  hitSlop={8}
+                  onPress={() => router.push(`/mazos/${d.id}/estudiar`)}
+                  style={({ pressed }) => [styles.studyQuickBtn, pressed && { opacity: 0.7 }]}
+                >
+                  <Feather name="play" size={16} color={colors.accentText} />
+                </Pressable>
               </Card>
             ))}
           </View>
         ) : null}
-        {Platform.OS === 'web' && visibleRecent.length > 0 && <View style={styles.section}>
+        {visibleRecent.length > 0 && <View style={styles.section}>
           <View style={styles.sectionHeader}><Text style={type.label}>MAZOS RECIENTES</Text><Pressable accessibilityRole="button" onPress={() => router.push('/biblioteca')}><Text style={styles.sectionLink}>Ver todos</Text></Pressable></View>
           {visibleRecent.map((deck) => <Card key={deck.id} onPress={() => router.push(`/mazos/${deck.id}`)} style={styles.deckRow}>
             <Feather name={deck.icon || 'layers'} size={24} color={colors.accentText} /><View style={{ flex: 1, minWidth: 0 }}><Text style={styles.deckName} numberOfLines={2}>{deck.name}</Text><Text style={type.small}>{deck.card_count} {deck.card_count === 1 ? 'tarjeta' : 'tarjetas'}</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
@@ -433,6 +446,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderRadius: radius.md,
     ...(Platform.OS === 'web' ? { minHeight: 96, paddingVertical: 18 } : {}),
+  },
+  deckProgressCard: {
+    padding: 0,
+    paddingVertical: 0,
+    gap: 0,
+    paddingRight: spacing.md,
+  },
+  deckProgressMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: Platform.OS === 'web' ? 18 : spacing.lg,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+  },
+  studyQuickBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
   deckName: {
     fontSize: 19,

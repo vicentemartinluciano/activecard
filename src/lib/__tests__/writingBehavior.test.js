@@ -1,6 +1,16 @@
 /** @jest-environment jsdom */
 import { Editor } from "@tiptap/core";
-import { buildExtensions, applyFormat, currentFormat, runBubbleAction, canStructureAction } from "../editorSetup";
+import {
+  buildExtensions,
+  applyFormat,
+  currentFormat,
+  runBubbleAction,
+  canStructureAction,
+  copyFormatFromEditor,
+  pasteFormatToEditor,
+  getCopiedFormat,
+  setCopiedFormat,
+} from "../editorSetup";
 import { htmlToMarks, marksToHtml } from "../richhtml";
 
 let editor;
@@ -20,6 +30,7 @@ const input = (inputType, extra = {}) => {
   return event.defaultPrevented;
 };
 beforeEach(() => {
+  setCopiedFormat(null);
   window.scrollBy = jest.fn();
   const rect = { left: 0, right: 100, top: 0, bottom: 24, width: 100, height: 24 };
   Range.prototype.getBoundingClientRect = () => rect;
@@ -172,4 +183,92 @@ test.each(["bold", "clear", "heading2"])("deshacer %s no borra el texto recién 
   editor.commands.undo(); expect(editor.state.doc.textContent).toBe("Uno Dos");
   expect(editor.state.doc.firstChild.type.name).toBe("paragraph");
   expect(editor.getHTML().includes("<strong>")).toBe(action === "clear");
+});
+
+test("copiar y pegar formato conserva todas las marcas inline combinadas al guardar y reabrir", () => {
+  load('<p><strong><em><u><s><mark><span data-color="rojo">Origen</span></mark></s></u></em></strong> normal</p><p>Destino parcial</p>');
+  select("Origen normal", 0, 6);
+  runBubbleAction(editor, "copyFormat");
+  expect(getCopiedFormat()).toMatchObject({
+    bold: true,
+    italic: true,
+    underline: true,
+    strike: true,
+    highlight: true,
+    colorKey: "rojo",
+    fullBlock: false,
+  });
+  select("Destino parcial", 0, 7);
+  runBubbleAction(editor, "pasteFormat");
+  const saved = reopen();
+  expect(htmlToMarks(editor.getHTML())).toBe(saved);
+  const html = editor.getHTML();
+  expect(html).toContain("Destino");
+  expect(html).toMatch(/<strong>.*Destino.*<\/strong>/);
+  expect(html).toMatch(/<em>.*Destino.*<\/em>/);
+  expect(html).toMatch(/<u>.*Destino.*<\/u>/);
+  expect(html).toMatch(/<s>.*Destino.*<\/s>/);
+  expect(html).toMatch(/<mark>.*Destino.*<\/mark>/);
+  expect(html).toMatch(/data-color="rojo"[^>]*>.*Destino/);
+  expect(html).toContain(" parcial</p>");
+});
+
+test("pegar formato distingue bloque completo frente a selección parcial o lista", () => {
+  load('<h2 style="text-align: right"><strong><span data-color="azul">Título</span></strong></h2><p>Párrafo entero</p><ul><li><p>Ítem de lista</p></li></ul><p>Normal</p>');
+  select("Título", 0, 6);
+  expect(copyFormatFromEditor(editor)).toMatchObject({
+    formatKey: "heading2",
+    textAlign: "right",
+    bold: true,
+    colorKey: "azul",
+    fullBlock: true,
+  });
+
+  select("Párrafo entero", 0, 14);
+  expect(pasteFormatToEditor(editor)).toBe(true);
+  expect(editor.state.doc.child(1).type.name).toBe("heading");
+  expect(editor.state.doc.child(1).attrs).toMatchObject({ level: 2, textAlign: "right" });
+  expect(editor.getHTML()).toMatch(/<h2[^>]*text-align:\s*right[^>]*>.*<strong>.*Párrafo entero.*<\/strong>/);
+
+  select("Ítem de lista", 5, 2);
+  expect(pasteFormatToEditor(editor)).toBe(true);
+  expect(editor.state.doc.child(2).type.name).toBe("bulletList");
+  expect(editor.getHTML()).toMatch(/<li><p>Ítem <strong><span data-color="azul"[^>]*>de<\/span><\/strong> lista<\/p><\/li>/);
+
+  select("Normal", 0, 6);
+  copyFormatFromEditor(editor);
+  select("Título", 0, 6);
+  expect(pasteFormatToEditor(editor)).toBe(true);
+  expect(editor.state.doc.firstChild.type.name).toBe("paragraph");
+  expect(editor.state.doc.firstChild.attrs.textAlign).toBe("left");
+});
+
+test("deshacer y rehacer el pegado de formato actúa en un solo paso y conserva el texto recién escrito", () => {
+  load('<p><strong><span data-color="verde">Fuente</span></strong></p><p>Base</p>');
+  select("Fuente", 0, 6);
+  copyFormatFromEditor(editor);
+  select("Base", 4);
+  editor.commands.insertContent(" nueva");
+  select("Base nueva", 5, 5);
+  const beforePaste = editor.getHTML();
+
+  expect(pasteFormatToEditor(editor)).toBe(true);
+  expect(editor.getHTML()).toMatch(/Base <strong><span data-color="verde"[^>]*>nueva<\/span><\/strong>/);
+
+  expect(editor.commands.undo()).toBe(true);
+  expect(editor.getHTML()).toBe(beforePaste);
+
+  expect(editor.commands.redo()).toBe(true);
+  expect(editor.getHTML()).toMatch(/Base <strong><span data-color="verde"[^>]*>nueva<\/span><\/strong>/);
+});
+
+test("atajos Ctrl+Alt+C y Ctrl+Alt+V copian y pegan formato incluyendo palabra bajo el cursor", () => {
+  load('<p><em><mark>Clave</mark></em></p><p>Uno dos tres</p>');
+  select("Clave", 2);
+  expect(key("c", { ctrlKey: true, altKey: true })).toBe(true);
+  select("Uno dos tres", 5);
+  expect(key("v", { ctrlKey: true, altKey: true })).toBe(true);
+
+  expect(editor.state.selection.empty).toBe(true);
+  expect(editor.getHTML()).toContain("<p>Uno <em><mark>dos</mark></em> tres</p>");
 });

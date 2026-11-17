@@ -31,7 +31,7 @@ import {
   runBubbleAction,
   setImageWidth,
   mountTableToolbar, insertTable, TABLE_BTN_SVG,
-  STRUCTURE_BUTTONS, canStructureAction,
+  STRUCTURE_BUTTONS, canStructureAction, setCopiedFormat, subscribeCopiedFormat,
 } from "../src/lib/editorSetup";
 
 const post = (msg) => window.ReactNativeWebView?.postMessage(JSON.stringify(msg));
@@ -100,6 +100,9 @@ for (const action of STRUCTURE_BUTTONS) {
   const button = document.createElement("button");
   button.type = "button"; button.className = "nf-btn";
   button.title = action.label; button.setAttribute("aria-label", action.label); button.textContent = action.html;
+  if (action.key === "pasteFormat") button.disabled = true;
+  if (action.key === "copyFormat") button.setAttribute("aria-pressed", "false");
+  if (["outdent", "indent"].includes(action.key)) button.hidden = true;
   button.addEventListener("pointerdown", event => event.preventDefault());
   button.addEventListener("click", () => runBubbleAction(editor, action.key));
   structure.appendChild(button); structureButtons[action.key] = button;
@@ -256,8 +259,10 @@ const editor = new Editor({
     const state = activeStates(editor);
     for (const action of STRUCTURE_BUTTONS) {
       structureButtons[action.key].disabled = !canStructureAction(editor, action.key);
-      structureButtons[action.key].hidden = action.key !== "clear" && !state.inList && !state.toggleActive;
+      structureButtons[action.key].hidden = ["outdent", "indent"].includes(action.key) && !state.inList && !state.toggleActive;
     }
+    structureButtons.copyFormat.classList.toggle("is-active", !!state.hasCopiedFormat);
+    structureButtons.copyFormat.setAttribute("aria-pressed", String(!!state.hasCopiedFormat));
     for (const def of BUBBLE_BUTTONS) {
       buttons[def.key].classList.toggle("is-active", !!state[def.key]);
     }
@@ -277,6 +282,10 @@ const editor = new Editor({
 mountTableToolbar(editor, host);
 
 attachEditorToolbar(editor, host, bubble);
+
+subscribeCopiedFormat((format) => {
+  post({ type: "copyFormat", format });
+});
 
 // Pegar imágenes desde el portapapeles (además del botón de archivo).
 editor.view.dom.addEventListener("paste", (e) => handleImagePaste(editor, e));
@@ -321,6 +330,10 @@ window.__editor = {
   },
   focus() {
     editor.commands.focus("end");
+  },
+  setCopiedFormat(format) {
+    setCopiedFormat(format, { notify: false });
+    editor.view.dispatch(editor.state.tr.setMeta("nfFormatPainter", true).setMeta("addToHistory", false));
   },
 };
 

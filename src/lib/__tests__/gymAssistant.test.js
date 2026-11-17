@@ -1,4 +1,5 @@
 import { validateGymTurn } from "../gymAssistant";
+import { decodeToggle, toPlainText } from "../richtext";
 
 test("acepta conversación normal sin acción", () => {
   expect(validateGymTurn({ message: "Podemos mirar ese tema desde otro ángulo.", action: null })).toEqual({
@@ -64,4 +65,32 @@ test("rechaza una eliminación de carpeta con IDs inválidos", () => {
     message: "Preparé la eliminación.",
     action: { type: "delete_folder", folderId: 3, deleteDeckIds: [4, "x"] },
   })).toThrow(/selección de mazos/);
+});
+
+test("acepta y compila bloques ricos en edit_card y create_card", () => {
+  const blocks = [
+    { type: "paragraph", text: "**Idea central** → resumen breve" },
+    { type: "toggle", title: "**Ejemplo concreto**", blocks: [{ type: "paragraph", text: "Detalle desplegable" }] },
+  ];
+  const edited = validateGymTurn({
+    message: "Sumé un desplegable.",
+    action: { type: "edit_card", cardId: 4, front: "Pregunta", back: blocks },
+  });
+  expect(typeof edited.action.back).toBe("string");
+  const lines = edited.action.back.split("\n");
+  expect(decodeToggle(lines[1])).toEqual({
+    summary: "**Ejemplo concreto**",
+    content: "Detalle desplegable",
+  });
+  expect(toPlainText(edited.action.back)).toContain("Ejemplo concreto");
+
+  const batch = validateGymTurn({
+    message: "Preparé tarjetas.",
+    action: {
+      type: "create_cards",
+      deckId: 2,
+      cards: [{ front: "¿Qué es?", back: [{ type: "paragraph", text: "Respuesta" }] }],
+    },
+  });
+  expect(batch.action.cards[0].back).toBe("Respuesta");
 });

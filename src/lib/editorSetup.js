@@ -4,7 +4,7 @@
 
 import { Extension, textInputRule, wrappingInputRule } from "@tiptap/core";
 import { Blockquote } from "@tiptap/extension-blockquote";
-import { Plugin } from "@tiptap/pm/state";
+import { Plugin, TextSelection } from "@tiptap/pm/state";
 import { closeHistory } from "@tiptap/pm/history";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Placeholder } from "@tiptap/extensions";
@@ -26,6 +26,12 @@ const Shortcuts = Extension.create({
   name: "activecardShortcuts",
   addInputRules() {
     return [textInputRule({ find: /->$/, replace: "→" })];
+  },
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Alt-c": () => Boolean(copyFormatFromEditor(this.editor)),
+      "Mod-Alt-v": () => pasteFormatToEditor(this.editor),
+    };
   },
   addProseMirrorPlugins() {
     return [new Plugin({ props: { handleDOMEvents: { beforeinput: (_view, event) => {
@@ -219,9 +225,13 @@ export const BUBBLE_BUTTONS = [
 export const STRUCTURE_BUTTONS = [
   { key: "outdent", label: "Reducir sangría", html: "⇤" },
   { key: "indent", label: "Aumentar sangría", html: "⇥" },
+  { key: "copyFormat", label: "Copiar formato", html: "Copiar" },
+  { key: "pasteFormat", label: "Pegar formato", html: "Pegar" },
   { key: "clear", label: "Quitar estilos del texto", html: "Tx" },
 ];
 export function canStructureAction(editor, key) {
+  if (key === "copyFormat") return !isImageSelected(editor);
+  if (key === "pasteFormat") return hasCopiedFormat() && !isImageSelected(editor);
   if (toggleSummaryDepth(editor.state.selection.$from) != null) {
     if (key === "indent") return editor.can().indentToggle();
     if (key === "outdent") return editor.can().outdentToggle();
@@ -229,6 +239,254 @@ export function canStructureAction(editor, key) {
   if (key === "indent") return editor.can().sinkListItem("listItem");
   if (key === "outdent") return editor.can().liftListItem("listItem");
   return true;
+}
+
+let copiedFormatState = null;
+const formatListeners = new Set();
+
+export function getCopiedFormat() {
+  return copiedFormatState;
+}
+
+export function hasCopiedFormat() {
+  return Boolean(copiedFormatState);
+}
+
+export function setCopiedFormat(format, { notify = true } = {}) {
+  copiedFormatState = format ? { ...format } : null;
+  if (notify) {
+    for (const listener of formatListeners) {
+      listener(copiedFormatState);
+    }
+  }
+}
+
+export function subscribeCopiedFormat(listener) {
+  formatListeners.add(listener);
+  return () => formatListeners.delete(listener);
+}
+
+function hasAncestor($pos, name) {
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type.name === name) return true;
+  }
+  return false;
+}
+
+export function copyFormatFromEditor(editor) {
+  if (!editor || isImageSelected(editor)) return null;
+  const { from, to, empty, $from, $to } = editor.state.selection;
+  let marks = null;
+  if (!empty) {
+    let nonBlankMarks = null;
+    let fallbackMarks = null;
+    editor.state.doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isText) return;
+      const startInNode = Math.max(0, from - pos);
+      const endInNode = Math.min(node.text.length, to - pos);
+      if (endInNode <= startInNode) return;
+      if (!fallbackMarks) fallbackMarks = node.marks;
+      if (node.text.slice(startInNode, endInNode).trim().length > 0) {
+        nonBlankMarks = node.marks;
+        return false;
+      }
+    });
+    marks = nonBlankMarks || fallbackMarks || $from.marks();
+  } else {
+    marks = editor.state.storedMarks || $from.marks();
+  }
+
+  const bold = marks.some((m) => m.type.name === "bold");
+  const italic = marks.some((m) => m.type.name === "italic");
+  const underline = marks.some((m) => m.type.name === "underline");
+  const strike = marks.some((m) => m.type.name === "strike");
+  const highlight = marks.some((m) => m.type.name === "highlight");
+  const colorKey = marks.find((m) => m.type.name === "tcolor")?.attrs?.color || null;
+
+  let formatKey = "paragraph";
+  if ($from.parent.type.name === "heading") {
+    formatKey = `heading${$from.parent.attrs.level}`;
+  } else {
+    for (let depth = $from.depth - 1; depth > 0; depth--) {
+      const name = $from.node(depth).type.name;
+      if (name === "blockquote") {
+        formatKey = "quote";
+        break;
+      }
+      if (name === "bulletList") {
+        formatKey = "bulletList";
+        break;
+      }
+      if (name === "orderedList") {
+        formatKey = "orderedList";
+        break;
+      }
+    }
+  }
+
+  const defaultAlign =
+    editor.extensionManager.extensions.find((extension) => extension.name === "textAlign")?.options.defaultAlignment ||
+    "left";
+  const quoteAlign = editor.getAttributes("blockquote").textAlign;
+  const parentAlign = $from.parent.attrs?.textAlign;
+  const rawAlign = quoteAlign && quoteAlign !== defaultAlign ? quoteAlign : parentAlign;
+  const textAlign = rawAlign && rawAlign !== defaultAlign ? rawAlign : null;
+
+  const selectedText = empty ? "" : editor.state.doc.textBetween(from, to, "\n", "\0");
+  const parentText = $from.parent.isTextblock ? $from.parent.textContent : "";
+  const fullBlock =
+    empty ||
+    !$from.sameParent($to) ||
+    ($from.parent.isTextblock && selectedText.trim().length > 0 && selectedText.trim() === parentText.trim());
+  const hasInlineMarks = Boolean(bold || italic || underline || strike || highlight || colorKey);
+
+  const snapshot = {
+    bold,
+    italic,
+    underline,
+    strike,
+    highlight,
+    colorKey,
+    formatKey,
+    textAlign,
+    fullBlock,
+    hasInlineMarks,
+  };
+  setCopiedFormat(snapshot);
+  editor.view.dispatch(editor.state.tr.setMeta("nfFormatPainter", true).setMeta("addToHistory", false));
+  return snapshot;
+}
+
+export function pasteFormatToEditor(editor, format = copiedFormatState) {
+  if (!editor || !format || isImageSelected(editor)) return false;
+  const { from, to, empty, $from, $to } = editor.state.selection;
+  let expandedWord = false;
+  let wordFrom = from;
+  let wordTo = to;
+
+  if (empty && $from.parent.isTextblock && $from.parent.content.size > 0) {
+    const blockStart = $from.start();
+    const offset = $from.parentOffset;
+    const text = $from.parent.textContent;
+    let startOffset = offset;
+    let endOffset = offset;
+    while (startOffset > 0 && !/\s/.test(text[startOffset - 1])) startOffset--;
+    while (endOffset < text.length && !/\s/.test(text[endOffset])) endOffset++;
+    if (endOffset > startOffset) {
+      expandedWord = true;
+      wordFrom = blockStart + startOffset;
+      wordTo = blockStart + endOffset;
+    }
+  }
+
+  const targetFullBlock = empty
+    ? $from.parent.content.size === 0
+    : !$from.sameParent($to) ||
+      ($from.parent.isTextblock &&
+        editor.state.doc.textBetween(from, to, "\n", "\0").trim() === $from.parent.textContent.trim());
+
+  const shouldApplyBlock =
+    Boolean(format.fullBlock) &&
+    targetFullBlock &&
+    (format.formatKey !== "paragraph" ||
+      (!format.hasInlineMarks &&
+        !editor.isActive("bulletList") &&
+        !editor.isActive("orderedList") &&
+        (editor.isActive("heading") || editor.isActive("blockquote"))));
+
+  const chain = editor.chain().focus().command(({ tr }) => {
+    closeHistory(tr);
+    return true;
+  });
+
+  if (expandedWord) {
+    chain.setTextSelection({ from: wordFrom, to: wordTo });
+  }
+
+  if (shouldApplyBlock) {
+    chain.command(({ state: s, commands }) => {
+      const $pos = s.selection.$from;
+      if (format.formatKey !== "bulletList" && hasAncestor($pos, "bulletList")) {
+        commands.toggleBulletList();
+      }
+      if (format.formatKey !== "orderedList" && hasAncestor(s.selection.$from, "orderedList")) {
+        commands.toggleOrderedList();
+      }
+      if (format.formatKey !== "quote" && hasAncestor(s.selection.$from, "blockquote")) {
+        commands.unsetBlockquote();
+      }
+      if (format.formatKey === "heading1") return commands.setHeading({ level: 1 });
+      if (format.formatKey === "heading2") return commands.setHeading({ level: 2 });
+      if (format.formatKey === "heading3") return commands.setHeading({ level: 3 });
+      if (format.formatKey === "quote") {
+        if (!hasAncestor(s.selection.$from, "blockquote")) {
+          return commands.setParagraph() && commands.setBlockquote();
+        }
+        return commands.setParagraph();
+      }
+      if (format.formatKey === "bulletList") {
+        if (!hasAncestor(s.selection.$from, "bulletList")) {
+          return commands.setParagraph() && commands.toggleBulletList();
+        }
+        return commands.setParagraph();
+      }
+      if (format.formatKey === "orderedList") {
+        if (!hasAncestor(s.selection.$from, "orderedList")) {
+          return commands.setParagraph() && commands.toggleOrderedList();
+        }
+        return commands.setParagraph();
+      }
+      return commands.setParagraph();
+    });
+  }
+
+  if (format.fullBlock && targetFullBlock) {
+    const targetDefaultAlign =
+      editor.extensionManager.extensions.find((extension) => extension.name === "textAlign")?.options
+        .defaultAlignment || "left";
+    chain.command(({ state: s, commands }) => {
+      const $pos = s.selection.$from;
+      if (hasAncestor($pos, "bulletList") || hasAncestor($pos, "orderedList")) return true;
+      commands.setTextAlign(format.textAlign || targetDefaultAlign);
+      return true;
+    });
+  }
+
+  chain.unsetAllMarks();
+  chain.command(({ tr }) => {
+    if (tr.selection.empty) tr.setStoredMarks([]);
+    return true;
+  });
+  if (format.bold) chain.setBold();
+  if (format.italic) chain.setItalic();
+  if (format.underline) chain.setUnderline();
+  if (format.strike) chain.setStrike();
+  if (format.highlight) chain.setHighlight();
+  if (format.colorKey) chain.setMark("tcolor", { color: format.colorKey });
+
+  if (expandedWord) {
+    // Restaurar el cursor colapsado para que seguir escribiendo no borre la palabra formateada.
+    chain.command(({ tr }) => {
+      const mapped = tr.mapping.map(from);
+      const clamped = Math.max(0, Math.min(mapped, tr.doc.content.size));
+      tr.setSelection(TextSelection.near(tr.doc.resolve(clamped)));
+      return true;
+    });
+  }
+
+  chain.command(({ tr }) => {
+    closeHistory(tr);
+    return true;
+  });
+
+  const applied = chain.run();
+  if (applied) {
+    editor.commands.command(({ tr }) => {
+      closeHistory(tr);
+      return true;
+    });
+  }
+  return applied;
 }
 
 // El botón de color abre la fila de swatches (no aplica nada por sí mismo).
@@ -251,6 +509,7 @@ export function activeStates(editor) {
   state.inList = editor.isActive("bulletList") || editor.isActive("orderedList");
   state.canIndent = canStructureAction(editor, "indent");
   state.canOutdent = canStructureAction(editor, "outdent");
+  state.hasCopiedFormat = hasCopiedFormat();
   for (const key of COLOR_KEYS) {
     if (editor.isActive("tcolor", { color: key })) {
       state.colorKey = key;
@@ -319,6 +578,14 @@ export function applyFormat(editor, key) {
 
 // Aplica la acción de un botón del bubble.
 export function runBubbleAction(editor, key) {
+  if (key === "copyFormat") {
+    copyFormatFromEditor(editor);
+    return;
+  }
+  if (key === "pasteFormat") {
+    pasteFormatToEditor(editor);
+    return;
+  }
   const chain = editor.chain().focus().command(({ tr }) => { closeHistory(tr); return true; });
   if (key === "bold") chain.toggleBold();
   else if (key === "italic") chain.toggleItalic();

@@ -242,3 +242,21 @@ test('mover desde la fila guarda la edición y conserva las otras tarjetas', asy
   expect(updateCardText).toHaveBeenCalledWith(1, 'Editada', 'Respuesta', expect.anything());
   expect(screen.root.findByType('editable-row').props.card.id).toBe(2);
 });
+
+test('duplicar desde una fila guarda el borrador previo y activa la nueva tarjeta', async () => {
+  getDeck.mockResolvedValue({ id: 7, name: 'Mazo', tags: [], priority: 100 });
+  listCardsByDeck.mockResolvedValue([{ id: 1, deck_id: 7, front: 'Original', back: 'Dorso', source: 'manual' }]);
+  updateCardText.mockResolvedValue();
+  createCard.mockResolvedValue(99);
+  getCard.mockResolvedValue({ id: 99, deck_id: 7, front: 'Editada', back: 'Dorso', source: 'manual' });
+  await act(async () => { screen = create(<DeckScreen />); });
+  await act(async () => screen.root.findByType('editable-row').props.onActivate(1));
+  await act(async () => screen.root.findByType('editable-row').props.onChangeDraft({ front: 'Editada', back: 'Dorso' }));
+  await act(async () => { const row = screen.root.findByType('editable-row'); await row.props.onDuplicate(row.props.card); });
+  expect(updateCardText).toHaveBeenCalledWith(1, 'Editada', 'Dorso', expect.anything());
+  expect(createCard).toHaveBeenCalledWith({ deckId: 7, front: 'Editada', back: 'Dorso', source: 'manual' });
+  const rows = screen.root.findAllByType('editable-row');
+  expect(rows).toHaveLength(2);
+  expect(rows[1].props.card.id).toBe(99);
+  expect(rows[1].props.active).toBe(true);
+});

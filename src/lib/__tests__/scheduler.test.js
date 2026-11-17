@@ -1,4 +1,4 @@
-import { newCardState, rate } from "../scheduler";
+import { formatIntervalDays, newCardState, previewIntervals, rate } from "../scheduler";
 
 describe("scheduler (FSRS binario)", () => {
   beforeAll(() => {
@@ -60,5 +60,30 @@ describe("scheduler (FSRS binario)", () => {
 
   test("una calificación desconocida lanza error", () => {
     expect(() => rate(newCardState(), "easy")).toThrow(/Calificación desconocida/);
+  });
+
+  test("formatIntervalDays formatea días, meses y años", () => {
+    expect(formatIntervalDays(0)).toBe("Hoy");
+    expect(formatIntervalDays(1)).toBe("1 d");
+    expect(formatIntervalDays(14)).toBe("14 d");
+    expect(formatIntervalDays(120)).toBe("4 mes");
+    expect(formatIntervalDays(365)).toBe("1 a");
+    expect(formatIntervalDays(548)).toBe("1,5 a");
+  });
+
+  test("previewIntervals calcula intervalos proyectados y tolera tarjetas sin estado FSRS", () => {
+    const fresh = previewIntervals(newCardState());
+    expect(fresh.again).toBe("Hoy");
+    expect(fresh.hard).toMatch(/^\d+ d|Hoy$/);
+    expect(fresh.good).toMatch(/^\d+ d$/);
+
+    const noFsrs = previewIntervals({ id: 99, front: "F", back: "B" });
+    expect(noFsrs).toEqual(fresh);
+
+    const learned = rate(newCardState(), "good");
+    const later = new Date("2026-07-20T12:00:00Z");
+    const mature = previewIntervals(learned, later);
+    expect(mature.again).toBe("Hoy");
+    expect(mature.good).not.toBe("Hoy");
   });
 });

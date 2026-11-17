@@ -78,11 +78,13 @@ describe("searchLibrary", () => {
 });
 
 describe("filterDeckCards", () => {
+  const now = new Date("2026-07-28T12:00:00.000Z");
   const deckCards = [
-    { id: 1, front: "Álgebra lineal", back: "Matrices", starred: 1, source: "manual" },
-    { id: 2, front: "Conexión", back: "Idea propia", source: "hybrid" },
-    { id: 3, front: "Capital", back: "París", source: "ai" },
-    { id: 4, front: "Vieja", back: "Pausada", source: "manual", suspended: 1 },
+    { id: 1, front: "Álgebra lineal", back: "Matrices", starred: 1, source: "manual", reps: 2, lapses: 0, due: "2026-07-28T10:00:00.000Z" },
+    { id: 2, front: "Conexión", back: "Idea propia", source: "hybrid", reps: 0, lapses: 0, due: "2026-07-28T10:00:00.000Z" },
+    { id: 3, front: "Capital", back: "París", source: "ai", reps: 3, lapses: 2, due: "2026-08-05T10:00:00.000Z" },
+    { id: 4, front: "Vieja", back: "Pausada", source: "manual", suspended: 1, reps: 4, lapses: 3, due: "2026-07-27T10:00:00.000Z" },
+    { id: "new", front: "Borrador", back: "", source: "manual", reps: 0, lapses: 0 },
   ];
 
   test("busca frente y dorso sin distinguir tildes", () => {
@@ -91,13 +93,16 @@ describe("filterDeckCards", () => {
   });
 
   test.each([
-    ["starred", 1],
-    ["idea", 2],
-    ["unreviewed", 3],
-    ["suspended", 4],
-  ])("aplica el filtro %s", (filter, expectedId) => {
-    expect(filterDeckCards(deckCards, "", filter).map((card) => card.id)).toEqual([
-      expectedId,
-    ]);
+    ["starred", [1]],
+    ["idea", [2]],
+    ["unreviewed", [3]],
+    ["suspended", [4]],
+    ["weak", [3]],
+    ["new", [2]],
+    ["due", [1]],
+  ])("aplica el filtro %s", (filter, expectedIds) => {
+    expect(filterDeckCards(deckCards, "", filter, now).map((card) => card.id)).toEqual(
+      expectedIds,
+    );
   });
 });

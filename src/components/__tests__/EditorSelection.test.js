@@ -3,12 +3,14 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import NotionField from "../NotionField.web";
 import { encodeToggle, BLOCK_SENTINELS } from "../../lib/richtext";
+import { setCopiedFormat } from "../../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../../lib/richhtml";
 
 let mockEditor;
+let mockEditors = [];
 jest.mock("@tiptap/react", () => {
   const actual = jest.requireActual("@tiptap/react");
-  return { ...actual, useEditor: (...args) => { mockEditor = actual.useEditor(...args); return mockEditor; } };
+  return { ...actual, useEditor: (...args) => { mockEditor = actual.useEditor(...args); mockEditors.push(mockEditor); return mockEditor; } };
 });
 
 test("el menú permite Título y Desplegable activos a la vez y Texto conserva el contenedor", async () => {
@@ -40,7 +42,11 @@ test("el menú permite Título y Desplegable activos a la vez y Texto conserva e
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
 jest.mock("react-native", () => jest.requireActual("react-native-web"));
-beforeEach(() => { window.scrollBy = jest.fn(); });
+beforeEach(() => {
+  mockEditors = [];
+  setCopiedFormat(null);
+  window.scrollBy = jest.fn();
+});
 
 test("la pill permite sangría táctil y quitar estilos conservando la selección y la lista", async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -97,6 +103,49 @@ test("la barra actualiza marcas, color y título al seleccionar otro texto sin e
     await act(async () => mockEditor.commands.setTextSelection({ from: pos, to: pos + 3 }));
     for (const label of ["Negrita", "Color del texto", "Título 1"])
       expect(document.querySelector(`[aria-label="${label}"]`).classList.contains("is-active")).toBe(false);
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
+
+test("copiar formato desde la pill habilita Pegar formato en otro editor y aplica el formato entre Frente y Dorso", async () => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  Object.defineProperty(globalThis, "fetch", { configurable: true, writable: true, value: jest.fn() });
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+  const rect = { left: 0, right: 100, top: 0, bottom: 24, width: 100, height: 24 };
+  Range.prototype.getBoundingClientRect = () => rect;
+  Range.prototype.getClientRects = () => [rect];
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  const onBackChange = jest.fn();
+  try {
+    await act(async () => root.render(
+      <div>
+        <div data-testid="front"><NotionField value={"**Frente**"} onChangeText={() => {}} defaultAlign="center" /></div>
+        <div data-testid="back"><NotionField value={"Dorso"} onChangeText={onBackChange} /></div>
+      </div>
+    ));
+    const [frontEditor, backEditor] = mockEditors;
+    const frontButton = (label) => host.querySelector(`[data-testid="front"] [aria-label="${label}"]`);
+    const backButton = (label) => host.querySelector(`[data-testid="back"] [aria-label="${label}"]`);
+
+    expect(backButton("Pegar formato").disabled).toBe(true);
+    expect(frontButton("Copiar formato").getAttribute("aria-pressed")).toBe("false");
+
+    await act(async () => frontEditor.commands.setTextSelection({ from: 1, to: 7 }));
+    await act(async () => frontButton("Copiar formato").click());
+
+    expect(frontButton("Copiar formato").getAttribute("aria-pressed")).toBe("true");
+    expect(frontButton("Copiar formato").classList.contains("is-active")).toBe(true);
+    expect(backButton("Pegar formato").disabled).toBe(false);
+
+    await act(async () => backEditor.commands.setTextSelection({ from: 1, to: 6 }));
+    await act(async () => backButton("Pegar formato").click());
+
+    expect(backEditor.getHTML()).toContain("<strong>Dorso</strong>");
+    expect(onBackChange).toHaveBeenLastCalledWith("**Dorso**");
   } finally {
     await act(async () => root.unmount());
     host.remove();

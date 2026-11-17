@@ -1,5 +1,11 @@
-# Biblioteca y estudio — entrega del 04/11/2026
+# Biblioteca y estudio — estado vigente (16/11/2026)
 
+## Evolución reciente (16/11/2026)
+
+- **Editor (`editorSetup.js`, `NotionField.js`, `NotionField.web.js`, `editor-web/index.js`):** Copiar y Pegar formato desde la pill contextual y `Ctrl/Cmd+Alt+C/V`, sincronizado entre Frente, Dorso y tarjetas, preservando estructura cuando se pega sobre fragmentos parciales o listas y con deshacer en un único paso.
+- **Estudio y Puntos débiles (`scheduler.js`, `repaso.js`, `estudiar.js`, `progreso.js`):** visualización del mazo de origen en repaso diario y `debiles`, intervalos FSRS proyectados debajo de las tres notas, aviso para armar el Gimnasio en tarjetas con `lapses >= 3` y botón directo al Gimnasio desde cada fila de Puntos débiles.
+- **Gimnasio Mental (`prompts.js`, `gymAssistant.js`, `ChatAuditor.js`):** soporte para bloques JSON ricos compilados por `compileGeneratedBack`, prioridad a `edit_card` sobre la tarjeta origen, preview enriquecido con `RichText`, chip rápido `"Mejorar o sumar desplegable"` y relectura de la tarjeta al volver al repaso.
+- **Mazo y Biblioteca (`EditableCardRow.js`, `mazos/[id]/index.js`, `search.js`, `LibraryContent.js`, `DeckListItem.js`):** duplicado de tarjeta desde encabezado de fila (`duplicateCard`), acceso rápido `+ Nueva`, filtros `Con fallos`, `Nuevas` y `Vencidas hoy`, accesos directos de estudio/compartir/borrado en Biblioteca, recientes y acceso rápido en Inicio, cabeceras de Ideas y rótulos `Pregunta`/`Respuesta` en `FlipCard`.
 
 ## Entrega verificada — 04/11/2026
 

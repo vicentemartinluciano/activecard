@@ -72,3 +72,27 @@ export function rate(state, rating, now = new Date()) {
   const { card } = engine.next(toFsrsCard(state), now, fsrsRating);
   return toPlainState(card);
 }
+
+export function formatIntervalDays(days) {
+  if (!Number.isFinite(days) || days <= 0) return "Hoy";
+  if (days === 1) return "1 d";
+  if (days < 90) return `${Math.round(days)} d`;
+  if (days < 365) return `${Math.max(1, Math.round(days / 30))} mes`;
+  return `${(days / 365).toFixed(1).replace(".0", "").replace(".", ",")} a`;
+}
+
+export function previewIntervals(card, now = new Date()) {
+  const base =
+    card && card.due != null && card.stability != null ? card : newCardState(now);
+  try {
+    const hardDays = rate(base, "hard", now).scheduled_days;
+    const goodDays = rate(base, "good", now).scheduled_days;
+    return {
+      again: "Hoy",
+      hard: formatIntervalDays(hardDays),
+      good: formatIntervalDays(goodDays),
+    };
+  } catch {
+    return { again: "Hoy", hard: "1 d", good: "1 d" };
+  }
+}

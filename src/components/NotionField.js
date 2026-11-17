@@ -15,6 +15,9 @@ import editorHtml from "../../assets/editor/editorHtml";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
 import { colors, radius } from "../theme";
 
+let sharedCopiedFormat = null;
+const mountedInjectors = new Set();
+
 export default function NotionField({
   value,
   onChangeText,
@@ -40,6 +43,17 @@ export default function NotionField({
   }, [value, ready, inject]);
 
   useEffect(() => {
+    if (!ready) return undefined;
+    mountedInjectors.add(inject);
+    if (sharedCopiedFormat) {
+      inject(`window.__editor.setCopiedFormat(${JSON.stringify(sharedCopiedFormat)})`);
+    }
+    return () => {
+      mountedInjectors.delete(inject);
+    };
+  }, [ready, inject]);
+
+  useEffect(() => {
     if (!ready) return;
     inject(`window.__editor.setPlaceholder(${JSON.stringify(placeholder || "")})`);
     inject(`window.__editor.setMinHeight(${minHeight})`);
@@ -60,6 +74,12 @@ export default function NotionField({
       onChangeText(marcas);
     } else if (msg.type === "height") {
       setHeight(Math.max(minHeight, msg.height));
+    } else if (msg.type === "copyFormat") {
+      sharedCopiedFormat = msg.format || null;
+      const payload = `window.__editor.setCopiedFormat(${JSON.stringify(sharedCopiedFormat)})`;
+      for (const target of mountedInjectors) {
+        if (target !== inject) target(payload);
+      }
     }
   };
 

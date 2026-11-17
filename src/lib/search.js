@@ -3,6 +3,7 @@
 // (toPlainText) para que el markup de rich text ([[verde:...]], **...**)
 // no genere falsos positivos ni corte coincidencias.
 
+import { endOfDay } from "./queue";
 import { toPlainText } from "./richtext";
 
 export const MAX_CARD_RESULTS = 20;
@@ -37,7 +38,7 @@ export function searchLibrary(query, { folders = [], decks = [], cards = [] } = 
   };
 }
 
-export function filterDeckCards(cards = [], query = "", filter = null) {
+export function filterDeckCards(cards = [], query = "", filter = null, now = new Date()) {
   const q = normalizeSearch(query.trim());
   return cards.filter((card) => {
     const matchesQuery =
@@ -49,6 +50,17 @@ export function filterDeckCards(cards = [], query = "", filter = null) {
     if (filter === "idea") return card.source === "hybrid";
     if (filter === "unreviewed") return card.source === "ai";
     if (filter === "suspended") return !!card.suspended;
+    if (filter === "weak") return (card.lapses || 0) > 0 && !card.suspended;
+    if (filter === "new") return (card.reps || 0) === 0 && card.id !== "new" && !card.suspended;
+    if (filter === "due") {
+      return (
+        !card.suspended &&
+        card.id !== "new" &&
+        (card.reps || 0) > 0 &&
+        card.due != null &&
+        new Date(card.due) <= endOfDay(now)
+      );
+    }
     return true;
   });
 }

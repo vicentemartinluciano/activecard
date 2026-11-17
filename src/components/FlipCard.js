@@ -5,11 +5,11 @@
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useContext, useEffect, useRef, useState } from "react";
-import { Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import RichText from "./RichText";
 import { StudyInteractionContext } from "./StudyInteractionContext";
-import { colors, radius, spacing, textColors, type } from "../theme";
+import { colors, font, radius, spacing, textColors, type } from "../theme";
 import { isStudyControl } from "../lib/studyControls";
 
 // RN Web convierte Pressable + role button en BUTTON. La superficie contiene
@@ -116,6 +116,11 @@ export default function FlipCard({
               />
             </Pressable>
           </ScrollView>
+          <View pointerEvents="none" style={styles.faceBadge}>
+            <Text style={[styles.faceBadgeText, showBack && styles.faceBadgeTextBack]}>
+              {showBack ? "Respuesta" : "Pregunta"}
+            </Text>
+          </View>
           {/* Estrella y rayo AL FINAL del JSX: así se dibujan por ENCIMA del
               texto (en Android el orden de render gana; sin esto el ScrollView
               los tapaba). Absolutos en la esquina superior derecha. */}
@@ -162,8 +167,7 @@ const styles = StyleSheet.create({
   face: {
     flex: 1,
     borderRadius: radius.lg,
-    // Fondo sólido oscuro (más oscuro que el degradé anterior, como el panel de
-    // lectura). Sin header de "Pregunta/Respuesta": la tarjeta queda limpia.
+    // Fondo sólido oscuro con indicador sutil de Pregunta/Respuesta arriba.
     backgroundColor: colors.surfaceCard,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -171,6 +175,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+  },
+  faceBadge: {
+    position: "absolute",
+    top: spacing.sm + 8,
+    alignSelf: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    zIndex: 1,
+  },
+  faceBadgeText: {
+    fontSize: 11,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+    color: colors.textMuted,
+    ...font(600),
+  },
+  faceBadgeTextBack: {
+    color: colors.accentText,
   },
   star: {
     width: 40,

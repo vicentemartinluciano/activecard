@@ -148,14 +148,14 @@ function ActionPreview({ message, onConfirm, onChoose, onToggleDeleteDeck, busy 
         <View style={styles.beforeBox}>
           <Text style={styles.miniLabel}>ANTES</Text>
           <Text style={styles.previewText}>{toPlainText(action.before.front || action.before.name)}</Text>
-          {action.before.back ? <Text style={styles.previewMuted}>{toPlainText(action.before.back)}</Text> : null}
+          {action.before.back ? <RichText text={action.before.back} style={styles.previewMuted} /> : null}
         </View>
       ) : null}
       {["edit_card", "create_card"].includes(action.type) ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={styles.miniLabel}>{action.type === "edit_card" ? "DESPUÉS" : "FRENTE"}</Text>
           <Text style={styles.previewText}>{toPlainText(action.front)}</Text>
-          <Text style={styles.previewMuted}>{toPlainText(action.back)}</Text>
+          <RichText text={action.back} style={styles.previewMuted} />
         </View>
       ) : null}
       {action.name ? (
@@ -177,7 +177,7 @@ function ActionPreview({ message, onConfirm, onChoose, onToggleDeleteDeck, busy 
           {cards.slice(0, 6).map((card, index) => (
             <View key={`${card.front}-${index}`} style={styles.proposedCard}>
               <Text style={styles.previewText}>{toPlainText(card.front)}</Text>
-              <Text style={styles.previewMuted} numberOfLines={3}>{toPlainText(card.back)}</Text>
+              <RichText text={card.back} style={styles.previewMuted} />
             </View>
           ))}
           {cards.length > 6 ? <Text style={styles.previewMuted}>Y {cards.length - 6} más…</Text> : null}
@@ -560,15 +560,20 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
 
   if (!session) return <ActivityIndicator color={colors.accent} style={{ flex: 1 }} />;
 
-  const result = () => ({
-    chatted: messages.length > 0,
-    validated: messages.some(
-      (message) =>
-        message.metadata?.action?.type === "create_card" &&
-        message.metadata.action.source === "hybrid" &&
-        message.metadata.action.status === "done"
-    ),
-  });
+  const result = () => {
+    const originId = originCardId ?? session?.origin_card_id;
+    return {
+      chatted: messages.length > 0,
+      validated: messages.some(
+        (message) =>
+          message.metadata?.action?.status === "done" &&
+          ((message.metadata.action.type === "create_card" && message.metadata.action.source === "hybrid") ||
+            (message.metadata.action.type === "edit_card" &&
+              originId != null &&
+              message.metadata.action.cardId === originId))
+      ),
+    };
+  };
 
   const close = () => {
     if (onDone) onDone(result());
@@ -635,6 +640,68 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
+        {messages.length === 0 && !busy ? (
+          <View style={styles.emptyChat}>
+            <BrainMark size={38} />
+            <Text style={styles.emptyTitle}>
+              {card || session.origin_front ? "Trabajemos sobre esta tarjeta" : "¿Qué querés explorar hoy?"}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              Podés conversar libremente, adjuntar archivos o elegir tarjetas de tu biblioteca.
+            </Text>
+            <View style={styles.emptyQuickRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Referenciar tarjetas"
+                onPress={() => setAttachmentSheetOpen(true)}
+                style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
+              >
+                <Feather name="layers" size={14} color={colors.accentText} />
+                <Text style={styles.quickChipText}>Referenciar tarjetas</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Añadir fuente"
+                onPress={addSources}
+                style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
+              >
+                <Feather name="paperclip" size={14} color={colors.accentText} />
+                <Text style={styles.quickChipText}>Añadir fuente</Text>
+              </Pressable>
+              {(card || session.origin_front) ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Explicame la idea central"
+                    onPress={() => changeInput("Explicame la idea central de esta tarjeta con un ejemplo concreto.")}
+                    style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
+                  >
+                    <Feather name="zap" size={14} color="#C9A8FF" />
+                    <Text style={styles.quickChipText}>Explicame la idea central</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Mejorar o sumar desplegable"
+                    onPress={() => changeInput("Proponé mejorar esta tarjeta o sumar un desplegable en el dorso con un ejemplo o aclaración clave, conservando mis mnemotecnias.")}
+                    style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
+                  >
+                    <Feather name="edit-3" size={14} color={colors.accentText} />
+                    <Text style={styles.quickChipText}>Mejorar o sumar desplegable</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Busquemos una conexión"
+                    onPress={() => changeInput("Busquemos una conexión con otro concepto para crear una tarjeta idea.")}
+                    style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
+                  >
+                    <Feather name="git-branch" size={14} color="#C9A8FF" />
+                    <Text style={styles.quickChipText}>Busquemos una conexión</Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
         {messages.map((message, index) => {
           const startsAssistantGroup = message.role === "assistant" && messages[index - 1]?.role !== "assistant";
           return (
@@ -776,7 +843,51 @@ const styles = StyleSheet.create({
   contextPill: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(62,99,221,0.42)", backgroundColor: "rgba(12,18,31,0.78)" },
   contextText: { ...type.small, ...font(600), color: colors.text, flexShrink: 1 },
   chat: { flex: 1 },
-  chatContent: { gap: spacing.md, paddingVertical: spacing.sm, ...(Platform.OS === "web" ? { width: '100%', maxWidth: 880, alignSelf: 'center', flexGrow: 1, paddingTop: 32 } : {}) },
+  chatContent: { flexGrow: 1, gap: spacing.md, paddingVertical: spacing.sm, ...(Platform.OS === "web" ? { width: '100%', maxWidth: 880, alignSelf: 'center', paddingTop: 32 } : {}) },
+  emptyChat: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    ...type.heading,
+    fontSize: 19,
+    textAlign: "center",
+    marginTop: spacing.xs,
+  },
+  emptySubtitle: {
+    ...type.small,
+    textAlign: "center",
+    maxWidth: 380,
+    lineHeight: 20,
+  },
+  emptyQuickRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: spacing.xs + 2,
+    marginTop: spacing.sm,
+    maxWidth: 520,
+  },
+  quickChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: spacing.md - 2,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: "rgba(21,21,24,0.82)",
+  },
+  quickChipText: {
+    ...type.small,
+    ...font(600),
+    color: colors.text,
+  },
   assistantWrap: { alignItems: "flex-start", gap: spacing.xs, alignSelf: "stretch" },
   userWrap: { alignSelf: "stretch", alignItems: "flex-end" },
   assistantMessageContent: { width: "100%", gap: spacing.xs },
