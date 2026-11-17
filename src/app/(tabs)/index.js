@@ -158,7 +158,7 @@ export default function Inicio() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, desktop && { paddingHorizontal: spacing.lg }]}>
-        <View style={Platform.OS === 'web' ? { flexDirection: 'row', flexWrap: 'wrap', gap: 28, paddingTop: 24 } : undefined}>
+        <View style={Platform.OS === 'web' ? { flexDirection: 'row', flexWrap: 'wrap', gap: 28, paddingTop: 24 } : { gap: spacing.lg }}>
         <Stagger style={Platform.OS === 'web' ? { flexGrow: 1, flexShrink: 1, flexBasis: 460, minWidth: 0, ...(desktop ? { minHeight: workspaceHeight } : { width: '100%' }) } : undefined}>
         <View style={Platform.OS === 'web' ? { flex: 1 } : undefined}>
         {/* El hero: una luz gira por el borde de forma permanente (BorderLight)

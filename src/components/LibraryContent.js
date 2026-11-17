@@ -60,7 +60,7 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
-            <Field accessibilityLabel={folderId == null ? 'Buscar en toda la biblioteca' : 'Buscar en esta carpeta y sus subcarpetas'} placeholder={folderId == null ? 'Buscar carpetas, mazos o tarjetas…' : 'Buscar en esta carpeta…'} value={query} onChangeText={setQuery} style={query ? { paddingRight: 40 } : undefined} />
+            <Field accessibilityLabel={folderId == null ? 'Buscar en toda la biblioteca' : 'Buscar en esta carpeta y sus subcarpetas'} placeholder={folderId == null ? 'Buscar en la biblioteca…' : 'Buscar en esta carpeta…'} value={query} onChangeText={setQuery} style={query ? { paddingRight: 40 } : undefined} />
             {!!query && (
               <Pressable accessibilityRole="button" accessibilityLabel="Limpiar búsqueda" hitSlop={8} onPress={() => setQuery('')}
                 style={{ position: 'absolute', right: 10, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>

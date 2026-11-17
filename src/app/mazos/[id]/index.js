@@ -450,7 +450,7 @@ export default function DetalleMazo() {
             <HeroButton
               label="ESTUDIAR AHORA"
               onPress={() => setStudySheet(true)}
-              style={{ marginTop: 22, marginBottom: 20 }}
+              style={{ marginTop: 4, marginBottom: 12 }}
             />
           ) : null}
 
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    maxWidth: 230,
+    maxWidth: "78%",
   },
   headerTitleText: {
     fontSize: 17,
@@ -841,6 +841,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(143,166,243,0.35)",
   },
   heroBtnLabel: {
     color: "#FFFFFF",
