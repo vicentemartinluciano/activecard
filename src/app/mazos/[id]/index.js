@@ -23,6 +23,8 @@ import Toast from "../../../components/Toast";
 import { Button, Chip, EmptyState, Field, InlineAdd, Pill, Screen } from "../../../components/ui";
 import { useDesktopBeforeNavigate } from "../../../components/DesktopShell";
 import {
+  createCard,
+  getCard,
   listCardsByDeck,
   setCardPositions,
   setCardStarred,
@@ -295,6 +297,38 @@ export default function DetalleMazo() {
     await activateRow("new");
   };
 
+  const duplicateCard = useCallback(async (targetCard) => {
+    if (!targetCard || targetCard.id === "new") return;
+    if (!await commitDraft()) return;
+    const source = cardsRef.current.find((item) => item.id === targetCard.id) || targetCard;
+    try {
+      const newId = await createCard({
+        deckId,
+        front: source.front,
+        back: source.back,
+        source: "manual",
+      });
+      const created = (await getCard(newId)) || {
+        id: newId,
+        deck_id: deckId,
+        source: "manual",
+        front: source.front,
+        back: source.back,
+      };
+      const pending = cardsRef.current.filter((item) => item.id === "new");
+      const persisted = cardsRef.current.filter((item) => item.id !== "new");
+      const next = [...persisted, created, ...pending];
+      cardsRef.current = next;
+      setCards(next);
+      setCardQuery("");
+      setCardFilter(null);
+      getDeckDailyProgress(deckId).then(setProgress).catch(() => {});
+      await activateRow(created.id);
+    } catch (error) {
+      setEditError(databaseErrorMessage(error, "No pudimos duplicar la tarjeta."));
+    }
+  }, [activateRow, commitDraft, deckId]);
+
   const openGym = async (cardId) => {
     if (await commitDraft()) router.push(`/gimnasio/nueva?cardId=${cardId}`);
   };
@@ -385,7 +419,12 @@ export default function DetalleMazo() {
         options={{
           headerShown: Platform.OS !== 'web',
           title: deck.name,
-          headerTitle: () => <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" onPress={() => setEditingName(true)}><Text style={type.label}>{deck.name}</Text></Pressable>,
+          headerTitle: () => (
+            <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" onPress={() => setEditingName(true)} style={styles.headerTitleBtn}>
+              <Text style={styles.headerTitleText} numberOfLines={1}>{deck.name}</Text>
+              <Feather name="edit-2" size={14} color={colors.textMuted} />
+            </Pressable>
+          ),
           headerRight: () => <View style={{ flexDirection: "row" }}>
             <Pressable accessibilityRole="button" accessibilityLabel="Opciones del mazo" onPress={() => setMenuOpen(true)} style={styles.cardAction}><Feather name="more-horizontal" size={22} color={colors.text} /></Pressable>
           </View>,
@@ -394,7 +433,10 @@ export default function DetalleMazo() {
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <LibraryBreadcrumbs folders={folders} folderId={deck.folder_id} deckName={deck.name} onNavigate={async (route) => { if (await commitDraft()) router.dismissTo(route); }} />
         {Platform.OS === "web" && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 20 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" style={{ flex: 1 }} onPress={() => setEditingName(true)}><Text style={[type.heading, { fontSize: 28 }]}>{deck.name}</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Renombrar mazo" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => setEditingName(true)}>
+            <Text style={[type.heading, { fontSize: 28, flexShrink: 1 }]} numberOfLines={2}>{deck.name}</Text>
+            <Feather name="edit-2" size={16} color={colors.textMuted} />
+          </Pressable>
           <Button label="Estudiar" kind="primary" onPress={() => setStudySheet(true)} />
           <Pressable accessibilityRole="button" accessibilityLabel="Opciones del mazo" onPress={() => setMenuOpen(true)} style={{ padding: 10 }}><Feather name="more-horizontal" size={20} color={colors.textMuted} /></Pressable>
         </View>}
@@ -413,16 +455,18 @@ export default function DetalleMazo() {
           ) : null}
 
           {progress && progress.total > 0 ? (
-            <View style={{ gap: spacing.sm }}>
+            <View style={styles.progressPanel}>
               <View style={styles.progressHead}>
-                <Text style={type.label}>Progreso de hoy</Text>
+                <View style={{ gap: 2 }}>
+                  <Text style={type.label}>Progreso de hoy</Text>
+                  <Text style={type.small}>
+                    {progress.reviewedToday}/{progress.total} tarjetas repasadas
+                  </Text>
+                </View>
                 {recallScore != null ? (
                   <Pill label={`Recuerdo ${recallScore}%`} color={colors.successBright} labelStyle={Platform.OS === 'web' ? { fontSize: 14 } : undefined} style={Platform.OS === 'web' ? { paddingHorizontal: 14, paddingVertical: 8 } : undefined} />
                 ) : null}
               </View>
-              <Text style={type.small}>
-                {progress.reviewedToday}/{progress.total} tarjetas repasadas
-              </Text>
               <ProgressBar pct={progress.pct} gradient={gradients.progress} glowStyle={glow.green} />
             </View>
           ) : null}
@@ -479,22 +523,23 @@ export default function DetalleMazo() {
 
           {cards.length > 0 ? (
             <View style={{ gap: spacing.sm }}>
-              <View style={styles.cardSearch}>
-                <Feather name="search" size={17} color={colors.textMuted} />
-                <Field
-                  value={cardQuery}
-                  onChangeText={setCardQuery}
-                  placeholder="Buscar dentro del mazo…"
-                  style={styles.cardSearchField}
-
-                />
-                {cardQuery ? (
-                  <Pressable onPress={() => setCardQuery("")} hitSlop={8}>
-                    <Feather name="x" size={17} color={colors.textMuted} />
-                  </Pressable>
-                ) : null}
+              <View style={styles.searchFilterRow}>
+                <View style={[styles.cardSearch, { flex: 1, minWidth: 0 }]}>
+                  <Feather name="search" size={17} color={colors.textMuted} />
+                  <Field
+                    value={cardQuery}
+                    onChangeText={setCardQuery}
+                    placeholder="Buscar dentro del mazo…"
+                    style={styles.cardSearchField}
+                  />
+                  {cardQuery ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel="Limpiar búsqueda" onPress={() => setCardQuery("")} hitSlop={8}>
+                      <Feather name="x" size={17} color={colors.textMuted} />
+                    </Pressable>
+                  ) : null}
+                </View>
+                <Button label={`Filtros${cardFilter ? " (1)" : ""}`} kind={filtersOpen || cardFilter != null ? "primary" : "ghost"} onPress={() => setFiltersOpen((open) => !open)} />
               </View>
-              <Button label={`Filtros${cardFilter ? " (1)" : ""}`} kind="ghost" onPress={() => setFiltersOpen((open) => !open)} />
               {filtersOpen || cardFilter != null ? (
                 <View style={styles.tagRow}>
                   <Chip
@@ -520,6 +565,21 @@ export default function DetalleMazo() {
                     }
                   />
                   <Chip
+                    label="Con fallos"
+                    active={cardFilter === "weak"}
+                    onPress={() => setCardFilter(cardFilter === "weak" ? null : "weak")}
+                  />
+                  <Chip
+                    label="Nuevas"
+                    active={cardFilter === "new"}
+                    onPress={() => setCardFilter(cardFilter === "new" ? null : "new")}
+                  />
+                  <Chip
+                    label="Vencidas hoy"
+                    active={cardFilter === "due"}
+                    onPress={() => setCardFilter(cardFilter === "due" ? null : "due")}
+                  />
+                  <Chip
                     label="Suspendidas"
                     active={cardFilter === "suspended"}
                     onPress={() =>
@@ -528,6 +588,23 @@ export default function DetalleMazo() {
                   />
                 </View>
               ) : null}
+              <View style={styles.cardsToolbar}>
+                <Text style={type.label}>
+                  {filteringCards
+                    ? `${visibleCards.length} de ${cards.length} ${cards.length === 1 ? "tarjeta" : "tarjetas"}`
+                    : `${cards.length} ${cards.length === 1 ? "tarjeta" : "tarjetas"}`}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Agregar tarjeta al mazo"
+                  onPress={addInlineCard}
+                  hitSlop={6}
+                  style={({ pressed }) => [styles.quickAddBtn, pressed && { opacity: 0.7 }]}
+                >
+                  <Feather name="plus" size={15} color={colors.accentText} />
+                  <Text style={styles.quickAddLabel}>Nueva</Text>
+                </Pressable>
+              </View>
             </View>
           ) : null}
 
@@ -542,6 +619,7 @@ export default function DetalleMazo() {
               onActivate={activateRow} onChangeDraft={changeDraft}
               onToggleStar={item.id === "new" ? null : toggleStar}
               onOptions={setCardMenu}
+              onDuplicate={item.id === "new" ? null : duplicateCard}
               onGym={item.id === "new" ? null : openGym}
               onMove={reordering && !filteringCards && item.id !== "new" ? moveCard : null} />
           )))}
@@ -633,6 +711,18 @@ export default function DetalleMazo() {
 }
 
 const styles = StyleSheet.create({
+  headerTitleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    maxWidth: 230,
+  },
+  headerTitleText: {
+    fontSize: 17,
+    ...font(600),
+    color: colors.text,
+    flexShrink: 1,
+  },
   cardAction: {
     width: 44,
     height: 44,
@@ -644,10 +734,44 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  progressPanel: {
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
   progressHead: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  searchFilterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  cardsToolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: spacing.xs,
+  },
+  quickAddBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accentSoft,
+  },
+  quickAddLabel: {
+    fontSize: 13,
+    ...font(600),
+    color: colors.accentText,
   },
   doneLabel: {
     ...type.body,

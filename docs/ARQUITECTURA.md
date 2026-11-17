@@ -1,6 +1,6 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-10-26
+Última actualización: 2026-11-16
 APK instalada: 1.11.0 / código 6, comprobada por ADB el 18/10; esta revisión no construye ni instala un APK. La prueba física queda a cargo de Martín. El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
@@ -601,6 +601,14 @@ próximo APK; no exige actualizar módulos nativos para publicar una OTA compati
 - Notion web requiere archivo por CORS.
 - Imágenes base64 no deben cargarse en listados livianos.
 
+
+## Mejoras funcionales y editor (16/11/2026)
+
+- `EditableCardRow` y `mazos/[id]/index.js` incorporan `Duplicar tarjeta` (`duplicateCard`) y acceso rápido `+ Nueva`; `filterDeckCards` suma filtros `Con fallos`, `Nuevas` y `Vencidas hoy`.
+- `previewIntervals` en `lib/scheduler.js` expone en `repaso.js` y `estudiar.js` el intervalo proyectado FSRS por nota junto al mazo de origen y aviso de reformulación en Gimnasio cuando `lapses >= 3`; `Progreso` agrega acceso directo por rayo en `Puntos débiles`.
+- `editorSetup.js` agrega `copyFormatFromEditor` / `pasteFormatToEditor` (`Ctrl/Cmd+Alt+C/V`, botones `Copiar`/`Pegar` y sincronización entre `NotionField` web y WebView).
+- `GYM_ASSISTANT_SYSTEM`, `gymAssistant.js` (`normalizeActionBack`) y `ChatAuditor.js` (`ActionPreview` con `RichText`) habilitan bloques JSON ricos y priorizan `edit_card` sobre la tarjeta origen; `finishGym` relee la tarjeta editada al volver al repaso.
+- Ajustes de navegación/UI: accesos directos en `LibraryContent`/`DeckListItem`, recientes en `Inicio`, cabecera compacta en `Gimnasio/Ideas`, rótulos `Frente`/`Dorso` y badge `Pregunta`/`Respuesta` en `FlipCard`.
 
 ## Experiencia simple (entregada el 04/11/2026)
 

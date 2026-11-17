@@ -130,6 +130,9 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   Mantener lectura de respuestas de texto anteriores, validación visible y
   verificador de ida/vuelta por el editor. No incorporar tarjetas privadas al prompt.
 - `GYM_ASSISTANT_SYSTEM`: chat general con acciones estructuradas confirmables.
+  `GYM_ASSISTANT_SYSTEM` y `validateGymTurn` aceptan dorso en marcas o en bloques JSON
+  ricos compilados mediante `compileGeneratedBack`, y priorizan enriquecer la tarjeta en
+  contexto (`edit_card`) frente a crear duplicados sueltos.
 - Adjuntos del Gimnasio: hasta seis fuentes y selección múltiple de tarjetas.
 - Un archivo adjunto es contenido no confiable, nunca una instrucción del sistema.
 - No exponer claves en logs, commits, documentación ni respaldos.
@@ -153,7 +156,13 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   citas y listas al convertir, reabrir o desactivar. Texto no quita el desplegable.
   Escritura revisada: Enter divide el encabezado abierto y mueve el resto al
   cuerpo; cerrado crea un hermano. Shift+Enter conserva un salto interno.
-  La pill incluye tachado, quitar estilos y sangría táctil. E032/E033 conservan
+  La pill incluye tachado, quitar estilos, sangría táctil y `Copiar`/`Pegar` formato
+  (`Ctrl/Cmd+Alt+C` y `Ctrl/Cmd+Alt+V`, sincronizados entre Frente, Dorso y tarjetas).
+  Cada tarjeta guardada ofrece `Duplicar tarjeta` desde su encabezado, conservando las
+  tres acciones de `CardActions`. Los filtros del mazo suman `Con fallos`, `Nuevas` y
+  `Vencidas hoy`. Estudio muestra el mazo de origen en repaso diario/puntos débiles,
+  los intervalos FSRS proyectados y un atajo para reformular en el Gimnasio tarjetas con
+  `lapses >= 3`. E032/E033 conservan
   listas complejas y spans exactos; el lector nuevo conserva tarjetas anteriores,
   pero clientes anteriores deben actualizarse antes de editar esos formatos.
   Reglas y compatibilidad en `docs/EDITOR-ESCRITURA.md`.

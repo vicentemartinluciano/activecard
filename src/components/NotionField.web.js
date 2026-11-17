@@ -29,7 +29,7 @@ import {
   runBubbleAction,
   setImageWidth,
   mountTableToolbar, insertTable, TABLE_BTN_SVG,
-  STRUCTURE_BUTTONS, canStructureAction,
+  STRUCTURE_BUTTONS, canStructureAction, subscribeCopiedFormat,
 } from "../lib/editorSetup";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
 import { TOGGLE_ICON } from "../lib/tiptapToggle";
@@ -104,6 +104,15 @@ export default function NotionField({
 
   useEffect(() => {
     if (editor && tableToolbarRef.current && bubbleRef.current) return attachEditorToolbar(editor, tableToolbarRef.current, bubbleRef.current);
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    return subscribeCopiedFormat(() => {
+      if (!editor.isDestroyed) {
+        editor.view.dispatch(editor.state.tr.setMeta("nfFormatPainter", true).setMeta("addToHistory", false));
+      }
+    });
   }, [editor]);
 
   if (!editor) return null;
@@ -208,11 +217,25 @@ export default function NotionField({
           </div>
           <div className="nf-row nf-structure">
             <span className="nf-format-label" />
-            {STRUCTURE_BUTTONS.filter(action => action.key === "clear" || state.inList || state.toggleActive).map(action => <button key={action.key} type="button" className="nf-btn"
-              aria-label={action.label} title={action.label} disabled={!canStructureAction(editor, action.key)}
-              onPointerDown={stop} onClick={event => { stop(event); runBubbleAction(editor, action.key); }}>
-              {action.html}
-            </button>)}
+            {STRUCTURE_BUTTONS.filter(action => !["outdent", "indent"].includes(action.key) || state.inList || state.toggleActive).map(action => {
+              const isCopy = action.key === "copyFormat";
+              const active = isCopy && !!state.hasCopiedFormat;
+              return (
+                <button
+                  key={action.key}
+                  type="button"
+                  className={`nf-btn${active ? " is-active" : ""}`}
+                  aria-label={action.label}
+                  title={action.label}
+                  aria-pressed={isCopy ? active : undefined}
+                  disabled={!canStructureAction(editor, action.key)}
+                  onPointerDown={stop}
+                  onClick={event => { stop(event); runBubbleAction(editor, action.key); }}
+                >
+                  {action.html}
+                </button>
+              );
+            })}
           </div>
           <div className="nf-row nf-formats">
             {FORMAT_OPTIONS.map((option) => (

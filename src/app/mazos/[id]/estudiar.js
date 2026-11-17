@@ -18,9 +18,11 @@ import { getCard, listCardsByDeck, reviewCard, setCardStarred, snapshotFsrs, und
 import { listDeckCardsNotReviewedToday } from "../../../db/progress";
 import { listWeakCards } from "../../../db/stats";
 import { syncReviewReminder } from "../../../lib/notifications";
+import { previewIntervals } from "../../../lib/scheduler";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
 import {
   colors,
+  font,
   glow,
   gradients,
   layout,
@@ -28,6 +30,7 @@ import {
   ratingBorders,
   ratingColors,
   spacing,
+  tabular,
   type,
 } from "../../../theme";
 
@@ -309,6 +312,7 @@ export default function Estudiar() {
   }
 
   const card = round[index];
+  const intervals = previewIntervals(card);
 
   if (phase === "gym") return (
     <Screen><Stack.Screen options={{ headerShown: false }} /><ChatAuditor card={card} onDone={next} /></Screen>
@@ -326,14 +330,16 @@ export default function Estudiar() {
       />
       </View>
       <View style={styles.progressRow}>
-        <Text style={styles.progress}>
-          {index + 1} de {round.length}
+        <Text style={styles.progress} numberOfLines={1}>
+          {index + 1} de {round.length}{esDebiles && card.deck_name ? ` · ${card.deck_name}` : ""}
         </Text>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Deshacer calificación anterior"
           onPress={undo}
           disabled={history.length === 0}
           hitSlop={10}
-          style={{ opacity: history.length === 0 ? 0.15 : 0.35 }}
+          style={[styles.undoButton, { opacity: history.length === 0 ? 0.2 : 0.85 }]}
         >
           <Feather name="rotate-ccw" size={18} color={colors.textMuted} />
         </Pressable>
@@ -366,25 +372,50 @@ export default function Estudiar() {
         <Pressable
           accessibilityRole="button" accessibilityLabel="No la recordé"
           onPress={() => Platform.OS === "web" ? swipeRef.current?.swipe("again").catch(() => {}) : grade("again")}
-          style={({ pressed }) => [styles.circle, styles.circleNo, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.gradeItem, pressed && { opacity: 0.7 }]}
         >
-          <Feather name="x" size={26} color={ratingColors.again} />
+          <View style={[styles.circle, styles.circleNo]}>
+            <Feather name="x" size={26} color={ratingColors.again} />
+          </View>
+          <Text style={styles.gradeLabel}>No sabía</Text>
+          <Text style={styles.gradeInterval}>{intervals.again}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button" accessibilityLabel="Más o menos"
           onPress={() => Platform.OS === "web" ? swipeRef.current?.swipe("hard").catch(() => {}) : grade("hard")}
-          style={({ pressed }) => [styles.circle, styles.circleMid, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.gradeItem, pressed && { opacity: 0.7 }]}
         >
-          <Feather name="minus" size={26} color={ratingColors.hard} />
+          <View style={[styles.circle, styles.circleMid]}>
+            <Feather name="minus" size={26} color={ratingColors.hard} />
+          </View>
+          <Text style={styles.gradeLabel}>Más o menos</Text>
+          <Text style={styles.gradeInterval}>{intervals.hard}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button" accessibilityLabel="La recordé"
           onPress={() => Platform.OS === "web" ? swipeRef.current?.swipe("good").catch(() => {}) : grade("good")}
-          style={({ pressed }) => [styles.circle, styles.circleYes, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.gradeItem, pressed && { opacity: 0.7 }]}
         >
-          <Feather name="check" size={26} color={ratingColors.good} />
+          <View style={[styles.circle, styles.circleYes]}>
+            <Feather name="check" size={26} color={ratingColors.good} />
+          </View>
+          <Text style={styles.gradeLabel}>La sabía</Text>
+          <Text style={styles.gradeInterval}>{intervals.good}</Text>
         </Pressable>
       </View>
+      {flipped && (card.lapses || 0) >= 3 && !gymArmed ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Armar Gimnasio para reformular esta tarjeta con fallos"
+          onPress={() => setGymArmed(true)}
+          style={({ pressed }) => [styles.leechHint, pressed && { opacity: 0.75 }]}
+        >
+          <Feather name="zap" size={14} color="#C9A8FF" />
+          <Text style={styles.leechHintText}>
+            {`Fallada ${card.lapses} veces · Tocá para reformularla en el Gimnasio al calificar`}
+          </Text>
+        </Pressable>
+      ) : null}
       {gymArmed ? <Text style={{ ...type.small, textAlign: "center", color: colors.textMuted }}>Después de calificar, abrimos el Gimnasio para esta tarjeta.</Text> : null}
       {!!keyboardError && <Text style={{ color: colors.danger, textAlign: 'center' }}>{keyboardError}</Text>}
     </Screen>
@@ -408,6 +439,13 @@ const styles = StyleSheet.create({
     ...type.small,
     textAlign: "center",
   },
+  undoButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   actions: {
     flexDirection: "row",
     gap: spacing.sm,
@@ -416,8 +454,43 @@ const styles = StyleSheet.create({
   grade: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 28,
-    marginTop: spacing.lg,
+    gap: 20,
+    marginTop: spacing.md,
+  },
+  gradeItem: {
+    alignItems: "center",
+    gap: 6,
+    minWidth: 76,
+  },
+  gradeLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+    ...font(600),
+  },
+  gradeInterval: {
+    fontSize: 11,
+    color: colors.textMuted,
+    opacity: 0.75,
+    ...tabular,
+  },
+  leechHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "center",
+    gap: 6,
+    marginTop: spacing.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: "rgba(158,110,222,0.35)",
+    backgroundColor: "rgba(158,110,222,0.10)",
+  },
+  leechHintText: {
+    fontSize: 12,
+    color: "#C9A8FF",
+    ...font(600),
+    flexShrink: 1,
   },
   circle: {
     width: 56,

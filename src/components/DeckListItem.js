@@ -4,15 +4,32 @@
 
 import Feather from "@expo/vector-icons/Feather";
 import { LinearGradient } from "expo-linear-gradient";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import ProgressBar from "./ProgressBar";
 import { Card, Pill } from "./ui";
 import { colors, font, glow, gradients, radius, spacing, type } from "../theme";
 
-export default function DeckListItem({ deck, progress, onPress }) {
+export default function DeckListItem({ deck, progress, onPress, onOptions }) {
+  const rowContent = (
+    <>
+      <View style={styles.icon}>
+        <Feather name={deck.icon || "book"} size={20} color={colors.accentText} />
+      </View>
+      <Text style={styles.name} numberOfLines={2}>
+        {deck.name}
+      </Text>
+      <View style={styles.metaPills}>
+        <Pill icon="layers" label={`${deck.card_count}`} />
+        {deck.priority < 100 ? (
+          <Pill label={deck.priority === 0 ? "Pausado" : `${deck.priority}%`} />
+        ) : null}
+      </View>
+    </>
+  );
+
   return (
-    <Card onPress={onPress} style={styles.cardOuter}>
+    <Card onPress={onOptions ? undefined : onPress} style={styles.cardOuter}>
       <LinearGradient
         colors={gradients.card}
         start={{ x: 0, y: 0 }}
@@ -20,18 +37,29 @@ export default function DeckListItem({ deck, progress, onPress }) {
         style={styles.cardInner}
       >
         <View style={styles.row}>
-          <View style={styles.icon}>
-            <Feather name={deck.icon || "book"} size={20} color={colors.accentText} />
-          </View>
-          <Text style={styles.name} numberOfLines={2}>
-            {deck.name}
-          </Text>
-          <View style={styles.metaPills}>
-            <Pill icon="layers" label={`${deck.card_count}`} />
-            {deck.priority < 100 ? (
-              <Pill label={deck.priority === 0 ? "Pausado" : `${deck.priority}%`} />
-            ) : null}
-          </View>
+          {onOptions ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={deck.name}
+              onPress={onPress}
+              style={({ pressed }) => [styles.mainPress, pressed && { opacity: 0.75 }]}
+            >
+              {rowContent}
+            </Pressable>
+          ) : (
+            rowContent
+          )}
+          {onOptions ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Opciones del mazo ${deck.name}`}
+              hitSlop={8}
+              onPress={() => onOptions(deck)}
+              style={({ pressed }) => [styles.optionsBtn, pressed && { opacity: 0.7 }]}
+            >
+              <Feather name="more-horizontal" size={20} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
         </View>
         {progress && progress.pct > 0 ? (
           <ProgressBar
@@ -62,7 +90,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
+  },
+  mainPress: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
+  },
+  optionsBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: -4,
   },
   metaPills: {
     flexDirection: "row",

@@ -27,6 +27,7 @@ function EditableCardRow({
   onChangeDraft,
   onToggleStar,
   onOptions,
+  onDuplicate,
   onGym,
   onMove,
 }) {
@@ -67,29 +68,36 @@ function EditableCardRow({
           <Pressable accessibilityRole="button" accessibilityLabel="Subir tarjeta" disabled={index === 0} onPress={() => onMove(card.id, -1)} style={[styles.move, index === 0 && { opacity: .3 }]}><Feather name="arrow-up" size={16} color={colors.textMuted} /></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Bajar tarjeta" disabled={index === total - 1} onPress={() => onMove(card.id, 1)} style={[styles.move, index === total - 1 && { opacity: .3 }]}><Feather name="arrow-down" size={16} color={colors.textMuted} /></Pressable>
         </> : null}
+        {onDuplicate && card.id !== "new" && <Pressable accessibilityRole="button" accessibilityLabel="Duplicar tarjeta" onPress={() => onDuplicate(card)} style={styles.action}>
+          <Feather name="copy" size={17} color={colors.textMuted} />
+        </Pressable>}
         {onOptions && <Pressable accessibilityRole="button" accessibilityLabel="Opciones de la tarjeta" onPress={() => onOptions(card)} style={styles.action}>
           <Feather name="more-horizontal" size={20} color={colors.textMuted} />
         </Pressable>}
       </View>
 
       {active ? (
-        <>
-          <Text style={type.small}>Frente</Text>
-          <NotionField
-            value={draft.front}
-            minHeight={56}
-            onChangeText={(v) => onChangeDraft({ ...draft, front: v })}
-            placeholder="Frente"
-            defaultAlign="center"
-          />
-          <Text style={type.small}>Dorso</Text>
-          <NotionField
-            value={draft.back}
-            minHeight={56}
-            onChangeText={(v) => onChangeDraft({ ...draft, back: v })}
-            placeholder="Dorso"
-          />
-        </>
+        <View style={styles.activeBody}>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.faceLabel}>Frente</Text>
+            <NotionField
+              value={draft.front}
+              minHeight={56}
+              onChangeText={(v) => onChangeDraft({ ...draft, front: v })}
+              placeholder="Frente"
+              defaultAlign="center"
+            />
+          </View>
+          <View style={[styles.fieldGroup, styles.fieldGroupBack]}>
+            <Text style={styles.faceLabel}>Dorso</Text>
+            <NotionField
+              value={draft.back}
+              minHeight={56}
+              onChangeText={(v) => onChangeDraft({ ...draft, back: v })}
+              placeholder="Dorso"
+            />
+          </View>
+        </View>
       ) : (
         <Pressable
           accessibilityRole="button"
@@ -98,9 +106,11 @@ function EditableCardRow({
           style={({ pressed }) => pressed && { opacity: 0.7 }}
         >
           <View style={styles.box}>
+            <Text style={styles.faceLabel}>Frente</Text>
             <RichText text={front} style={styles.boxTextFront} defaultAlign="center" />
           </View>
           <View style={[styles.box, styles.boxBack]}>
+            <Text style={styles.faceLabel}>Dorso</Text>
             <RichText text={back} style={styles.boxText} defaultAlign="left" />
           </View>
         </Pressable>
@@ -159,15 +169,34 @@ const styles = StyleSheet.create({
   },
   move: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   box: {
+    gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    marginBottom: spacing.sm,
     ...(Platform.OS === 'web' ? { padding: 12 } : {}),
   },
   boxBack: {
-    marginBottom: 0,
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
+  },
+  activeBody: {
+    gap: 2,
+  },
+  fieldGroup: {
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    ...(Platform.OS === 'web' ? { padding: 12 } : {}),
+  },
+  fieldGroupBack: {
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  faceLabel: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: colors.textMuted,
+    ...font(600),
   },
   boxTextFront: { ...type.body, fontSize: 16, lineHeight: 23.2 },
   boxText: { ...type.body, fontSize: 16, lineHeight: 23.2 },

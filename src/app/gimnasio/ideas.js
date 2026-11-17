@@ -6,12 +6,13 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import BrainMark from "../../components/BrainMark";
 import GlowPressable from "../../components/GlowPressable";
 import { StaggerRow, useStaggerKey } from "../../components/Stagger";
 import Toast from "../../components/Toast";
-import { Button, Card, EmptyState, Pill, Screen } from "../../components/ui";
+import { Card, EmptyState, Pill, Screen } from "../../components/ui";
 import { listDecksWithIdeas } from "../../db/cards";
 import { listFolders } from "../../db/folders";
 import { colors, font, glow, HALO_PADDING, radius, spacing, textColors, type } from "../../theme";
@@ -60,57 +61,77 @@ export default function GimnasioMental() {
   const showFolderGrid = folderFilter == null && ideaFolders.length > 0;
 
   return (
-    <Screen>
-      <Stack.Screen options={{ title: activeFolder ? activeFolder.name : "Ideas" }} />
+    <Screen safeTop style={Platform.OS === "web" ? { maxWidth: 880, padding: 24 } : undefined}>
+      <Stack.Screen options={{ title: activeFolder ? activeFolder.name : "Ideas", headerShown: false }} />
+      <View style={styles.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Volver al Gimnasio"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/gimnasio"))}
+          style={styles.headerButton}
+        >
+          <Feather name="arrow-left" size={23} color={colors.text} />
+        </Pressable>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+            <BrainMark size={26} />
+            <Text style={styles.headerTitle}>Gimnasio</Text>
+          </View>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {activeFolder ? `Ideas · ${activeFolder.name}` : "Ideas guardadas"}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Historial de conversaciones"
+          onPress={() => router.push("/gimnasio/historial")}
+          style={styles.iconButton}
+        >
+          <Feather name="clock" size={20} color={colors.text} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Nueva conversación"
+          onPress={() => router.push("/gimnasio/chat")}
+          style={styles.iconButton}
+        >
+          <Feather name="edit-3" size={20} color={colors.text} />
+        </Pressable>
+      </View>
       <FlatList
         data={visibleDecks}
         keyExtractor={(d) => String(d.id)}
-        contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
+        contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.md, paddingBottom: spacing.xl }}
         ListHeaderComponent={
-          <View style={{ gap: spacing.md, marginBottom: spacing.sm }}>
-            <View style={styles.topActions}>
-              <Button
-                label="Nueva charla"
-                kind="primary"
-                style={{ flex: 1 }}
-                onPress={() => router.push("/gimnasio/chat")}
-              />
-              <Button
-                label="Historial"
-                kind="default"
-                onPress={() => router.push("/gimnasio/historial")}
-              />
+          showFolderGrid ? (
+            <View style={{ gap: spacing.sm, marginBottom: spacing.xs }}>
+              <Text style={type.label}>Carpetas</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.folderRow}
+              >
+                {ideaFolders.map((f) => (
+                  <GlowPressable
+                    key={f.id}
+                    onPress={() => router.push(`/gimnasio/ideas?folderId=${f.id}`)}
+                    halo={glow.haloViolet}
+                    style={[styles.tileSurface, styles.folderTile, styles.gymTile]}
+                  >
+                    <Feather name="folder" size={22} color={textColors.violeta} />
+                    <Text style={styles.folderName} numberOfLines={1}>
+                      {f.name}
+                    </Text>
+                    <Pill
+                      color={textColors.violeta}
+                      label={`${deckCountByFolder[f.id]} ${deckCountByFolder[f.id] === 1 ? "mazo" : "mazos"}`}
+                    />
+                  </GlowPressable>
+                ))}
+              </ScrollView>
+              <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
             </View>
-            {showFolderGrid ? (
-              <View style={{ gap: spacing.sm }}>
-                <Text style={type.label}>Carpetas</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.folderRow}
-                >
-                  {ideaFolders.map((f) => (
-                    <GlowPressable
-                      key={f.id}
-                      onPress={() => router.push(`/gimnasio/ideas?folderId=${f.id}`)}
-                      halo={glow.haloViolet}
-                      style={[styles.tileSurface, styles.folderTile, styles.gymTile]}
-                    >
-                      <Feather name="folder" size={22} color={textColors.violeta} />
-                      <Text style={styles.folderName} numberOfLines={1}>
-                        {f.name}
-                      </Text>
-                      <Pill
-                        color={textColors.violeta}
-                        label={`${deckCountByFolder[f.id]} ${deckCountByFolder[f.id] === 1 ? "mazo" : "mazos"}`}
-                      />
-                    </GlowPressable>
-                  ))}
-                </ScrollView>
-                <Text style={[type.label, { marginTop: spacing.sm }]}>Mazos</Text>
-              </View>
-            ) : null}
-          </View>
+          ) : null
         }
         ListEmptyComponent={
           <EmptyState text="Todavía no hay ideas guardadas. Se crean desde el rayo ⚡ al repasar." />
@@ -147,9 +168,36 @@ export default function GimnasioMental() {
 }
 
 const styles = StyleSheet.create({
-  topActions: {
+  header: {
+    minHeight: 60,
     flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+  },
+  headerTitle: {
+    ...type.heading,
+    fontSize: 22,
+  },
+  subtitle: {
+    ...type.small,
+    fontSize: 13,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(21,21,24,0.7)",
   },
   folderRow: {
     gap: spacing.sm,

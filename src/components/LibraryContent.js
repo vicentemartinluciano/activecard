@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { FlatList, Platform, Pressable, Text, View } from 'react-native';
 import { libraryContents, locationLabel } from '../lib/libraryLocation';
 import { toPlainText } from '../lib/richtext';
+import { deleteDeck } from '../db/decks';
 import { colors, spacing, type } from '../theme';
 import ActionSheet from './ActionSheet';
+import ConfirmDeleteSheet from './ConfirmDeleteSheet';
 import CreationSheet from './CreationSheet';
 import DeckListItem from './DeckListItem';
 import DeckMoveSheet from './DeckMoveSheet';
@@ -26,6 +28,7 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
   const [creation, setCreation] = useState(null);
   const [move, setMove] = useState(null);
   const [menuDeck, setMenuDeck] = useState(null);
+  const [deletingDeck, setDeletingDeck] = useState(null);
   const [moved, setMoved] = useState(null);
   useEffect(() => {
     if (params.create) { setCreation(['mazo', 'carpeta'].includes(params.create) ? params.create : 'choose'); router.setParams({ create: undefined }); }
@@ -55,9 +58,18 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
           <Button label="Nuevo" kind="primary" onPress={() => setCreation('choose')} />
           {folder && <Pressable accessibilityRole="button" accessibilityLabel="Opciones de la carpeta" onPress={() => setMenuFolder(folder)} style={{ padding: 12 }}><Feather name="more-horizontal" size={22} color={colors.textMuted} /></Pressable>}
         </View>
-        <Field accessibilityLabel={folderId == null ? 'Buscar en toda la biblioteca' : 'Buscar en esta carpeta y sus subcarpetas'} placeholder={folderId == null ? 'Buscar carpetas, mazos o tarjetas…' : 'Buscar en esta carpeta…'} value={query} onChangeText={setQuery} />
-        {!!query && <Button label="Limpiar búsqueda" kind="ghost" onPress={() => setQuery('')} />}
-        <Button label={`Filtros${tagIds.length + Number(all) ? ` (${tagIds.length + Number(all)})` : ''}`} kind="ghost" onPress={() => setFiltersOpen((open) => !open)} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+            <Field accessibilityLabel={folderId == null ? 'Buscar en toda la biblioteca' : 'Buscar en esta carpeta y sus subcarpetas'} placeholder={folderId == null ? 'Buscar carpetas, mazos o tarjetas…' : 'Buscar en esta carpeta…'} value={query} onChangeText={setQuery} style={query ? { paddingRight: 40 } : undefined} />
+            {!!query && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Limpiar búsqueda" hitSlop={8} onPress={() => setQuery('')}
+                style={{ position: 'absolute', right: 10, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={17} color={colors.textMuted} />
+              </Pressable>
+            )}
+          </View>
+          <Button label={`Filtros${tagIds.length + Number(all) ? ` (${tagIds.length + Number(all)})` : ''}`} kind={filtersOpen || tagIds.length > 0 || all ? 'primary' : 'ghost'} onPress={() => setFiltersOpen((open) => !open)} />
+        </View>
         {(filtersOpen || tagIds.length > 0 || all) && <>
         {folderId == null && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           <Chip label="En esta ubicación" active={!all && !tagIds.length} onPress={() => { setAll(false); setTagIds([]); }} />
@@ -71,12 +83,24 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
       renderItem={({ item: row }) => {
         if (row.label) return <Text style={[type.label, { marginTop: spacing.md }]}>{row.label}</Text>;
         const item = row.item;
-        if (row.kind === 'folder') return <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}><Card onPress={() => router.navigate(`/carpetas/${item.id}`)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Feather name="folder" size={22} color={colors.accentText} /><View style={{ flex: 1, minWidth: 0 }}><Text style={type.body}>{item.name}</Text><Text style={type.small}>{searching ? locationLabel(folders, item.parent_id) : `${item.deck_count ?? 0} ${item.deck_count === 1 ? 'mazo directo' : 'mazos directos'}`}</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
-        </Card><Pressable accessibilityRole="button" accessibilityLabel={`Opciones de la carpeta ${item.name}`} onPress={() => setMenuFolder(item)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><Feather name="more-horizontal" size={20} color={colors.textMuted} /></Pressable></View>;
+        if (row.kind === 'folder') return (
+          <Card style={{ padding: 0, flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={item.name} onPress={() => router.navigate(`/carpetas/${item.id}`)}
+              style={({ pressed }) => [{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md, paddingLeft: spacing.md, paddingRight: spacing.xs }, pressed && { opacity: 0.75 }]}>
+              <Feather name="folder" size={22} color={colors.accentText} />
+              <View style={{ flex: 1, minWidth: 0 }}><Text style={type.body}>{item.name}</Text><Text style={type.small}>{searching ? locationLabel(folders, item.parent_id) : `${item.deck_count ?? 0} ${item.deck_count === 1 ? 'mazo directo' : 'mazos directos'}`}</Text></View>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Opciones de la carpeta ${item.name}`} hitSlop={8} onPress={() => setMenuFolder(item)}
+              style={({ pressed }) => [{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }, pressed && { opacity: 0.7 }]}>
+              <Feather name="more-horizontal" size={20} color={colors.textMuted} />
+            </Pressable>
+            <Pressable accessible={false} onPress={() => router.navigate(`/carpetas/${item.id}`)} style={{ paddingRight: spacing.md, paddingLeft: spacing.xs, paddingVertical: spacing.md }}>
+              <Feather name="chevron-right" size={18} color={colors.textMuted} />
+            </Pressable>
+          </Card>
+        );
         if (row.kind === 'deck') return <View style={{ gap: 4 }}>
-          <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center' }}><View style={{ flex: 1, minWidth: 0 }}><DeckListItem deck={item} progress={progressByDeck[item.id]} onPress={() => router.navigate(`/mazos/${item.id}`)} /></View>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Opciones del mazo ${item.name}`} onPress={() => setMenuDeck(item)} style={{ padding: 12 }}><Feather name="more-horizontal" size={20} color={colors.textMuted} /></Pressable></View>
+          <DeckListItem deck={item} progress={progressByDeck[item.id]} onPress={() => router.navigate(`/mazos/${item.id}`)} onOptions={() => setMenuDeck(item)} />
           {(searching || all || tagIds.length > 0) && <Text style={[type.small, { paddingHorizontal: spacing.sm }]}>{locationLabel(folders, item.folder_id)}</Text>}
         </View>;
         const parent = decks.find((d) => d.id === item.deck_id);
@@ -89,8 +113,20 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
     <DeckMoveSheet visible={!!move} deckId={move?.deckId} targetFolderId={move?.targetFolderId ?? null} onClose={() => setMove(null)} onMoved={async (result) => { setMoved(result); await onRefresh?.(); }} />
     <Toast message={moved ? `Mazo movido a ${locationLabel(folders, moved.targetFolderId)}` : ''} tone="success" onDismiss={() => setMoved(null)} onAction={moved ? () => { const route = moved.targetFolderId == null ? '/biblioteca' : `/carpetas/${moved.targetFolderId}`; setMoved(null); router.navigate(route); } : undefined} />
     <ActionSheet visible={!!menuDeck} title={menuDeck?.name} onClose={() => setMenuDeck(null)} options={menuDeck ? [
+      { label: 'Estudiar', icon: 'play', onPress: () => router.push(`/mazos/${menuDeck.id}/estudiar`) },
       { label: 'Mover mazo', icon: 'folder', onPress: () => setMove({ deckId: menuDeck.id, targetFolderId: menuDeck.folder_id ?? null }) },
-
+      { label: 'Compartir / Exportar', icon: 'share-2', onPress: async () => { const { exportDeck } = await import('../lib/backupIO'); await exportDeck(menuDeck.id).catch(() => {}); } },
+      { label: 'Borrar mazo', icon: 'trash-2', destructive: true, onPress: () => setDeletingDeck(menuDeck) },
     ] : []} />
+    <ConfirmDeleteSheet
+      visible={!!deletingDeck}
+      name={deletingDeck?.name || ''}
+      description={`Se borrará el mazo con sus ${deletingDeck?.card_count ?? 0} tarjetas. No se puede deshacer.`}
+      onClose={() => setDeletingDeck(null)}
+      onConfirm={async () => {
+        await deleteDeck(deletingDeck.id);
+        await onRefresh?.();
+      }}
+    />
   </>;
 }

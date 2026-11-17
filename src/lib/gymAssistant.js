@@ -1,10 +1,11 @@
 import { getCard, listAllCardsForSearch } from "../db/cards";
 import { listDecks } from "../db/decks";
 import { listFolders } from "../db/folders";
+import { compileGeneratedBack } from "./generatedCardFormat";
 import { callOpenAIJson, REASONING } from "./openai";
 import { GYM_ASSISTANT_SYSTEM } from "./prompts";
 import { filterDeckCards } from "./search";
-import { toPlainText } from "./richtext";
+import { hasRichContent, toPlainText } from "./richtext";
 
 const ACTIONS = new Set([
   "search_cards",
@@ -24,11 +25,39 @@ const ACTIONS = new Set([
 const DECK_ACTIONS = new Set(["rename_deck", "move_deck", "delete_deck"]);
 const FOLDER_ACTIONS = new Set(["rename_folder", "delete_folder"]);
 
-function validCards(value) {
-  return Array.isArray(value) && value.length > 0 && value.length <= 120 && value.every((card) =>
-    typeof card?.front === "string" && card.front.trim() &&
-    typeof card?.back === "string" && card.back.trim()
-  );
+function normalizeActionBack(back) {
+  if (typeof back === "string") {
+    const trimmed = back.trim();
+    if (!trimmed) throw new Error("La propuesta necesita frente y dorso.");
+    return trimmed;
+  }
+  if (Array.isArray(back)) {
+    let compiled;
+    try {
+      compiled = compileGeneratedBack(back);
+    } catch {
+      throw new Error("La propuesta necesita frente y dorso.");
+    }
+    if (!hasRichContent(compiled)) {
+      throw new Error("La propuesta necesita frente y dorso.");
+    }
+    return compiled;
+  }
+  throw new Error("La propuesta necesita frente y dorso.");
+}
+
+function normalizeActionCards(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 120) return null;
+  const out = [];
+  for (const card of value) {
+    if (typeof card?.front !== "string" || !card.front.trim()) return null;
+    try {
+      out.push({ front: card.front.trim(), back: normalizeActionBack(card.back) });
+    } catch {
+      return null;
+    }
+  }
+  return out;
 }
 
 const clip = (value, max = 900) => {
@@ -51,19 +80,30 @@ export function validateGymTurn(result) {
   if (["edit_card", "delete_card"].includes(action.type) && !Number.isInteger(Number(action.cardId))) {
     throw new Error("La tarjeta propuesta no es válida.");
   }
+  let normalizedFront;
+  let normalizedBack;
   if (["edit_card", "create_card"].includes(action.type)) {
-    if (typeof action.front !== "string" || !action.front.trim() || typeof action.back !== "string" || !action.back.trim()) {
+    if (typeof action.front !== "string" || !action.front.trim()) {
       throw new Error("La propuesta necesita frente y dorso.");
     }
+    normalizedFront = action.front.trim();
+    normalizedBack = normalizeActionBack(action.back);
   }
   if (action.type === "create_card" && !Number.isInteger(Number(action.deckId))) {
     throw new Error("El mazo propuesto no es válido.");
   }
-  if (["create_cards", "create_deck"].includes(action.type) && action.cards != null && !validCards(action.cards)) {
-    throw new Error("Las tarjetas propuestas no son válidas.");
+  let normalizedCards;
+  if (["create_cards", "create_deck"].includes(action.type) && action.cards != null) {
+    normalizedCards = normalizeActionCards(action.cards);
+    if (!normalizedCards) {
+      throw new Error("Las tarjetas propuestas no son válidas.");
+    }
   }
-  if (action.type === "create_cards" && (!Number.isInteger(Number(action.deckId)) || !validCards(action.cards))) {
-    throw new Error("La creación múltiple no es válida.");
+  if (action.type === "create_cards") {
+    normalizedCards = normalizedCards || normalizeActionCards(action.cards);
+    if (!Number.isInteger(Number(action.deckId)) || !normalizedCards) {
+      throw new Error("La creación múltiple no es válida.");
+    }
   }
   if (["create_deck", "create_folder", "rename_deck", "rename_folder"].includes(action.type) &&
       (typeof action.name !== "string" || !action.name.trim())) {
@@ -82,6 +122,9 @@ export function validateGymTurn(result) {
   const safeAction = { ...action };
   delete safeAction.status;
   delete safeAction.createdCardId;
+  if (normalizedFront !== undefined) safeAction.front = normalizedFront;
+  if (normalizedBack !== undefined) safeAction.back = normalizedBack;
+  if (normalizedCards !== undefined) safeAction.cards = normalizedCards;
   return {
     message: result.message.trim(),
     action: {
