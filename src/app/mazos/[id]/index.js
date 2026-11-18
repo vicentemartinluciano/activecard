@@ -6,6 +6,7 @@ import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, Vie
 
 import { databaseErrorMessage } from "../../../lib/databaseError";
 import ActionSheet from "../../../components/ActionSheet";
+import AssociatedNotesSection from "../../../components/AssociatedNotesSection";
 import CardActions from "../../../components/CardActions";
 import { moveManagedCard, removeManagedCard } from "../../../lib/cardManagement";
 import DeckMoveSheet from "../../../components/DeckMoveSheet";
@@ -41,6 +42,7 @@ import {
   updateDeckPriority,
 } from "../../../db/decks";
 import { listFolders } from "../../../db/folders";
+import { createNote, listNotesForDeck } from "../../../db/notes";
 import { getDeckDailyProgress } from "../../../db/progress";
 import { getDeckRecallScore } from "../../../db/stats";
 import { getSetting, setSetting, listCardDrafts } from "../../../db/settings";
@@ -105,6 +107,7 @@ export default function DetalleMazo() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [cardMenu, setCardMenu] = useState(null);
+  const [deckNotes, setDeckNotes] = useState([]);
   const allowNavigationRef = useRef(false);
   const savingDraftRef = useRef(false);
   const cardsRef = useRef(cards);
@@ -149,6 +152,7 @@ export default function DetalleMazo() {
         setFolders(await listFolders());
         setProgress(await getDeckDailyProgress(deckId));
         setRecallScore(await getDeckRecallScore(deckId));
+        setDeckNotes((await listNotesForDeck(deckId)).all);
       }
       setLoadError("");
     } catch (error) {
@@ -520,6 +524,23 @@ export default function DetalleMazo() {
                 ) : null}
               </View>
           </Collapsible>
+
+          <AssociatedNotesSection
+            notes={deckNotes}
+            emptyText="Todavía no hay notas vinculadas a este mazo o a su carpeta."
+            onOpenNote={async (noteId) => {
+              if (await commitDraft()) router.push(`/notas/${noteId}`);
+            }}
+            onCreateNote={async () => {
+              if (!(await commitDraft())) return;
+              try {
+                const noteId = await createNote({ deckIds: [deckId] });
+                router.push(`/notas/${noteId}`);
+              } catch (error) {
+                setEditError(databaseErrorMessage(error, "No pudimos crear la nota."));
+              }
+            }}
+          />
 
           {cards.length > 0 ? (
             <View style={{ gap: spacing.sm }}>

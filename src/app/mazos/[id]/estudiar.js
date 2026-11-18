@@ -9,8 +9,10 @@ import ConfettiOverlay from "../../../components/ConfettiOverlay";
 import ChatAuditor from "../../../components/ChatAuditor";
 import FlipCard from "../../../components/FlipCard";
 import ProgressBar from "../../../components/ProgressBar";
+import ReferenceNotesSheet from "../../../components/ReferenceNotesSheet";
 import Skeleton from "../../../components/Skeleton";
 import SwipeCard from "../../../components/SwipeCard";
+import useDeckReferenceNotes from "../../../components/useDeckReferenceNotes";
 import useStudyKeyboard from "../../../components/useStudyKeyboard";
 import { useSyncRefresh } from "../../../components/useSyncRefresh";
 import { Button, EmptyState, Pill, Screen } from "../../../components/ui";
@@ -76,9 +78,12 @@ export default function Estudiar() {
   const [history, setHistory] = useState([]); // { index, cardId, prev, logId, rating }
   // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
   const pendingEditIdRef = useRef(null);
+  const pendingNoteRefreshRef = useRef(false);
   const swipeRef = useRef(null);
   const [syncReload, setSyncReload] = useState(0);
-  useSyncRefresh(useCallback(() => { setStatus("loading"); setSyncReload((value) => value + 1); }, []));
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0);
+  useSyncRefresh(useCallback(() => { setStatus("loading"); setSyncReload((value) => value + 1); setNotesRefreshKey((k) => k + 1); }, []));
 
   // keepOrder: respeta el orden manual (position) en vez de barajar.
   const startRound = useCallback((cards, keepOrder = false) => {
@@ -206,6 +211,10 @@ export default function Estudiar() {
   // El ref evita cualquier lectura en focos normales.
   useFocusEffect(
     useCallback(() => {
+      if (pendingNoteRefreshRef.current) {
+        pendingNoteRefreshRef.current = false;
+        setNotesRefreshKey((k) => k + 1);
+      }
       const editedId = pendingEditIdRef.current;
       if (editedId == null) return;
       pendingEditIdRef.current = null;
@@ -229,7 +238,9 @@ export default function Estudiar() {
   );
 
   const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
-  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && phase === 'card' && !sessionComplete && index < round.length, flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
+  const activeCard = status === "studying" && index < round.length ? round[index] : null;
+  const referenceNotes = useDeckReferenceNotes(activeCard?.deck_id || (!esDebiles && deckId ? deckId : null), notesRefreshKey);
+  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && phase === 'card' && !sessionComplete && !referenceOpen && index < round.length, flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
   useEffect(() => {
     if (!sessionComplete) return;
     syncReviewReminder().catch(() => {});
@@ -333,6 +344,14 @@ export default function Estudiar() {
         <Text style={styles.progress} numberOfLines={1}>
           {index + 1} de {round.length}{esDebiles && card.deck_name ? ` · ${card.deck_name}` : ""}
         </Text>
+        {referenceNotes.length > 0 ? (
+          <Pill
+            icon="file-text"
+            color={colors.accentText}
+            label={referenceNotes.length > 1 ? `Notas (${referenceNotes.length})` : "Nota"}
+            onPress={() => setReferenceOpen(true)}
+          />
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Deshacer calificación anterior"
@@ -418,6 +437,17 @@ export default function Estudiar() {
       ) : null}
       {gymArmed ? <Text style={{ ...type.small, textAlign: "center", color: colors.textMuted }}>Después de calificar, abrimos el Gimnasio para esta tarjeta.</Text> : null}
       {!!keyboardError && <Text style={{ color: colors.danger, textAlign: 'center' }}>{keyboardError}</Text>}
+      <ReferenceNotesSheet
+        visible={referenceOpen}
+        notes={referenceNotes}
+        deckName={card.deck_name || ""}
+        onClose={() => setReferenceOpen(false)}
+        onEditNote={(noteId) => {
+          setReferenceOpen(false);
+          pendingNoteRefreshRef.current = true;
+          router.push(`/notas/${noteId}`);
+        }}
+      />
     </Screen>
   );
 }

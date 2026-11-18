@@ -34,7 +34,7 @@ async function installDocument(tx, doc, current) {
     let nextId = current[table].reduce((maximum, row) => Math.max(maximum, row.id), 0);
     maps[table] = new Map(Object.keys(doc[table]).sort().map((id) => [id, previous.get(id) || ++nextId]));
   }
-  for (const table of ["gym_messages", "gym_chats", "connections", "review_logs", "deck_tags", "cards", "tags", "decks", "folders", "study_preferences"]) await tx.execAsync(`DELETE FROM ${table}`);
+  for (const table of ["note_tags", "note_folders", "note_decks", "notes", "gym_messages", "gym_chats", "connections", "review_logs", "deck_tags", "cards", "tags", "decks", "folders", "study_preferences"]) await tx.execAsync(`DELETE FROM ${table}`);
   for (const [table, columns] of Object.entries(COLUMNS)) {
     for (const [id, row] of Object.entries(doc[table])) {
       const values = columns.map((column) => REFERENCES[column] ? maps[REFERENCES[column]].get(row[column]) ?? null : row[column]);
@@ -44,6 +44,9 @@ async function installDocument(tx, doc, current) {
     }
   }
   for (const [deck, tag] of doc.deck_tags) await tx.runAsync("INSERT INTO deck_tags (deck_id, tag_id) VALUES (?, ?)", [maps.decks.get(deck), maps.tags.get(tag)]);
+  for (const [note, deck] of doc.note_decks) await tx.runAsync("INSERT INTO note_decks (note_id, deck_id) VALUES (?, ?)", [maps.notes.get(note), maps.decks.get(deck)]);
+  for (const [note, folder] of doc.note_folders) await tx.runAsync("INSERT INTO note_folders (note_id, folder_id) VALUES (?, ?)", [maps.notes.get(note), maps.folders.get(folder)]);
+  for (const [note, tag] of doc.note_tags) await tx.runAsync("INSERT INTO note_tags (note_id, tag_id) VALUES (?, ?)", [maps.notes.get(note), maps.tags.get(tag)]);
 }
 async function archive(tx, owner, backup, remote, reason) {
   await tx.runAsync("INSERT INTO sync_recovery (owner, created_at, reason, local_backup, remote_document) VALUES (?, ?, ?, ?, ?)", [owner, new Date().toISOString(), reason, JSON.stringify(backup), JSON.stringify(remote)]);

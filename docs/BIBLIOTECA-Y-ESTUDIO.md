@@ -1,6 +1,11 @@
-# Biblioteca y estudio — estado vigente (16/11/2026)
+# Biblioteca y estudio — estado vigente (18/11/2026)
 
-## Evolución reciente (16/11/2026)
+## Evolución reciente (18/11/2026)
+
+- **Sección Notas (`src/app/(tabs)/notas.js`, `src/app/notas/[id].js`, `src/db/notes.js`):** quinta sección principal (móvil, `DesktopShell` y `SectionSwipe`) con editor WYSIWYG compartido (`NotionField` + pincel de copiar formato) y autoguardado durable al salir o cambiar de ruta. Permite vincular cada nota en paralelo con mazos, carpetas (heredando hacia subcarpetas/mazos descendientes) y etiquetas mediante `NoteAssociationsSheet`, navegar en un toque en ambos sentidos (`AssociatedNotesSection` en mazos y carpetas → `/notas/[id]`, chips de destino en notas → `/mazos/[id]` y `/carpetas/[id]`) y abrir un lector rápido durante `/repaso` y `/mazos/[id]/estudiar` (`ReferenceNotesSheet` + `useDeckReferenceNotes`).
+- **Esquema v11, respaldo v6 y sync (`schema.js`, `backup.js`, `backupMerge.js`, `syncDocument.js`, `202611180001_activecard_notes.sql`):** tablas `notes`, `note_decks`, `note_folders` y `note_tags` con desencadenadores `ON DELETE CASCADE` (al borrar mazo o carpeta se preserva la nota), importación aditiva con remapeo de identidades, retrocompatibilidad con backups v1–v5 y documentos remotos anteriores. Nota operativa: aplicar la migración `supabase/migrations/202611180001_activecard_notes.sql` en Supabase antes de usar cloud sync de notas entre dispositivos.
+
+## Evolución previa (16/11/2026)
 
 - **Editor (`editorSetup.js`, `NotionField.js`, `NotionField.web.js`, `editor-web/index.js`):** pill contextual compacta en una sola fila sin wrap (`width: max-content`), íconos SVG homogéneos e indicadores dinámicos de bloque/color activos, pincel de copiar formato (`Ctrl/Cmd+Alt+F` más `Ctrl/Cmd+Alt+C/V`) que aplica el formato automáticamente al marcar el nuevo texto (incluye Frente ↔ Dorso y entre tarjetas) y se desactiva solo, menú de inserción en chips horizontales, quitar estilos y sangría táctil contextual en listas/desplegables.
 - **Estudio y Puntos débiles (`scheduler.js`, `repaso.js`, `estudiar.js`, `progreso.js`):** visualización del mazo de origen en repaso diario y `debiles`, intervalos FSRS proyectados debajo de las tres notas, aviso para armar el Gimnasio en tarjetas con `lapses >= 3` y botón directo al Gimnasio desde cada fila de Puntos débiles.
@@ -66,8 +71,8 @@ Crear deja de ser una sección principal; los accesos anteriores siguen redirigi
 a la Biblioteca correspondiente. Crear con IA lleva directo al material, heredando
 la carpeta. El destino manual muestra su ruta y permite Cambiar → recorrer → Usar
 esta carpeta; Cancelar cambio conserva nombre y destino. Cancelar no inserta datos.
-La navegación principal tiene Inicio, Biblioteca, Gimnasio y Progreso. Web angosta
-usa las mismas cuatro tabs y retira el rail lateral.
+La navegación principal tiene Inicio, Biblioteca, Notas, Gimnasio y Progreso. Web angosta
+usa las mismas cinco tabs y retira el rail lateral.
 
 El borrador de IA v2 conserva carpeta, nombre y elección de mazo nuevo/existente,
 incluyendo reapertura; los borradores anteriores siguen siendo legibles. Elegir

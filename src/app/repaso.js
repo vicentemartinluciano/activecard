@@ -9,8 +9,10 @@ import ChatAuditor from "../components/ChatAuditor";
 import ConfettiOverlay from "../components/ConfettiOverlay";
 import FlipCard from "../components/FlipCard";
 import ProgressBar from "../components/ProgressBar";
+import ReferenceNotesSheet from "../components/ReferenceNotesSheet";
 import Skeleton from "../components/Skeleton";
 import SwipeCard from "../components/SwipeCard";
+import useDeckReferenceNotes from "../components/useDeckReferenceNotes";
 import useStudyKeyboard from "../components/useStudyKeyboard";
 import { useSyncRefresh } from "../components/useSyncRefresh";
 import { Button, EmptyState, Pill, Screen } from "../components/ui";
@@ -65,9 +67,12 @@ export default function Repaso() {
   const [deckNames, setDeckNames] = useState({});
   // Id de la tarjeta que se fue a editar: al volver a foco releemos SOLO esa.
   const pendingEditIdRef = useRef(null);
+  const pendingNoteRefreshRef = useRef(false);
   const swipeRef = useRef(null);
   const [syncReload, setSyncReload] = useState(0);
-  useSyncRefresh(useCallback(() => { setStatus("loading"); setSyncReload((value) => value + 1); }, []));
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0);
+  useSyncRefresh(useCallback(() => { setStatus("loading"); setSyncReload((value) => value + 1); setNotesRefreshKey((k) => k + 1); }, []));
 
   const startRound = useCallback((cards) => {
     setRound(cards);
@@ -169,6 +174,10 @@ export default function Repaso() {
   // en la ronda en memoria (front/back nada más, para no pisar el estado FSRS).
   useFocusEffect(
     useCallback(() => {
+      if (pendingNoteRefreshRef.current) {
+        pendingNoteRefreshRef.current = false;
+        setNotesRefreshKey((k) => k + 1);
+      }
       const editedId = pendingEditIdRef.current;
       if (editedId == null) return;
       pendingEditIdRef.current = null;
@@ -191,7 +200,9 @@ export default function Repaso() {
   );
 
   const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
-  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && index < round.length && phase === 'card', flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
+  const activeCard = status === "studying" && index < round.length ? round[index] : null;
+  const referenceNotes = useDeckReferenceNotes(activeCard?.deck_id, notesRefreshKey);
+  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && index < round.length && phase === 'card' && !referenceOpen, flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
   useEffect(() => {
     if (!sessionComplete) return;
     syncReviewReminder().catch(() => {});
@@ -296,6 +307,14 @@ export default function Repaso() {
         <Text style={styles.progress} numberOfLines={1}>
           {index + 1} de {round.length}{currentDeckName ? ` · ${currentDeckName}` : ""}
         </Text>
+        {referenceNotes.length > 0 ? (
+          <Pill
+            icon="file-text"
+            color={colors.accentText}
+            label={referenceNotes.length > 1 ? `Notas (${referenceNotes.length})` : "Nota"}
+            onPress={() => setReferenceOpen(true)}
+          />
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Deshacer calificación anterior"
@@ -389,6 +408,17 @@ export default function Repaso() {
           ⚡ Al calificar esta tarjeta se abre el Gimnasio Mental.
         </Text>
       ) : null}
+      <ReferenceNotesSheet
+        visible={referenceOpen}
+        notes={referenceNotes}
+        deckName={currentDeckName || ""}
+        onClose={() => setReferenceOpen(false)}
+        onEditNote={(noteId) => {
+          setReferenceOpen(false);
+          pendingNoteRefreshRef.current = true;
+          router.push(`/notas/${noteId}`);
+        }}
+      />
     </Screen>
   );
 }

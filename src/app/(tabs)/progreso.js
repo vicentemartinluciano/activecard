@@ -82,7 +82,7 @@ export default function Progreso() {
 
   if (!data) {
     return (
-      <SectionSwipe index={3}>
+      <SectionSwipe index={4}>
         <Screen safeTop>
           <Skeleton height={40} />
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
@@ -97,7 +97,7 @@ export default function Progreso() {
 
   if (data.error) {
     return (
-      <SectionSwipe index={3}>
+      <SectionSwipe index={4}>
         <Screen safeTop>
           <EmptyState
             full
@@ -232,7 +232,7 @@ export default function Progreso() {
   );
 
   return (
-    <SectionSwipe index={3}>
+    <SectionSwipe index={4}>
       <Screen safeTop style={Platform.OS === 'web' ? { maxWidth: '100%', paddingHorizontal: 32 } : undefined}>
         <View style={styles.appbar}>
           <Text style={styles.titulo}>Progreso</Text>

@@ -234,6 +234,44 @@ export const MIGRATIONS = [
   // v10 — jerarquía de carpetas; las existentes quedan en la raíz.
   `ALTER TABLE folders ADD COLUMN parent_id INTEGER;
    CREATE INDEX idx_folders_parent ON folders(parent_id);`,
+  // v11 — sección Notas con vínculo a mazos, carpetas y etiquetas.
+  `
+  CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sync_id TEXT,
+    title TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    excerpt TEXT NOT NULL DEFAULT '',
+    icon TEXT,
+    pinned INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_sync_id ON notes(sync_id);
+  CREATE TRIGGER IF NOT EXISTS notes_sync_identity AFTER INSERT ON notes
+    WHEN NEW.sync_id IS NULL BEGIN
+    UPDATE notes SET sync_id = lower(hex(randomblob(16))) WHERE id = NEW.id;
+  END;
+
+  CREATE TABLE IF NOT EXISTS note_decks (
+    note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    deck_id INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
+    PRIMARY KEY (note_id, deck_id)
+  );
+  CREATE TABLE IF NOT EXISTS note_folders (
+    note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    folder_id INTEGER NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
+    PRIMARY KEY (note_id, folder_id)
+  );
+  CREATE TABLE IF NOT EXISTS note_tags (
+    note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (note_id, tag_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_note_decks_deck ON note_decks(deck_id);
+  CREATE INDEX IF NOT EXISTS idx_note_folders_folder ON note_folders(folder_id);
+  CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag_id);
+  `,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

@@ -36,7 +36,7 @@ try {
   await raw.runAsync("INSERT INTO settings(key,value) VALUES('openAIKey','NO-DEBE-SINCRONIZARSE')");
   await raw.runAsync("INSERT INTO settings(key,value) VALUES('dailyLimits',?)", [JSON.stringify({ maxReviews: 100, maxNew: 50 })]);
   await api.migrate(raw);
-  assert.equal((await raw.getFirstAsync("PRAGMA user_version")).user_version, 10);
+  assert.equal((await raw.getFirstAsync("PRAGMA user_version")).user_version, 11);
   const first = await api.readLocalSync(owner);
   assert.deepEqual(first.document.study_preferences.dailyLimits, { max_reviews: 100, max_new: 50 });
   assert.deepEqual(await api.getSetting("dailyLimits"), { maxReviews: 100, maxNew: 50 });
@@ -49,7 +49,12 @@ try {
   const cloud = structuredClone(local.document);
   cloud.study_preferences.dailyLimits = { max_reviews: 80, max_new: 20 };
   const cardKey = Object.keys(cloud.cards)[0];
+  const deckKey = Object.keys(cloud.decks)[0];
+  const folderKey = Object.keys(cloud.folders)[0];
   cloud.cards[cardKey].front = "Pregunta desde Android";
+  cloud.notes.note1 = { title: "Mapa previo", body: "**Idea** central", excerpt: "Idea central", icon: null, pinned: 1, created_at: now, updated_at: now };
+  cloud.note_decks.push(["note1", deckKey]);
+  cloud.note_folders.push(["note1", folderKey]);
   cloud.gym_chats.chat = { title: "Charla", draft_text: "Borrador", origin_card_id: cardKey, created_at: now, updated_at: now };
   cloud.gym_messages.message = { chat_id: "chat", role: "user", text: "Fuente", created_at: now, metadata: JSON.stringify({ attachments: [{ cardId: cardKey, deckId: Object.keys(cloud.decks)[0] }], sources: [{ name: "PDF", base64: "YWJj" }] }) };
   assert.equal(await api.applyLocalSync(owner, local.document, cloud, cloud, [], () => false), false);

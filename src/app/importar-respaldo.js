@@ -38,6 +38,9 @@ export default function ImportarRespaldo() {
   const [selectedChats, setSelectedChats] = useState(
     () => new Set(plan?.initialSelection.chatIds || [])
   );
+  const [selectedNotes, setSelectedNotes] = useState(
+    () => new Set(plan?.initialSelection.noteIds || [])
+  );
   const [expanded, setExpanded] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
@@ -119,10 +122,10 @@ export default function ImportarRespaldo() {
     .filter((deck) => deck.cards.some((card) => selectedCards.has(card.id))).length;
 
   const apply = async () => {
-    if (!selectedCards.size && !selectedChats.size) return;
+    if (!selectedCards.size && !selectedChats.size && !selectedNotes.size) return;
     const ok = await confirmAsync(
       "Agregar lo seleccionado",
-      `Se agregarán ${selectedCards.size} tarjetas y ${selectedChats.size} conversaciones. Antes se guardará una copia de seguridad automática.`
+      `Se agregarán ${selectedCards.size} tarjetas, ${selectedNotes.size} notas y ${selectedChats.size} conversaciones. Antes se guardará una copia de seguridad automática.`
     );
     if (!ok) return;
     setBusy(true);
@@ -130,7 +133,7 @@ export default function ImportarRespaldo() {
     try {
       const merged = await mergeParsedBackup(
         pending.parsed,
-        { cardIds: [...selectedCards], chatIds: [...selectedChats] },
+        { cardIds: [...selectedCards], chatIds: [...selectedChats], noteIds: [...selectedNotes] },
         plan
       );
       clearPendingImport();
@@ -151,7 +154,7 @@ export default function ImportarRespaldo() {
           <Feather name="check-circle" size={52} color={colors.success} />
           <Text style={styles.successTitle}>Información agregada</Text>
           <Text style={type.body}>
-            {counts.cards} tarjetas, {counts.decks} mazos y {counts.gym_chats} conversaciones nuevas.
+            {counts.cards} tarjetas, {counts.decks} mazos{counts.notes ? `, ${counts.notes} notas` : ""} y {counts.gym_chats} conversaciones nuevas.
           </Text>
           <Text style={type.small}>
             La copia de seguridad anterior se guardó automáticamente antes de aplicar los cambios.
@@ -162,7 +165,7 @@ export default function ImportarRespaldo() {
     );
   }
 
-  const nothingNew = plan.counts.cards === 0 && plan.counts.chats === 0;
+  const nothingNew = plan.counts.cards === 0 && plan.counts.chats === 0 && !(plan.notes?.length);
   return (
     <Screen>
       <Stack.Screen options={{ title: "Agregar respaldo" }} />
@@ -170,11 +173,12 @@ export default function ImportarRespaldo() {
         <View style={styles.intro}>
           <Text style={styles.title}>Revisá qué querés sumar</Text>
           <Text style={type.small}>
-            Tus datos actuales no se borran. Podés desmarcar carpetas, mazos, tarjetas o conversaciones.
+            Tus datos actuales no se borran. Podés desmarcar carpetas, mazos, tarjetas, notas o conversaciones.
           </Text>
           <View style={styles.pills}>
             <Pill label={`${selectedCards.size} tarjetas`} icon="copy" color={colors.accentText} />
             <Pill label={`${selectedDecks} mazos`} icon="layers" />
+            {plan.notes?.length ? <Pill label={`${selectedNotes.size} notas`} icon="file-text" /> : null}
             <Pill label={`${selectedChats.size} charlas`} icon="message-circle" />
           </View>
           {plan.counts.duplicateCards || plan.counts.duplicateChats ? (
@@ -250,11 +254,34 @@ export default function ImportarRespaldo() {
           </Card>
         ) : null}
 
+        {plan.notes?.length ? (
+          <Card style={styles.section}>
+            <Text style={styles.sectionTitle}>Notas</Text>
+            {plan.notes.map((note) => (
+              <View key={`note-${note.id}`} style={styles.chatRow}>
+                <Checkbox
+                  checked={selectedNotes.has(note.id)}
+                  onPress={() => setSelectedNotes((current) => {
+                    const next = new Set(current);
+                    if (next.has(note.id)) next.delete(note.id);
+                    else next.add(note.id);
+                    return next;
+                  })}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={type.body}>{note.title}</Text>
+                  {note.excerpt ? <Text style={type.small} numberOfLines={1}>{note.excerpt}</Text> : null}
+                </View>
+              </View>
+            ))}
+          </Card>
+        ) : null}
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button
-          label={busy ? "Agregando…" : `Agregar ${selectedCards.size + selectedChats.size} elementos`}
+          label={busy ? "Agregando…" : `Agregar ${selectedCards.size + selectedChats.size + selectedNotes.size} elementos`}
           kind="primary"
-          disabled={busy || (!selectedCards.size && !selectedChats.size)}
+          disabled={busy || (!selectedCards.size && !selectedChats.size && !selectedNotes.size)}
           onPress={apply}
         />
         <Button label="Cancelar" kind="ghost" disabled={busy} onPress={() => {

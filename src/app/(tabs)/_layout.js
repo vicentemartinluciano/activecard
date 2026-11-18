@@ -43,6 +43,16 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="notas"
+        options={{
+          title: "Notas",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="file-text" color={color} size={size} />
+          ),
+        }}
+      />
       <Tabs.Screen name="gimnasio" options={{ title: "Gimnasio", headerShown: false, tabBarIcon: ({ color, size }) => <Feather name="zap" color={color} size={size} /> }} />
       <Tabs.Screen
         name="progreso"

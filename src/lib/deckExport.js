@@ -23,6 +23,7 @@ export async function buildDeckExport(db, deckId, now = new Date()) {
       tags: tags.map((tag, index) => ({ id: index + 1, name: tag.name })),
       deck_tags: tags.map((_, index) => ({ deck_id: 1, tag_id: index + 1 })),
       review_logs: [], connections: [], gym_chats: [], gym_messages: [],
+      notes: [], note_decks: [], note_folders: [], note_tags: [],
     };
   });
 }
