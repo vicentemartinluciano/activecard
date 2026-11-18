@@ -5,19 +5,20 @@ import { validateFolderTree } from "./folderTree";
 // las claves de API, que no deben viajar en un archivo que se comparte.
 
 export const BACKUP_APP = "activecard";
-// v2 agrega la tabla folders. Los respaldos v1 (sin folders) siguen siendo
-// restaurables: se normalizan a folders vacío.
-export const BACKUP_VERSION = 5;
+// v2 agrega la tabla folders. v6 agrega notes, note_decks, note_folders y note_tags.
+// Los respaldos v1–v5 siguen siendo restaurables.
+export const BACKUP_VERSION = 6;
 
 // folders primero: aunque folder_id no tiene FK real, insertar padres antes
 // que hijos es la convención del restore.
 const TABLES = [
   "folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections",
-  "gym_chats", "gym_messages",
+  "gym_chats", "gym_messages", "notes", "note_decks", "note_folders", "note_tags",
 ];
 
 // Orden de borrado al restaurar: hijos antes que padres (por las FKs).
 const DELETE_ORDER = [
+  "note_tags", "note_folders", "note_decks", "notes",
   "gym_messages", "gym_chats", "connections", "review_logs", "deck_tags",
   "cards", "tags", "decks", "folders",
 ];
@@ -115,13 +116,14 @@ export function validateBackup(backup) {
   if (backup.app !== BACKUP_APP) {
     throw new Error("Este archivo no es un respaldo de ActiveCard.");
   }
-  if (![1, 2, 3, 4, BACKUP_VERSION].includes(backup.version)) {
+  if (![1, 2, 3, 4, 5, BACKUP_VERSION].includes(backup.version)) {
     throw new Error(`Versión de respaldo no soportada (${backup.version}).`);
   }
   for (const table of TABLES) {
     // Un respaldo v1 no trae folders: es válido y se normaliza a [].
     if (table === "folders" && backup.version === 1 && backup[table] === undefined) continue;
     if (["gym_chats", "gym_messages"].includes(table) && backup.version < 3 && backup[table] === undefined) continue;
+    if (["notes", "note_decks", "note_folders", "note_tags"].includes(table) && backup.version < 6 && backup[table] === undefined) continue;
     if (!Array.isArray(backup[table])) {
       throw new Error(`El respaldo no tiene datos de "${table}".`);
     }
@@ -136,6 +138,10 @@ export function normalizeBackup(backup) {
     folders: backup.folders || [],
     gym_chats: backup.gym_chats || [],
     gym_messages: backup.gym_messages || [],
+    notes: backup.notes || [],
+    note_decks: backup.note_decks || [],
+    note_folders: backup.note_folders || [],
+    note_tags: backup.note_tags || [],
   };
 }
 
@@ -150,7 +156,10 @@ export async function restoreBackup(db, backup) {
     }
     for (const table of TABLES) {
       for (const row of data[table]) {
-        const restored = table === "deck_tags" || row.sync_id ? row : { ...row, sync_id: `legacy:${table}:${row.id}:${row.reviewed_at || row.created_at || row.name}` };
+        const isLinkTable = ["deck_tags", "note_decks", "note_folders", "note_tags"].includes(table);
+        const restored = isLinkTable || row.sync_id
+          ? row
+          : { ...row, sync_id: `legacy:${table}:${row.id}:${row.reviewed_at || row.created_at || row.name || row.updated_at || row.title || ""}` };
         const cols = Object.keys(restored);
         const placeholders = cols.map(() => "?").join(", ");
         await db.runAsync(

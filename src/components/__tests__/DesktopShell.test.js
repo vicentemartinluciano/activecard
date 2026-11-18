@@ -32,7 +32,7 @@ beforeAll(() => {
 });
 afterEach(async () => { await act(async () => screen?.unmount()); jest.clearAllMocks(); });
 
-test.each(['/', '/crear', '/progreso', '/ajustes', '/gimnasio/chat'])(
+test.each(['/', '/crear', '/notas', '/progreso', '/ajustes', '/gimnasio/chat'])(
   'el botón lateral abre Biblioteca desde %s cambiando de sección', async (path) => {
     mockPath = path;
     await act(async () => { screen = create(<DesktopShell />); });
@@ -41,6 +41,13 @@ test.each(['/', '/crear', '/progreso', '/ajustes', '/gimnasio/chat'])(
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
   }
 );
+
+test('volver a Notas desde una nota retira la pantalla del stack', async () => {
+  mockPath = '/notas/9';
+  await act(async () => { screen = create(<DesktopShell />); });
+  await act(async () => screen.root.findByProps({ accessibilityLabel: 'Notas' }).props.onPress());
+  expect(mockRouter.dismissTo).toHaveBeenCalledWith('/notas');
+});
 
 test.each(['/carpetas/8', '/mazos/2', '/mazos/2/estudiar'])(
   'volver a Biblioteca desde %s retira las pantallas del stack', async (path) => {

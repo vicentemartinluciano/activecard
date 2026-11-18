@@ -3,7 +3,7 @@ import { applyAdditiveImport, buildAdditiveImportPlan } from "../backupMerge";
 
 const TABLES = [
   "folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections",
-  "gym_chats", "gym_messages",
+  "gym_chats", "gym_messages", "notes", "note_decks", "note_folders", "note_tags",
 ];
 
 function completeBackup(data = {}) {
@@ -40,7 +40,7 @@ function fakeDb(initial = {}) {
         const columns = columnsText.split(",").map((column) => column.trim());
         const row = {};
         columns.forEach((column, index) => { row[column] = params[index]; });
-        if (!Object.hasOwn(row, "id") && !["deck_tags"].includes(table)) row.id = ++ids[table];
+        if (!Object.hasOwn(row, "id") && !["deck_tags", "note_decks", "note_folders", "note_tags"].includes(table)) row.id = ++ids[table];
         tables[table].push(row);
         return { lastInsertRowId: row.id };
       }
@@ -166,5 +166,28 @@ describe("importación acumulativa", () => {
       chats: 1,
       duplicateChats: 1,
     }));
+  });
+
+  test("importa notas nuevas remapeando mazos, carpetas y etiquetas sin duplicar", async () => {
+    const db = fakeDb(current);
+    const withNotes = {
+      ...incoming,
+      notes: [
+        { id: 70, title: "Mapa de Ofertas", body: "Idea central", excerpt: "Idea central", pinned: 1, created_at: "b", updated_at: "b" },
+      ],
+      note_decks: [{ note_id: 70, deck_id: 20 }],
+      note_folders: [{ note_id: 70, folder_id: 10 }],
+      note_tags: [{ note_id: 70, tag_id: 25 }],
+    };
+    const plan = buildAdditiveImportPlan(current, withNotes);
+    expect(plan.notes).toHaveLength(1);
+    expect(plan.initialSelection.noteIds).toEqual([70]);
+
+    const counts = await applyAdditiveImport(db, withNotes, plan.initialSelection, plan);
+    expect(counts.notes).toBe(1);
+    expect(db.tables.notes).toHaveLength(1);
+    expect(db.tables.note_decks).toHaveLength(1);
+    expect(db.tables.note_folders).toHaveLength(1);
+    expect(db.tables.note_tags).toHaveLength(1);
   });
 });

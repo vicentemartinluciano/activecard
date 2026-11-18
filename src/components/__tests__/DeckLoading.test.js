@@ -61,6 +61,7 @@ jest.mock('../Toast', () => ({ __esModule: true, default: ({ message }) =>
 jest.mock('../../db/cards', () => ({ listCardsByDeck: jest.fn(), createCard: jest.fn(), deleteCard: jest.fn(), setCardDeck: jest.fn(), getCard: jest.fn(), updateCardText: jest.fn() }));
 jest.mock('../../db/decks', () => ({ getDeck: jest.fn(), listTags: async () => [] }));
 jest.mock('../../db/folders', () => ({ listFolders: async () => [] }));
+jest.mock('../../db/notes', () => ({ listNotesForDeck: async () => [], createNote: jest.fn() }));
 jest.mock('../../db/progress', () => ({ getDeckDailyProgress: async () => null }));
 jest.mock('../../db/stats', () => ({ getDeckRecallScore: async () => null }));
 jest.mock('../../db/settings', () => ({ getSetting: async (_key, fallback) => fallback, listCardDrafts: jest.fn().mockResolvedValue([]), setSetting: jest.fn().mockResolvedValue() }));

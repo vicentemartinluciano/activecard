@@ -33,6 +33,8 @@ jest.mock("../../db/progress", () => ({ listDeckCardsNotReviewedToday: jest.fn()
   { id: 1, deck_id: 7, front: "Uno", back: "A" }, { id: 2, deck_id: 7, front: "Dos", back: "B" },
 ]) }));
 jest.mock("../../db/stats", () => ({ listWeakCards: jest.fn() }));
+jest.mock("../useDeckReferenceNotes", () => () => ({ notes: [], open: false, setOpen: () => {} }));
+jest.mock("../ReferenceNotesSheet", () => () => null);
 
 test("el rayo del estudio por mazo abre el gimnasio tras calificar una sola vez y se apaga para la siguiente", async () => {
   Object.defineProperty(globalThis, "fetch", { configurable: true, writable: true, value: jest.fn() });

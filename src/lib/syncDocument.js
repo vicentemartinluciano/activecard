@@ -11,14 +11,21 @@ export const COLUMNS = {
   connections: ["card_id", "final_text", "transcript", "hybrid_card_id", "created_at"],
   gym_chats: ["title", "origin_card_id", "draft_text", "created_at", "updated_at"],
   gym_messages: ["chat_id", "role", "text", "metadata", "created_at"],
+  notes: ["title", "body", "excerpt", "icon", "pinned", "created_at", "updated_at"],
 };
 export const REFERENCES = {
   parent_id: "folders",
   deck_id: "decks", folder_id: "folders", tag_id: "tags", card_id: "cards",
   origin_card_id: "cards", hybrid_card_id: "cards", chat_id: "gym_chats",
 };
+const LINK_TABLES = {
+  deck_tags: ["decks", "tags", "deck_id", "tag_id"],
+  note_decks: ["notes", "decks", "note_id", "deck_id"],
+  note_folders: ["notes", "folders", "note_id", "folder_id"],
+  note_tags: ["notes", "tags", "note_id", "tag_id"],
+};
 const REQUIRED = new Set(["deck_id", "card_id", "chat_id"]);
-const NUMBERS = new Set([...FSRS_COLS.filter((c) => !["due", "last_review"].includes(c)), "priority", "position", "starred", "suspended", "max_reviews", "max_new"]);
+const NUMBERS = new Set([...FSRS_COLS.filter((c) => !["due", "last_review"].includes(c)), "priority", "position", "starred", "suspended", "max_reviews", "max_new", "pinned"]);
 const NULLABLE = new Set(["parent_id", "folder_id", "origin_card_id", "hybrid_card_id", "last_review", "icon", "position", "transcript", "metadata"]);
 export const canonical = (value) => JSON.stringify(value, (_, item) => {
   if (item && typeof item === "object" && !Array.isArray(item)) return Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]));
@@ -26,7 +33,11 @@ export const canonical = (value) => JSON.stringify(value, (_, item) => {
 });
 export const same = (a, b) => canonical(a) === canonical(b);
 export function emptyDocument() {
-  return { schema: 1, ...Object.fromEntries(Object.keys(COLUMNS).map((table) => [table, {}])), deck_tags: [] };
+  return {
+    schema: 1,
+    ...Object.fromEntries(Object.keys(COLUMNS).map((table) => [table, {}])),
+    ...Object.fromEntries(Object.keys(LINK_TABLES).map((table) => [table, []])),
+  };
 }
 const metadataRefs = {
   cardId: "cards", selectedCardId: "cards", createdCardId: "cards", originCardId: "cards",
@@ -59,7 +70,7 @@ export function documentFromBackup(backup) {
   const doc = emptyDocument();
   const maps = {};
   for (const table of Object.keys(COLUMNS)) {
-    maps[table] = new Map((backup[table] || []).map((row) => [row.id, table === "tags" ? `tag:${row.name}` : row.sync_id || `legacy:${table}:${row.id}:${row.reviewed_at || row.created_at || row.name}`]));
+    maps[table] = new Map((backup[table] || []).map((row) => [row.id, table === "tags" ? `tag:${row.name}` : row.sync_id || `legacy:${table}:${row.id}:${row.reviewed_at || row.created_at || row.name || row.updated_at || row.title || ""}`]));
   }
   for (const [table, columns] of Object.entries(COLUMNS)) {
     for (const row of backup[table] || []) {
@@ -71,14 +82,28 @@ export function documentFromBackup(backup) {
       doc[table][maps[table].get(row.id)] = next;
     }
   }
-  doc.deck_tags = (backup.deck_tags || []).map((link) => [maps.decks.get(link.deck_id), maps.tags.get(link.tag_id)]).sort((a, b) => canonical(a).localeCompare(canonical(b)));
+  for (const [linkTable, [, , leftCol, rightCol]] of Object.entries(LINK_TABLES)) {
+    const [leftTable, rightTable] = LINK_TABLES[linkTable];
+    doc[linkTable] = (backup[linkTable] || [])
+      .map((link) => [maps[leftTable].get(link[leftCol]), maps[rightTable].get(link[rightCol])])
+      .filter(([a, b]) => a && b)
+      .sort((a, b) => canonical(a).localeCompare(canonical(b)));
+  }
   validateDocument(doc);
   return doc;
 }
 export function validateDocument(doc) {
   const fail = () => { throw new Error("El contenido de sincronización no es válido. Tus datos locales siguen conservados."); };
-  // Los checkpoints y copias anteriores no tenían preferencias compartidas.
-  if (doc && !Object.hasOwn(doc, "study_preferences")) doc = { ...doc, study_preferences: {} };
+  // Los checkpoints y copias anteriores no tenían preferencias compartidas ni notas.
+  if (doc && typeof doc === "object") {
+    const defaults = { study_preferences: {}, notes: {}, note_decks: [], note_folders: [], note_tags: [] };
+    if (Object.keys(defaults).some((key) => !Object.hasOwn(doc, key))) {
+      doc = { ...doc };
+      for (const [key, fallback] of Object.entries(defaults)) {
+        if (!Object.hasOwn(doc, key)) doc[key] = fallback;
+      }
+    }
+  }
   if (!doc || doc.schema !== 1 || Object.keys(doc).sort().join() !== Object.keys(emptyDocument()).sort().join()) fail();
   for (const [table, columns] of Object.entries(COLUMNS)) {
     const rows = doc[table];
@@ -100,6 +125,7 @@ export function validateDocument(doc) {
         if (row[column] !== null && !Number.isFinite(Date.parse(row[column]))) fail();
       }
       if (table === "cards" && (!["manual", "ai", "hybrid"].includes(row.source) || ![0, 1].includes(row.starred) || ![0, 1].includes(row.suspended) || ![0, 1, 2, 3].includes(row.state))) fail();
+      if (table === "notes" && ![0, 1].includes(row.pinned)) fail();
       if (table === "study_preferences" && (id !== "dailyLimits" || !Number.isInteger(row.max_reviews) || row.max_reviews > 100 || !Number.isInteger(row.max_new) || row.max_new > 50)) fail();
       if (table === "review_logs" && (!["again", "hard", "good"].includes(row.rating) || !["daily", "quizlet"].includes(row.mode))) fail();
       if (table === "gym_messages") {
@@ -109,11 +135,13 @@ export function validateDocument(doc) {
     }
   }
   validateFolderTree(Object.entries(doc.folders).map(([id, row]) => ({ ...row, id })));
-  if (!Array.isArray(doc.deck_tags)) fail();
-  const links = new Set();
-  for (const pair of doc.deck_tags) {
-    if (!Array.isArray(pair) || pair.length !== 2 || !Object.hasOwn(doc.decks, pair[0]) || !Object.hasOwn(doc.tags, pair[1]) || links.has(canonical(pair))) fail();
-    links.add(canonical(pair));
+  for (const [linkTable, [leftTable, rightTable]] of Object.entries(LINK_TABLES)) {
+    if (!Array.isArray(doc[linkTable])) fail();
+    const links = new Set();
+    for (const pair of doc[linkTable]) {
+      if (!Array.isArray(pair) || pair.length !== 2 || !Object.hasOwn(doc[leftTable], pair[0]) || !Object.hasOwn(doc[rightTable], pair[1]) || links.has(canonical(pair))) fail();
+      links.add(canonical(pair));
+    }
   }
   return doc;
 }
@@ -130,16 +158,24 @@ function units(doc) {
   const connections = grouped(doc.connections, "card_id");
   const messages = grouped(doc.gym_messages, "chat_id");
   const links = {};
-  for (const link of doc.deck_tags) (links[link[0]] ||= []).push(link);
-  for (const table of ["study_preferences", "folders", "decks", "tags", "cards", "gym_chats"]) {
+  for (const linkTable of Object.keys(LINK_TABLES)) {
+    links[linkTable] = {};
+    for (const link of doc[linkTable]) (links[linkTable][link[0]] ||= []).push(link);
+  }
+  for (const table of ["study_preferences", "folders", "decks", "tags", "cards", "gym_chats", "notes"]) {
     for (const [id, row] of Object.entries(doc[table])) {
       const unit = { row };
-      if (table === "decks") unit.links = links[id] || [];
+      if (table === "decks") unit.links = links.deck_tags[id] || [];
       if (table === "cards") {
         unit.reviews = reviews[id] || {};
         unit.connections = connections[id] || {};
       }
       if (table === "gym_chats") unit.messages = messages[id] || {};
+      if (table === "notes") {
+        unit.note_decks = links.note_decks[id] || [];
+        unit.note_folders = links.note_folders[id] || [];
+        unit.note_tags = links.note_tags[id] || [];
+      }
       result[JSON.stringify([table, id])] = unit;
     }
   }
@@ -159,6 +195,9 @@ export function mergeDocuments(base, local, remote) {
     const [table, id] = JSON.parse(key);
     result[table][id] = chosen.row;
     if (chosen.links) result.deck_tags.push(...chosen.links);
+    if (chosen.note_decks) result.note_decks.push(...chosen.note_decks);
+    if (chosen.note_folders) result.note_folders.push(...chosen.note_folders);
+    if (chosen.note_tags) result.note_tags.push(...chosen.note_tags);
     Object.assign(result.review_logs, chosen.reviews);
     Object.assign(result.connections, chosen.connections);
     Object.assign(result.gym_messages, chosen.messages);
@@ -208,7 +247,11 @@ export function mergeDocuments(base, local, remote) {
       parent = result.folders[parent]?.parent_id;
     }
   }
-  result.deck_tags = result.deck_tags.filter(([deck, tag]) => Object.hasOwn(result.decks, deck) && Object.hasOwn(result.tags, tag)).sort((a, b) => canonical(a).localeCompare(canonical(b)));
+  for (const [linkTable, [leftTable, rightTable]] of Object.entries(LINK_TABLES)) {
+    result[linkTable] = result[linkTable]
+      .filter(([left, right]) => Object.hasOwn(result[leftTable], left) && Object.hasOwn(result[rightTable], right))
+      .sort((a, b) => canonical(a).localeCompare(canonical(b)));
+  }
   validateDocument(result);
   return { document: result, conflicts: [...new Set(conflicts)] };
 }

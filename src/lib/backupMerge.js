@@ -3,6 +3,7 @@ import { buildBackup, normalizeBackup } from "./backup";
 
 const cleanName = (value) => String(value || "").trim().toLocaleLowerCase("es");
 const cardKey = (card) => `${String(card.front || "")}\u0000${String(card.back || "")}`;
+const noteKey = (note) => `${cleanName(note.title)}\u0000${String(note.body || "")}`;
 const chatKey = (chat, messages) => JSON.stringify([
   String(chat.title || ""),
   messages
@@ -109,19 +110,37 @@ export function buildAdditiveImportPlan(currentBackup, incomingBackup) {
       ).length,
     }));
 
+  const seenNoteKeys = new Set((current.notes || []).map(noteKey));
+  const notes = (incoming.notes || [])
+    .filter((note) => {
+      const key = noteKey(note);
+      if (seenNoteKeys.has(key)) return false;
+      seenNoteKeys.add(key);
+      return true;
+    })
+    .map((note) => ({
+      id: Number(note.id),
+      title: note.title || "Nota sin título",
+      excerpt: String(note.excerpt || ""),
+    }));
+
   const allDecks = [...folderNodes.values()].flatMap((folder) => folder.decks).concat(looseDecks);
   const cardIds = allDecks.flatMap((deck) => deck.cards.map((card) => card.id));
+  const duplicateNotes = (incoming.notes || []).length - notes.length;
   return {
     folders: [...folderNodes.values()],
     looseDecks,
     chats,
+    ...(notes.length ? { notes } : {}),
     initialSelection: {
       cardIds,
       chatIds: chats.map((chat) => chat.id),
+      ...(notes.length ? { noteIds: notes.map((note) => note.id) } : {}),
     },
     counts: {
       cards: cardIds.length,
       chats: chats.length,
+      ...(notes.length || duplicateNotes ? { notes: notes.length, duplicateNotes } : {}),
       duplicateCards: duplicateCardIds.size,
       duplicateChats: incoming.gym_chats.length - chats.length,
       decks: allDecks.length,
@@ -210,8 +229,10 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
   const incoming = normalizeBackup(incomingBackup);
   const selectedCards = new Set((selection?.cardIds || []).map(Number));
   const selectedChats = new Set((selection?.chatIds || []).map(Number));
+  const selectedNotes = new Set((selection?.noteIds || []).map(Number));
   const current = await buildBackup(db);
   const currentCardByKey = new Map(current.cards.map((card) => [cardKey(card), card]));
+  const currentNoteKeys = new Set((current.notes || []).map(noteKey));
   const currentChatKeys = new Set(current.gym_chats.map((chat) => chatKey(chat, current.gym_messages)));
   const incomingDeckById = new Map(incoming.decks.map((deck) => [Number(deck.id), deck]));
   const folderNameById = new Map((plan?.folders || []).map((folder) => [Number(folder.id), folder.importName]));
@@ -219,10 +240,13 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
     [...(plan?.folders || []).flatMap((folder) => folder.decks), ...(plan?.looseDecks || [])]
       .map((deck) => [Number(deck.id), deck.importName])
   );
+  const currentDeckBySyncId = new Map(current.decks.filter((d) => d.sync_id).map((d) => [d.sync_id, Number(d.id)]));
+  const currentFolderBySyncId = new Map(current.folders.filter((f) => f.sync_id).map((f) => [f.sync_id, Number(f.id)]));
   const maps = {
     cards: new Map(),
     decks: new Map(),
     folders: new Map(),
+    notes: new Map(),
     currentCards: new Map(current.cards.map((card) => [Number(card.id), card])),
   };
   const incomingIdsByCardKey = new Map();
@@ -253,7 +277,7 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
     const parent = folderById.get(id)?.parent_id;
     if (parent != null) neededFolderIds.add(Number(parent));
   }
-  const counts = { folders: 0, decks: 0, cards: 0, review_logs: 0, connections: 0, gym_chats: 0, gym_messages: 0 };
+  const counts = { folders: 0, decks: 0, cards: 0, review_logs: 0, connections: 0, gym_chats: 0, gym_messages: 0, notes: 0 };
 
   await withDbTransaction(db, async (db) => {
     for (const folder of incoming.folders) {
@@ -282,11 +306,14 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
       counts.decks += 1;
     }
 
-    const neededTagIds = new Set(
-      incoming.deck_tags
+    const neededTagIds = new Set([
+      ...incoming.deck_tags
         .filter((link) => neededDeckIds.has(Number(link.deck_id)))
-        .map((link) => Number(link.tag_id))
-    );
+        .map((link) => Number(link.tag_id)),
+      ...(incoming.note_tags || [])
+        .filter((link) => selectedNotes.has(Number(link.note_id)))
+        .map((link) => Number(link.tag_id)),
+    ]);
     const currentTagsByName = new Map(current.tags.map((tag) => [cleanName(tag.name), Number(tag.id)]));
     const tagMap = new Map();
     for (const tag of incoming.tags) {
@@ -375,6 +402,33 @@ export async function applyAdditiveImport(db, incomingBackup, selection, plan) {
         counts.gym_messages += 1;
       }
       currentChatKeys.add(key);
+    }
+
+    for (const note of incoming.notes || []) {
+      if (!selectedNotes.has(Number(note.id))) continue;
+      const key = noteKey(note);
+      if (currentNoteKeys.has(key)) continue;
+      const newNoteId = await insertRow(db, "notes", without(note, "id"));
+      maps.notes.set(Number(note.id), newNoteId);
+      currentNoteKeys.add(key);
+      counts.notes += 1;
+    }
+    for (const link of incoming.note_decks || []) {
+      const noteId = maps.notes.get(Number(link.note_id));
+      const incDeck = incomingDeckById.get(Number(link.deck_id));
+      const deckId = maps.decks.get(Number(link.deck_id)) || (incDeck?.sync_id && currentDeckBySyncId.get(incDeck.sync_id));
+      if (noteId && deckId) await insertRow(db, "note_decks", { note_id: noteId, deck_id: deckId });
+    }
+    for (const link of incoming.note_folders || []) {
+      const noteId = maps.notes.get(Number(link.note_id));
+      const incFolder = folderById.get(Number(link.folder_id));
+      const folderId = maps.folders.get(Number(link.folder_id)) || (incFolder?.sync_id && currentFolderBySyncId.get(incFolder.sync_id));
+      if (noteId && folderId) await insertRow(db, "note_folders", { note_id: noteId, folder_id: folderId });
+    }
+    for (const link of incoming.note_tags || []) {
+      const noteId = maps.notes.get(Number(link.note_id));
+      const tagId = tagMap.get(Number(link.tag_id));
+      if (noteId && tagId) await insertRow(db, "note_tags", { note_id: noteId, tag_id: tagId });
     }
   });
   return counts;

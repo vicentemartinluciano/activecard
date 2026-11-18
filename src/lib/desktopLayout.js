@@ -2,6 +2,7 @@ export const DESKTOP_RAIL_WIDTH = 60;
 export const DESKTOP_INDEX_WIDTH = 280;
 
 export function desktopSection(path) {
+  if (path.startsWith('/notas')) return 'notas';
   if (path.startsWith('/gimnasio')) return 'gimnasio';
   if (path.startsWith('/mazos') || path.startsWith('/carpetas') || path === '/biblioteca') return 'biblioteca';
   if (path.startsWith('/crear')) return 'biblioteca';

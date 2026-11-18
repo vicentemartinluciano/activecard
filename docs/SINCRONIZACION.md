@@ -88,7 +88,8 @@ cuenta no las recuperan: reingresar una copia propia o crear una clave nueva.
 ## Datos y seguridad
 
 SQLite continúa siendo la fuente local y funciona sin cuenta o sin conexión. Se
-sincronizan carpetas, mazos, etiquetas, tarjetas, imágenes inline, programación FSRS,
+sincronizan carpetas, mazos, etiquetas, notas y sus vínculos (`note_decks`,
+`note_folders`, `note_tags`), tarjetas, imágenes inline, programación FSRS,
 repasos, conexiones/ideas y conversaciones con mensajes, borradores persistidos y
 adjuntos. Una charla nueva sigue siendo efímera hasta el primer envío.
 
@@ -98,10 +99,14 @@ La migración SQLite v9 conserva los valores de cada dispositivo; su primer encu
 usa el mismo criterio de conflicto y recuperación que el resto de entidades.
 Los checkpoints anteriores se normalizan sin preferencias. Restaurar una copia vieja
 conserva los límites actuales; las nuevas copias internas sí contienen esos límites.
-El respaldo manual v4 continúa sin incluir configuración. La migración remota
-`202610080001_activecard_study_preferences.sql` agrega esa entidad al RPC existente,
-sin modificar dueño, políticas ni privilegios. Los clientes anteriores deben actualizarse
-antes de leer un manifiesto con preferencias; rechazan esa entidad y no sobrescriben la nube.
+El respaldo manual v6 continúa sin incluir configuración y conserva identidades,
+jerarquía de carpetas y notas vinculadas (`notes`, `note_decks`, `note_folders`,
+`note_tags`; restaura v1–v5). La migración remota
+`202610080001_activecard_study_preferences.sql` agregó preferencias compartidas al RPC
+y `202611180001_activecard_notes.sql` amplía `activecard_commit` con `notes`,
+`note_decks`, `note_folders` y `note_tags`, sin modificar dueño, políticas ni
+privilegios. Los clientes anteriores deben actualizarse antes de leer un manifiesto
+con preferencias o notas nuevas; rechazan esas entidades y no sobrescriben la nube.
 
 `settings`, las demás preferencias, claves OpenAI/Notion, contraseña y tokens no entran en el
 documento, los respaldos ni las copias de recuperación. Solo el refresh token se
@@ -226,8 +231,8 @@ npx expo-doctor
 npx expo export --platform android --clear
 ```
 
-SQLite real verifica migración v7→v9, límites diarios, IDs, relaciones, adjuntos, claves excluidas,
-comparación antes de aplicar, recuperación y respaldo v4. Postgres embebido verifica
+SQLite real verifica migración v7→v11, límites diarios, IDs, relaciones, notas vinculadas, adjuntos, claves excluidas,
+comparación antes de aplicar, recuperación y respaldo v6. Postgres embebido verifica
 cuenta única, RLS de tablas/archivos, escrituras inmutables, archivos existentes,
 CAS, replay idempotente y bloqueo de otra cuenta. Jest cubre merges, archivo antes
 de checkpoint, reintentos, sesiones, hashes alterados y transferencias entre clientes.

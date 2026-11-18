@@ -85,11 +85,23 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - Borrar mazos o carpetas requiere escribir el nombre exacto. Al borrar una carpeta, los
   mazos no seleccionados para borrar quedan sueltos.
 - Las ideas son tarjetas reales con `source='hybrid'`; el Gimnasio es una vista derivada.
-- Inicio, Biblioteca, Gimnasio y Progreso son las cuatro secciones principales.
+- Inicio, Biblioteca, Notas, Gimnasio y Progreso son las cinco secciones principales.
   Biblioteca y las carpetas abren `CreationSheet` desde Nuevo: mazo manual/con IA
   o carpeta en la ubicación actual. Crear conserva compatibilidad de enlaces y
   redirige a Biblioteca. El destino queda visible y se puede cambiar. Las tarjetas
   manuales se crean dentro del mazo, en el mismo editor con autoguardado.
+- **Notas (`/notas`, `/notas/[id]`):** sección independiente pensada como mapa previo
+  de estudio y material de respaldo completo para mantener tarjetas simples/atómicas.
+  Las notas se vinculan de forma no destructiva (N:M) con mazos (`note_decks`),
+  carpetas (`note_folders`) y etiquetas (`note_tags`), con herencia jerárquica al
+  consultar desde mazos y carpetas (`listNotesForDeck` incluye vínculos directos, por
+  carpeta/ancestros y por etiquetas del mazo; `listNotesForFolder` incluye directos,
+  ancestros y descendientes). Navegación bidireccional en un toque desde `/notas` o
+  `/notas/[id]` hacia `/mazos/[id]` y `/carpetas/[id]` (flusheando autoguardado), desde
+  `AssociatedNotesSection` en mazos/carpetas, y lector rápido (`ReferenceNotesSheet` +
+  `useDeckReferenceNotes`) durante `/repaso` y `/mazos/[id]/estudiar`. El borrado de una
+  nota pide confirmación simple con `ActionSheet` y no borra mazos ni carpetas; borrar un
+  mazo o carpeta desvincula en cascada sin eliminar la nota.
 - Biblioteca comparte `LibraryContent` con las carpetas en web y Android. En raíz
   muestra carpetas raíz y mazos sueltos; Todos los mazos conserva el catálogo.
   La búsqueda raíz es global y la de carpeta incluye descendientes. Mover mazos
@@ -104,7 +116,9 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 ## Arquitectura crítica
 
 - SQLite usa exclusivamente la API async. Migraciones append-only en `db/schema.js`;
-  esquema actual v10 (`folders.parent_id` para jerarquía; v9 conserva límites diarios compartidos en `study_preferences`). Las claves y el resto de `settings` siguen locales.
+  esquema actual v11 (`notes`, `note_decks`, `note_folders`, `note_tags` y trigger
+  `notes_sync_identity`; v10 suma `folders.parent_id`; v9 conserva límites diarios
+  compartidos en `study_preferences`). Las claves y el resto de `settings` siguen locales.
 - `FSRS_COLS` en `db/cards.js` es la fuente única del estado programado.
 - Las operaciones SQLite pasan por `transactions.js`; usar `withDbTransaction` para operaciones atómicas y su conexión de callback. No abrir BEGIN/COMMIT sobre la conexión administrada.
 - Fechas se guardan en UTC y se agrupan por día local en JavaScript.
@@ -113,7 +127,8 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 - Tras modificar el editor compartido o `editor-web/`, regenerar y commitear
   `assets/editor/editorHtml.js`.
 - Las imágenes viven inline como data URI comprimidas y entran en el respaldo.
-- Respaldo vigente v5; restaura v1–v4 y conserva identidades y jerarquía; `settings` y claves nunca se exportan. Compartir mazo exporta contenido sin historial ni identidades.
+- Respaldo vigente v6; restaura v1–v5 y conserva identidades, jerarquía y notas
+  vinculadas (`notes`, `note_decks`, `note_folders`, `note_tags`); `settings` y claves nunca se exportan. Compartir mazo exporta contenido sin historial ni identidades.
 - Importación: reemplazo total o suma selectiva con deduplicación y remapeo de IDs.
 - Voz Android: reconocimiento en vivo del sistema + Whisper local como respaldo.
 - Recordatorio local desactivado por defecto; solo se programa si quedan pendientes.

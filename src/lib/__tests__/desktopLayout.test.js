@@ -5,6 +5,8 @@ describe('Navegación de escritorio', () => {
     expect(hasLibraryIndex('/mazos/12/tarjeta')).toBe(true);
     expect(hasLibraryIndex('/mazos/12/estudiar')).toBe(false);
     expect(hasLibraryIndex('/mazos/debiles/estudiar')).toBe(false);
+    expect(desktopSection('/notas')).toBe('notas');
+    expect(desktopSection('/notas/12')).toBe('notas');
     expect(desktopSection('/gimnasio/historial')).toBe('gimnasio');
   });
   test('buscar un mazo muestra su carpeta aunque esté plegada', () => {

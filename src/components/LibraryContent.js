@@ -5,8 +5,10 @@ import { FlatList, Platform, Pressable, Text, View } from 'react-native';
 import { libraryContents, locationLabel } from '../lib/libraryLocation';
 import { toPlainText } from '../lib/richtext';
 import { deleteDeck } from '../db/decks';
+import { createNote } from '../db/notes';
 import { colors, spacing, type } from '../theme';
 import ActionSheet from './ActionSheet';
+import AssociatedNotesSection from './AssociatedNotesSection';
 import ConfirmDeleteSheet from './ConfirmDeleteSheet';
 import CreationSheet from './CreationSheet';
 import DeckListItem from './DeckListItem';
@@ -17,7 +19,7 @@ import LibraryBreadcrumbs from './LibraryBreadcrumbs';
 import { Button, Card, Chip, EmptyState, Field } from './ui';
 
 // Misma estructura de navegación para Android, web angosta y escritorio.
-export default function LibraryContent({ folders, decks, cards = [], tags = [], progressByDeck = {}, folderId = null, onRefresh }) {
+export default function LibraryContent({ folders, decks, cards = [], tags = [], progressByDeck = {}, folderNotes = [], folderId = null, onRefresh }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [all, setAll] = useState(false);
@@ -79,6 +81,18 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
           {tags.map((tag) => <Chip key={tag.id} label={tag.name} active={tagIds.includes(tag.id)} onPress={() => setTagIds((ids) => ids.includes(tag.id) ? ids.filter((id) => id !== tag.id) : [...ids, tag.id])} />)}
           {(tagIds.length > 0 || all) && <Button label="Quitar filtros" kind="ghost" onPress={() => { setTagIds([]); setAll(false); }} />}
         </View></>}
+        {folderId != null && !searching && (
+          <AssociatedNotesSection
+            title="Notas de la carpeta"
+            notes={folderNotes}
+            emptyText="Asociá una nota acá para cubrir toda esta carpeta y sus mazos."
+            onOpenNote={(noteId) => router.push(`/notas/${noteId}`)}
+            onCreateNote={async () => {
+              const noteId = await createNote({ folderIds: [folderId] });
+              router.push(`/notas/${noteId}`);
+            }}
+          />
+        )}
       </View>}
       renderItem={({ item: row }) => {
         if (row.label) return <Text style={[type.label, { marginTop: spacing.md }]}>{row.label}</Text>;

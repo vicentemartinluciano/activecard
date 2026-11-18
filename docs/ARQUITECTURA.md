@@ -1,6 +1,6 @@
 # Arquitectura de ActiveCard
 
-Última actualización: 2026-11-16
+Última actualización: 2026-11-18
 APK instalada: 1.11.0 / código 6, comprobada por ADB el 18/10; esta revisión no construye ni instala un APK. La prueba física queda a cargo de Martín. El estado del teléfono, la cuenta y las pruebas de intercambio
 entre Android y web se registran en `SINCRONIZACION.md`. La reinstalación del 8/10
 perdió la clave local de OpenAI; las claves siguen siendo locales.
@@ -61,7 +61,7 @@ expone los ancestros en Android; web reutiliza la ruta de `DesktopShell` y abre
 los ancestros del elemento activo en el índice.
 
 `CreationSheet` se abre desde Nuevo en Biblioteca, carpetas y el índice web.
-La navegación principal es Inicio / Biblioteca / Gimnasio / Progreso. La ruta
+La navegación principal es Inicio / Biblioteca / Notas / Gimnasio / Progreso. La ruta
 legacy Crear redirige a la ubicación de Biblioteca con el menú abierto.
 `LocationBrowser` comparte rutas, búsqueda y selección jerárquica; `FolderPicker`
 y `DeckPicker` conservan la elección anterior hasta confirmar un cambio. `createDeck(name, folderId)` inserta el destino y el mazo en una
@@ -102,6 +102,7 @@ src/
 │   │   ├── index.js               Inicio
 │   │   ├── crear.js               Redirección de accesos anteriores
 │   │   ├── biblioteca.js          Búsqueda y organización
+│   │   ├── notas.js               Notas de estudio y respaldo
 │   │   ├── gimnasio.js            Chat general y acceso a ideas/historial
 │   │   └── progreso.js            Estadísticas
 │   ├── repaso.js                  Repaso diario
@@ -112,6 +113,7 @@ src/
 │   │   ├── index.js               Detalle y administración
 │   │   ├── estudiar.js            Estudio por mazo / débiles
 │   │   └── tarjeta.js             Editor de tarjeta
+│   ├── notas/[id].js              Editor continuo de nota y vínculos
 │   ├── carpetas/[id]/index.js
 │   ├── gimnasio/
 │   │   ├── chat.js                Chat general o contextual
@@ -125,13 +127,14 @@ src/
 ├── components/
 │   ├── ui.js, ActionSheet.js, GlowPressable.js
 │   ├── FlipCard.js, SwipeCard.js, EditableCardRow.js
+│   ├── AssociatedNotesSection.js, NoteAssociationsSheet.js, ReferenceNotesSheet.js
 │   ├── NotionField.js, NotionField.web.js, RichText.js
 │   ├── ChatAuditor.js, CardAttachmentSheet.js, BrainMark.js, StarField.js
 │   ├── VoiceInput.native.js, VoiceInput.web.js, MicButton.js
 │   └── gráficos, progreso, skeleton, toast y animaciones
 ├── db/
 │   ├── client.js, schema.js
-│   ├── cards.js, decks.js, folders.js, connections.js, gymChats.js
+│   ├── cards.js, decks.js, folders.js, notes.js, connections.js, gymChats.js
 │   ├── reviewQueue.js, progress.js, stats.js, streak.js, settings.js
 ├── lib/
 │   ├── scheduler.js, queue.js, studySession.js, search.js
@@ -171,7 +174,7 @@ locks transitorios de OPFS y una promesa rechazada nunca queda cacheada.
 
 ## SQLite
 
-Migraciones append-only en `db/schema.js`. Esquema actual: v10. v8 agrega `sync_id`, `sync_state` y `sync_recovery`; v9 lleva exclusivamente los límites diarios a `study_preferences`; v10 agrega `folders.parent_id`. Conserva datos anteriores y no modifica migraciones ya aplicadas. Ver `BIBLIOTECA-Y-ESTUDIO.md` para edición permanente, tablas, export por mazo y jerarquía.
+Migraciones append-only en `db/schema.js`. Esquema actual: v11. v8 agrega `sync_id`, `sync_state` y `sync_recovery`; v9 lleva exclusivamente los límites diarios a `study_preferences`; v10 agrega `folders.parent_id`; v11 incorpora `notes`, `note_decks`, `note_folders` y `note_tags` con trigger `notes_sync_identity`. Conserva datos anteriores y no modifica migraciones ya aplicadas. Ver `BIBLIOTECA-Y-ESTUDIO.md` para edición permanente, tablas, export por mazo, jerarquía y notas vinculadas.
 
 ### Tablas
 
@@ -189,6 +192,10 @@ Migraciones append-only en `db/schema.js`. Esquema actual: v10. v8 agrega `sync_
 #### `tags` y `deck_tags`
 
 Etiquetas únicas y relación muchos a muchos con mazos.
+
+#### `notes`, `note_decks`, `note_folders` y `note_tags`
+
+Notas de estudio y respaldo completo con `title`, `body` (marcas/sentinels del editor compartido), `excerpt` precomputado de texto plano para búsquedas sin traer base64, `icon` y `pinned`. Las tablas puente `ON DELETE CASCADE` permiten vincularlas con múltiples mazos, carpetas (heredando ancestros/descendientes en la consulta) y etiquetas sin eliminar la nota al borrar un destino.
 
 #### `cards`
 
@@ -481,11 +488,12 @@ WAV persistido con Whisper Base q5_1 local.
 
 ## Respaldo
 
-Formato vigente: v5; conserva identidades de sincronización y jerarquía de carpetas y permite restaurar v1–v4. Compartir un mazo genera un export de contenido sin historial, chats ni identidades. Las tablas se conservan dentro de `front/back`.
+Formato vigente: v6; conserva identidades de sincronización, jerarquía de carpetas y notas vinculadas (`notes`, `note_decks`, `note_folders`, `note_tags`), y permite restaurar v1–v5. Compartir un mazo genera un export de contenido sin historial, chats, notas ni identidades. Las tablas se conservan dentro de `front/back`.
 
 ```text
 folders, decks, tags, deck_tags, cards, review_logs,
-connections, gym_chats, gym_messages
+connections, gym_chats, gym_messages,
+notes, note_decks, note_folders, note_tags
 ```
 
 `settings` nunca se exporta.

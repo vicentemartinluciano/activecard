@@ -90,3 +90,32 @@ test("un respaldo común conserva identidad aunque los IDs locales cambien", () 
   const backup = { folders: [{ id: 70, sync_id: "folder", ...base.folders.folder }], decks: [{ id: 80, sync_id: "deck", ...base.decks.deck, folder_id: 70 }], cards: [{ id: 90, sync_id: "card", ...base.cards.card, deck_id: 80 }], tags: [], deck_tags: [], review_logs: [], connections: [], gym_chats: [], gym_messages: [] };
   expect(documentFromBackup(backup)).toEqual(base);
 });
+
+test("notas y sus vínculos con carpetas, mazos y etiquetas se combinan y limpian si cae un destino", () => {
+  const base = document();
+  base.tags["tag:examen"] = { name: "examen" };
+  base.notes.note1 = { title: "Resumen", body: "**Clave**", excerpt: "Clave", icon: null, pinned: 1, created_at: now, updated_at: now };
+  base.note_folders.push(["note1", "folder"]);
+  base.note_decks.push(["note1", "deck"]);
+  base.note_tags.push(["note1", "tag:examen"]);
+
+  const legacy = clone(base);
+  delete legacy.notes; delete legacy.note_decks; delete legacy.note_folders; delete legacy.note_tags;
+  expect(validateDocument(legacy).notes).toEqual({});
+
+  const local = clone(base);
+  local.notes.note2 = { title: "Nueva local", body: "Texto", excerpt: "Texto", icon: null, pinned: 0, created_at: now, updated_at: now };
+  local.note_folders.push(["note2", "folder"]);
+  local.note_decks.push(["note2", "deck"]);
+
+  const remote = clone(base);
+  delete remote.decks.deck;
+  delete remote.cards.card;
+  remote.note_decks = [];
+
+  const merged = mergeDocuments(base, local, remote);
+  expect(Object.keys(merged.document.notes).sort()).toEqual(["note1", "note2"]);
+  expect(merged.document.note_decks).toEqual([]);
+  expect(merged.document.note_folders).toEqual([["note1", "folder"], ["note2", "folder"]]);
+  expect(merged.document.note_tags).toEqual([["note1", "tag:examen"]]);
+});

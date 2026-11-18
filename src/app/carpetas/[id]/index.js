@@ -9,6 +9,7 @@ import { Button, Screen } from '../../../components/ui';
 import { listAllCardsForSearch } from '../../../db/cards';
 import { listDecks, listTags } from '../../../db/decks';
 import { getFolder, listFolders } from '../../../db/folders';
+import { listNotesForFolder } from '../../../db/notes';
 import { getDecksDailyProgress } from '../../../db/progress';
 import { spacing, type } from '../../../theme';
 
@@ -23,9 +24,9 @@ export default function DetalleCarpeta() {
   const load = useCallback(async () => {
     const ticket = ++request.current;
     try {
-      const [folder, folders, decks, cards, tags, progressByDeck] = await Promise.all([getFolder(folderId), listFolders(), listDecks(), listAllCardsForSearch(), listTags(), getDecksDailyProgress()]);
+      const [folder, folders, decks, cards, tags, progressByDeck, folderNotes] = await Promise.all([getFolder(folderId), listFolders(), listDecks(), listAllCardsForSearch(), listTags(), getDecksDailyProgress(), listNotesForFolder(folderId)]);
       if (ticket !== request.current) return;
-      setMissing(!folder); setData(folder ? { folder, folders, decks, cards, tags, progressByDeck } : null); setError('');
+      setMissing(!folder); setData(folder ? { folder, folders, decks, cards, tags, progressByDeck, folderNotes: folderNotes.all } : null); setError('');
     } catch (e) { if (ticket === request.current) setError(databaseErrorMessage(e, e.message || 'No pudimos cargar esta carpeta.')); }
   }, [folderId]);
   useFocusEffect(useCallback(() => { load(); return () => { request.current++; }; }, [load]));

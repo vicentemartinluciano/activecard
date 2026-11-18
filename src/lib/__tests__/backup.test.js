@@ -2,7 +2,7 @@ import { buildBackup, listSourcesFromMessages, restoreBackup } from "../backup";
 
 const TABLES = [
   "folders", "decks", "tags", "deck_tags", "cards", "review_logs", "connections",
-  "gym_chats", "gym_messages",
+  "gym_chats", "gym_messages", "notes", "note_decks", "note_folders", "note_tags",
 ];
 
 // Doble mínimo de una conexión expo-sqlite async con tablas en memoria.
@@ -46,7 +46,7 @@ describe("buildBackup", () => {
     });
     const backup = await buildBackup(db, NOW);
     expect(backup.app).toBe("activecard");
-    expect(backup.version).toBe(5);
+    expect(backup.version).toBe(6);
     expect(backup.exportedAt).toBe(NOW.toISOString());
     expect(backup.decks).toEqual([{ id: 1, name: "Administración", created_at: "x" }]);
     expect(backup.cards).toEqual([{ id: 1, deck_id: 1, front: "f", back: "b" }]);
@@ -130,7 +130,19 @@ describe("restoreBackup", () => {
       connections: 0,
       gym_chats: 0,
       gym_messages: 0,
+      notes: 0,
+      note_decks: 0,
+      note_folders: 0,
+      note_tags: 0,
     });
+  });
+
+  test("restaura un respaldo v5 sin tablas de notas", async () => {
+    const db = fakeDb({ notes: [{ id: 1, title: "Vieja", body: "x" }] });
+    const v5 = { ...validBackup, version: 5, gym_chats: [], gym_messages: [] };
+    const counts = await restoreBackup(db, v5);
+    expect(counts.notes).toBe(0);
+    expect(db.tables.notes).toEqual([]);
   });
 
   test("restaura un respaldo v1 (sin folders) dejando folders vacío", async () => {

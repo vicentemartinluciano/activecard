@@ -18,6 +18,7 @@ import CreationSheet from './CreationSheet';
 const sections = [
   ['inicio', 'Inicio', 'home', '/'],
   ['biblioteca', 'Biblioteca', 'book-open', '/biblioteca'],
+  ['notas', 'Notas', 'file-text', '/notas'],
   ['gimnasio', 'Gimnasio', 'zap', '/gimnasio'],
   ['progreso', 'Progreso', 'trending-up', '/progreso'],
 ];
@@ -140,7 +141,7 @@ function DesktopWorkspace({ children }) {
       closePreview(); if (narrow) setPinned(false);
       // POP_TO vuelve por el stack de mazos/carpetas, pero no cambia la tab
       // activa cuando ya estamos en Inicio, Crear o Progreso.
-      if (ancestor || route === '/biblioteca' && (path === '/biblioteca' || path.startsWith('/mazos') || path.startsWith('/carpetas'))) router.dismissTo(route);
+      if (ancestor || route === '/biblioteca' && (path === '/biblioteca' || path.startsWith('/mazos') || path.startsWith('/carpetas')) || route === '/notas' && path.startsWith('/notas')) router.dismissTo(route);
       else router.navigate(route);
     } finally { navigating.current = false; }
   };

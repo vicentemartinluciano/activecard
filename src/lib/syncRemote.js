@@ -38,6 +38,7 @@ export function splitText(text) {
   }
   return chunks;
 }
+const LINK_TABLES = new Set(["deck_tags", "note_decks", "note_folders", "note_tags"]);
 export function validateManifest(manifest) {
   if (!manifest || manifest.schema !== 1 || Object.keys(manifest).sort().join() !== "entries,schema" || !Array.isArray(manifest.entries) || manifest.entries.length > 100000 || canonical(manifest).length > 1800000) throw new Error("El índice de sincronización no es válido.");
   const seen = new Set();
@@ -45,8 +46,8 @@ export function validateManifest(manifest) {
     if (!Array.isArray(entry) || entry.length !== 3) throw new Error("Índice incompleto.");
     const [table, id, hashes] = entry;
     const key = canonical([table, id]);
-    if (!(Object.hasOwn(COLUMNS, table) || table === "deck_tags") || typeof id !== "string" || !id || id.length > 512 || seen.has(key) || !Array.isArray(hashes) || !hashes.length || hashes.length > 1024 || hashes.some((hash) => typeof hash !== "string" || !/^[a-f0-9]{64}$/.test(hash))) throw new Error("Índice incompleto.");
-    if (table === "deck_tags" && id !== "links") throw new Error("Índice incompleto.");
+    if (!(Object.hasOwn(COLUMNS, table) || LINK_TABLES.has(table)) || typeof id !== "string" || !id || id.length > 512 || seen.has(key) || !Array.isArray(hashes) || !hashes.length || hashes.length > 1024 || hashes.some((hash) => typeof hash !== "string" || !/^[a-f0-9]{64}$/.test(hash))) throw new Error("Índice incompleto.");
+    if (LINK_TABLES.has(table) && id !== "links") throw new Error("Índice incompleto.");
     seen.add(key);
   }
   return manifest;
@@ -208,14 +209,14 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       const installRow = (table, id, row, length) => {
         total += length;
         if (total > MAX_DOCUMENT) throw new Error("El contenido excede el límite de sincronización.");
-        if (table === "deck_tags") document.deck_tags = row;
+        if (LINK_TABLES.has(table)) document[table] = row;
         else Object.defineProperty(document[table], id, { value: row, enumerable: true, configurable: true, writable: true });
       };
       const missing = new Set();
       // Una versión nueva puede cambiar una sola tarjeta. Reutilizamos cada fila
       // del checkpoint únicamente si sus fragmentos coinciden con el manifiesto.
       await transfer(manifest.entries, async ([table, id, hashes], index) => {
-        const row = table === "deck_tags" ? known?.document.deck_tags : known?.document[table][id];
+        const row = LINK_TABLES.has(table) ? known?.document[table] : known?.document[table][id];
         if (row !== undefined) {
           const text = canonical(row);
           const parts = splitText(text);
@@ -249,13 +250,15 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       const entries = [];
       let total = 0;
       const records = [];
-      for (const table of [...Object.keys(COLUMNS), "deck_tags"]) {
-        const rows = table === "deck_tags" ? [["links", document.deck_tags]] : Object.entries(document[table]).sort(([a], [b]) => a.localeCompare(b));
+      for (const table of [...Object.keys(COLUMNS), ...LINK_TABLES]) {
+        const rows = LINK_TABLES.has(table)
+          ? (table === "deck_tags" || document[table].length > 0 ? [["links", document[table]]] : [])
+          : Object.entries(document[table]).sort(([a], [b]) => a.localeCompare(b));
         for (const [id, row] of rows) records.push([table, id, row]);
       }
       await transfer(records, async ([table, id, row], index) => {
         const text = canonical(row);
-        const previous = table === "deck_tags" ? confirmedBase?.document.deck_tags : confirmedBase?.document[table][id];
+        const previous = LINK_TABLES.has(table) ? confirmedBase?.document[table] : confirmedBase?.document[table][id];
         const unchanged = confirmedBase?.owner === auth.owner && confirmedBase.revision === revision && previous !== undefined && canonical(previous) === text;
         total += text.length;
         if (total > MAX_DOCUMENT) throw new Error("El contenido excede el límite de sincronización. Todo sigue guardado localmente.");
