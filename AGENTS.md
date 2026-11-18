@@ -99,7 +99,11 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   ancestros y descendientes). Navegación bidireccional en un toque desde `/notas` o
   `/notas/[id]` hacia `/mazos/[id]` y `/carpetas/[id]` (flusheando autoguardado), desde
   `AssociatedNotesSection` en mazos/carpetas, y lector rápido (`ReferenceNotesSheet` +
-  `useDeckReferenceNotes`) durante `/repaso` y `/mazos/[id]/estudiar`. El borrado de una
+  `useDeckReferenceNotes`) durante `/repaso` y `/mazos/[id]/estudiar`. Su interfaz sigue
+  el estilo minimalista de REANCLA: filas planas en `/notas`, lienzo centrado sin bordes
+  (`NotionField` con `page`) en `/notas/[id]`, sección compacta estilo `NotePageLinks`
+  en mazos/carpetas e índice lateral colapsable de `280 px` en web (`hasNotesIndex` en
+  `DesktopShell`, con sección `Fijadas` plegable, buscador y creación rápida). El borrado de una
   nota pide confirmación simple con `ActionSheet` y no borra mazos ni carpetas; borrar un
   mazo o carpeta desvincula en cascada sin eliminar la nota.
 - Biblioteca comparte `LibraryContent` con las carpetas en web y Android. En raíz

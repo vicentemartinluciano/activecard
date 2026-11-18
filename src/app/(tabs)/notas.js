@@ -8,7 +8,7 @@ import SectionSwipe from "../../components/SectionSwipe";
 import Skeleton from "../../components/Skeleton";
 import Toast from "../../components/Toast";
 import { useSyncRefresh } from "../../components/useSyncRefresh";
-import { Button, Card, Chip, EmptyState, Field, Pill, Screen } from "../../components/ui";
+import { Button, Chip, Field, Pill, Screen } from "../../components/ui";
 import { listDecks, listTags } from "../../db/decks";
 import { listFolders } from "../../db/folders";
 import { createNote, listNotes, updateNote } from "../../db/notes";
@@ -109,6 +109,7 @@ export default function Notas() {
   const selectedFolder = folders.find((f) => f.id === folderId);
   const selectedDeck = decks.find((d) => d.id === deckId);
   const hasFilters = pinnedOnly || folderId != null || deckId != null || tagId != null || !!query.trim();
+  const showFilterRow = folders.length > 0 || decks.length > 0 || tags.length > 0 || hasFilters;
   const clearFilters = () => {
     setQuery("");
     setPinnedOnly(false);
@@ -119,29 +120,24 @@ export default function Notas() {
 
   return (
     <SectionSwipe index={2}>
-      <Screen safeTop>
+      <Screen safeTop style={Platform.OS === "web" ? styles.webScreen : undefined}>
         {notes == null ? (
           <View style={{ gap: spacing.sm }}>
-            <Skeleton height={56} />
-            <Skeleton height={110} />
-            <Skeleton height={110} />
+            <Skeleton height={44} />
+            <Skeleton height={64} />
+            <Skeleton height={64} />
           </View>
         ) : (
           <FlatList
             data={notes}
             keyExtractor={(item) => String(item.id)}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl }}
+            contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={Platform.OS === "web"}
             ListHeaderComponent={
-              <View style={{ gap: spacing.md, paddingBottom: spacing.xs }}>
+              <View style={styles.listHeader}>
                 <View style={styles.header}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={type.heading}>Notas</Text>
-                    <Text style={type.small}>
-                      {notes.length} {notes.length === 1 ? "nota" : "notas"} · mapa previo y material de respaldo
-                    </Text>
-                  </View>
+                  <Text style={type.heading}>Notas</Text>
                   <Button
                     label={creating ? "Creando…" : "Nueva nota"}
                     kind="primary"
@@ -150,12 +146,12 @@ export default function Notas() {
                   />
                 </View>
 
-                <View style={{ justifyContent: "center" }}>
+                <View style={styles.searchWrap}>
                   <Field
                     accessibilityLabel="Buscar notas"
                     value={query}
                     onChangeText={setQuery}
-                    placeholder="Buscar por título, contenido, mazo o carpeta…"
+                    placeholder="Buscar…"
                     style={query ? { paddingRight: 40 } : undefined}
                   />
                   {!!query && (
@@ -166,99 +162,112 @@ export default function Notas() {
                       onPress={() => setQuery("")}
                       style={styles.clearBtn}
                     >
-                      <Feather name="x" size={17} color={colors.textMuted} />
+                      <Feather name="x" size={16} color={colors.textMuted} />
                     </Pressable>
                   )}
                 </View>
 
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: spacing.xs, paddingRight: spacing.md }}
-                >
-                  <Chip
-                    label="Todas"
-                    active={!pinnedOnly && folderId == null && deckId == null && tagId == null}
-                    onPress={() => {
-                      setPinnedOnly(false);
-                      setFolderId(null);
-                      setDeckId(null);
-                      setTagId(null);
-                    }}
-                  />
-                  <Chip
-                    label="Fijadas"
-                    active={pinnedOnly}
-                    onPress={() => setPinnedOnly((v) => !v)}
-                  />
-                  <Chip
-                    label={selectedFolder ? `Carpeta: ${selectedFolder.name}` : "Carpeta ▾"}
-                    active={folderId != null}
-                    onPress={() => setPicker("folder")}
-                  />
-                  <Chip
-                    label={selectedDeck ? `Mazo: ${selectedDeck.name}` : "Mazo ▾"}
-                    active={deckId != null}
-                    onPress={() => setPicker("deck")}
-                  />
-                  {tags.map((t) => (
+                {showFilterRow ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: spacing.xs, paddingRight: spacing.md }}
+                  >
                     <Chip
-                      key={t.id}
-                      label={`#${t.name}`}
-                      active={tagId === t.id}
-                      onPress={() => setTagId((prev) => (prev === t.id ? null : t.id))}
+                      label="Todas"
+                      active={!pinnedOnly && folderId == null && deckId == null && tagId == null}
+                      onPress={() => {
+                        setPinnedOnly(false);
+                        setFolderId(null);
+                        setDeckId(null);
+                        setTagId(null);
+                      }}
                     />
-                  ))}
-                  {hasFilters ? (
-                    <Button label="Limpiar" kind="ghost" size="sm" onPress={clearFilters} />
-                  ) : null}
-                </ScrollView>
+                    <Chip
+                      label="Fijadas"
+                      active={pinnedOnly}
+                      onPress={() => setPinnedOnly((v) => !v)}
+                    />
+                    {folders.length > 0 ? (
+                      <Chip
+                        label={selectedFolder ? `Carpeta: ${selectedFolder.name}` : "Carpeta ▾"}
+                        active={folderId != null}
+                        onPress={() => setPicker("folder")}
+                      />
+                    ) : null}
+                    {decks.length > 0 ? (
+                      <Chip
+                        label={selectedDeck ? `Mazo: ${selectedDeck.name}` : "Mazo ▾"}
+                        active={deckId != null}
+                        onPress={() => setPicker("deck")}
+                      />
+                    ) : null}
+                    {tags.map((t) => (
+                      <Chip
+                        key={t.id}
+                        label={`#${t.name}`}
+                        active={tagId === t.id}
+                        onPress={() => setTagId((prev) => (prev === t.id ? null : t.id))}
+                      />
+                    ))}
+                    {hasFilters ? (
+                      <Button label="Limpiar" kind="ghost" size="sm" onPress={clearFilters} />
+                    ) : null}
+                  </ScrollView>
+                ) : null}
               </View>
             }
             renderItem={({ item: note }) => {
-              const titleText = note.title?.trim() || "Nota sin título";
+              const titleText = note.title?.trim() || "Sin título";
               const dateText = formatUpdated(note.updated_at);
               const hasLinks = note.folders.length > 0 || note.decks.length > 0 || note.tags.length > 0;
               return (
-                <Card style={styles.noteCard}>
-                  <View style={styles.cardTopRow}>
+                <View style={styles.noteRow}>
+                  <View style={styles.rowTop}>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Abrir nota ${titleText}`}
                       onPress={() => router.push(`/notas/${note.id}`)}
-                      style={({ pressed }) => [styles.cardMainPress, pressed && { opacity: 0.78 }]}
+                      style={({ pressed, hovered }) => [
+                        styles.rowMainPress,
+                        hovered && { opacity: 0.9 },
+                        pressed && { opacity: 0.7 },
+                      ]}
                     >
-                      <View style={styles.titleRow}>
-                        <Feather
-                          name={note.pinned ? "bookmark" : "file-text"}
-                          size={17}
-                          color={note.pinned ? colors.accentText : colors.textMuted}
-                        />
+                      <Feather
+                        name={note.pinned ? "bookmark" : "file-text"}
+                        size={17}
+                        color={note.pinned ? colors.accentText : colors.textMuted}
+                        style={styles.rowIcon}
+                      />
+                      <View style={styles.rowBody}>
                         <Text style={styles.noteTitle} numberOfLines={1}>
                           {titleText}
                         </Text>
-                        {dateText ? <Text style={type.small}>{dateText}</Text> : null}
+                        {note.excerpt ? (
+                          <Text style={styles.noteExcerpt} numberOfLines={2}>
+                            {note.excerpt}
+                          </Text>
+                        ) : null}
                       </View>
-                      <Text
-                        style={[type.small, !note.excerpt && { fontStyle: "italic" }]}
-                        numberOfLines={3}
+                    </Pressable>
+                    <View style={styles.rowRight}>
+                      {dateText ? <Text style={styles.rowDate}>{dateText}</Text> : null}
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={note.pinned ? "Desfijar nota" : "Fijar nota"}
+                        hitSlop={8}
+                        onPress={() => togglePin(note)}
+                        style={({ pressed }) => [styles.pinBtn, pressed && { opacity: 0.7 }]}
                       >
-                        {note.excerpt || "Nota vacía — tocá para empezar a escribir."}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={note.pinned ? "Desfijar nota" : "Fijar nota"}
-                      hitSlop={8}
-                      onPress={() => togglePin(note)}
-                      style={({ pressed }) => [styles.pinBtn, pressed && { opacity: 0.7 }]}
-                    >
-                      <Feather
-                        name="bookmark"
-                        size={16}
-                        color={note.pinned ? colors.accentText : colors.textMuted}
-                      />
-                    </Pressable>
+                        <Feather
+                          name="bookmark"
+                          size={15}
+                          color={note.pinned ? colors.accentText : colors.textMuted}
+                        />
+                      </Pressable>
+                      <Feather name="chevron-right" size={15} color={colors.textMuted} style={{ opacity: 0.5 }} />
+                    </View>
                   </View>
 
                   {hasLinks ? (
@@ -290,23 +299,18 @@ export default function Notas() {
                       ))}
                     </View>
                   ) : null}
-                </Card>
+                </View>
               );
             }}
             ListEmptyComponent={
-              <View style={{ gap: spacing.sm }}>
-                <EmptyState
-                  icon={hasFilters ? "search" : "file-text"}
-                  text={
-                    hasFilters
-                      ? "No hay notas que coincidan con tu búsqueda o filtros."
-                      : "Todavía no creaste notas. Usalas como mapa previo o respaldo completo para tus mazos y carpetas."
-                  }
-                />
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyTitle}>
+                  {hasFilters ? "Nada coincide con tu búsqueda." : "Escribí tu primera nota"}
+                </Text>
                 {hasFilters ? (
                   <Button label="Ver todas las notas" onPress={clearFilters} />
                 ) : (
-                  <Button label="Crear tu primera nota" kind="primary" onPress={onCreateNote} />
+                  <Button label={creating ? "Creando…" : "+ Crear nota"} kind="primary" onPress={onCreateNote} />
                 )}
               </View>
             }
@@ -328,23 +332,25 @@ export default function Notas() {
               }}
             />
             {flattenFolders(folders).map((folder) => (
-              <Card
+              <Pressable
                 key={folder.id}
                 onPress={() => {
                   setDeckId(null);
                   setFolderId(folder.id);
                   setPicker(null);
                 }}
-                style={[
-                  { marginLeft: Math.min(folder.depth, 4) * 14, padding: spacing.sm + 2 },
-                  folderId === folder.id && { borderColor: colors.accentText },
+                style={({ pressed }) => [
+                  styles.pickerRow,
+                  { marginLeft: Math.min(folder.depth, 4) * 14 },
+                  folderId === folder.id && styles.pickerRowActive,
+                  pressed && { opacity: 0.75 },
                 ]}
               >
                 <Text style={type.body}>{folder.name}</Text>
                 {folder.parent_id != null ? (
                   <Text style={type.small}>{locationLabel(folders, folder.parent_id)}</Text>
                 ) : null}
-              </Card>
+              </Pressable>
             ))}
           </ScrollView>
         </ActionSheet>
@@ -364,21 +370,22 @@ export default function Notas() {
               }}
             />
             {decks.map((deck) => (
-              <Card
+              <Pressable
                 key={deck.id}
                 onPress={() => {
                   setFolderId(null);
                   setDeckId(deck.id);
                   setPicker(null);
                 }}
-                style={[
-                  { padding: spacing.sm + 2 },
-                  deckId === deck.id && { borderColor: colors.accentText },
+                style={({ pressed }) => [
+                  styles.pickerRow,
+                  deckId === deck.id && styles.pickerRowActive,
+                  pressed && { opacity: 0.75 },
                 ]}
               >
                 <Text style={type.body}>{deck.name}</Text>
                 <Text style={type.small}>{locationLabel(folders, deck.folder_id)}</Text>
-              </Card>
+              </Pressable>
             ))}
           </ScrollView>
         </ActionSheet>
@@ -390,10 +397,24 @@ export default function Notas() {
 }
 
 const styles = StyleSheet.create({
+  webScreen: {
+    maxWidth: 740,
+  },
+  listContent: {
+    paddingBottom: spacing.xl * 2,
+  },
+  listHeader: {
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
+  },
+  searchWrap: {
+    justifyContent: "center",
   },
   clearBtn: {
     position: "absolute",
@@ -403,33 +424,54 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  noteCard: {
-    gap: spacing.sm,
+  noteRow: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  cardTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-  },
-  cardMainPress: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing.xs,
-  },
-  titleRow: {
+  rowTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs + 2,
+    gap: spacing.sm,
+  },
+  rowMainPress: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  rowIcon: {
+    marginTop: 2,
+  },
+  rowBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
   },
   noteTitle: {
     ...font(600),
     color: colors.text,
-    fontSize: 16,
-    flex: 1,
+    fontSize: 15.5,
+    lineHeight: 22,
+  },
+  noteExcerpt: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  rowDate: {
+    fontSize: 11.5,
+    color: colors.textMuted,
   },
   pinBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
@@ -438,5 +480,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
+    marginTop: 8,
+    paddingLeft: 29,
+  },
+  emptyWrap: {
+    paddingVertical: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+  },
+  emptyTitle: {
+    ...font(600),
+    fontSize: 17,
+    color: colors.text,
+    textAlign: "center",
+  },
+  pickerRow: {
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.sm,
+    gap: 2,
+  },
+  pickerRowActive: {
+    backgroundColor: colors.surfaceHigh,
   },
 });

@@ -45,8 +45,12 @@ style.textContent = EDITOR_BODY_CSS + EDITOR_CSS;
 document.head.appendChild(style);
 
 // --- DOM -------------------------------------------------------------------
+if (window.__nfPage) {
+  document.documentElement.style.background = "transparent";
+  document.body.style.background = "transparent";
+}
 const host = document.createElement("div");
-host.className = window.__nfDefaultAlign === "center" ? "nf-root nf-align-center" : "nf-root";
+host.className = `nf-root${window.__nfDefaultAlign === "center" ? " nf-align-center" : ""}${window.__nfPage ? " nf-page" : ""}`;
 document.body.appendChild(host);
 
 // Botón + input para insertar imágenes desde el archivo (compresión por canvas

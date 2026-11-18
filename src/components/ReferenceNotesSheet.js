@@ -48,18 +48,20 @@ export default function ReferenceNotesSheet({
           ) : null}
 
           <View style={styles.meta}>
-            <Text style={styles.noteTitle}>{active.title?.trim() || "Nota sin título"}</Text>
+            <Text style={styles.noteTitle}>{active.title?.trim() || "Sin título"}</Text>
             {active.origin?.label ? <Pill label={active.origin.label} color={colors.accentText} /> : null}
             {(active.tags || []).map((tag) => (
               <Pill key={tag.id} label={`#${tag.name}`} />
             ))}
           </View>
 
-          <ScrollView style={styles.bodyScroll} contentContainerStyle={{ paddingBottom: spacing.sm }}>
+          <View style={styles.divider} />
+
+          <ScrollView style={styles.bodyScroll} contentContainerStyle={{ paddingBottom: spacing.md }}>
             {active.body?.trim() ? (
-              <RichText text={active.body} style={type.body} />
+              <RichText text={active.body} style={[type.body, { lineHeight: 24 }]} />
             ) : (
-              <Text style={type.small}>Esta nota todavía no tiene contenido.</Text>
+              <Text style={type.small}>Nota sin contenido todavía.</Text>
             )}
           </ScrollView>
 
@@ -89,13 +91,17 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     ...font(700),
-    fontSize: 18,
+    fontSize: 20,
+    lineHeight: 26,
     color: colors.text,
     marginRight: spacing.xs,
   },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
   bodyScroll: {
-    maxHeight: 380,
-    paddingTop: spacing.xs,
+    maxHeight: 400,
   },
   footer: {
     flexDirection: "row",

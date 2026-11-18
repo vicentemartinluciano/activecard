@@ -7,8 +7,10 @@ import { listDecks } from '../db/decks';
 import { getDb } from '../db/client';
 import { subscribeDatabaseChanges } from '../db/transactions';
 import { listFolders } from '../db/folders';
+import { createNote, listNotes } from '../db/notes';
 import { folderPath } from '../lib/folderTree';
-import { DESKTOP_INDEX_WIDTH, DESKTOP_RAIL_WIDTH, desktopSection, hasLibraryIndex, libraryTree } from '../lib/desktopLayout';
+import { DESKTOP_INDEX_WIDTH, DESKTOP_RAIL_WIDTH, desktopSection, hasLibraryIndex, hasNotesIndex, libraryTree } from '../lib/desktopLayout';
+import { normalizeSearch } from '../lib/search';
 import { colors, font } from '../theme';
 import { syncIndicator } from '../lib/syncIndicator';
 import { Field } from './ui';
@@ -75,6 +77,8 @@ function DesktopWorkspace({ children }) {
   const [handleActive, setHandleActive] = useState(false);
   const [folders, setFolders] = useState([]);
   const [decks, setDecks] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [pinnedOpen, setPinnedOpen] = useState(true);
   const [expanded, setExpanded] = useState({});
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
@@ -90,9 +94,9 @@ function DesktopWorkspace({ children }) {
   const refresh = useCallback(async () => {
     const ticket = ++request.current;
     try {
-      const [nextDecks, nextFolders] = await Promise.all([listDecks(), listFolders()]);
+      const [nextDecks, nextFolders, nextNotes] = await Promise.all([listDecks(), listFolders(), listNotes()]);
       if (ticket !== request.current) return;
-      setDecks(nextDecks); setFolders(nextFolders); setError('');
+      setDecks(nextDecks); setFolders(nextFolders); setNotes(nextNotes); setError('');
     } catch { if (ticket === request.current) setError('No pudimos cargar el índice.'); }
   }, []);
   const closePreview = useCallback(() => { clearTimeout(timer.current); setPreview(false); }, []);
@@ -123,16 +127,30 @@ function DesktopWorkspace({ children }) {
   const selectedDeck = decks.find((deck) => deck.id === selectedId);
   const selectedFolder = selectedDeck?.folder_id || Number(path.match(/^\/carpetas\/(\d+)/)?.[1]);
   const currentFolder = folders.find((folder) => folder.id === selectedFolder);
+  const selectedNoteId = Number(path.match(/^\/notas\/(\d+)/)?.[1]);
+  const selectedNote = notes.find((note) => note.id === selectedNoteId);
   useEffect(() => {
     if (selectedFolder) setExpanded((value) => ({ ...value, ...Object.fromEntries(folderPath(folders, selectedFolder).map((folder) => [folder.id, true])) }));
   }, [selectedFolder, folders]);
   const section = desktopSection(path);
+  useEffect(() => { setQuery(''); }, [section]);
   const library = hasLibraryIndex(path);
+  const notesIndex = hasNotesIndex(path);
+  const hasSidebar = library || notesIndex;
   const narrow = width < 760;
   useEffect(() => { if (narrow) { setPinned(false); closePreview(); } }, [narrow, closePreview]);
-  const shown = library && (pinned || preview);
+  const shown = hasSidebar && (pinned || preview);
   const floating = narrow || !pinned;
   const tree = libraryTree(folders, decks, query);
+  const needle = normalizeSearch(query.trim());
+  const filteredNotes = needle
+    ? notes.filter((note) =>
+        normalizeSearch(
+          `${note.title || ''} ${note.excerpt || ''} ${(note.folders || []).map((f) => f.name).join(' ')} ${(note.decks || []).map((d) => d.name).join(' ')}`
+        ).includes(needle)
+      )
+    : notes;
+  const pinnedNotes = !needle ? filteredNotes.filter((note) => note.pinned) : [];
   const open = async (route, ancestor = false) => {
     if (navigating.current || route === path) return;
     navigating.current = true;
@@ -165,31 +183,93 @@ function DesktopWorkspace({ children }) {
       </div>
     </View>;
   };
+  const noteRow = (note) => {
+    const selected = selectedNoteId === note.id;
+    const label = note.title?.trim() || 'Sin título';
+    return (
+      <Pressable
+        key={note.id}
+        title={label}
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir nota ${label}`}
+        accessibilityState={{ selected }}
+        onPress={() => open(`/notas/${note.id}`)}
+        style={({ hovered }) => [styles.noteRow, { backgroundColor: hovered || selected ? colors.surfaceHigh : 'transparent' }]}
+      >
+        <Feather pointerEvents="none" name={note.pinned ? 'bookmark' : 'file-text'} size={15} color={selected || note.pinned ? colors.accentText : colors.textMuted} />
+        <Text numberOfLines={1} style={[styles.noteRowText, selected && { color: colors.text, ...font(600) }]}>{label}</Text>
+      </Pressable>
+    );
+  };
   return <View style={styles.shell}>
     {!narrow && <View style={styles.rail}>
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
       <RailButton separator label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
     </View>}
-    <View style={{ width: library && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
-      {library && <View dataSet={{ libraryIndex: 'true' }} testID="desktop-library-index"
+    <View style={{ width: hasSidebar && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
+      {hasSidebar && <View dataSet={{ libraryIndex: 'true' }} testID={notesIndex ? 'desktop-notes-index' : 'desktop-library-index'}
         onPointerEnter={() => { clearTimeout(timer.current); refresh(); }} onPointerLeave={leavePreview}
         // visibility also removes hidden links from keyboard navigation.
         pointerEvents={shown ? 'auto' : 'none'}
         style={[styles.index, { visibility: shown ? 'visible' : 'hidden', opacity: shown ? 1 : 0, transform: [{ translateX: shown ? 0 : -16 }], transition: `opacity 180ms ease, transform 220ms ease, visibility 0s ${shown ? '0s' : '220ms'}`, top: floating ? 48 : 0, bottom: floating ? 12 : 0 }, floating && styles.floating]}>
         <View style={styles.indexHeading}>
-          <Field accessibilityLabel="Buscar carpetas y mazos" value={query} onChangeText={setQuery} placeholder="Buscar en el índice" style={styles.search} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Crear contenido" onPress={async () => {
-            if (navigationGuard.current && await navigationGuard.current() === false) return;
-            setCreation('choose');
-          }} style={styles.smallButton}><Feather name="plus" size={17} color={colors.textMuted} /></Pressable>
+          <Field
+            accessibilityLabel={notesIndex ? 'Buscar notas en el índice' : 'Buscar carpetas y mazos'}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={notesIndex ? 'Buscar notas…' : 'Buscar en el índice'}
+            style={styles.search}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={notesIndex ? 'Crear nota' : 'Crear contenido'}
+            onPress={async () => {
+              if (navigationGuard.current && await navigationGuard.current() === false) return;
+              if (notesIndex) {
+                const id = await createNote();
+                closePreview();
+                if (narrow) setPinned(false);
+                router.navigate(`/notas/${id}`);
+                return;
+              }
+              setCreation('choose');
+            }}
+            style={styles.smallButton}
+          >
+            <Feather name="plus" size={17} color={colors.textMuted} />
+          </Pressable>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {error ? <Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.error}>{error} Reintentar</Text></Pressable> : null}
-          {tree.folders.map((folder) => folderRow(folder))}
-          {tree.loose.map((deck) => deckRow(deck))}
-          {!error && !tree.folders.length && !tree.loose.length && <Text style={styles.error}>{query ? 'Sin coincidencias.' : 'Todavía no hay mazos.'}</Text>}
+          {notesIndex ? (
+            <>
+              {pinnedNotes.length > 0 ? (
+                <View style={styles.noteGroup}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${pinnedOpen ? 'Plegar' : 'Desplegar'} notas fijadas`}
+                    accessibilityState={{ expanded: pinnedOpen }}
+                    onPress={() => setPinnedOpen((v) => !v)}
+                    style={styles.noteGroupToggle}
+                  >
+                    <Text style={styles.noteGroupLabel}>Fijadas</Text>
+                    <Feather name={pinnedOpen ? 'chevron-down' : 'chevron-right'} size={13} color={colors.textMuted} />
+                  </Pressable>
+                  {pinnedOpen ? pinnedNotes.map((note) => noteRow(note)) : null}
+                </View>
+              ) : null}
+              {filteredNotes.map((note) => noteRow(note))}
+              {!error && !filteredNotes.length ? <Text style={styles.error}>{needle ? 'Sin coincidencias.' : 'Todavía no hay notas.'}</Text> : null}
+            </>
+          ) : (
+            <>
+              {tree.folders.map((folder) => folderRow(folder))}
+              {tree.loose.map((deck) => deckRow(deck))}
+              {!error && !tree.folders.length && !tree.loose.length ? <Text style={styles.error}>{query ? 'Sin coincidencias.' : 'Todavía no hay mazos.'}</Text> : null}
+            </>
+          )}
         </ScrollView>
-        {!floating && <Pressable accessibilityRole="button" accessibilityLabel="Ocultar índice de biblioteca"
+        {!floating && <Pressable accessibilityRole="button" accessibilityLabel={notesIndex ? 'Ocultar índice de notas' : 'Ocultar índice de biblioteca'}
           onHoverIn={() => setHandleActive(true)} onHoverOut={() => setHandleActive(false)} onFocus={() => setHandleActive(true)} onBlur={() => setHandleActive(false)}
           onPress={() => { closePreview(); setPinned(false); }} style={styles.edgeHandle}>
           <View pointerEvents="none" style={{ width: 2, height: 48, borderRadius: 2, backgroundColor: handleActive ? colors.textMuted : 'transparent' }} />
@@ -197,17 +277,24 @@ function DesktopWorkspace({ children }) {
       </View>}
     </View>
     <View style={styles.content}>
-      {library && <View style={styles.toolbar}>
-        <Pressable dataSet={{ libraryToggle: 'true' }} accessibilityRole="button" accessibilityLabel={pinned ? 'Ocultar índice de biblioteca' : 'Fijar índice de biblioteca'}
+      {hasSidebar && <View style={styles.toolbar}>
+        <Pressable dataSet={{ libraryToggle: 'true' }} accessibilityRole="button" accessibilityLabel={pinned ? (notesIndex ? 'Ocultar índice de notas' : 'Ocultar índice de biblioteca') : (notesIndex ? 'Fijar índice de notas' : 'Fijar índice de biblioteca')}
           accessibilityState={{ expanded: shown }} onHoverIn={() => { clearTimeout(timer.current); if (!pinned) setPreview(true); }} onHoverOut={leavePreview}
           onPress={() => { closePreview(); setPinned((value) => !value); }} style={({ hovered }) => [styles.smallButton, hovered && { backgroundColor: colors.surfaceHigh }]}>
           <Feather pointerEvents="none" name="sidebar" size={17} color={colors.textMuted} />
         </Pressable>
-        <View accessibilityLabel="Ubicación en la biblioteca" style={styles.breadcrumbs}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca', true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
-          {currentFolder && folderPath(folders, currentFolder.id).map((folder) => <View key={folder.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${folder.name}`} onPress={() => open(`/carpetas/${folder.id}`, true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{folder.name}</Text></Pressable></View>)}
-          {selectedDeck && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a mazo ${selectedDeck.name}`} onPress={() => open(`/mazos/${selectedDeck.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{selectedDeck.name}</Text></Pressable></>}
-        </View>
+        {notesIndex ? (
+          <View accessibilityLabel="Ubicación en notas" style={styles.breadcrumbs}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Ir a Notas" onPress={() => open('/notas', true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Notas</Text></Pressable>
+            {selectedNote ? <><Text style={styles.trail}>/</Text><Text numberOfLines={1} style={[styles.trail, { color: colors.text, flexShrink: 1 }]}>{selectedNote.title?.trim() || 'Sin título'}</Text></> : null}
+          </View>
+        ) : (
+          <View accessibilityLabel="Ubicación en la biblioteca" style={styles.breadcrumbs}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Ir a Biblioteca" onPress={() => open('/biblioteca', true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>Biblioteca</Text></Pressable>
+            {currentFolder && folderPath(folders, currentFolder.id).map((folder) => <View key={folder.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a carpeta ${folder.name}`} onPress={() => open(`/carpetas/${folder.id}`, true)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{folder.name}</Text></Pressable></View>)}
+            {selectedDeck && <><Text style={styles.trail}>/</Text><Pressable accessibilityRole="button" accessibilityLabel={`Ir a mazo ${selectedDeck.name}`} onPress={() => open(`/mazos/${selectedDeck.id}`)} style={styles.crumb}><Text numberOfLines={1} style={styles.trail}>{selectedDeck.name}</Text></Pressable></>}
+          </View>
+        )}
       </View>}
       <View style={styles.navigator}><DesktopNavigationContext.Provider value={register}>{children}</DesktopNavigationContext.Provider></View>
     </View>
@@ -240,6 +327,11 @@ const styles = StyleSheet.create({
   chevron: { width: 30, height: 46, justifyContent: 'center', alignItems: 'center' },
   folderName: { flex: 1, flexDirection: 'row', minHeight: 46, alignItems: 'center', gap: 10, paddingRight: 16, borderRadius: 5 },
   emptyFolder: { ...font(), color: colors.textMuted, fontSize: 13, lineHeight: 20, paddingLeft: 38, paddingVertical: 8 },
+  noteGroup: { paddingHorizontal: 8, paddingBottom: 6, marginBottom: 4 },
+  noteGroupToggle: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
+  noteGroupLabel: { ...font(600), fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 38, marginHorizontal: 8, paddingHorizontal: 10, borderRadius: 6 },
+  noteRowText: { ...font(), color: colors.textMuted, fontSize: 13.5, lineHeight: 20, flex: 1 },
   error: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, padding: 16 },
   edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, minHeight: 0 },

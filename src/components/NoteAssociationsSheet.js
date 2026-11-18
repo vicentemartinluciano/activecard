@@ -16,20 +16,23 @@ function ToggleRow({ label, subtitle, checked, indent = 0, onPress, disabled }) 
       accessibilityState={{ checked, disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }) => [
         styles.row,
         indent > 0 && { marginLeft: Math.min(indent, 4) * 14 },
-        checked && styles.rowActive,
+        (checked || hovered) && styles.rowActive,
         pressed && { opacity: 0.75 },
       ]}
     >
-      <View style={[styles.checkbox, checked && styles.checkboxActive]}>
-        {checked ? <Feather name="check" size={14} color="#FFFFFF" /> : null}
-      </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={type.body} numberOfLines={1}>{label}</Text>
+        <Text style={[type.body, checked && styles.rowLabelActive]} numberOfLines={1}>{label}</Text>
         {subtitle ? <Text style={type.small} numberOfLines={1}>{subtitle}</Text> : null}
       </View>
+      <Feather
+        name={checked ? "check" : "plus"}
+        size={16}
+        color={checked ? colors.accentText : colors.textMuted}
+        style={!checked && { opacity: 0.45 }}
+      />
     </Pressable>
   );
 }
@@ -194,35 +197,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
     borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "transparent",
   },
   rowActive: {
-    backgroundColor: colors.accentBg,
-    borderColor: colors.accentMuted,
+    backgroundColor: colors.surfaceHigh,
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.pillBorder,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+  rowLabelActive: {
+    ...font(600),
+    color: colors.text,
   },
   tagsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
-  },
-  label: {
-    ...font(600),
   },
 });

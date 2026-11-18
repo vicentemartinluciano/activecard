@@ -1,4 +1,4 @@
-import { desktopSection, hasLibraryIndex, libraryTree } from '../desktopLayout';
+import { desktopSection, hasLibraryIndex, hasNotesIndex, libraryTree } from '../desktopLayout';
 
 describe('Navegación de escritorio', () => {
   test('conserva la biblioteca en el editor y retira el índice durante el estudio', () => {
@@ -7,6 +7,9 @@ describe('Navegación de escritorio', () => {
     expect(hasLibraryIndex('/mazos/debiles/estudiar')).toBe(false);
     expect(desktopSection('/notas')).toBe('notas');
     expect(desktopSection('/notas/12')).toBe('notas');
+    expect(hasNotesIndex('/notas')).toBe(true);
+    expect(hasNotesIndex('/notas/12')).toBe(true);
+    expect(hasNotesIndex('/biblioteca')).toBe(false);
     expect(desktopSection('/gimnasio/historial')).toBe('gimnasio');
   });
   test('buscar un mazo muestra su carpeta aunque esté plegada', () => {

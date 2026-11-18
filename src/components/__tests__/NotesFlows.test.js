@@ -285,6 +285,7 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
     await act(async () => titleInput.props.onChangeText("Título editado"));
 
     const editor = tree.root.findByType("notion-field");
+    expect(editor.props.page).toBe(true);
     await act(async () => editor.props.onChangeText("Cuerpo **enriquecido**"));
 
     const deckPill = tree.root.findAllByType("pill").find((p) => p.props.label === "Célula");
@@ -310,6 +311,26 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
       body: "Cuerpo **enriquecido**",
       pinned: 1,
     });
+  } finally {
+    await act(async () => tree?.unmount());
+  }
+});
+
+test("la pestaña Notas muestra estado vacío minimalista y crea desde ahí", async () => {
+  mockListNotes.mockResolvedValue([]);
+  mockCreateNote.mockResolvedValue(77);
+
+  let tree;
+  try {
+    await act(async () => {
+      tree = create(<Notas />);
+    });
+    const addEmpty = tree.root.findAllByType("ui-button").find((b) => b.props.label === "+ Crear nota");
+    await act(async () => {
+      await addEmpty.props.onPress();
+    });
+    expect(mockCreateNote).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith("/notas/77");
   } finally {
     await act(async () => tree?.unmount());
   }

@@ -55,6 +55,7 @@ export default function NotionField({
   placeholder,
   minHeight = 110,
   defaultAlign = "left",
+  page = false,
 }) {
   ensureCss();
   const lastEmitted = useRef(null);
@@ -132,11 +133,11 @@ export default function NotionField({
   return (
     <div
       ref={tableToolbarRef}
-      className={`nf-root${defaultAlign === "center" ? " nf-align-center" : ""}`}
+      className={`nf-root${defaultAlign === "center" ? " nf-align-center" : ""}${page ? " nf-page" : ""}`}
       style={{
-        background: colors.surface,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.sm,
+        background: page ? "transparent" : colors.surface,
+        border: page ? "none" : `1px solid ${colors.border}`,
+        borderRadius: page ? 0 : radius.sm,
         minHeight,
         overflow: "visible",
       }}

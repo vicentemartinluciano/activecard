@@ -58,6 +58,8 @@ export const EDITOR_CSS = TOGGLE_CSS + `
   word-wrap: break-word;
   white-space: pre-wrap;
 }
+.nf-root.nf-page { background: transparent; }
+.nf-root.nf-page .ProseMirror { padding: 4px 0 96px 0; line-height: 1.65; }
 .nf-root .ProseMirror p { margin: 0 0 2px; }
 .nf-root .ProseMirror h1,
 .nf-root .ProseMirror h2,

@@ -278,8 +278,10 @@ export default function NotaDetalle() {
     );
   }
 
+  const hasLinks = folders.length > 0 || decks.length > 0 || tags.length > 0;
+
   return (
-    <Screen safeTop style={Platform.OS === "web" ? { maxWidth: 920 } : undefined}>
+    <Screen safeTop style={Platform.OS === "web" ? styles.webScreen : undefined}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -290,18 +292,23 @@ export default function NotaDetalle() {
             accessibilityRole="button"
             accessibilityLabel="Volver"
             onPress={goBack}
-            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
+            style={({ pressed, hovered }) => [
+              styles.backBtn,
+              hovered && styles.ghostHover,
+              pressed && { opacity: 0.7 },
+            ]}
           >
-            <Feather name="arrow-left" size={20} color={colors.text} />
+            <Feather name="arrow-left" size={18} color={colors.textMuted} />
+            <Text style={styles.backText}>Notas</Text>
           </Pressable>
           <View style={{ flex: 1 }} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={pinned ? "Desfijar nota" : "Fijar nota"}
             onPress={togglePinned}
-            style={({ pressed }) => [
+            style={({ pressed, hovered }) => [
               styles.iconBtn,
-              pinned && styles.iconBtnActive,
+              hovered && styles.ghostHover,
               pressed && { opacity: 0.7 },
             ]}
           >
@@ -311,31 +318,38 @@ export default function NotaDetalle() {
             accessibilityRole="button"
             accessibilityLabel="Vincular a mazos, carpetas o etiquetas"
             onPress={() => setAssocOpen(true)}
-            style={({ pressed }) => [styles.linkActionBtn, pressed && { opacity: 0.75 }]}
+            style={({ pressed, hovered }) => [
+              styles.iconBtn,
+              hovered && styles.ghostHover,
+              pressed && { opacity: 0.7 },
+            ]}
           >
-            <Feather name="link-2" size={15} color={colors.accentText} />
-            <Text style={styles.linkActionLabel}>Vincular</Text>
+            <Feather name="link-2" size={18} color={hasLinks ? colors.accentText : colors.textMuted} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Opciones de la nota"
             onPress={() => setMenuOpen(true)}
-            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
+            style={({ pressed, hovered }) => [
+              styles.iconBtn,
+              hovered && styles.ghostHover,
+              pressed && { opacity: 0.7 },
+            ]}
           >
-            <Feather name="more-horizontal" size={20} color={colors.textMuted} />
+            <Feather name="more-horizontal" size={19} color={colors.textMuted} />
           </Pressable>
         </View>
 
         <ScrollView
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.xl * 2 }}
+          contentContainerStyle={styles.docScroll}
         >
           <TextInput
             accessibilityLabel="Título de la nota"
             value={title}
             onChangeText={handleTitleChange}
-            placeholder="Título de la nota…"
+            placeholder="Sin título"
             placeholderTextColor={colors.textMuted}
             multiline
             style={styles.titleInput}
@@ -367,18 +381,29 @@ export default function NotaDetalle() {
                 onPress={() => setAssocOpen(true)}
               />
             ))}
-            <Pill
-              icon="plus"
-              label={folders.length + decks.length + tags.length === 0 ? "Vincular carpeta, mazo o etiqueta" : "Editar vínculos"}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Editar vínculos de la nota"
               onPress={() => setAssocOpen(true)}
-            />
+              style={({ pressed, hovered }) => [
+                styles.ghostLinkBtn,
+                hovered && styles.ghostHover,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Feather name="plus" size={13} color={colors.textMuted} />
+              {!hasLinks ? <Text style={styles.ghostLinkLabel}>Vincular mazo o carpeta</Text> : null}
+            </Pressable>
           </View>
 
+          <View style={styles.divider} />
+
           <NotionField
+            page
             value={body}
             onChangeText={handleBodyChange}
-            placeholder="Escribí tu nota, mapa previo o desarrollo completo…"
-            minHeight={380}
+            placeholder="Escribí algo…"
+            minHeight={440}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -442,52 +467,74 @@ export default function NotaDetalle() {
 }
 
 const styles = StyleSheet.create({
+  webScreen: {
+    maxWidth: 740,
+  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingBottom: spacing.sm,
+    gap: 2,
+    paddingBottom: spacing.xs,
   },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconBtnActive: {
-    backgroundColor: colors.accentBg,
-    borderWidth: 1,
-    borderColor: colors.accentMuted,
-  },
-  linkActionBtn: {
+  backBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     height: 36,
-    paddingHorizontal: spacing.sm + 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accentBg,
-    borderWidth: 1,
-    borderColor: colors.accentMuted,
+    paddingHorizontal: 8,
+    marginLeft: -8,
+    borderRadius: radius.sm,
   },
-  linkActionLabel: {
-    ...font(600),
-    fontSize: 13,
-    color: colors.accentText,
+  backText: {
+    ...font(500),
+    fontSize: 13.5,
+    color: colors.textMuted,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ghostHover: {
+    backgroundColor: colors.surfaceHigh,
+  },
+  docScroll: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl * 3,
   },
   titleInput: {
     ...font(700),
-    fontSize: 26,
-    lineHeight: 33,
+    fontSize: 30,
+    lineHeight: 38,
     color: colors.text,
     paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
     outlineStyle: Platform.OS === "web" ? "none" : undefined,
   },
   linksRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: 6,
+    marginBottom: spacing.md,
+  },
+  ghostLinkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    minHeight: 28,
+    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+  },
+  ghostLinkLabel: {
+    fontSize: 12.5,
+    color: colors.textMuted,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: spacing.sm,
   },
 });
