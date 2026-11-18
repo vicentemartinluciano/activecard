@@ -196,8 +196,8 @@ function DesktopWorkspace({ children }) {
         onPress={() => open(`/notas/${note.id}`)}
         style={({ hovered }) => [styles.noteRow, { backgroundColor: hovered || selected ? colors.surfaceHigh : 'transparent' }]}
       >
-        <Feather pointerEvents="none" name={note.pinned ? 'bookmark' : 'file-text'} size={15} color={selected || note.pinned ? colors.accentText : colors.textMuted} />
-        <Text numberOfLines={1} style={[styles.noteRowText, selected && { color: colors.text, ...font(600) }]}>{label}</Text>
+        <Text style={styles.noteEmoji}>{note.icon || '📄'}</Text>
+        <Text numberOfLines={1} style={[styles.noteRowText, selected && { ...font(600) }]}>{label}</Text>
       </Pressable>
     );
   };
@@ -212,33 +212,54 @@ function DesktopWorkspace({ children }) {
         // visibility also removes hidden links from keyboard navigation.
         pointerEvents={shown ? 'auto' : 'none'}
         style={[styles.index, { visibility: shown ? 'visible' : 'hidden', opacity: shown ? 1 : 0, transform: [{ translateX: shown ? 0 : -16 }], transition: `opacity 180ms ease, transform 220ms ease, visibility 0s ${shown ? '0s' : '220ms'}`, top: floating ? 48 : 0, bottom: floating ? 12 : 0 }, floating && styles.floating]}>
-        <View style={styles.indexHeading}>
-          <Field
-            accessibilityLabel={notesIndex ? 'Buscar notas en el índice' : 'Buscar carpetas y mazos'}
-            value={query}
-            onChangeText={setQuery}
-            placeholder={notesIndex ? 'Buscar notas…' : 'Buscar en el índice'}
-            style={styles.search}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={notesIndex ? 'Crear nota' : 'Crear contenido'}
-            onPress={async () => {
+        {notesIndex ? (
+          <View style={styles.notesHeader}>
+            <View style={styles.notesHeaderRow}>
+              <Text style={styles.notesHeaderTitle}>Notas</Text>
+              <View style={styles.notesHeaderActions}>
+                {!floating ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Contraer índice de notas"
+                    onPress={() => { closePreview(); setPinned(false); }}
+                    style={({ hovered }) => [styles.notesIconBtn, hovered && { backgroundColor: colors.surfaceHigh }]}
+                  >
+                    <Text style={styles.notesCollapseGlyph}>«</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Crear nota"
+                  onPress={async () => {
+                    if (navigationGuard.current && await navigationGuard.current() === false) return;
+                    const id = await createNote();
+                    closePreview();
+                    if (narrow) setPinned(false);
+                    router.navigate(`/notas/${id}`);
+                  }}
+                  style={({ hovered }) => [styles.notesIconBtn, hovered && { backgroundColor: colors.surfaceHigh }]}
+                >
+                  <Text style={styles.notesPlusGlyph}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+            <Field
+              accessibilityLabel="Buscar notas en el índice"
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Buscar notas…"
+              style={styles.notesSearch}
+            />
+          </View>
+        ) : (
+          <View style={styles.indexHeading}>
+            <Field accessibilityLabel="Buscar carpetas y mazos" value={query} onChangeText={setQuery} placeholder="Buscar en el índice" style={styles.search} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Crear contenido" onPress={async () => {
               if (navigationGuard.current && await navigationGuard.current() === false) return;
-              if (notesIndex) {
-                const id = await createNote();
-                closePreview();
-                if (narrow) setPinned(false);
-                router.navigate(`/notas/${id}`);
-                return;
-              }
               setCreation('choose');
-            }}
-            style={styles.smallButton}
-          >
-            <Feather name="plus" size={17} color={colors.textMuted} />
-          </Pressable>
-        </View>
+            }} style={styles.smallButton}><Feather name="plus" size={17} color={colors.textMuted} /></Pressable>
+          </View>
+        )}
         <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {error ? <Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.error}>{error} Reintentar</Text></Pressable> : null}
           {notesIndex ? (
@@ -318,6 +339,14 @@ const styles = StyleSheet.create({
   index: { position: 'absolute', left: 0, width: DESKTOP_INDEX_WIDTH, backgroundColor: colors.surface, borderRightWidth: 1, borderRightColor: colors.border },
   floating: { borderRadius: 10, boxShadow: '8px 0 24px rgba(0,0,0,0.3)' },
   indexHeading: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 12 },
+  notesHeader: { padding: 12, gap: 8 },
+  notesHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  notesHeaderTitle: { ...font(600), fontSize: 15, color: colors.text },
+  notesHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  notesIconBtn: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  notesCollapseGlyph: { fontSize: 17, color: colors.textMuted, lineHeight: 19 },
+  notesPlusGlyph: { fontSize: 18, color: colors.text, lineHeight: 20 },
+  notesSearch: { minHeight: 34, height: 34, paddingVertical: 6, paddingHorizontal: 10, fontSize: 12, borderRadius: 7, backgroundColor: colors.bg },
   smallButton: { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   search: { flex: 1, minWidth: 0, fontSize: 13, paddingHorizontal: 10, paddingVertical: 10 },
   treeRow: { width: '100%', flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
@@ -329,9 +358,10 @@ const styles = StyleSheet.create({
   emptyFolder: { ...font(), color: colors.textMuted, fontSize: 13, lineHeight: 20, paddingLeft: 38, paddingVertical: 8 },
   noteGroup: { paddingHorizontal: 8, paddingBottom: 6, marginBottom: 4 },
   noteGroupToggle: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
-  noteGroupLabel: { ...font(600), fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 },
-  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 38, marginHorizontal: 8, paddingHorizontal: 10, borderRadius: 6 },
-  noteRowText: { ...font(), color: colors.textMuted, fontSize: 13.5, lineHeight: 20, flex: 1 },
+  noteGroupLabel: { ...font(), fontSize: 11, color: colors.textMuted },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 38, marginHorizontal: 8, paddingHorizontal: 10, borderRadius: 6 },
+  noteEmoji: { width: 20, textAlign: 'center', fontSize: 15, lineHeight: 20 },
+  noteRowText: { ...font(), color: colors.text, fontSize: 13, lineHeight: 19, flex: 1 },
   error: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, padding: 16 },
   edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, minHeight: 0 },

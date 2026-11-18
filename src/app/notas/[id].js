@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
@@ -34,16 +35,26 @@ import {
 import { databaseErrorMessage } from "../../lib/databaseError";
 import { colors, font, radius, spacing, type } from "../../theme";
 
+const NOTE_ICONS = [
+  "📄", "📁", "📝", "📚", "💡", "🧭", "🌱", "🎯",
+  "✨", "🧠", "💬", "❤️", "🏠", "🎓", "💼", "🎨",
+  "🎵", "🏃", "🌍", "☀️", "🌙", "🔖", "⚓", "🪴",
+];
+
 export default function NotaDetalle() {
   const { id } = useLocalSearchParams();
   const noteId = Number(id);
   const router = useRouter();
   const navigation = useNavigation();
+  const { width } = useWindowDimensions();
+  const desktopWorkspace = Platform.OS === "web" && width >= 760;
 
   const [loaded, setLoaded] = useState(false);
   const [missing, setMissing] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [icon, setIcon] = useState(null);
+  const [iconOpen, setIconOpen] = useState(false);
   const [pinned, setPinned] = useState(0);
   const [folders, setFolders] = useState([]);
   const [decks, setDecks] = useState([]);
@@ -57,8 +68,8 @@ export default function NotaDetalle() {
   const [error, setError] = useState("");
   const [syncReload, setSyncReload] = useState(0);
 
-  const latestRef = useRef({ title: "", body: "", pinned: 0 });
-  const persistedRef = useRef({ title: "", body: "", pinned: 0 });
+  const latestRef = useRef({ title: "", body: "", icon: null, pinned: 0 });
+  const persistedRef = useRef({ title: "", body: "", icon: null, pinned: 0 });
   const timerRef = useRef(null);
   const flushRef = useRef(null);
   const deletedRef = useRef(false);
@@ -70,6 +81,7 @@ export default function NotaDetalle() {
   const isDirty = () =>
     latestRef.current.title !== persistedRef.current.title ||
     latestRef.current.body !== persistedRef.current.body ||
+    latestRef.current.icon !== persistedRef.current.icon ||
     latestRef.current.pinned !== persistedRef.current.pinned;
 
   const flush = useCallback(async () => {
@@ -82,6 +94,7 @@ export default function NotaDetalle() {
           !deletedRef.current &&
           (latestRef.current.title !== persistedRef.current.title ||
             latestRef.current.body !== persistedRef.current.body ||
+            latestRef.current.icon !== persistedRef.current.icon ||
             latestRef.current.pinned !== persistedRef.current.pinned)
         ) {
           const snapshot = { ...latestRef.current };
@@ -122,11 +135,17 @@ export default function NotaDetalle() {
           return;
         }
         setMissing(false);
-        const initial = { title: note.title || "", body: note.body || "", pinned: note.pinned ? 1 : 0 };
+        const initial = {
+          title: note.title || "",
+          body: note.body || "",
+          icon: note.icon || null,
+          pinned: note.pinned ? 1 : 0,
+        };
         latestRef.current = initial;
         persistedRef.current = initial;
         setTitle(initial.title);
         setBody(initial.body);
+        setIcon(initial.icon);
         setPinned(initial.pinned);
         setFolders(note.folders || []);
         setDecks(note.decks || []);
@@ -195,6 +214,13 @@ export default function NotaDetalle() {
     const next = pinned ? 0 : 1;
     setPinned(next);
     latestRef.current = { ...latestRef.current, pinned: next };
+    await flush();
+  };
+
+  const handleSelectIcon = async (nextIcon) => {
+    setIcon(nextIcon);
+    setIconOpen(false);
+    latestRef.current = { ...latestRef.current, icon: nextIcon };
     await flush();
   };
 
@@ -281,26 +307,28 @@ export default function NotaDetalle() {
   const hasLinks = folders.length > 0 || decks.length > 0 || tags.length > 0;
 
   return (
-    <Screen safeTop style={Platform.OS === "web" ? styles.webScreen : undefined}>
+    <Screen safeTop style={desktopWorkspace ? styles.desktopDocScreen : Platform.OS === "web" ? styles.webScreen : undefined}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
       >
         <View style={styles.topBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Volver"
-            onPress={goBack}
-            style={({ pressed, hovered }) => [
-              styles.backBtn,
-              hovered && styles.ghostHover,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Feather name="arrow-left" size={18} color={colors.textMuted} />
-            <Text style={styles.backText}>Notas</Text>
-          </Pressable>
+          {!desktopWorkspace ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Volver"
+              onPress={goBack}
+              style={({ pressed, hovered }) => [
+                styles.backBtn,
+                hovered && styles.ghostHover,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Feather name="arrow-left" size={18} color={colors.textMuted} />
+              <Text style={styles.backText}>Notas</Text>
+            </Pressable>
+          ) : null}
           <View style={{ flex: 1 }} />
           <Pressable
             accessibilityRole="button"
@@ -338,6 +366,20 @@ export default function NotaDetalle() {
           >
             <Feather name="more-horizontal" size={19} color={colors.textMuted} />
           </Pressable>
+          {desktopWorkspace ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar nota"
+              onPress={goBack}
+              style={({ pressed, hovered }) => [
+                styles.iconBtn,
+                hovered && styles.ghostHover,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Feather name="x" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
         </View>
 
         <ScrollView
@@ -345,6 +387,41 @@ export default function NotaDetalle() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.docScroll}
         >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cambiar icono de la nota"
+            accessibilityState={{ expanded: iconOpen }}
+            onPress={() => setIconOpen((v) => !v)}
+            style={({ pressed, hovered }) => [
+              styles.emojiBtn,
+              (hovered || iconOpen) && styles.ghostHover,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={styles.emojiBtnText}>{icon || "📄"}</Text>
+          </Pressable>
+
+          {iconOpen ? (
+            <View style={styles.iconGrid}>
+              {NOTE_ICONS.map((emoji) => (
+                <Pressable
+                  key={emoji}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Usar icono ${emoji}`}
+                  onPress={() => handleSelectIcon(emoji)}
+                  style={({ hovered, pressed }) => [
+                    styles.iconOption,
+                    (icon || "📄") === emoji && styles.iconOptionActive,
+                    hovered && styles.ghostHover,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={styles.iconOptionText}>{emoji}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
           <TextInput
             accessibilityLabel="Título de la nota"
             value={title}
@@ -362,6 +439,8 @@ export default function NotaDetalle() {
                 icon="folder"
                 label={folder.name}
                 color={colors.accentText}
+                style={styles.compactPill}
+                labelStyle={styles.compactPillLabel}
                 onPress={() => navigateWithSave(`/carpetas/${folder.id}`)}
               />
             ))}
@@ -371,6 +450,8 @@ export default function NotaDetalle() {
                 icon="layers"
                 label={deck.name}
                 color={colors.accentText}
+                style={styles.compactPill}
+                labelStyle={styles.compactPillLabel}
                 onPress={() => navigateWithSave(`/mazos/${deck.id}`)}
               />
             ))}
@@ -378,6 +459,8 @@ export default function NotaDetalle() {
               <Pill
                 key={`t-${tag.id}`}
                 label={`#${tag.name}`}
+                style={styles.compactPill}
+                labelStyle={styles.compactPillLabel}
                 onPress={() => setAssocOpen(true)}
               />
             ))}
@@ -470,6 +553,11 @@ const styles = StyleSheet.create({
   webScreen: {
     maxWidth: 740,
   },
+  desktopDocScreen: {
+    maxWidth: 820,
+    paddingHorizontal: 40,
+    paddingTop: 12,
+  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -501,13 +589,52 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh,
   },
   docScroll: {
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.xl * 3,
+  },
+  emojiBtn: {
+    alignSelf: "flex-start",
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 10,
+    marginBottom: 4,
+    marginLeft: -6,
+  },
+  emojiBtnText: {
+    fontSize: 34,
+    lineHeight: 40,
+  },
+  iconGrid: {
+    maxWidth: 340,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 12,
+  },
+  iconOption: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconOptionActive: {
+    backgroundColor: colors.surfaceHigh,
+  },
+  iconOptionText: {
+    fontSize: 21,
   },
   titleInput: {
     ...font(700),
-    fontSize: 30,
-    lineHeight: 38,
+    fontSize: 32,
+    lineHeight: 40,
     color: colors.text,
     paddingVertical: spacing.xs,
     marginBottom: spacing.sm,
@@ -520,16 +647,28 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: spacing.md,
   },
+  compactPill: {
+    minHeight: 26,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  compactPillLabel: {
+    fontSize: 11.5,
+    ...font(500),
+  },
   ghostLinkBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    minHeight: 28,
+    minHeight: 26,
     paddingHorizontal: 8,
-    borderRadius: radius.sm,
+    borderRadius: 6,
   },
   ghostLinkLabel: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.textMuted,
   },
   divider: {

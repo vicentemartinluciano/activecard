@@ -85,11 +85,7 @@ export default function AssociatedNotesSection({
                   pressed && { opacity: 0.75 },
                 ]}
               >
-                <Feather
-                  name={note.pinned ? "bookmark" : "file-text"}
-                  size={16}
-                  color={note.pinned ? colors.accentText : colors.textMuted}
-                />
+                <Text style={styles.itemEmoji}>{note.icon || "📄"}</Text>
                 <Text style={styles.itemTitle} numberOfLines={1}>
                   {note.title?.trim() || "Sin título"}
                 </Text>
@@ -176,6 +172,12 @@ const styles = StyleSheet.create({
   },
   rowHover: {
     backgroundColor: colors.surfaceHigh,
+  },
+  itemEmoji: {
+    fontSize: 16,
+    lineHeight: 20,
+    width: 20,
+    textAlign: "center",
   },
   itemTitle: {
     ...font(500),
