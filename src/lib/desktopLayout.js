@@ -15,6 +15,10 @@ export function hasLibraryIndex(path) {
   return desktopSection(path) === 'biblioteca' && !path.endsWith('/estudiar');
 }
 
+export function hasNotesIndex(path) {
+  return desktopSection(path) === 'notas';
+}
+
 export function libraryTree(folders, decks, query = '') {
   const normalize = (text) => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const needle = normalize(query.trim());

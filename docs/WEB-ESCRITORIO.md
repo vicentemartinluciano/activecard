@@ -3,8 +3,8 @@
 ## Diseño aceptado el 7 de octubre de 2026
 
 La web funciona como un espacio de trabajo inspirado en REANCLA. Todas las secciones
-siguen disponibles: Inicio, Biblioteca, Crear, Gimnasio, Progreso y Ajustes. Android
-conserva sus pestañas y sus gestos.
+siguen disponibles: Inicio, Biblioteca, Notas, Gimnasio, Progreso y Ajustes (Crear
+conserva redirección legacy). Android conserva sus pestañas y sus gestos.
 
 - Barra izquierda de 60 px sin logo e iconos de 26 px. Las cinco secciones
   distribuyen el espacio vertical y Ajustes ocupa su franja inferior. El destino
@@ -18,6 +18,7 @@ conserva sus pestañas y sus gestos.
   Buscar un mazo encuentra también los hijos de carpetas plegadas.
   Sus filas miden al menos 46 px, con texto de 14 px; la flecha de una carpeta aparece
   al pasar por su fila o al navegar con teclado.
+- Notas (`hasNotesIndex`) reutiliza el mismo panel lateral colapsable de 280 px en `/notas` y `/notas/[id]`, con buscador, botón `+` para crear nota al instante, sección plegable de `Fijadas` y filas planas sin tarjetas; la ruta superior enlaza a Notas y al título activo. El editor abre en una columna centrada sin marco (`NotionField page`).
 - El índice se puede fijar u ocultar. Su tirador lateral aparece únicamente al pasar
   el mouse o recibir foco. Con el índice oculto, pasar por su botón abre una vista
   flotante; no reduce el contenido. Escape y un clic fuera cierran la vista previa.

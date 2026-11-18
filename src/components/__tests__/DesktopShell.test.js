@@ -21,6 +21,7 @@ jest.mock('../CreationSheet', () => () => null);
 jest.mock('../../db/client', () => ({ getDb: async () => ({}) }));
 jest.mock('../../db/decks', () => ({ listDecks: async () => [] }));
 jest.mock('../../db/folders', () => ({ listFolders: async () => [] }));
+jest.mock('../../db/notes', () => ({ listNotes: async () => [{ id: 9, title: 'Mapa general', pinned: 1 }], createNote: jest.fn(async () => 15) }));
 jest.mock('../../db/transactions', () => ({ subscribeDatabaseChanges: () => () => {} }));
 
 let screen;
@@ -42,9 +43,12 @@ test.each(['/', '/crear', '/notas', '/progreso', '/ajustes', '/gimnasio/chat'])(
   }
 );
 
-test('volver a Notas desde una nota retira la pantalla del stack', async () => {
+test('volver a Notas desde una nota retira la pantalla del stack, muestra el índice lateral y crea nota', async () => {
   mockPath = '/notas/9';
   await act(async () => { screen = create(<DesktopShell />); });
+  expect(screen.root.findByProps({ testID: 'desktop-notes-index' })).toBeTruthy();
+  await act(async () => screen.root.findByProps({ accessibilityLabel: 'Crear nota' }).props.onPress());
+  expect(mockRouter.navigate).toHaveBeenCalledWith('/notas/15');
   await act(async () => screen.root.findByProps({ accessibilityLabel: 'Notas' }).props.onPress());
   expect(mockRouter.dismissTo).toHaveBeenCalledWith('/notas');
 });

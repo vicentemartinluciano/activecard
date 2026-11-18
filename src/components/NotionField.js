@@ -24,6 +24,7 @@ export default function NotionField({
   placeholder,
   minHeight = 110,
   defaultAlign = "left",
+  page = false,
 }) {
   const webRef = useRef(null);
   const [height, setHeight] = useState(minHeight);
@@ -84,7 +85,7 @@ export default function NotionField({
   };
 
   return (
-    <View style={[styles.box, { height }]}>
+    <View style={[styles.box, page && styles.pageBox, { height }]}>
       <WebView
         ref={webRef}
         source={{ html: editorHtml }}
@@ -94,7 +95,7 @@ export default function NotionField({
         // las extensiones.
         injectedJavaScriptBeforeContentLoaded={`window.__nfDefaultAlign=${JSON.stringify(
           defaultAlign
-        )};true;`}
+        )};window.__nfPage=${JSON.stringify(!!page)};true;`}
         onMessage={onMessage}
         scrollEnabled={false}
         overScrollMode="never"
@@ -116,6 +117,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: "hidden",
+  },
+  pageBox: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    borderRadius: 0,
   },
   web: {
     flex: 1,
