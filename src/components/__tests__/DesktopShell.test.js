@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
-import DesktopShell from '../DesktopShell';
+import DesktopShell, { useDesktopNotesLayout } from '../DesktopShell';
 
 let mockPath = '/';
 const mockRouter = { navigate: jest.fn(), dismissTo: jest.fn() };
@@ -62,3 +62,50 @@ test.each(['/carpetas/8', '/mazos/2', '/mazos/2/estudiar'])(
     expect(mockRouter.navigate).not.toHaveBeenCalled();
   }
 );
+
+test('pantalla completa en una nota oculta el riel y el índice lateral y se restaura al volver a /notas', async () => {
+  let latestLayout = null;
+  function Probe() {
+    latestLayout = useDesktopNotesLayout();
+    return null;
+  }
+
+  mockPath = '/notas/9';
+  await act(async () => {
+    screen = create(
+      <DesktopShell>
+        <Probe />
+      </DesktopShell>
+    );
+  });
+  expect(screen.root.findAllByProps({ accessibilityLabel: 'Ubicación en notas' })).toHaveLength(0);
+  expect(screen.root.findAllByProps({ accessibilityLabel: 'Biblioteca' })).toHaveLength(1);
+  const initialIndex = screen.root.findByProps({ testID: 'desktop-notes-index' });
+  expect(initialIndex.props.pointerEvents).toBe('auto');
+  expect(initialIndex.parent.props.style.width).toBe(280);
+  expect(latestLayout.focused).toBe(false);
+
+  await act(async () => latestLayout.toggleFocused());
+  expect(latestLayout.focused).toBe(true);
+  expect(screen.root.findAllByProps({ accessibilityLabel: 'Biblioteca' })).toHaveLength(0);
+  const hiddenIndex = screen.root.findByProps({ testID: 'desktop-notes-index' });
+  expect(hiddenIndex.props.pointerEvents).toBe('none');
+  expect(hiddenIndex.parent.props.style.width).toBe(0);
+  expect(hiddenIndex.props.style).toEqual(
+    expect.arrayContaining([expect.objectContaining({ visibility: 'hidden', opacity: 0 })])
+  );
+
+  mockPath = '/notas';
+  await act(async () => {
+    screen.update(
+      <DesktopShell>
+        <Probe />
+      </DesktopShell>
+    );
+  });
+  expect(latestLayout.focused).toBe(false);
+  expect(screen.root.findAllByProps({ accessibilityLabel: 'Biblioteca' })).toHaveLength(1);
+  const restoredIndex = screen.root.findByProps({ testID: 'desktop-notes-index' });
+  expect(restoredIndex.props.pointerEvents).toBe('auto');
+  expect(restoredIndex.parent.props.style.width).toBe(280);
+});

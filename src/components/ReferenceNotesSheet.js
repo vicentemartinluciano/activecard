@@ -59,9 +59,9 @@ export default function ReferenceNotesSheet({
 
           <ScrollView style={styles.bodyScroll} contentContainerStyle={{ paddingBottom: spacing.md }}>
             {active.body?.trim() ? (
-              <RichText text={active.body} style={[type.body, { lineHeight: 24 }]} />
+              <RichText text={active.body} style={[type.body, { fontSize: 17, lineHeight: 26 }]} />
             ) : (
-              <Text style={type.small}>Nota sin contenido todavía.</Text>
+              <Text style={[type.small, { fontSize: 15 }]}>Nota sin contenido todavía.</Text>
             )}
           </ScrollView>
 
@@ -91,8 +91,8 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     ...font(700),
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 28,
     color: colors.text,
     marginRight: spacing.xs,
   },

@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   ghostCreateText: {
     ...font(500),
-    fontSize: 13,
+    fontSize: 14.5,
     color: colors.textMuted,
   },
   header: {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   },
   headerLabel: {
     ...font(600),
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: 0.7,
     color: colors.textMuted,
   },
@@ -155,18 +155,18 @@ const styles = StyleSheet.create({
   },
   addGhostText: {
     ...font(500),
-    fontSize: 12.5,
+    fontSize: 13.5,
     color: colors.textMuted,
   },
   list: {
     gap: 4,
   },
   itemRow: {
-    minHeight: 42,
+    minHeight: 46,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 8,
     backgroundColor: colors.surface,
   },
@@ -174,19 +174,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh,
   },
   itemEmoji: {
-    fontSize: 16,
-    lineHeight: 20,
-    width: 20,
+    fontSize: 18,
+    lineHeight: 22,
+    width: 22,
     textAlign: "center",
   },
   itemTitle: {
     ...font(500),
     color: colors.text,
-    fontSize: 13.5,
+    fontSize: 15,
     flex: 1,
   },
   originTag: {
-    fontSize: 11.5,
+    fontSize: 12.5,
     color: colors.textMuted,
     maxWidth: 120,
   },

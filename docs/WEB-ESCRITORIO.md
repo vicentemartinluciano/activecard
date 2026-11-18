@@ -18,7 +18,7 @@ conserva redirección legacy). Android conserva sus pestañas y sus gestos.
   Buscar un mazo encuentra también los hijos de carpetas plegadas.
   Sus filas miden al menos 46 px, con texto de 14 px; la flecha de una carpeta aparece
   al pasar por su fila o al navegar con teclado.
-- Notas (`hasNotesIndex`) reutiliza el mismo panel lateral colapsable de 280 px en `/notas` y `/notas/[id]`, con buscador, botón `+` para crear nota al instante, sección plegable de `Fijadas` y filas planas sin tarjetas; la ruta superior enlaza a Notas y al título activo. El editor abre en una columna centrada sin marco (`NotionField page`).
+- Notas (`hasNotesIndex`) reutiliza el mismo panel lateral colapsable de 280 px en `/notas` y `/notas/[id]`, con buscador, botón `+` para crear nota al instante, sección plegable de `Fijadas`, escala legible en escritorio (`18 px` encabezado, `15.5 px` filas con emoji) y filas planas sin tarjetas. En `/notas/[id]` web desktop se unifica la barra superior de 52 px con la ruta `Notas / Título`, botón `Pantalla completa` (oculta riel e índice lateral), botón `Ancho completo` cuando el panel supera 1120 px y ajuste automático al 100% del ancho útil en pantalla semicompleta o con el índice contraído, con editor sin marco (`NotionField page` a `18 px`, título `38 px` y emoji `42 px`).
 - El índice se puede fijar u ocultar. Su tirador lateral aparece únicamente al pasar
   el mouse o recibir foco. Con el índice oculto, pasar por su botón abre una vista
   flotante; no reduce el contenido. Escape y un clic fuera cierran la vista previa.
