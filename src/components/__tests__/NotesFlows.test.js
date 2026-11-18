@@ -12,6 +12,7 @@ const mockBack = jest.fn();
 const mockDispatch = jest.fn();
 const mockBeforeRemoveListeners = [];
 const mockDesktopBeforeNavigate = jest.fn();
+let mockWindowWidth = 390;
 
 const mockListNotes = jest.fn();
 const mockCreateNote = jest.fn();
@@ -33,6 +34,7 @@ jest.mock("react-native", () => {
   return {
     Platform: { OS: "web", select: (values) => values.web ?? values.default },
     StyleSheet: { create: (styles) => styles },
+    useWindowDimensions: () => ({ width: mockWindowWidth, height: 844 }),
     View: ({ children, ...props }) => react.createElement("View", props, children),
     Text: ({ children, ...props }) => react.createElement("Text", props, children),
     Pressable: ({ children, ...props }) => react.createElement("Pressable", props, children),
@@ -132,6 +134,7 @@ jest.mock("../../db/decks", () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockBeforeRemoveListeners.length = 0;
+  mockWindowWidth = 390;
   mockListFolders.mockResolvedValue([{ id: 3, name: "Biología", parent_id: null }]);
   mockListDecks.mockResolvedValue([{ id: 10, name: "Célula", folder_id: 3 }]);
   mockListTags.mockResolvedValue([{ id: 5, name: "parcial" }]);
@@ -296,6 +299,7 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
     expect(mockUpdateNote).toHaveBeenCalledWith(42, {
       title: "Título editado",
       body: "Cuerpo **enriquecido**",
+      icon: null,
       pinned: 0,
     });
     expect(mockPush).toHaveBeenCalledWith("/mazos/10");
@@ -309,8 +313,51 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
     expect(mockUpdateNote).toHaveBeenCalledWith(42, {
       title: "Título editado",
       body: "Cuerpo **enriquecido**",
+      icon: null,
       pinned: 1,
     });
+
+    const emojiBtn = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Cambiar icono de la nota");
+    await act(async () => emojiBtn.props.onPress());
+    const anchorBtn = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Usar icono ⚓");
+    await act(async () => {
+      await anchorBtn.props.onPress();
+    });
+    expect(mockUpdateNote).toHaveBeenLastCalledWith(42, {
+      title: "Título editado",
+      body: "Cuerpo **enriquecido**",
+      icon: "⚓",
+      pinned: 1,
+    });
+  } finally {
+    await act(async () => tree?.unmount());
+  }
+});
+
+test("en escritorio web Notas muestra el lienzo limpio estilo REANCLA sin duplicar lista ni buscador", async () => {
+  mockWindowWidth = 1280;
+  mockListNotes.mockResolvedValue([{ id: 1, title: "Página", folders: [], decks: [], tags: [] }]);
+  mockCreateNote.mockResolvedValue(55);
+
+  let tree;
+  try {
+    await act(async () => {
+      tree = create(<Notas />);
+    });
+    expect(tree.root.findAllByType("ui-field")).toHaveLength(0);
+    expect(JSON.stringify(tree.toJSON())).toContain("Elegí una nota");
+    const createBtn = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Nueva nota");
+    await act(async () => {
+      await createBtn.props.onPress();
+    });
+    expect(mockCreateNote).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith("/notas/55");
   } finally {
     await act(async () => tree?.unmount());
   }

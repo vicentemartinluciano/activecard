@@ -1,7 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
 import SectionSwipe from "../../components/SectionSwipe";
@@ -34,6 +34,9 @@ function formatUpdated(value) {
 
 export default function Notas() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const desktopWorkspace = Platform.OS === "web" && width >= 760;
+
   const [notes, setNotes] = useState(null);
   const [folders, setFolders] = useState([]);
   const [decks, setDecks] = useState([]);
@@ -117,6 +120,41 @@ export default function Notas() {
     setDeckId(null);
     setTagId(null);
   };
+
+  if (desktopWorkspace) {
+    return (
+      <SectionSwipe index={2}>
+        <Screen safeTop style={styles.desktopScreen}>
+          {notes == null ? (
+            <View style={styles.desktopStage}>
+              <Skeleton height={36} style={{ width: 180 }} />
+            </View>
+          ) : (
+            <View style={styles.desktopStage}>
+              <Text style={styles.desktopStageTitle}>
+                {notes.length ? "Elegí una nota" : "Escribí tu primera nota"}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Nueva nota"
+                disabled={creating}
+                onPress={onCreateNote}
+                style={({ hovered, pressed }) => [
+                  styles.desktopCreateBtn,
+                  hovered && { backgroundColor: "#D4D4D8" },
+                  pressed && { opacity: 0.85 },
+                  creating && { opacity: 0.5 },
+                ]}
+              >
+                <Text style={styles.desktopCreateBtnText}>{creating ? "Creando…" : "+ Crear nota"}</Text>
+              </Pressable>
+            </View>
+          )}
+          <Toast message={error} onRetry={load} />
+        </Screen>
+      </SectionSwipe>
+    );
+  }
 
   return (
     <SectionSwipe index={2}>
@@ -234,12 +272,7 @@ export default function Notas() {
                         pressed && { opacity: 0.7 },
                       ]}
                     >
-                      <Feather
-                        name={note.pinned ? "bookmark" : "file-text"}
-                        size={17}
-                        color={note.pinned ? colors.accentText : colors.textMuted}
-                        style={styles.rowIcon}
-                      />
+                      <Text style={styles.rowEmoji}>{note.icon || "📄"}</Text>
                       <View style={styles.rowBody}>
                         <Text style={styles.noteTitle} numberOfLines={1}>
                           {titleText}
@@ -278,6 +311,8 @@ export default function Notas() {
                           icon="folder"
                           label={folder.name}
                           color={colors.accentText}
+                          style={styles.compactPill}
+                          labelStyle={styles.compactPillLabel}
                           onPress={() => router.push(`/carpetas/${folder.id}`)}
                         />
                       ))}
@@ -287,6 +322,8 @@ export default function Notas() {
                           icon="layers"
                           label={deck.name}
                           color={colors.accentText}
+                          style={styles.compactPill}
+                          labelStyle={styles.compactPillLabel}
                           onPress={() => router.push(`/mazos/${deck.id}`)}
                         />
                       ))}
@@ -294,6 +331,8 @@ export default function Notas() {
                         <Pill
                           key={`t-${tag.id}`}
                           label={`#${tag.name}`}
+                          style={styles.compactPill}
+                          labelStyle={styles.compactPillLabel}
                           onPress={() => setTagId((prev) => (prev === tag.id ? null : tag.id))}
                         />
                       ))}
@@ -397,6 +436,36 @@ export default function Notas() {
 }
 
 const styles = StyleSheet.create({
+  desktopScreen: {
+    maxWidth: undefined,
+    padding: 0,
+  },
+  desktopStage: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+    gap: 20,
+  },
+  desktopStageTitle: {
+    ...font(600),
+    fontSize: 22,
+    color: colors.text,
+    textAlign: "center",
+  },
+  desktopCreateBtn: {
+    backgroundColor: colors.text,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  desktopCreateBtnText: {
+    ...font(600),
+    color: colors.bg,
+    fontSize: 12.5,
+  },
   webScreen: {
     maxWidth: 740,
   },
@@ -438,11 +507,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 12,
   },
-  rowIcon: {
-    marginTop: 2,
+  rowEmoji: {
+    fontSize: 20,
+    lineHeight: 26,
+    width: 24,
+    textAlign: "center",
   },
   rowBody: {
     flex: 1,
@@ -479,9 +551,21 @@ const styles = StyleSheet.create({
   linksRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.xs,
+    gap: 6,
     marginTop: 8,
-    paddingLeft: 29,
+    paddingLeft: 36,
+  },
+  compactPill: {
+    minHeight: 26,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  compactPillLabel: {
+    fontSize: 11.5,
+    ...font(500),
   },
   emptyWrap: {
     paddingVertical: 64,
