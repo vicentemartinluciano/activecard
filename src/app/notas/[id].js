@@ -14,7 +14,7 @@ import {
 } from "react-native";
 
 import ActionSheet from "../../components/ActionSheet";
-import { useDesktopBeforeNavigate } from "../../components/DesktopShell";
+import { useDesktopBeforeNavigate, useDesktopNotesLayout } from "../../components/DesktopShell";
 import NoteAssociationsSheet from "../../components/NoteAssociationsSheet";
 import NotionField from "../../components/NotionField";
 import Skeleton from "../../components/Skeleton";
@@ -33,6 +33,7 @@ import {
   updateNote,
 } from "../../db/notes";
 import { databaseErrorMessage } from "../../lib/databaseError";
+import { DESKTOP_INDEX_WIDTH, DESKTOP_RAIL_WIDTH } from "../../lib/desktopLayout";
 import { colors, font, radius, spacing, type } from "../../theme";
 
 const NOTE_ICONS = [
@@ -48,6 +49,18 @@ export default function NotaDetalle() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const desktopWorkspace = Platform.OS === "web" && width >= 760;
+  const desktopLayout = useDesktopNotesLayout();
+  const [localFocused, setLocalFocused] = useState(false);
+  const [localWide, setLocalWide] = useState(false);
+  const focused = desktopLayout ? desktopLayout.focused : localFocused;
+  const wide = desktopLayout ? desktopLayout.wide : localWide;
+  const pinnedIndex = desktopLayout ? desktopLayout.pinned : false;
+  const toggleFocused = desktopLayout ? desktopLayout.toggleFocused : () => setLocalFocused((v) => !v);
+  const toggleWide = desktopLayout ? desktopLayout.toggleWide : () => setLocalWide((v) => !v);
+  const paneWidth = width - (focused ? 0 : DESKTOP_RAIL_WIDTH) - (focused || !pinnedIndex ? 0 : DESKTOP_INDEX_WIDTH);
+  const pagePadding = paneWidth < 680 ? 24 : paneWidth < 1040 ? 36 : 56;
+  const showWideToggle = !focused && pinnedIndex && paneWidth >= 1120;
+  const fullDocumentWidth = focused || wide || !pinnedIndex || paneWidth < 1120;
 
   const [loaded, setLoaded] = useState(false);
   const [missing, setMissing] = useState(false);
@@ -286,7 +299,7 @@ export default function NotaDetalle() {
 
   if (!loaded) {
     return (
-      <Screen safeTop>
+      <Screen safeTop style={desktopWorkspace ? [styles.desktopDocScreen, { padding: pagePadding }] : undefined}>
         <Stack.Screen options={{ headerShown: false }} />
         <Skeleton height={44} />
         <Skeleton height={280} style={{ marginTop: spacing.md }} />
@@ -296,7 +309,7 @@ export default function NotaDetalle() {
 
   if (missing) {
     return (
-      <Screen safeTop>
+      <Screen safeTop style={desktopWorkspace ? [styles.desktopDocScreen, { padding: pagePadding }] : undefined}>
         <Stack.Screen options={{ headerShown: false }} />
         <EmptyState full icon="file-text" text="Esta nota ya no está disponible." />
         <Button label="Ir a Notas" kind="primary" onPress={() => router.replace("/notas")} />
@@ -305,6 +318,7 @@ export default function NotaDetalle() {
   }
 
   const hasLinks = folders.length > 0 || decks.length > 0 || tags.length > 0;
+  const noteTitleLabel = title.trim() || "Sin título";
 
   return (
     <Screen safeTop style={desktopWorkspace ? styles.desktopDocScreen : Platform.OS === "web" ? styles.webScreen : undefined}>
@@ -313,8 +327,138 @@ export default function NotaDetalle() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
       >
-        <View style={styles.topBar}>
-          {!desktopWorkspace ? (
+        {desktopWorkspace ? (
+          <View style={styles.desktopTopBar}>
+            {!focused && desktopLayout ? (
+              <Pressable
+                dataSet={{ libraryToggle: "true" }}
+                accessibilityRole="button"
+                accessibilityLabel={pinnedIndex ? "Ocultar índice de notas" : "Fijar índice de notas"}
+                accessibilityState={{ expanded: desktopLayout.shown }}
+                onHoverIn={desktopLayout.previewEnter}
+                onHoverOut={desktopLayout.previewLeave}
+                onPress={desktopLayout.togglePinned}
+                style={({ pressed, hovered }) => [
+                  styles.iconBtn,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather pointerEvents="none" name="sidebar" size={18} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+
+            <View accessibilityLabel="Ubicación en notas" style={styles.desktopBreadcrumbs}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ir a Notas"
+                onPress={() => (desktopLayout ? desktopLayout.goNotesRoot() : navigateWithSave("/notas"))}
+                style={({ hovered, pressed }) => [
+                  styles.crumbBtn,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text numberOfLines={1} style={styles.crumbText}>Notas</Text>
+              </Pressable>
+              <Text style={styles.crumbSep}>/</Text>
+              <Text numberOfLines={1} style={styles.crumbCurrent}>
+                {`${icon || "📄"} ${noteTitleLabel}`}
+              </Text>
+            </View>
+
+            <View style={styles.desktopTopActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={focused ? "Restaurar vista de notas" : "Expandir nota"}
+                accessibilityState={{ selected: focused }}
+                onPress={toggleFocused}
+                style={({ pressed, hovered }) => [
+                  styles.topActionBtn,
+                  (focused || hovered) && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather
+                  name={focused ? "minimize-2" : "maximize-2"}
+                  size={15}
+                  color={focused ? colors.text : colors.textMuted}
+                />
+                <Text style={[styles.topActionText, focused && { color: colors.text }]}>
+                  {focused ? "Salir" : "Pantalla completa"}
+                </Text>
+              </Pressable>
+
+              {showWideToggle ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={wide ? "Usar ancho de lectura" : "Usar ancho completo"}
+                  accessibilityState={{ selected: wide }}
+                  onPress={toggleWide}
+                  style={({ pressed, hovered }) => [
+                    styles.topActionBtn,
+                    (wide || hovered) && styles.ghostHover,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={[styles.topActionText, wide && { color: colors.text }]}>
+                    {wide ? "Ancho de lectura" : "Ancho completo"}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={pinned ? "Desfijar nota" : "Fijar nota"}
+                onPress={togglePinned}
+                style={({ pressed, hovered }) => [
+                  styles.iconBtn,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather name="bookmark" size={19} color={pinned ? colors.accentText : colors.textMuted} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Vincular a mazos, carpetas o etiquetas"
+                onPress={() => setAssocOpen(true)}
+                style={({ pressed, hovered }) => [
+                  styles.iconBtn,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather name="link-2" size={19} color={hasLinks ? colors.accentText : colors.textMuted} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Opciones de la nota"
+                onPress={() => setMenuOpen(true)}
+                style={({ pressed, hovered }) => [
+                  styles.iconBtn,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather name="more-horizontal" size={20} color={colors.textMuted} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar nota"
+                onPress={goBack}
+                style={({ pressed, hovered }) => [
+                  styles.iconBtn,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather name="x" size={19} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.topBar}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Volver"
@@ -328,166 +472,175 @@ export default function NotaDetalle() {
               <Feather name="arrow-left" size={18} color={colors.textMuted} />
               <Text style={styles.backText}>Notas</Text>
             </Pressable>
-          ) : null}
-          <View style={{ flex: 1 }} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={pinned ? "Desfijar nota" : "Fijar nota"}
-            onPress={togglePinned}
-            style={({ pressed, hovered }) => [
-              styles.iconBtn,
-              hovered && styles.ghostHover,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Feather name="bookmark" size={18} color={pinned ? colors.accentText : colors.textMuted} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Vincular a mazos, carpetas o etiquetas"
-            onPress={() => setAssocOpen(true)}
-            style={({ pressed, hovered }) => [
-              styles.iconBtn,
-              hovered && styles.ghostHover,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Feather name="link-2" size={18} color={hasLinks ? colors.accentText : colors.textMuted} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Opciones de la nota"
-            onPress={() => setMenuOpen(true)}
-            style={({ pressed, hovered }) => [
-              styles.iconBtn,
-              hovered && styles.ghostHover,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Feather name="more-horizontal" size={19} color={colors.textMuted} />
-          </Pressable>
-          {desktopWorkspace ? (
+            <View style={{ flex: 1 }} />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Cerrar nota"
-              onPress={goBack}
+              accessibilityLabel={pinned ? "Desfijar nota" : "Fijar nota"}
+              onPress={togglePinned}
               style={({ pressed, hovered }) => [
                 styles.iconBtn,
                 hovered && styles.ghostHover,
                 pressed && { opacity: 0.7 },
               ]}
             >
-              <Feather name="x" size={18} color={colors.textMuted} />
+              <Feather name="bookmark" size={18} color={pinned ? colors.accentText : colors.textMuted} />
             </Pressable>
-          ) : null}
-        </View>
-
-        <ScrollView
-          style={{ flex: 1 }}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.docScroll}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Cambiar icono de la nota"
-            accessibilityState={{ expanded: iconOpen }}
-            onPress={() => setIconOpen((v) => !v)}
-            style={({ pressed, hovered }) => [
-              styles.emojiBtn,
-              (hovered || iconOpen) && styles.ghostHover,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Text style={styles.emojiBtnText}>{icon || "📄"}</Text>
-          </Pressable>
-
-          {iconOpen ? (
-            <View style={styles.iconGrid}>
-              {NOTE_ICONS.map((emoji) => (
-                <Pressable
-                  key={emoji}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Usar icono ${emoji}`}
-                  onPress={() => handleSelectIcon(emoji)}
-                  style={({ hovered, pressed }) => [
-                    styles.iconOption,
-                    (icon || "📄") === emoji && styles.iconOptionActive,
-                    hovered && styles.ghostHover,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <Text style={styles.iconOptionText}>{emoji}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          <TextInput
-            accessibilityLabel="Título de la nota"
-            value={title}
-            onChangeText={handleTitleChange}
-            placeholder="Sin título"
-            placeholderTextColor={colors.textMuted}
-            multiline
-            style={styles.titleInput}
-          />
-
-          <View style={styles.linksRow}>
-            {folders.map((folder) => (
-              <Pill
-                key={`f-${folder.id}`}
-                icon="folder"
-                label={folder.name}
-                color={colors.accentText}
-                style={styles.compactPill}
-                labelStyle={styles.compactPillLabel}
-                onPress={() => navigateWithSave(`/carpetas/${folder.id}`)}
-              />
-            ))}
-            {decks.map((deck) => (
-              <Pill
-                key={`d-${deck.id}`}
-                icon="layers"
-                label={deck.name}
-                color={colors.accentText}
-                style={styles.compactPill}
-                labelStyle={styles.compactPillLabel}
-                onPress={() => navigateWithSave(`/mazos/${deck.id}`)}
-              />
-            ))}
-            {tags.map((tag) => (
-              <Pill
-                key={`t-${tag.id}`}
-                label={`#${tag.name}`}
-                style={styles.compactPill}
-                labelStyle={styles.compactPillLabel}
-                onPress={() => setAssocOpen(true)}
-              />
-            ))}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Editar vínculos de la nota"
+              accessibilityLabel="Vincular a mazos, carpetas o etiquetas"
               onPress={() => setAssocOpen(true)}
               style={({ pressed, hovered }) => [
-                styles.ghostLinkBtn,
+                styles.iconBtn,
                 hovered && styles.ghostHover,
                 pressed && { opacity: 0.7 },
               ]}
             >
-              <Feather name="plus" size={13} color={colors.textMuted} />
-              {!hasLinks ? <Text style={styles.ghostLinkLabel}>Vincular mazo o carpeta</Text> : null}
+              <Feather name="link-2" size={18} color={hasLinks ? colors.accentText : colors.textMuted} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Opciones de la nota"
+              onPress={() => setMenuOpen(true)}
+              style={({ pressed, hovered }) => [
+                styles.iconBtn,
+                hovered && styles.ghostHover,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Feather name="more-horizontal" size={19} color={colors.textMuted} />
             </Pressable>
           </View>
+        )}
 
-          <View style={styles.divider} />
+        <ScrollView
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[
+            styles.docScroll,
+            desktopWorkspace && { paddingHorizontal: pagePadding, paddingTop: focused ? 28 : 24 },
+          ]}
+        >
+          <View
+            testID="note-document-column"
+            style={
+              desktopWorkspace
+                ? {
+                    width: "100%",
+                    maxWidth: fullDocumentWidth ? undefined : 980,
+                    alignSelf: "flex-start",
+                  }
+                : undefined
+            }
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar icono de la nota"
+              accessibilityState={{ expanded: iconOpen }}
+              onPress={() => setIconOpen((v) => !v)}
+              style={({ pressed, hovered }) => [
+                styles.emojiBtn,
+                (hovered || iconOpen) && styles.ghostHover,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={[styles.emojiBtnText, desktopWorkspace && styles.desktopEmojiBtnText]}>
+                {icon || "📄"}
+              </Text>
+            </Pressable>
 
-          <NotionField
-            page
-            value={body}
-            onChangeText={handleBodyChange}
-            placeholder="Escribí algo…"
-            minHeight={440}
-          />
+            {iconOpen ? (
+              <View style={styles.iconGrid}>
+                {NOTE_ICONS.map((emoji) => (
+                  <Pressable
+                    key={emoji}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Usar icono ${emoji}`}
+                    onPress={() => handleSelectIcon(emoji)}
+                    style={({ hovered, pressed }) => [
+                      styles.iconOption,
+                      (icon || "📄") === emoji && styles.iconOptionActive,
+                      hovered && styles.ghostHover,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.iconOptionText}>{emoji}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+
+            <TextInput
+              accessibilityLabel="Título de la nota"
+              value={title}
+              onChangeText={handleTitleChange}
+              placeholder="Sin título"
+              placeholderTextColor={colors.textMuted}
+              multiline
+              style={[styles.titleInput, desktopWorkspace && styles.desktopTitleInput]}
+            />
+
+            <View style={styles.linksRow}>
+              {folders.map((folder) => (
+                <Pill
+                  key={`f-${folder.id}`}
+                  icon="folder"
+                  label={folder.name}
+                  color={colors.accentText}
+                  style={[styles.compactPill, desktopWorkspace && styles.desktopCompactPill]}
+                  labelStyle={[styles.compactPillLabel, desktopWorkspace && styles.desktopCompactPillLabel]}
+                  onPress={() => navigateWithSave(`/carpetas/${folder.id}`)}
+                />
+              ))}
+              {decks.map((deck) => (
+                <Pill
+                  key={`d-${deck.id}`}
+                  icon="layers"
+                  label={deck.name}
+                  color={colors.accentText}
+                  style={[styles.compactPill, desktopWorkspace && styles.desktopCompactPill]}
+                  labelStyle={[styles.compactPillLabel, desktopWorkspace && styles.desktopCompactPillLabel]}
+                  onPress={() => navigateWithSave(`/mazos/${deck.id}`)}
+                />
+              ))}
+              {tags.map((tag) => (
+                <Pill
+                  key={`t-${tag.id}`}
+                  label={`#${tag.name}`}
+                  style={[styles.compactPill, desktopWorkspace && styles.desktopCompactPill]}
+                  labelStyle={[styles.compactPillLabel, desktopWorkspace && styles.desktopCompactPillLabel]}
+                  onPress={() => setAssocOpen(true)}
+                />
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Editar vínculos de la nota"
+                onPress={() => setAssocOpen(true)}
+                style={({ pressed, hovered }) => [
+                  styles.ghostLinkBtn,
+                  desktopWorkspace && styles.desktopCompactPill,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather name="plus" size={desktopWorkspace ? 15 : 14} color={colors.textMuted} />
+                {!hasLinks ? (
+                  <Text style={[styles.ghostLinkLabel, desktopWorkspace && styles.desktopGhostLinkLabel]}>
+                    Vincular mazo o carpeta
+                  </Text>
+                ) : null}
+              </Pressable>
+            </View>
+
+            <View style={styles.divider} />
+
+            <NotionField
+              page
+              value={body}
+              onChangeText={handleBodyChange}
+              placeholder="Escribí algo…"
+              minHeight={440}
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -554,9 +707,66 @@ const styles = StyleSheet.create({
     maxWidth: 740,
   },
   desktopDocScreen: {
-    maxWidth: 820,
-    paddingHorizontal: 40,
-    paddingTop: 12,
+    maxWidth: "100%",
+    width: "100%",
+    padding: 0,
+  },
+  desktopTopBar: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  desktopBreadcrumbs: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  crumbBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+  },
+  crumbText: {
+    ...font(),
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textMuted,
+  },
+  crumbSep: {
+    ...font(),
+    fontSize: 15,
+    color: colors.textMuted,
+  },
+  crumbCurrent: {
+    ...font(500),
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text,
+    flexShrink: 1,
+  },
+  desktopTopActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  topActionBtn: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+  },
+  topActionText: {
+    ...font(500),
+    fontSize: 13.5,
+    color: colors.textMuted,
   },
   topBar: {
     flexDirection: "row",
@@ -575,12 +785,12 @@ const styles = StyleSheet.create({
   },
   backText: {
     ...font(500),
-    fontSize: 13.5,
+    fontSize: 14.5,
     color: colors.textMuted,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
@@ -591,23 +801,28 @@ const styles = StyleSheet.create({
   docScroll: {
     paddingTop: spacing.xs,
     paddingBottom: spacing.xl * 3,
+    flexGrow: 1,
   },
   emojiBtn: {
     alignSelf: "flex-start",
-    minWidth: 48,
-    minHeight: 48,
+    minWidth: 52,
+    minHeight: 52,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
-    marginBottom: 4,
+    marginBottom: 6,
     marginLeft: -6,
   },
   emojiBtnText: {
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 36,
+    lineHeight: 42,
+  },
+  desktopEmojiBtnText: {
+    fontSize: 42,
+    lineHeight: 48,
   },
   iconGrid: {
-    maxWidth: 340,
+    maxWidth: 360,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 4,
@@ -619,8 +834,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   iconOption: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -629,7 +844,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh,
   },
   iconOptionText: {
-    fontSize: 21,
+    fontSize: 22,
   },
   titleInput: {
     ...font(700),
@@ -640,40 +855,55 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     outlineStyle: Platform.OS === "web" ? "none" : undefined,
   },
+  desktopTitleInput: {
+    fontSize: 38,
+    lineHeight: 48,
+  },
   linksRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     marginBottom: spacing.md,
   },
   compactPill: {
-    minHeight: 26,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    minHeight: 28,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
     borderRadius: 6,
     backgroundColor: colors.surface,
     borderColor: colors.border,
   },
+  desktopCompactPill: {
+    minHeight: 30,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
+  },
   compactPillLabel: {
-    fontSize: 11.5,
+    fontSize: 12.5,
     ...font(500),
+  },
+  desktopCompactPillLabel: {
+    fontSize: 13.5,
   },
   ghostLinkBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    minHeight: 26,
-    paddingHorizontal: 8,
+    gap: 6,
+    minHeight: 28,
+    paddingHorizontal: 9,
     borderRadius: 6,
   },
   ghostLinkLabel: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textMuted,
+  },
+  desktopGhostLinkLabel: {
+    fontSize: 13.5,
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
 });

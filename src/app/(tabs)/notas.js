@@ -437,7 +437,8 @@ export default function Notas() {
 
 const styles = StyleSheet.create({
   desktopScreen: {
-    maxWidth: undefined,
+    maxWidth: "100%",
+    width: "100%",
     padding: 0,
   },
   desktopStage: {
@@ -449,22 +450,22 @@ const styles = StyleSheet.create({
   },
   desktopStageTitle: {
     ...font(600),
-    fontSize: 22,
+    fontSize: 26,
     color: colors.text,
     textAlign: "center",
   },
   desktopCreateBtn: {
     backgroundColor: colors.text,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingVertical: 12,
-    minHeight: 44,
+    minHeight: 46,
     justifyContent: "center",
     borderRadius: 8,
   },
   desktopCreateBtnText: {
     ...font(600),
     color: colors.bg,
-    fontSize: 12.5,
+    fontSize: 14.5,
   },
   webScreen: {
     maxWidth: 740,
@@ -511,9 +512,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowEmoji: {
-    fontSize: 20,
-    lineHeight: 26,
-    width: 24,
+    fontSize: 22,
+    lineHeight: 28,
+    width: 26,
     textAlign: "center",
   },
   rowBody: {
@@ -524,13 +525,13 @@ const styles = StyleSheet.create({
   noteTitle: {
     ...font(600),
     color: colors.text,
-    fontSize: 15.5,
-    lineHeight: 22,
+    fontSize: 16.5,
+    lineHeight: 23,
   },
   noteExcerpt: {
     color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 14,
+    lineHeight: 20,
   },
   rowRight: {
     flexDirection: "row",
@@ -538,7 +539,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowDate: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textMuted,
   },
   pinBtn: {
@@ -553,18 +554,18 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
     marginTop: 8,
-    paddingLeft: 36,
+    paddingLeft: 38,
   },
   compactPill: {
-    minHeight: 26,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    minHeight: 28,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
     borderRadius: 6,
     backgroundColor: colors.surface,
     borderColor: colors.border,
   },
   compactPillLabel: {
-    fontSize: 11.5,
+    fontSize: 12.5,
     ...font(500),
   },
   emptyWrap: {

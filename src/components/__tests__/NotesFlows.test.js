@@ -13,6 +13,7 @@ const mockDispatch = jest.fn();
 const mockBeforeRemoveListeners = [];
 const mockDesktopBeforeNavigate = jest.fn();
 let mockWindowWidth = 390;
+let mockDesktopNotesLayout = null;
 
 const mockListNotes = jest.fn();
 const mockCreateNote = jest.fn();
@@ -84,6 +85,7 @@ jest.mock("../Toast", () => (props) => require("react").createElement("toast", p
 jest.mock("../useSyncRefresh", () => ({ useSyncRefresh: () => {} }));
 jest.mock("../DesktopShell", () => ({
   useDesktopBeforeNavigate: (cb) => mockDesktopBeforeNavigate(cb),
+  useDesktopNotesLayout: () => mockDesktopNotesLayout,
 }));
 jest.mock("../RichText", () => (props) => require("react").createElement("rich-text", props));
 jest.mock("../NotionField", () => (props) => require("react").createElement("notion-field", props));
@@ -135,6 +137,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockBeforeRemoveListeners.length = 0;
   mockWindowWidth = 390;
+  mockDesktopNotesLayout = null;
   mockListFolders.mockResolvedValue([{ id: 3, name: "Biología", parent_id: null }]);
   mockListDecks.mockResolvedValue([{ id: 10, name: "Célula", folder_id: 3 }]);
   mockListTags.mockResolvedValue([{ id: 5, name: "parcial" }]);
@@ -378,6 +381,98 @@ test("la pestaña Notas muestra estado vacío minimalista y crea desde ahí", as
     });
     expect(mockCreateNote).toHaveBeenCalledTimes(1);
     expect(mockPush).toHaveBeenCalledWith("/notas/77");
+  } finally {
+    await act(async () => tree?.unmount());
+  }
+});
+
+test("en pantalla semicompleta el documento usa ancho completo automático sin botón de Ancho completo", async () => {
+  mockWindowWidth = 1024;
+  mockDesktopNotesLayout = {
+    pinned: true,
+    shown: true,
+    focused: false,
+    wide: false,
+    togglePinned: jest.fn(),
+    previewEnter: jest.fn(),
+    previewLeave: jest.fn(),
+    toggleFocused: jest.fn(),
+    toggleWide: jest.fn(),
+    goNotesRoot: jest.fn(),
+  };
+  mockGetNote.mockResolvedValue({
+    id: 42,
+    title: "Apunte semicompleto",
+    body: "Contenido",
+    pinned: 0,
+    folders: [],
+    decks: [],
+    tags: [],
+  });
+
+  let tree;
+  try {
+    await act(async () => {
+      tree = create(<NotaDetalle />);
+    });
+    const column = tree.root.findByProps({ testID: "note-document-column" });
+    expect(column.props.style.maxWidth).toBeUndefined();
+    expect(
+      tree.root.findAllByType("Pressable").find((p) => p.props.accessibilityLabel === "Expandir nota")
+    ).toBeTruthy();
+    expect(
+      tree.root.findAllByType("Pressable").find((p) => p.props.accessibilityLabel === "Usar ancho completo")
+    ).toBeUndefined();
+  } finally {
+    await act(async () => tree?.unmount());
+  }
+});
+
+test("en monitor amplio ofrece Ancho completo y Pantalla completa delegan en el layout de escritorio", async () => {
+  mockWindowWidth = 1600;
+  const toggleFocused = jest.fn();
+  const toggleWide = jest.fn();
+  mockDesktopNotesLayout = {
+    pinned: true,
+    shown: true,
+    focused: false,
+    wide: false,
+    togglePinned: jest.fn(),
+    previewEnter: jest.fn(),
+    previewLeave: jest.fn(),
+    toggleFocused,
+    toggleWide,
+    goNotesRoot: jest.fn(),
+  };
+  mockGetNote.mockResolvedValue({
+    id: 42,
+    title: "Apunte amplio",
+    body: "Contenido",
+    pinned: 0,
+    folders: [],
+    decks: [],
+    tags: [],
+  });
+
+  let tree;
+  try {
+    await act(async () => {
+      tree = create(<NotaDetalle />);
+    });
+    const column = tree.root.findByProps({ testID: "note-document-column" });
+    expect(column.props.style.maxWidth).toBe(980);
+
+    const wideBtn = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Usar ancho completo");
+    await act(async () => wideBtn.props.onPress());
+    expect(toggleWide).toHaveBeenCalledTimes(1);
+
+    const focusBtn = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Expandir nota");
+    await act(async () => focusBtn.props.onPress());
+    expect(toggleFocused).toHaveBeenCalledTimes(1);
   } finally {
     await act(async () => tree?.unmount());
   }

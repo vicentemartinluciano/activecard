@@ -240,8 +240,18 @@ img.ProseMirror-separator {
   word-wrap: break-word;
   white-space: pre-wrap;
 }
-.nf-root.nf-page { background: transparent; }
-.nf-root.nf-page .ProseMirror { padding: 4px 0 96px 0; line-height: 1.65; }
+.nf-root.nf-page { background: transparent; font-size: 17px; line-height: 1.65; }
+.nf-root.nf-page .ProseMirror { padding: 6px 0 112px 0; line-height: 1.65; }
+.nf-root.nf-page .ProseMirror p { margin: 0 0 8px; }
+.nf-root.nf-page .ProseMirror h1,
+.nf-root.nf-page .ProseMirror h2,
+.nf-root.nf-page .ProseMirror h3 { margin: 18px 0 8px; line-height: 1.25; }
+.nf-root.nf-page .ProseMirror ul,
+.nf-root.nf-page .ProseMirror ol { margin: 6px 0 10px; padding-left: 24px; }
+@media (min-width: 760px) {
+  .nf-root.nf-page { font-size: 18px; line-height: 1.72; }
+  .nf-root.nf-page .ProseMirror { line-height: 1.72; }
+}
 .nf-root .ProseMirror p { margin: 0 0 2px; }
 .nf-root .ProseMirror h1,
 .nf-root .ProseMirror h2,

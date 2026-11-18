@@ -26,11 +26,16 @@ const sections = [
 ];
 
 const DesktopNavigationContext = createContext(null);
+const DesktopNotesLayoutContext = createContext(null);
 
 // The persistent rail is outside the Stack: save the active editor before navigating.
 export function useDesktopBeforeNavigate(save) {
   const register = useContext(DesktopNavigationContext);
   useFocusEffect(useCallback(() => register?.(save), [register, save]));
+}
+
+export function useDesktopNotesLayout() {
+  return useContext(DesktopNotesLayoutContext);
 }
 
 function RailButton({ label, icon, active, onPress, sync, separator = false }) {
@@ -79,6 +84,8 @@ function DesktopWorkspace({ children }) {
   const [decks, setDecks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [pinnedOpen, setPinnedOpen] = useState(true);
+  const [noteFocused, setNoteFocused] = useState(false);
+  const [noteWide, setNoteWide] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
@@ -129,6 +136,13 @@ function DesktopWorkspace({ children }) {
   const currentFolder = folders.find((folder) => folder.id === selectedFolder);
   const selectedNoteId = Number(path.match(/^\/notas\/(\d+)/)?.[1]);
   const selectedNote = notes.find((note) => note.id === selectedNoteId);
+  const activeNoteFocused = Boolean(selectedNoteId) && noteFocused;
+  useEffect(() => {
+    if (!selectedNoteId) setNoteFocused(false);
+  }, [selectedNoteId]);
+  useEffect(() => {
+    if (activeNoteFocused) closePreview();
+  }, [activeNoteFocused, closePreview]);
   useEffect(() => {
     if (selectedFolder) setExpanded((value) => ({ ...value, ...Object.fromEntries(folderPath(folders, selectedFolder).map((folder) => [folder.id, true])) }));
   }, [selectedFolder, folders]);
@@ -139,8 +153,9 @@ function DesktopWorkspace({ children }) {
   const hasSidebar = library || notesIndex;
   const narrow = width < 760;
   useEffect(() => { if (narrow) { setPinned(false); closePreview(); } }, [narrow, closePreview]);
-  const shown = hasSidebar && (pinned || preview);
+  const shown = hasSidebar && !activeNoteFocused && (pinned || preview);
   const floating = narrow || !pinned;
+  const hideToolbarForNote = Boolean(selectedNoteId) && !narrow;
   const tree = libraryTree(folders, decks, query);
   const needle = normalizeSearch(query.trim());
   const filteredNotes = needle
@@ -201,12 +216,30 @@ function DesktopWorkspace({ children }) {
       </Pressable>
     );
   };
+  const notesLayoutValue = {
+    pinned,
+    shown,
+    focused: activeNoteFocused,
+    wide: noteWide,
+    togglePinned: () => {
+      closePreview();
+      setPinned((value) => !value);
+    },
+    previewEnter: () => {
+      clearTimeout(timer.current);
+      if (!pinned && !activeNoteFocused) setPreview(true);
+    },
+    previewLeave: leavePreview,
+    toggleFocused: () => setNoteFocused((value) => !value),
+    toggleWide: () => setNoteWide((value) => !value),
+    goNotesRoot: () => open('/notas', true),
+  };
   return <View style={styles.shell}>
-    {!narrow && <View style={styles.rail}>
+    {!narrow && !activeNoteFocused && <View style={styles.rail}>
       <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
       <RailButton separator label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
     </View>}
-    <View style={{ width: hasSidebar && pinned && !narrow ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
+    <View style={{ width: hasSidebar && pinned && !narrow && !activeNoteFocused ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
       {hasSidebar && <View dataSet={{ libraryIndex: 'true' }} testID={notesIndex ? 'desktop-notes-index' : 'desktop-library-index'}
         onPointerEnter={() => { clearTimeout(timer.current); refresh(); }} onPointerLeave={leavePreview}
         // visibility also removes hidden links from keyboard navigation.
@@ -274,7 +307,7 @@ function DesktopWorkspace({ children }) {
                     style={styles.noteGroupToggle}
                   >
                     <Text style={styles.noteGroupLabel}>Fijadas</Text>
-                    <Feather name={pinnedOpen ? 'chevron-down' : 'chevron-right'} size={13} color={colors.textMuted} />
+                    <Feather name={pinnedOpen ? 'chevron-down' : 'chevron-right'} size={15} color={colors.textMuted} />
                   </Pressable>
                   {pinnedOpen ? pinnedNotes.map((note) => noteRow(note)) : null}
                 </View>
@@ -298,11 +331,11 @@ function DesktopWorkspace({ children }) {
       </View>}
     </View>
     <View style={styles.content}>
-      {hasSidebar && <View style={styles.toolbar}>
+      {hasSidebar && !hideToolbarForNote && <View style={styles.toolbar}>
         <Pressable dataSet={{ libraryToggle: 'true' }} accessibilityRole="button" accessibilityLabel={pinned ? (notesIndex ? 'Ocultar índice de notas' : 'Ocultar índice de biblioteca') : (notesIndex ? 'Fijar índice de notas' : 'Fijar índice de biblioteca')}
           accessibilityState={{ expanded: shown }} onHoverIn={() => { clearTimeout(timer.current); if (!pinned) setPreview(true); }} onHoverOut={leavePreview}
           onPress={() => { closePreview(); setPinned((value) => !value); }} style={({ hovered }) => [styles.smallButton, hovered && { backgroundColor: colors.surfaceHigh }]}>
-          <Feather pointerEvents="none" name="sidebar" size={17} color={colors.textMuted} />
+          <Feather pointerEvents="none" name="sidebar" size={18} color={colors.textMuted} />
         </Pressable>
         {notesIndex ? (
           <View accessibilityLabel="Ubicación en notas" style={styles.breadcrumbs}>
@@ -317,7 +350,11 @@ function DesktopWorkspace({ children }) {
           </View>
         )}
       </View>}
-      <View style={styles.navigator}><DesktopNavigationContext.Provider value={register}>{children}</DesktopNavigationContext.Provider></View>
+      <View style={styles.navigator}>
+        <DesktopNotesLayoutContext.Provider value={notesLayoutValue}>
+          <DesktopNavigationContext.Provider value={register}>{children}</DesktopNavigationContext.Provider>
+        </DesktopNotesLayoutContext.Provider>
+      </View>
     </View>
     <CreationSheet kind={creation} folderId={currentFolder?.id ?? null} onClose={() => setCreation(null)} />
   </View>;
@@ -339,35 +376,35 @@ const styles = StyleSheet.create({
   index: { position: 'absolute', left: 0, width: DESKTOP_INDEX_WIDTH, backgroundColor: colors.surface, borderRightWidth: 1, borderRightColor: colors.border },
   floating: { borderRadius: 10, boxShadow: '8px 0 24px rgba(0,0,0,0.3)' },
   indexHeading: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 12 },
-  notesHeader: { padding: 12, gap: 8 },
+  notesHeader: { padding: 14, gap: 10 },
   notesHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  notesHeaderTitle: { ...font(600), fontSize: 15, color: colors.text },
+  notesHeaderTitle: { ...font(600), fontSize: 18, color: colors.text },
   notesHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  notesIconBtn: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  notesCollapseGlyph: { fontSize: 17, color: colors.textMuted, lineHeight: 19 },
-  notesPlusGlyph: { fontSize: 18, color: colors.text, lineHeight: 20 },
-  notesSearch: { minHeight: 34, height: 34, paddingVertical: 6, paddingHorizontal: 10, fontSize: 12, borderRadius: 7, backgroundColor: colors.bg },
+  notesIconBtn: { width: 34, height: 34, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  notesCollapseGlyph: { fontSize: 20, color: colors.textMuted, lineHeight: 22 },
+  notesPlusGlyph: { fontSize: 20, color: colors.text, lineHeight: 22 },
+  notesSearch: { minHeight: 38, height: 38, paddingVertical: 7, paddingHorizontal: 12, fontSize: 14, borderRadius: 7, backgroundColor: colors.bg },
   smallButton: { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  search: { flex: 1, minWidth: 0, fontSize: 13, paddingHorizontal: 10, paddingVertical: 10 },
+  search: { flex: 1, minWidth: 0, fontSize: 14, paddingHorizontal: 10, paddingVertical: 10 },
   treeRow: { width: '100%', flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
-  treeText: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, flex: 1 },
-  count: { ...font(), color: colors.textMuted, fontSize: 12 },
+  treeText: { ...font(), color: colors.textMuted, fontSize: 15.5, lineHeight: 22, flex: 1 },
+  count: { ...font(), color: colors.textMuted, fontSize: 13 },
   folderRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6 },
   chevron: { width: 30, height: 46, justifyContent: 'center', alignItems: 'center' },
   folderName: { flex: 1, flexDirection: 'row', minHeight: 46, alignItems: 'center', gap: 10, paddingRight: 16, borderRadius: 5 },
-  emptyFolder: { ...font(), color: colors.textMuted, fontSize: 13, lineHeight: 20, paddingLeft: 38, paddingVertical: 8 },
+  emptyFolder: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, paddingLeft: 38, paddingVertical: 8 },
   noteGroup: { paddingHorizontal: 8, paddingBottom: 6, marginBottom: 4 },
-  noteGroupToggle: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
-  noteGroupLabel: { ...font(), fontSize: 11, color: colors.textMuted },
-  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 38, marginHorizontal: 8, paddingHorizontal: 10, borderRadius: 6 },
-  noteEmoji: { width: 20, textAlign: 'center', fontSize: 15, lineHeight: 20 },
-  noteRowText: { ...font(), color: colors.text, fontSize: 13, lineHeight: 19, flex: 1 },
+  noteGroupToggle: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 },
+  noteGroupLabel: { ...font(), fontSize: 13, color: colors.textMuted },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, marginHorizontal: 8, paddingHorizontal: 10, borderRadius: 6 },
+  noteEmoji: { width: 24, textAlign: 'center', fontSize: 19, lineHeight: 24 },
+  noteRowText: { ...font(), color: colors.text, fontSize: 15.5, lineHeight: 22, flex: 1 },
   error: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, padding: 16 },
   edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, minHeight: 0 },
-  toolbar: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  toolbar: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   breadcrumbs: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   crumb: { flexShrink: 1, minWidth: 0, paddingHorizontal: 4, paddingVertical: 8 },
-  trail: { ...font(), color: colors.textMuted, fontSize: 13 },
+  trail: { ...font(), color: colors.textMuted, fontSize: 15, lineHeight: 22 },
   navigator: { flex: 1, minWidth: 0, minHeight: 0 },
 });
