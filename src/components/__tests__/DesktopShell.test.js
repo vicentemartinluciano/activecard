@@ -3,6 +3,7 @@ import { act, create } from 'react-test-renderer';
 import DesktopShell, { useDesktopNotesLayout } from '../DesktopShell';
 
 let mockPath = '/';
+let mockSyncStatus = null;
 const mockRouter = { navigate: jest.fn(), dismissTo: jest.fn() };
 jest.mock('expo-router', () => ({
   useRouter: () => mockRouter,
@@ -14,9 +15,15 @@ jest.mock('react-native', () => ({
   Pressable: 'press', ScrollView: 'scroll', Text: 'text', View: 'view',
   useWindowDimensions: () => ({ width: 1200 }),
 }));
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'svg',
+  Circle: 'circle',
+  Path: 'path',
+}));
 jest.mock('@expo/vector-icons/Feather', () => () => null);
 jest.mock('../ui', () => ({ Field: () => null }));
-jest.mock('../CloudSyncProvider', () => ({ useCloudSync: () => null }));
+jest.mock('../CloudSyncProvider', () => ({ useCloudSync: () => (mockSyncStatus ? { status: mockSyncStatus } : null) }));
 jest.mock('../CreationSheet', () => () => null);
 jest.mock('../../db/client', () => ({ getDb: async () => ({}) }));
 jest.mock('../../db/decks', () => ({ listDecks: async () => [] }));
@@ -31,7 +38,7 @@ beforeAll(() => {
   window.addEventListener = jest.fn();
   window.removeEventListener = jest.fn();
 });
-afterEach(async () => { await act(async () => screen?.unmount()); jest.clearAllMocks(); });
+afterEach(async () => { await act(async () => screen?.unmount()); mockSyncStatus = null; jest.clearAllMocks(); });
 
 test.each(['/', '/crear', '/notas', '/progreso', '/ajustes', '/gimnasio/chat'])(
   'el botón lateral abre Biblioteca desde %s cambiando de sección', async (path) => {
@@ -119,4 +126,20 @@ test('el riel de escritorio no muestra emblema AC y distribuye las secciones con
   expect(indicator.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ opacity: 1, top: '50%' })]));
   const notesButton = screen.root.findByProps({ accessibilityLabel: 'Notas' });
   expect(notesButton.parent.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ flex: 1 })]));
+});
+
+test.each([
+  ['sin cuenta', null, '#8F94A8'],
+  ['sincronizado', { user: { id: 'u1' }, busy: false, pending: false, localPending: false, syncedAt: '2026-11-19T12:00:00Z' }, '#34D399'],
+  ['pendiente', { user: { id: 'u1' }, busy: false, pending: false, localPending: true, syncedAt: '2026-11-19T12:00:00Z' }, '#FBBF24'],
+  ['error', { user: { id: 'u1' }, busy: false, error: 'Falta migración' }, '#FB7185'],
+])('el botón de Ajustes marca el estado de sincronización en el centro del engranaje (%s)', async (_label, status, expectedFill) => {
+  mockPath = '/';
+  mockSyncStatus = status;
+  await act(async () => { screen = create(<DesktopShell />); });
+  const centerDot = screen.root.findByProps({ testID: 'settings-sync-indicator' });
+  expect(centerDot.type).toBe('circle');
+  expect(centerDot.props.cx).toBe(12);
+  expect(centerDot.props.cy).toBe(12);
+  expect(centerDot.props.fill).toBe(expectedFill);
 });
