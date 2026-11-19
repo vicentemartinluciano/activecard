@@ -42,7 +42,7 @@ export default function AccountPanel() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 32 }}>
         <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 280, minWidth: 0, gap: 16 }}>
           <Text style={[type.body, { fontSize: 20, lineHeight: 29, ...font(600) }]}>{status.user ? 'Tu biblioteca en ambos dispositivos' : 'Conectá tu PC y tu celular'}</Text>
-          <Text style={[type.small, { fontSize: 15, lineHeight: 24 }]}>Mazos, tarjetas, imágenes, repasos, límites diarios y conversaciones del Gimnasio.</Text>
+          <Text style={[type.small, { fontSize: 15, lineHeight: 24 }]}>Mazos, tarjetas, notas, imágenes, repasos, límites diarios y conversaciones del Gimnasio.</Text>
           {!status.user && <Text style={[type.small, { fontSize: 15, lineHeight: 24 }]}>Usá tu acceso de REANCLA. Los datos de cada app se guardan por separado.</Text>}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Feather name="key" size={16} color={colors.textMuted} /><Text style={[type.small, { fontSize: 13 }]}>Las claves de OpenAI y Notion quedan en este dispositivo.</Text></View>
         </View>
@@ -88,7 +88,7 @@ export default function AccountPanel() {
   }
   return <Card style={{ gap: spacing.md }}>
     <Text style={type.heading}>Cuenta privada</Text>
-    <Text style={type.small}>Biblioteca, imágenes, repasos, progreso, límites diarios y conversaciones del Gimnasio entre tu PC y Android.</Text>
+    <Text style={type.small}>Biblioteca, notas, imágenes, repasos, progreso, límites diarios y conversaciones del Gimnasio entre tu PC y Android.</Text>
     {status.user ? <>
       <Text style={type.body}>{status.user.email}</Text>
       <Text style={[type.small, status.error && { color: colors.danger }]} accessibilityLiveRegion="polite">{error || status.message}</Text>

@@ -2,6 +2,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { useFocusEffect, usePathname, useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { listDecks } from '../db/decks';
 import { getDb } from '../db/client';
@@ -38,11 +39,27 @@ export function useDesktopNotesLayout() {
   return useContext(DesktopNotesLayoutContext);
 }
 
-function RailButton({ label, icon, active, onPress, sync }) {
+const SYNC_COLORS = {
+  error: '#FB7185',
+  local: colors.textMuted,
+  pending: '#FBBF24',
+  synced: '#34D399',
+};
+
+function settingsSyncColor(syncStatus, sync, online = true) {
+  if (syncStatus?.error) return SYNC_COLORS.error;
+  if (!syncStatus?.user) return SYNC_COLORS.local;
+  if (!online) return SYNC_COLORS.pending;
+  if (sync?.synced) return SYNC_COLORS.synced;
+  return SYNC_COLORS.pending;
+}
+
+function RailButton({ label, icon, active, onPress, sync, syncColor = null, compact = false }) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const iconColor = active ? colors.accentText : hovered || focused ? colors.text : colors.textMuted;
   return (
-    <View style={styles.railItem}>
+    <View style={[styles.railItem, compact && styles.railItemCompact]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -58,24 +75,31 @@ function RailButton({ label, icon, active, onPress, sync }) {
           styles.railButton,
           active && styles.railButtonActive,
           hovered && !active && styles.railButtonHover,
-          pressed && { transform: [{ scale: 0.93 }] },
+          pressed && { transform: [{ scale: 0.94 }] },
           focused && styles.railFocusRing,
         ]}
       >
         <View pointerEvents="none" style={styles.railIconWrap}>
-          <Feather
-            name={icon}
-            size={21}
-            color={active ? colors.accentText : hovered || focused ? colors.text : colors.textMuted}
-          />
-          {sync && (
-            <View
-              testID="settings-sync-indicator"
-              style={[
-                styles.syncDot,
-                { backgroundColor: sync.synced ? colors.successBright : colors.textMuted },
-              ]}
-            />
+          {sync ? (
+            <Svg width={24} height={24} viewBox="0 0 24 24" aria-hidden focusable={false}>
+              <Path
+                d="M10 2h4l.5 2.7 1.6.9 2.6-.9 2 3.5-2.1 1.8v2l2.1 1.8-2 3.5-2.6-.9-1.6.9L14 20h-4l-.5-2.7-1.6-.9-2.6.9-2-3.5L5.4 12v-2L3.3 8.2l2-3.5 2.6.9 1.6-.9Z"
+                fill="none"
+                stroke={iconColor}
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+                transform="translate(0 1)"
+              />
+              <Circle
+                testID="settings-sync-indicator"
+                cx={12}
+                cy={12}
+                r={3.3}
+                fill={syncColor || SYNC_COLORS.local}
+              />
+            </Svg>
+          ) : (
+            <Feather name={icon} size={22} color={iconColor} />
           )}
         </View>
       </Pressable>
@@ -121,6 +145,7 @@ function DesktopWorkspace({ children }) {
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [creation, setCreation] = useState(null);
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false);
   const timer = useRef(null);
   const request = useRef(0);
   const navigationGuard = useRef(null);
@@ -149,8 +174,16 @@ function DesktopWorkspace({ children }) {
   useEffect(() => () => { clearTimeout(timer.current); request.current++; }, []);
   useEffect(() => {
     const onFocus = () => refresh();
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
   }, [refresh]);
   useEffect(() => {
     if (!preview) return;
@@ -282,29 +315,37 @@ function DesktopWorkspace({ children }) {
   };
   return <View style={styles.shell}>
     {!narrow && !activeNoteFocused && <View style={styles.rail}>
-      <View style={styles.railTop}>
-        <View style={styles.brandMark} accessible={false}>
-          <Text style={styles.brandMarkText}>AC</Text>
-        </View>
-        <View style={styles.sections}>
-          <View
-            pointerEvents="none"
-            style={[
-              styles.railIndicator,
-              {
-                opacity: activeSectionIndex >= 0 ? 1 : 0,
-                transform: [{ translateY: Math.max(0, activeSectionIndex) * 52 + 11 }],
-              },
-            ]}
-          />
-          {sections.map(([key, label, icon, route]) => (
-            <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />
-          ))}
-        </View>
+      <View style={styles.sections}>
+        <View
+          pointerEvents="none"
+          testID="desktop-rail-indicator"
+          style={[
+            styles.railIndicator,
+            {
+              opacity: activeSectionIndex >= 0 ? 1 : 0,
+              top: `${Math.max(0, activeSectionIndex) * 20 + 10}%`,
+            },
+          ]}
+        />
+        {sections.map(([key, label, icon, route]) => (
+          <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />
+        ))}
       </View>
       <View style={styles.railBottom}>
-        <View style={styles.railDivider} />
-        <RailButton label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
+        {(() => {
+          const sync = syncIndicator(syncStatus);
+          return (
+            <RailButton
+              label="Ajustes"
+              icon="settings"
+              active={section === 'ajustes'}
+              sync={sync}
+              syncColor={settingsSyncColor(syncStatus, sync, online)}
+              compact
+              onPress={() => open('/ajustes')}
+            />
+          );
+        })()}
       </View>
     </View>}
     <View style={{ width: hasSidebar && pinned && !narrow && !activeNoteFocused ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
@@ -432,45 +473,44 @@ const styles = StyleSheet.create({
     width: DESKTOP_RAIL_WIDTH,
     backgroundColor: colors.surface,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
     borderRightWidth: 1,
     borderRightColor: 'rgba(255,255,255,0.07)',
     zIndex: 50,
   },
-  railTop: { width: '100%', alignItems: 'center', gap: 18 },
-  brandMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: 'rgba(155,180,255,0.28)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 2px 12px rgba(70,104,232,0.25)',
-  },
-  brandMarkText: { ...font(800), fontSize: 13, letterSpacing: 0.6, color: colors.accentText },
-  sections: { position: 'relative', width: '100%', alignItems: 'center', gap: 8 },
+  sections: { position: 'relative', flex: 5, minHeight: 0, width: '100%', alignItems: 'center' },
   railIndicator: {
     position: 'absolute',
     left: 0,
-    top: 0,
     width: 3,
-    height: 22,
+    height: 26,
     borderTopRightRadius: 4,
     borderBottomRightRadius: 4,
     backgroundColor: colors.accent,
     boxShadow: '0 0 10px rgba(70,104,232,0.8)',
-    transition: 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease',
+    transform: [{ translateY: -13 }],
+    transition: 'top 240ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease',
   },
-  railBottom: { width: '100%', alignItems: 'center', gap: 10 },
-  railDivider: { width: 28, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
-  railItem: { position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'center' },
+  railBottom: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.07)',
+    paddingVertical: 6,
+  },
+  railItem: {
+    position: 'relative',
+    flex: 1,
+    minHeight: 60,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  railItemCompact: { flex: 0, minHeight: 64 },
   railButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: 'transparent',
     alignItems: 'center',
@@ -490,16 +530,6 @@ const styles = StyleSheet.create({
     outlineOffset: 2,
   },
   railIconWrap: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-  syncDot: {
-    position: 'absolute',
-    right: -2,
-    top: -2,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: colors.surface,
-  },
   tooltip: {
     position: 'absolute',
     left: DESKTOP_RAIL_WIDTH + 6,
