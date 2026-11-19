@@ -304,3 +304,38 @@ test("si falla una transferencia espera las demás y no publica una biblioteca p
   expect(uploads).toBe(4);
   expect(test.fetcher.mock.calls.some(([url]) => url.endsWith("/activecard_commit"))).toBe(false);
 });
+
+test("si Supabase rechaza notas con Invalid entry informa exactamente la migración SQL pendiente", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const doc = emptyDocument();
+  doc.notes.n1 = {
+    title: "Apunte",
+    description: "",
+    body: "Contenido",
+    excerpt: "Contenido",
+    icon: null,
+    pinned: 0,
+    created_at: "2026-11-19T12:00:00Z",
+    updated_at: "2026-11-19T12:00:00Z",
+  };
+  const serve = test.fetcher.getMockImplementation();
+  test.fetcher.mockImplementation(async (url, options) => {
+    if (url.endsWith("/activecard_commit")) {
+      return reply({ code: "P0001", message: "Invalid entry" }, 400);
+    }
+    return serve(url, options);
+  });
+  await expect(test.remote.commit(doc, 0)).rejects.toThrow("202611180001_activecard_notes.sql");
+});
+
+test("si activecard_commit devuelve otro error 400 legible incluye el detalle de diagnóstico", async () => {
+  const test = server(); await test.remote.login("correo", "contraseña");
+  const serve = test.fetcher.getMockImplementation();
+  test.fetcher.mockImplementation(async (url, options) => {
+    if (url.endsWith("/activecard_commit")) {
+      return reply({ code: "P0001", message: "Invalid manifest" }, 400);
+    }
+    return serve(url, options);
+  });
+  await expect(test.remote.commit(emptyDocument(), 0)).rejects.toThrow("No pudimos completar la sincronización (Invalid manifest)");
+});

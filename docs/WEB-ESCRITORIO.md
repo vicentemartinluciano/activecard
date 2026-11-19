@@ -6,7 +6,7 @@ La web funciona como un espacio de trabajo inspirado en REANCLA. Todas las secci
 siguen disponibles: Inicio, Biblioteca, Notas, Gimnasio, Progreso y Ajustes (Crear
 conserva redirección legacy). Android conserva sus pestañas y sus gestos.
 
-- Barra izquierda de 64 px (`#0C0D12`) con emblema `AC` arriba, columna compacta de botones de 44 × 44 px con indicador cobalto deslizante animado en el borde izquierdo y Ajustes anclado abajo con separador e indicador de sync. Los nombres aparecen en tooltips estilizados con animación al pasar el mouse o enfocar con teclado; en móvil/web angosta `AnimatedTabBar` replica el indicador cobalto deslizante con rebote táctil.
+- Barra izquierda de 64 px (`#0C0D12`) sin logo superior: las cinco secciones principales se distribuyen proporcionalmente a lo alto (`flex: 1`, `minHeight: 60`) con botones de 46 × 46 px, indicador cobalto deslizante centrado por porcentaje en el borde izquierdo y Ajustes anclado abajo con separador e indicador de sync (verde al día, gris pendiente, rojo en error). Los nombres aparecen en tooltips estilizados con animación al pasar el mouse o enfocar con teclado; en móvil/web angosta `AnimatedTabBar` replica el indicador cobalto deslizante con rebote táctil.
 - Biblioteca tiene un índice de 280 px: carpetas desplegables, mazos hijos y mazos
   sueltos en la raíz. Su encabezado es el buscador, con creación a su derecha. Abrir y plegar el índice
   o sus carpetas tiene transición; la ruta superior permite volver a Biblioteca,

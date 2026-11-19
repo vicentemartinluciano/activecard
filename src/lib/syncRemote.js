@@ -85,11 +85,13 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
           headers: { apikey: PUBLIC_KEY, ...(access ? { Authorization: `Bearer ${access}` } : {}), ...(body !== undefined ? { "Content-Type": text ? "text/plain; charset=utf-8" : "application/json" } : {}) },
           ...(body !== undefined ? { body: text ? body : JSON.stringify(body) } : {}),
         });
+        let failure = null;
+        if (!response.ok) {
+          try { failure = await response.json(); } catch { failure = null; }
+        }
         if (existing && [400, 409].includes(response.status)) {
           // Storage también devuelve duplicados como HTTP 400 (API legacy).
           // Solo reutilizamos ese archivo después de descargarlo y verificar SHA-256.
-          let failure;
-          try { failure = await response.json(); } catch { failure = null; }
           if (response.status === 409 || failure?.error === "Duplicate" || ["ResourceAlreadyExists", "KeyAlreadyExists"].includes(failure?.code) || failure?.message === "Asset Already Exists") return null;
         }
         if (!response.ok) {
@@ -97,6 +99,24 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
           if ([400, 401].includes(response.status) && path.startsWith("/auth/")) throw new Error("No pudimos iniciar sesión. Revisá tu correo y contraseña de REANCLA.");
           if ([401, 403].includes(response.status)) throw new Error("La sesión no tiene acceso a la cuenta privada de ActiveCard.");
           if ([413, 507].includes(response.status)) throw new Error("El almacenamiento está lleno o este contenido supera su límite. Tus cambios siguen guardados en este dispositivo.");
+          if (response.status === 400 && path.endsWith("/rpc/activecard_commit")) {
+            const detail = String(failure?.message || "");
+            const entries = Array.isArray(body?.p_manifest?.entries) ? body.p_manifest.entries : [];
+            if (detail === "Invalid entry") {
+              if (entries.some(([table]) => ["notes", "note_decks", "note_folders", "note_tags"].includes(table))) {
+                throw new Error("Falta actualizar Supabase para sincronizar Notas: ejecutá supabase/migrations/202611180001_activecard_notes.sql en el SQL Editor.");
+              }
+              if (entries.some(([table]) => table === "study_preferences")) {
+                throw new Error("Falta actualizar Supabase para sincronizar límites diarios: ejecutá supabase/migrations/202610080001_activecard_study_preferences.sql en el SQL Editor.");
+              }
+            }
+            if (detail === "Missing content") {
+              throw new Error("Supabase no encontró un fragmento subido al confirmar la sincronización. Reintentá en unos segundos.");
+            }
+            if (/^[A-Za-z0-9 _.-]{3,60}$/.test(detail)) {
+              throw new Error(`No pudimos completar la sincronización (${detail}). Los cambios locales siguen guardados.`);
+            }
+          }
           throw new Error("No pudimos completar la sincronización. Los cambios locales siguen guardados.");
         }
         return text ? await response.text() : await response.json();

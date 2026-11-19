@@ -109,3 +109,14 @@ test('pantalla completa en una nota oculta el riel y el índice lateral y se res
   expect(restoredIndex.props.pointerEvents).toBe('auto');
   expect(restoredIndex.parent.props.style.width).toBe(280);
 });
+
+test('el riel de escritorio no muestra emblema AC y distribuye las secciones con indicador centrado', async () => {
+  mockPath = '/notas';
+  await act(async () => { screen = create(<DesktopShell />); });
+  const serialized = JSON.stringify(screen.toJSON());
+  expect(serialized).not.toContain('"AC"');
+  const indicator = screen.root.findByProps({ testID: 'desktop-rail-indicator' });
+  expect(indicator.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ opacity: 1, top: '50%' })]));
+  const notesButton = screen.root.findByProps({ accessibilityLabel: 'Notas' });
+  expect(notesButton.parent.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ flex: 1 })]));
+});

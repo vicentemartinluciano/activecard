@@ -38,11 +38,11 @@ export function useDesktopNotesLayout() {
   return useContext(DesktopNotesLayoutContext);
 }
 
-function RailButton({ label, icon, active, onPress, sync }) {
+function RailButton({ label, icon, active, onPress, sync, syncError = false, compact = false }) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
   return (
-    <View style={styles.railItem}>
+    <View style={[styles.railItem, compact && styles.railItemCompact]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -58,14 +58,14 @@ function RailButton({ label, icon, active, onPress, sync }) {
           styles.railButton,
           active && styles.railButtonActive,
           hovered && !active && styles.railButtonHover,
-          pressed && { transform: [{ scale: 0.93 }] },
+          pressed && { transform: [{ scale: 0.94 }] },
           focused && styles.railFocusRing,
         ]}
       >
         <View pointerEvents="none" style={styles.railIconWrap}>
           <Feather
             name={icon}
-            size={21}
+            size={22}
             color={active ? colors.accentText : hovered || focused ? colors.text : colors.textMuted}
           />
           {sync && (
@@ -73,7 +73,13 @@ function RailButton({ label, icon, active, onPress, sync }) {
               testID="settings-sync-indicator"
               style={[
                 styles.syncDot,
-                { backgroundColor: sync.synced ? colors.successBright : colors.textMuted },
+                {
+                  backgroundColor: syncError
+                    ? colors.danger
+                    : sync.synced
+                      ? colors.successBright
+                      : colors.textMuted,
+                },
               ]}
             />
           )}
@@ -282,29 +288,32 @@ function DesktopWorkspace({ children }) {
   };
   return <View style={styles.shell}>
     {!narrow && !activeNoteFocused && <View style={styles.rail}>
-      <View style={styles.railTop}>
-        <View style={styles.brandMark} accessible={false}>
-          <Text style={styles.brandMarkText}>AC</Text>
-        </View>
-        <View style={styles.sections}>
-          <View
-            pointerEvents="none"
-            style={[
-              styles.railIndicator,
-              {
-                opacity: activeSectionIndex >= 0 ? 1 : 0,
-                transform: [{ translateY: Math.max(0, activeSectionIndex) * 52 + 11 }],
-              },
-            ]}
-          />
-          {sections.map(([key, label, icon, route]) => (
-            <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />
-          ))}
-        </View>
+      <View style={styles.sections}>
+        <View
+          pointerEvents="none"
+          testID="desktop-rail-indicator"
+          style={[
+            styles.railIndicator,
+            {
+              opacity: activeSectionIndex >= 0 ? 1 : 0,
+              top: `${Math.max(0, activeSectionIndex) * 20 + 10}%`,
+            },
+          ]}
+        />
+        {sections.map(([key, label, icon, route]) => (
+          <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />
+        ))}
       </View>
       <View style={styles.railBottom}>
-        <View style={styles.railDivider} />
-        <RailButton label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
+        <RailButton
+          label="Ajustes"
+          icon="settings"
+          active={section === 'ajustes'}
+          sync={syncIndicator(syncStatus)}
+          syncError={Boolean(syncStatus?.error)}
+          compact
+          onPress={() => open('/ajustes')}
+        />
       </View>
     </View>}
     <View style={{ width: hasSidebar && pinned && !narrow && !activeNoteFocused ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
@@ -432,45 +441,44 @@ const styles = StyleSheet.create({
     width: DESKTOP_RAIL_WIDTH,
     backgroundColor: colors.surface,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
     borderRightWidth: 1,
     borderRightColor: 'rgba(255,255,255,0.07)',
     zIndex: 50,
   },
-  railTop: { width: '100%', alignItems: 'center', gap: 18 },
-  brandMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: 'rgba(155,180,255,0.28)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 2px 12px rgba(70,104,232,0.25)',
-  },
-  brandMarkText: { ...font(800), fontSize: 13, letterSpacing: 0.6, color: colors.accentText },
-  sections: { position: 'relative', width: '100%', alignItems: 'center', gap: 8 },
+  sections: { position: 'relative', flex: 5, minHeight: 0, width: '100%', alignItems: 'center' },
   railIndicator: {
     position: 'absolute',
     left: 0,
-    top: 0,
     width: 3,
-    height: 22,
+    height: 26,
     borderTopRightRadius: 4,
     borderBottomRightRadius: 4,
     backgroundColor: colors.accent,
     boxShadow: '0 0 10px rgba(70,104,232,0.8)',
-    transition: 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease',
+    transform: [{ translateY: -13 }],
+    transition: 'top 240ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease',
   },
-  railBottom: { width: '100%', alignItems: 'center', gap: 10 },
-  railDivider: { width: 28, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
-  railItem: { position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'center' },
+  railBottom: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.07)',
+    paddingVertical: 6,
+  },
+  railItem: {
+    position: 'relative',
+    flex: 1,
+    minHeight: 60,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  railItemCompact: { flex: 0, minHeight: 64 },
   railButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: 'transparent',
     alignItems: 'center',
