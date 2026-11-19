@@ -100,14 +100,16 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   `/notas/[id]` hacia `/mazos/[id]` y `/carpetas/[id]` (flusheando autoguardado), desde
   `AssociatedNotesSection` en mazos/carpetas, y lector rápido (`ReferenceNotesSheet` +
   `useDeckReferenceNotes`) durante `/repaso` y `/mazos/[id]/estudiar`. Su interfaz sigue
-  el estilo minimalista de REANCLA: filas planas en `/notas`, lienzo adaptable sin bordes
-  (`NotionField` con `page`) en `/notas/[id]`, sección compacta estilo `NotePageLinks`
-  en mazos/carpetas e índice lateral colapsable de `280 px` en web (`hasNotesIndex` en
-  `DesktopShell`, con sección `Fijadas` plegable, buscador y creación rápida). En web
-  desktop `/notas/[id]` unifica la barra superior (`52 px`) con modo `Pantalla completa`
-  (oculta riel e índice), `Ancho completo` en monitores amplios, ajuste automático al 100%
-  del ancho útil en pantalla semicompleta o con índice oculto y escala tipográfica
-  ampliada (`18 px` en el índice/cuerpo y `38 px` en título). El borrado de una
+  el estilo minimalista de alta precisión: filas planas en `/notas`, lienzo adaptable sin
+  bordes (`NotionField` con `page`) en `/notas/[id]` con vinculación en la franja superior
+  (`note-top-links`), ícono emoji, título (`38 px`), descripción persistente (`notes.description`)
+  y cuerpo (`18 px` web / `17 px` móvil), sección compacta `NOTAS · N` en mazos/carpetas e
+  índice lateral colapsable de `280 px` en web (`hasNotesIndex` en `DesktopShell`, con
+  sección `Fijadas` plegable, buscador y creación rápida). En web desktop `/notas/[id]`
+  unifica el índice superior (`54 px`) con selector rápido desplegable de notas, indicador
+  sutil de guardado, grupo segmentado de vista (`Ancho completo` en monitores amplios y
+  `Pantalla completa` que oculta riel e índice) y ajuste automático al 100% del ancho útil
+  en pantalla semicompleta o con índice oculto. El borrado de una
   nota pide confirmación simple con `ActionSheet` y no borra mazos ni carpetas; borrar un
   mazo o carpeta desvincula en cascada sin eliminar la nota.
 - Biblioteca comparte `LibraryContent` con las carpetas en web y Android. En raíz
@@ -124,9 +126,9 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
 ## Arquitectura crítica
 
 - SQLite usa exclusivamente la API async. Migraciones append-only en `db/schema.js`;
-  esquema actual v11 (`notes`, `note_decks`, `note_folders`, `note_tags` y trigger
-  `notes_sync_identity`; v10 suma `folders.parent_id`; v9 conserva límites diarios
-  compartidos en `study_preferences`). Las claves y el resto de `settings` siguen locales.
+  esquema actual v12 (v12 suma `notes.description`; v11 crea `notes`, `note_decks`,
+  `note_folders`, `note_tags` y trigger `notes_sync_identity`; v10 suma `folders.parent_id`;
+  v9 conserva límites diarios compartidos en `study_preferences`). Las claves y el resto de `settings` siguen locales.
 - `FSRS_COLS` en `db/cards.js` es la fuente única del estado programado.
 - Las operaciones SQLite pasan por `transactions.js`; usar `withDbTransaction` para operaciones atómicas y su conexión de callback. No abrir BEGIN/COMMIT sobre la conexión administrada.
 - Fechas se guardan en UTC y se agrupan por día local en JavaScript.
@@ -192,7 +194,7 @@ APK vigente; revisar los parches nativos junto con el próximo APK.
   pero clientes anteriores deben actualizarse antes de editar esos formatos.
   Reglas y compatibilidad en `docs/EDITOR-ESCRITURA.md`.
 
-- Fondo `#09090B`, Plus Jakarta Sans, acento cobalto y progreso verde.
+- Fondo Obsidian Ink `#060608`, superficies `#0C0D12` / `#11131A`, Plus Jakarta Sans, acento cobalto luminoso `#4668E8`, riel animado en escritorio (`DesktopShell`) y barra inferior animada en móvil/angosto (`AnimatedTabBar`), y progreso verde.
 - Gimnasio con fondo estrellado suave; no alterar el fondo sin pedido explícito.
 - Usar primitivas de `components/ui.js`, `GlowPressable` y `ActionSheet`; evitar cards o
   modales ad hoc.

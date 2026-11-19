@@ -174,7 +174,7 @@ locks transitorios de OPFS y una promesa rechazada nunca queda cacheada.
 
 ## SQLite
 
-Migraciones append-only en `db/schema.js`. Esquema actual: v11. v8 agrega `sync_id`, `sync_state` y `sync_recovery`; v9 lleva exclusivamente los límites diarios a `study_preferences`; v10 agrega `folders.parent_id`; v11 incorpora `notes`, `note_decks`, `note_folders` y `note_tags` con trigger `notes_sync_identity`. Conserva datos anteriores y no modifica migraciones ya aplicadas. Ver `BIBLIOTECA-Y-ESTUDIO.md` para edición permanente, tablas, export por mazo, jerarquía y notas vinculadas.
+Migraciones append-only en `db/schema.js`. Esquema actual: v12. v8 agrega `sync_id`, `sync_state` y `sync_recovery`; v9 lleva exclusivamente los límites diarios a `study_preferences`; v10 agrega `folders.parent_id`; v11 incorpora `notes`, `note_decks`, `note_folders` y `note_tags` con trigger `notes_sync_identity`; v12 suma `notes.description` con valor por defecto `''` retrocompatible. Conserva datos anteriores y no modifica migraciones ya aplicadas. Ver `BIBLIOTECA-Y-ESTUDIO.md` para edición permanente, tablas, export por mazo, jerarquía y notas vinculadas.
 
 ### Tablas
 
@@ -195,7 +195,7 @@ Etiquetas únicas y relación muchos a muchos con mazos.
 
 #### `notes`, `note_decks`, `note_folders` y `note_tags`
 
-Notas de estudio y respaldo completo con `title`, `body` (marcas/sentinels del editor compartido), `excerpt` precomputado de texto plano para búsquedas sin traer base64, `icon` y `pinned`. Las tablas puente `ON DELETE CASCADE` permiten vincularlas con múltiples mazos, carpetas (heredando ancestros/descendientes en la consulta) y etiquetas sin eliminar la nota al borrar un destino.
+Notas de estudio y respaldo completo con `title`, `description` opcional (v12), `body` (marcas/sentinels del editor compartido), `excerpt` precomputado de texto plano para búsquedas sin traer base64, `icon` y `pinned`. Las tablas puente `ON DELETE CASCADE` permiten vincularlas con múltiples mazos, carpetas (heredando ancestros/descendientes en la consulta) y etiquetas sin eliminar la nota al borrar un destino.
 
 #### `cards`
 
@@ -533,9 +533,9 @@ pendientes. Está apagado por defecto y no requiere alarma exacta.
 
 Tokens en `theme/index.js`:
 
-- fondo `#09090B`;
-- surfaces oscuras y borde translúcido;
-- acento cobalto `#3E63DD`;
+- fondo Obsidian Ink `#060608`;
+- surfaces `#0C0D12` / `#11131A` / `#191C26` con borde translúcido y brillo superior sutil;
+- acento cobalto luminoso `#4668E8`;
 - progreso verde;
 - rating rojo/azul/verde;
 - Plus Jakarta Sans por familia de peso;

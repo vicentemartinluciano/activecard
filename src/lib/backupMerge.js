@@ -121,7 +121,7 @@ export function buildAdditiveImportPlan(currentBackup, incomingBackup) {
     .map((note) => ({
       id: Number(note.id),
       title: note.title || "Nota sin título",
-      excerpt: String(note.excerpt || ""),
+      excerpt: String(note.description || note.excerpt || ""),
     }));
 
   const allDecks = [...folderNodes.values()].flatMap((folder) => folder.decks).concat(looseDecks);

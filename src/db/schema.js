@@ -272,6 +272,8 @@ export const MIGRATIONS = [
   CREATE INDEX IF NOT EXISTS idx_note_folders_folder ON note_folders(folder_id);
   CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag_id);
   `,
+  // v12 — descripción opcional en notas (compatible con respaldos y sync previos).
+  `ALTER TABLE notes ADD COLUMN description TEXT NOT NULL DEFAULT '';`,
 ];
 
 // Aplica las migraciones pendientes sobre una conexión expo-sqlite (async).

@@ -12,31 +12,31 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 .nf-root .tableWrapper { overflow-x: auto; max-width: 100%; margin: 12px 0; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 .nf-root table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 360px; }
 .nf-root td, .nf-root th { position: relative; min-width: 160px; border: 1px solid #ffffff24; padding: 10px 12px; vertical-align: top; text-align: left; line-height: 1.5; overflow-wrap: anywhere; }
-.nf-root th { background: #3e63dd0d; font-weight: 600; }
-.nf-root .column-resize-handle { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; background: #3e63dd; pointer-events: none; z-index: 2; }
+.nf-root th { background: #4668e810; font-weight: 600; }
+.nf-root .column-resize-handle { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; background: #4668e8; pointer-events: none; z-index: 2; }
 .nf-root .resize-cursor { cursor: col-resize; }
-.nf-root td[data-nf-active-cell], .nf-root th[data-nf-active-cell] { background: #3e63dd0a; box-shadow: inset 0 0 0 1px #3e63dd66; }
+.nf-root td[data-nf-active-cell], .nf-root th[data-nf-active-cell] { background: #4668e80d; box-shadow: inset 0 0 0 1px #4668e866; }
 .nf-root td p, .nf-root th p { margin: 0 0 4px; min-height: 1.5em; }
 .nf-root td > p:last-child, .nf-root th > p:last-child { margin-bottom: 0; }
-.nf-root .selectedCell:after { position: absolute; inset: 0; background: #3e63dd1a; pointer-events: none; content: ""; }
-.nf-table-panel { position: absolute; box-sizing: border-box; z-index: 60; padding: 4px; background: #1c1c22; color: #E9E9EF; border: 1px solid #ffffff26; border-radius: 9px; overflow-y: auto; box-shadow: 0 4px 16px #0004; }
+.nf-root .selectedCell:after { position: absolute; inset: 0; background: #4668e81e; pointer-events: none; content: ""; }
+.nf-table-panel { position: absolute; box-sizing: border-box; z-index: 60; padding: 4px; background: #11131A; color: #F3F4F8; border: 1px solid #ffffff1f; border-radius: 10px; overflow-y: auto; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55); }
 .nf-table-panel[hidden], .nf-table-options[hidden] { display: none !important; }
 .nf-table-primary { display: flex; align-items: center; gap: 2px; }
 .nf-table-primary .nf-btn { flex: 1; min-width: 0; height: 36px; font-size: 13px; white-space: nowrap; }
 .nf-table-primary .nf-btn:last-child { flex: 0 0 36px; font-size: 22px; }
-.nf-table-options { display: flex; flex-direction: column; border-top: 1px solid #ffffff1f; margin-top: 4px; padding-top: 4px; }
+.nf-table-options { display: flex; flex-direction: column; border-top: 1px solid #ffffff1a; margin-top: 4px; padding-top: 4px; }
 .nf-table-options .nf-btn { justify-content: flex-start; font-size: 13px; height: 38px; }
 .nf-table-panel .nf-btn:disabled { opacity: .4; cursor: default; }
-.nf-table-panel .nf-btn:focus-visible { outline: 2px solid #3e63dd; outline-offset: -2px; }
-.nf-table-grip { position: absolute; left: 0; width: 24px; height: 28px; padding: 3px; border: 0; border-radius: 4px; color: #8a7f6f; background: transparent; z-index: 4; cursor: pointer; }
+.nf-table-panel .nf-btn:focus-visible { outline: 2px solid #4668e8; outline-offset: -2px; }
+.nf-table-grip { position: absolute; left: 0; width: 24px; height: 28px; padding: 3px; border: 0; border-radius: 4px; color: #8F94A8; background: transparent; z-index: 4; cursor: pointer; }
 .nf-table-grip[hidden] { display: none !important; }
-.nf-table-grip:hover, .nf-table-grip:focus-visible { background: #ffffff12; color: #3e63dd; }
+.nf-table-grip:hover, .nf-table-grip:focus-visible { background: #ffffff12; color: #9BB4FF; }
 .nf-table-grip svg { width: 18px; height: 22px; }
 
 .nf-root {
   position: relative;
-  background: #121216;
-  color: #E9E9EF;
+  background: #0C0D12;
+  color: #F3F4F8;
   font-family: -apple-system, Roboto, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.45;
@@ -50,11 +50,11 @@ export const EDITOR_CSS = TOGGLE_CSS + `
   margin: 6px auto; /* centrada; el ancho por defecto es 100%, el style inline
                        (width: N%) lo achica y margin auto la mantiene centrada */
 }
-.nf-root .ProseMirror img.ProseMirror-selectednode { outline: 2px solid #3E63DD; }
+.nf-root .ProseMirror img.ProseMirror-selectednode { outline: 2px solid #4668E8; }
 .nf-root .ProseMirror {
   padding: 10px 12px;
   outline: none;
-  caret-color: #3E63DD;
+  caret-color: #4668E8;
   word-wrap: break-word;
   white-space: pre-wrap;
 }
@@ -104,7 +104,7 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 /* Placeholder (extensión Placeholder de TipTap) */
 .nf-root .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: #8B8B98;
+  color: #767B91;
   float: left;
   height: 0;
   pointer-events: none;
@@ -118,13 +118,13 @@ export const EDITOR_CSS = TOGGLE_CSS + `
   gap: 4px;
   width: max-content;
   max-width: calc(100% - 8px);
-  background: rgba(24, 24, 30, 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(17, 19, 26, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 11px;
+  border-radius: 12px;
   padding: 4px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.62), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 .nf-bubble[hidden] { display: none !important; }
 .nf-insert-menu {
@@ -238,5 +238,5 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 // Solo para la página del WebView (nativo): ahí el editor ES toda la página.
 export const EDITOR_BODY_CSS = `
 :root { color-scheme: dark; }
-html, body { margin: 0; padding: 0; background: #121216; }
+html, body { margin: 0; padding: 0; background: #0C0D12; }
 `;

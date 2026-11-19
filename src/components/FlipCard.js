@@ -175,6 +175,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceCard,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0 20px 60px rgba(0,0,0,0.52), 0 1px 0 rgba(255,255,255,0.04) inset" }
+      : {}),
     padding: spacing.lg,
     justifyContent: "center",
     alignItems: "center",

@@ -24,9 +24,11 @@ import { Button, EmptyState, Pill, Screen } from "../../components/ui";
 import { ensureTag, listDecks, listTags } from "../../db/decks";
 import { listFolders } from "../../db/folders";
 import {
+  createNote,
   deleteNote,
   duplicateNote,
   getNote,
+  listNotes,
   setNoteDecks,
   setNoteFolders,
   setNoteTags,
@@ -65,9 +67,13 @@ export default function NotaDetalle() {
   const [loaded, setLoaded] = useState(false);
   const [missing, setMissing] = useState(false);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
   const [icon, setIcon] = useState(null);
   const [iconOpen, setIconOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [fallbackNotes, setFallbackNotes] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [pinned, setPinned] = useState(0);
   const [folders, setFolders] = useState([]);
   const [decks, setDecks] = useState([]);
@@ -81,8 +87,8 @@ export default function NotaDetalle() {
   const [error, setError] = useState("");
   const [syncReload, setSyncReload] = useState(0);
 
-  const latestRef = useRef({ title: "", body: "", icon: null, pinned: 0 });
-  const persistedRef = useRef({ title: "", body: "", icon: null, pinned: 0 });
+  const latestRef = useRef({ title: "", description: "", body: "", icon: null, pinned: 0 });
+  const persistedRef = useRef({ title: "", description: "", body: "", icon: null, pinned: 0 });
   const timerRef = useRef(null);
   const flushRef = useRef(null);
   const deletedRef = useRef(false);
@@ -93,6 +99,7 @@ export default function NotaDetalle() {
 
   const isDirty = () =>
     latestRef.current.title !== persistedRef.current.title ||
+    latestRef.current.description !== persistedRef.current.description ||
     latestRef.current.body !== persistedRef.current.body ||
     latestRef.current.icon !== persistedRef.current.icon ||
     latestRef.current.pinned !== persistedRef.current.pinned;
@@ -103,9 +110,11 @@ export default function NotaDetalle() {
     if (flushRef.current) return flushRef.current;
     flushRef.current = (async () => {
       try {
+        setSaving(true);
         while (
           !deletedRef.current &&
           (latestRef.current.title !== persistedRef.current.title ||
+            latestRef.current.description !== persistedRef.current.description ||
             latestRef.current.body !== persistedRef.current.body ||
             latestRef.current.icon !== persistedRef.current.icon ||
             latestRef.current.pinned !== persistedRef.current.pinned)
@@ -123,6 +132,8 @@ export default function NotaDetalle() {
       } catch (err) {
         setError(databaseErrorMessage(err, "No pudimos guardar la nota. Tu edición sigue abierta."));
         return false;
+      } finally {
+        setSaving(false);
       }
     })().finally(() => {
       flushRef.current = null;
@@ -132,6 +143,8 @@ export default function NotaDetalle() {
 
   useEffect(() => {
     let alive = true;
+    setSwitcherOpen(false);
+    setIconOpen(false);
     if (syncReload > 0 && isDirty()) {
       setError("La biblioteca se actualizó. Conservamos tu edición abierta en esta nota.");
       return;
@@ -150,6 +163,7 @@ export default function NotaDetalle() {
         setMissing(false);
         const initial = {
           title: note.title || "",
+          description: note.description || "",
           body: note.body || "",
           icon: note.icon || null,
           pinned: note.pinned ? 1 : 0,
@@ -157,6 +171,7 @@ export default function NotaDetalle() {
         latestRef.current = initial;
         persistedRef.current = initial;
         setTitle(initial.title);
+        setDescription(initial.description);
         setBody(initial.body);
         setIcon(initial.icon);
         setPinned(initial.pinned);
@@ -176,6 +191,38 @@ export default function NotaDetalle() {
       alive = false;
     };
   }, [noteId, syncReload]);
+
+  useEffect(() => {
+    if (!switcherOpen) return;
+    if (desktopLayout?.notes) return;
+    let alive = true;
+    Promise.resolve(listNotes())
+      .then((rows) => {
+        if (alive && Array.isArray(rows)) setFallbackNotes(rows);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [switcherOpen, desktopLayout?.notes]);
+
+  useEffect(() => {
+    if (!switcherOpen || Platform.OS !== "web" || typeof document === "undefined") return;
+    const onPointerDown = (event) => {
+      if (!event.target?.closest?.("[data-note-switcher], [data-note-switcher-trigger]")) {
+        setSwitcherOpen(false);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setSwitcherOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [switcherOpen]);
 
   useDesktopBeforeNavigate(flush);
 
@@ -218,6 +265,11 @@ export default function NotaDetalle() {
     scheduleSave({ title: nextTitle });
   };
 
+  const handleDescriptionChange = (nextDescription) => {
+    setDescription(nextDescription);
+    scheduleSave({ description: nextDescription });
+  };
+
   const handleBodyChange = (nextBody) => {
     setBody(nextBody);
     scheduleSave({ body: nextBody });
@@ -242,6 +294,29 @@ export default function NotaDetalle() {
     if (!ok) return;
     allowNavRef.current = true;
     router.push(route);
+  };
+
+  const openAnotherNote = async (targetId) => {
+    setSwitcherOpen(false);
+    if (Number(targetId) === noteId) return;
+    if (desktopLayout?.openNote) {
+      await desktopLayout.openNote(targetId);
+      return;
+    }
+    await navigateWithSave(`/notas/${targetId}`);
+  };
+
+  const createAnotherNote = async () => {
+    setSwitcherOpen(false);
+    if (desktopLayout?.createNote) {
+      await desktopLayout.createNote();
+      return;
+    }
+    const ok = await flush();
+    if (!ok) return;
+    const newId = await createNote();
+    allowNavRef.current = true;
+    router.push(`/notas/${newId}`);
   };
 
   const goBack = async () => {
@@ -317,8 +392,10 @@ export default function NotaDetalle() {
     );
   }
 
-  const hasLinks = folders.length > 0 || decks.length > 0 || tags.length > 0;
+  const totalLinks = folders.length + decks.length + tags.length;
+  const hasLinks = totalLinks > 0;
   const noteTitleLabel = title.trim() || "Sin título";
+  const switcherNotes = desktopLayout?.notes || fallbackNotes;
 
   return (
     <Screen safeTop style={desktopWorkspace ? styles.desktopDocScreen : Platform.OS === "web" ? styles.webScreen : undefined}>
@@ -328,134 +405,246 @@ export default function NotaDetalle() {
         behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
       >
         {desktopWorkspace ? (
-          <View style={styles.desktopTopBar}>
-            {!focused && desktopLayout ? (
-              <Pressable
-                dataSet={{ libraryToggle: "true" }}
-                accessibilityRole="button"
-                accessibilityLabel={pinnedIndex ? "Ocultar índice de notas" : "Fijar índice de notas"}
-                accessibilityState={{ expanded: desktopLayout.shown }}
-                onHoverIn={desktopLayout.previewEnter}
-                onHoverOut={desktopLayout.previewLeave}
-                onPress={desktopLayout.togglePinned}
-                style={({ pressed, hovered }) => [
-                  styles.iconBtn,
-                  hovered && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Feather pointerEvents="none" name="sidebar" size={18} color={colors.textMuted} />
-              </Pressable>
-            ) : null}
-
-            <View accessibilityLabel="Ubicación en notas" style={styles.desktopBreadcrumbs}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Ir a Notas"
-                onPress={() => (desktopLayout ? desktopLayout.goNotesRoot() : navigateWithSave("/notas"))}
-                style={({ hovered, pressed }) => [
-                  styles.crumbBtn,
-                  hovered && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text numberOfLines={1} style={styles.crumbText}>Notas</Text>
-              </Pressable>
-              <Text style={styles.crumbSep}>/</Text>
-              <Text numberOfLines={1} style={styles.crumbCurrent}>
-                {`${icon || "📄"} ${noteTitleLabel}`}
-              </Text>
-            </View>
-
-            <View style={styles.desktopTopActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={focused ? "Restaurar vista de notas" : "Expandir nota"}
-                accessibilityState={{ selected: focused }}
-                onPress={toggleFocused}
-                style={({ pressed, hovered }) => [
-                  styles.topActionBtn,
-                  (focused || hovered) && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Feather
-                  name={focused ? "minimize-2" : "maximize-2"}
-                  size={15}
-                  color={focused ? colors.text : colors.textMuted}
-                />
-                <Text style={[styles.topActionText, focused && { color: colors.text }]}>
-                  {focused ? "Salir" : "Pantalla completa"}
-                </Text>
-              </Pressable>
-
-              {showWideToggle ? (
+          <View style={styles.desktopHeaderWrap}>
+            <View style={styles.desktopTopBar}>
+              {!focused && desktopLayout ? (
                 <Pressable
+                  dataSet={{ libraryToggle: "true" }}
                   accessibilityRole="button"
-                  accessibilityLabel={wide ? "Usar ancho de lectura" : "Usar ancho completo"}
-                  accessibilityState={{ selected: wide }}
-                  onPress={toggleWide}
+                  accessibilityLabel={pinnedIndex ? "Ocultar índice de notas" : "Fijar índice de notas"}
+                  accessibilityState={{ expanded: desktopLayout.shown }}
+                  onHoverIn={desktopLayout.previewEnter}
+                  onHoverOut={desktopLayout.previewLeave}
+                  onPress={desktopLayout.togglePinned}
                   style={({ pressed, hovered }) => [
-                    styles.topActionBtn,
-                    (wide || hovered) && styles.ghostHover,
+                    styles.iconBtn,
+                    hovered && styles.ghostHover,
                     pressed && { opacity: 0.7 },
                   ]}
                 >
-                  <Text style={[styles.topActionText, wide && { color: colors.text }]}>
-                    {wide ? "Ancho de lectura" : "Ancho completo"}
-                  </Text>
+                  <Feather pointerEvents="none" name="sidebar" size={18} color={colors.textMuted} />
                 </Pressable>
               ) : null}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={pinned ? "Desfijar nota" : "Fijar nota"}
-                onPress={togglePinned}
-                style={({ pressed, hovered }) => [
-                  styles.iconBtn,
-                  hovered && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Feather name="bookmark" size={19} color={pinned ? colors.accentText : colors.textMuted} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Vincular a mazos, carpetas o etiquetas"
-                onPress={() => setAssocOpen(true)}
-                style={({ pressed, hovered }) => [
-                  styles.iconBtn,
-                  hovered && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Feather name="link-2" size={19} color={hasLinks ? colors.accentText : colors.textMuted} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Opciones de la nota"
-                onPress={() => setMenuOpen(true)}
-                style={({ pressed, hovered }) => [
-                  styles.iconBtn,
-                  hovered && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Feather name="more-horizontal" size={20} color={colors.textMuted} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar nota"
-                onPress={goBack}
-                style={({ pressed, hovered }) => [
-                  styles.iconBtn,
-                  hovered && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Feather name="x" size={19} color={colors.textMuted} />
-              </Pressable>
+              <View accessibilityLabel="Ubicación en notas" style={styles.desktopBreadcrumbs}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Ir a Notas"
+                  onPress={() => (desktopLayout ? desktopLayout.goNotesRoot() : navigateWithSave("/notas"))}
+                  style={({ hovered, pressed }) => [
+                    styles.crumbBtn,
+                    hovered && styles.ghostHover,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text numberOfLines={1} style={styles.crumbText}>Notas</Text>
+                </Pressable>
+                <Text style={styles.crumbSep}>/</Text>
+                <Pressable
+                  dataSet={{ noteSwitcherTrigger: "true" }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cambiar de nota"
+                  accessibilityState={{ expanded: switcherOpen }}
+                  onPress={() => setSwitcherOpen((open) => !open)}
+                  style={({ hovered, pressed }) => [
+                    styles.crumbSwitcher,
+                    (hovered || switcherOpen) && styles.crumbSwitcherActive,
+                    pressed && { opacity: 0.75 },
+                  ]}
+                >
+                  <Text style={styles.crumbEmoji}>{icon || "📄"}</Text>
+                  <Text numberOfLines={1} style={styles.crumbCurrent}>
+                    {noteTitleLabel}
+                  </Text>
+                  <Feather
+                    name={switcherOpen ? "chevron-up" : "chevron-down"}
+                    size={15}
+                    color={colors.textMuted}
+                  />
+                </Pressable>
+              </View>
+
+              <View style={styles.desktopTopActions}>
+                <View
+                  pointerEvents="none"
+                  style={[styles.savingDot, { opacity: saving ? 1 : 0 }]}
+                />
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={pinned ? "Desfijar nota" : "Fijar nota"}
+                  accessibilityState={{ selected: !!pinned }}
+                  onPress={togglePinned}
+                  style={({ pressed, hovered }) => [
+                    styles.iconBtn,
+                    pinned && styles.iconBtnLit,
+                    hovered && !pinned && styles.ghostHover,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Feather name="bookmark" size={17} color={pinned ? colors.accentText : colors.textMuted} />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Vincular a mazos, carpetas o etiquetas"
+                  onPress={() => setAssocOpen(true)}
+                  style={({ pressed, hovered }) => [
+                    styles.linkCounterBtn,
+                    hasLinks && styles.linkCounterBtnLit,
+                    hovered && !hasLinks && styles.ghostHover,
+                    pressed && { opacity: 0.75 },
+                  ]}
+                >
+                  <Feather name="link-2" size={16} color={hasLinks ? colors.accentText : colors.textMuted} />
+                  {hasLinks ? <Text style={styles.linkCounterText}>{totalLinks}</Text> : null}
+                </Pressable>
+
+                <View style={styles.topDivider} />
+
+                <View style={styles.viewSegment}>
+                  {showWideToggle ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={wide ? "Usar ancho de lectura" : "Usar ancho completo"}
+                      accessibilityState={{ selected: wide }}
+                      onPress={toggleWide}
+                      style={({ pressed, hovered }) => [
+                        styles.segmentBtn,
+                        wide && styles.segmentBtnActive,
+                        hovered && !wide && styles.ghostHover,
+                        pressed && { opacity: 0.75 },
+                      ]}
+                    >
+                      <Feather
+                        name="columns"
+                        size={14}
+                        color={wide ? colors.accentText : colors.textMuted}
+                      />
+                      <Text style={[styles.segmentText, wide && styles.segmentTextActive]}>
+                        {wide ? "Lectura" : "Ancho"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={focused ? "Restaurar vista de notas" : "Expandir nota"}
+                    accessibilityState={{ selected: focused }}
+                    onPress={toggleFocused}
+                    style={({ pressed, hovered }) => [
+                      styles.segmentBtn,
+                      focused && styles.segmentBtnActive,
+                      hovered && !focused && styles.ghostHover,
+                      pressed && { opacity: 0.75 },
+                    ]}
+                  >
+                    <Feather
+                      name={focused ? "minimize-2" : "maximize-2"}
+                      size={14}
+                      color={focused ? colors.accentText : colors.textMuted}
+                    />
+                    <Text style={[styles.segmentText, focused && styles.segmentTextActive]}>
+                      {focused ? "Salir" : "Pantalla completa"}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.topDivider} />
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Opciones de la nota"
+                  onPress={() => setMenuOpen(true)}
+                  style={({ pressed, hovered }) => [
+                    styles.iconBtn,
+                    hovered && styles.ghostHover,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Feather name="more-horizontal" size={19} color={colors.textMuted} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar nota"
+                  onPress={goBack}
+                  style={({ pressed, hovered }) => [
+                    styles.iconBtn,
+                    hovered && styles.ghostHover,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Feather name="x" size={18} color={colors.textMuted} />
+                </Pressable>
+              </View>
             </View>
+
+            {switcherOpen ? (
+              <View
+                testID="note-top-switcher"
+                dataSet={{ noteSwitcher: "true", acMenu: "true" }}
+                style={styles.switcherPopover}
+              >
+                <View style={styles.switcherHead}>
+                  <Text style={styles.switcherHeadTitle}>Cambiar de nota</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Crear nota desde el índice superior"
+                    onPress={createAnotherNote}
+                    style={({ hovered, pressed }) => [
+                      styles.switcherNewBtn,
+                      hovered && styles.ghostHover,
+                      pressed && { opacity: 0.75 },
+                    ]}
+                  >
+                    <Feather name="plus" size={14} color={colors.accentText} />
+                    <Text style={styles.switcherNewText}>Nueva</Text>
+                  </Pressable>
+                </View>
+                <ScrollView style={styles.switcherScroll} keyboardShouldPersistTaps="handled">
+                  {switcherNotes.length > 0 ? (
+                    switcherNotes.map((item) => {
+                      const active = Number(item.id) === noteId;
+                      const itemTitle = item.title?.trim() || "Sin título";
+                      const sub = item.description?.trim() || "";
+                      return (
+                        <Pressable
+                          key={item.id}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Ir a nota ${itemTitle}`}
+                          accessibilityState={{ selected: active }}
+                          onPress={() => openAnotherNote(item.id)}
+                          style={({ hovered, pressed }) => [
+                            styles.switcherRow,
+                            active && styles.switcherRowActive,
+                            hovered && !active && styles.ghostHover,
+                            pressed && { opacity: 0.75 },
+                          ]}
+                        >
+                          <Text style={styles.switcherRowEmoji}>{item.icon || "📄"}</Text>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.switcherRowTitle, active && { color: colors.text, ...font(600) }]}
+                            >
+                              {itemTitle}
+                            </Text>
+                            {sub ? (
+                              <Text numberOfLines={1} style={styles.switcherRowSub}>
+                                {sub}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {active ? <Feather name="check" size={15} color={colors.accentText} /> : null}
+                        </Pressable>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.switcherEmpty}>Esta es tu única nota.</Text>
+                  )}
+                </ScrollView>
+              </View>
+            ) : null}
           </View>
         ) : (
           <View style={styles.topBar}>
@@ -479,7 +668,8 @@ export default function NotaDetalle() {
               onPress={togglePinned}
               style={({ pressed, hovered }) => [
                 styles.iconBtn,
-                hovered && styles.ghostHover,
+                pinned && styles.iconBtnLit,
+                hovered && !pinned && styles.ghostHover,
                 pressed && { opacity: 0.7 },
               ]}
             >
@@ -491,7 +681,8 @@ export default function NotaDetalle() {
               onPress={() => setAssocOpen(true)}
               style={({ pressed, hovered }) => [
                 styles.iconBtn,
-                hovered && styles.ghostHover,
+                hasLinks && styles.iconBtnLit,
+                hovered && !hasLinks && styles.ghostHover,
                 pressed && { opacity: 0.7 },
               ]}
             >
@@ -517,7 +708,7 @@ export default function NotaDetalle() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
             styles.docScroll,
-            desktopWorkspace && { paddingHorizontal: pagePadding, paddingTop: focused ? 28 : 24 },
+            desktopWorkspace && { paddingHorizontal: pagePadding, paddingTop: focused ? 32 : 24 },
           ]}
         >
           <View
@@ -532,6 +723,57 @@ export default function NotaDetalle() {
                 : undefined
             }
           >
+            {/* Franja superior de vinculación: arriba del ícono y el título */}
+            <View testID="note-top-links" style={styles.topLinksStrip}>
+              {folders.map((folder) => (
+                <Pill
+                  key={`f-${folder.id}`}
+                  icon="folder"
+                  label={folder.name}
+                  color={colors.accentText}
+                  style={[styles.linkPill, desktopWorkspace && styles.desktopLinkPill]}
+                  labelStyle={[styles.linkPillLabel, desktopWorkspace && styles.desktopLinkPillLabel]}
+                  onPress={() => navigateWithSave(`/carpetas/${folder.id}`)}
+                />
+              ))}
+              {decks.map((deck) => (
+                <Pill
+                  key={`d-${deck.id}`}
+                  icon="layers"
+                  label={deck.name}
+                  color={colors.accentText}
+                  style={[styles.linkPill, desktopWorkspace && styles.desktopLinkPill]}
+                  labelStyle={[styles.linkPillLabel, desktopWorkspace && styles.desktopLinkPillLabel]}
+                  onPress={() => navigateWithSave(`/mazos/${deck.id}`)}
+                />
+              ))}
+              {tags.map((tag) => (
+                <Pill
+                  key={`t-${tag.id}`}
+                  label={`#${tag.name}`}
+                  style={[styles.tagPill, desktopWorkspace && styles.desktopLinkPill]}
+                  labelStyle={[styles.linkPillLabel, desktopWorkspace && styles.desktopLinkPillLabel]}
+                  onPress={() => setAssocOpen(true)}
+                />
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Editar vínculos de la nota"
+                onPress={() => setAssocOpen(true)}
+                style={({ pressed, hovered }) => [
+                  styles.ghostLinkBtn,
+                  desktopWorkspace && styles.desktopLinkPill,
+                  hovered && styles.ghostHover,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Feather name="plus" size={desktopWorkspace ? 14 : 13} color={colors.textMuted} />
+                <Text style={[styles.ghostLinkLabel, desktopWorkspace && styles.desktopGhostLinkLabel]}>
+                  {hasLinks ? "Vincular" : "Vincular a mazo o carpeta"}
+                </Text>
+              </Pressable>
+            </View>
+
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cambiar icono de la nota"
@@ -549,7 +791,7 @@ export default function NotaDetalle() {
             </Pressable>
 
             {iconOpen ? (
-              <View style={styles.iconGrid}>
+              <View dataSet={{ acMenu: "true" }} style={styles.iconGrid}>
                 {NOTE_ICONS.map((emoji) => (
                   <Pressable
                     key={emoji}
@@ -574,62 +816,21 @@ export default function NotaDetalle() {
               value={title}
               onChangeText={handleTitleChange}
               placeholder="Sin título"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#5C6175"
               multiline
               style={[styles.titleInput, desktopWorkspace && styles.desktopTitleInput]}
             />
 
-            <View style={styles.linksRow}>
-              {folders.map((folder) => (
-                <Pill
-                  key={`f-${folder.id}`}
-                  icon="folder"
-                  label={folder.name}
-                  color={colors.accentText}
-                  style={[styles.compactPill, desktopWorkspace && styles.desktopCompactPill]}
-                  labelStyle={[styles.compactPillLabel, desktopWorkspace && styles.desktopCompactPillLabel]}
-                  onPress={() => navigateWithSave(`/carpetas/${folder.id}`)}
-                />
-              ))}
-              {decks.map((deck) => (
-                <Pill
-                  key={`d-${deck.id}`}
-                  icon="layers"
-                  label={deck.name}
-                  color={colors.accentText}
-                  style={[styles.compactPill, desktopWorkspace && styles.desktopCompactPill]}
-                  labelStyle={[styles.compactPillLabel, desktopWorkspace && styles.desktopCompactPillLabel]}
-                  onPress={() => navigateWithSave(`/mazos/${deck.id}`)}
-                />
-              ))}
-              {tags.map((tag) => (
-                <Pill
-                  key={`t-${tag.id}`}
-                  label={`#${tag.name}`}
-                  style={[styles.compactPill, desktopWorkspace && styles.desktopCompactPill]}
-                  labelStyle={[styles.compactPillLabel, desktopWorkspace && styles.desktopCompactPillLabel]}
-                  onPress={() => setAssocOpen(true)}
-                />
-              ))}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Editar vínculos de la nota"
-                onPress={() => setAssocOpen(true)}
-                style={({ pressed, hovered }) => [
-                  styles.ghostLinkBtn,
-                  desktopWorkspace && styles.desktopCompactPill,
-                  hovered && styles.ghostHover,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Feather name="plus" size={desktopWorkspace ? 15 : 14} color={colors.textMuted} />
-                {!hasLinks ? (
-                  <Text style={[styles.ghostLinkLabel, desktopWorkspace && styles.desktopGhostLinkLabel]}>
-                    Vincular mazo o carpeta
-                  </Text>
-                ) : null}
-              </Pressable>
-            </View>
+            <TextInput
+              accessibilityLabel="Descripción de la nota"
+              value={description}
+              onChangeText={handleDescriptionChange}
+              placeholder="Añadir una descripción…"
+              placeholderTextColor="#5C6175"
+              maxLength={240}
+              multiline
+              style={[styles.descriptionInput, desktopWorkspace && styles.desktopDescriptionInput]}
+            />
 
             <View style={styles.divider} />
 
@@ -711,14 +912,20 @@ const styles = StyleSheet.create({
     width: "100%",
     padding: 0,
   },
+  desktopHeaderWrap: {
+    position: "relative",
+    zIndex: 40,
+  },
   desktopTopBar: {
-    minHeight: 52,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 14,
+    backgroundColor: "rgba(6, 6, 8, 0.82)",
+    ...(Platform.OS === "web" ? { backdropFilter: "blur(12px)" } : {}),
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: "rgba(255,255,255,0.07)",
   },
   desktopBreadcrumbs: {
     flex: 1,
@@ -728,50 +935,198 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   crumbBtn: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: radius.sm,
+    borderRadius: 8,
   },
   crumbText: {
-    ...font(),
-    fontSize: 15,
-    lineHeight: 22,
+    ...font(500),
+    fontSize: 14.5,
+    lineHeight: 20,
     color: colors.textMuted,
   },
   crumbSep: {
     ...font(),
-    fontSize: 15,
-    color: colors.textMuted,
+    fontSize: 14,
+    color: "#52576B",
+  },
+  crumbSwitcher: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 1,
+    maxWidth: 320,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  crumbSwitcherActive: {
+    backgroundColor: colors.surfaceHigh,
+    borderColor: "rgba(255,255,255,0.09)",
+  },
+  crumbEmoji: {
+    fontSize: 16,
+    lineHeight: 20,
   },
   crumbCurrent: {
-    ...font(500),
-    fontSize: 15,
-    lineHeight: 22,
+    ...font(600),
+    fontSize: 14.5,
+    lineHeight: 20,
     color: colors.text,
     flexShrink: 1,
   },
   desktopTopActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
   },
-  topActionBtn: {
-    minHeight: 34,
+  savingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+    marginRight: 4,
+  },
+  linkCounterBtn: {
+    minWidth: 36,
+    height: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  linkCounterBtnLit: {
+    backgroundColor: "rgba(70,104,232,0.14)",
+    borderColor: "rgba(155,180,255,0.22)",
+  },
+  linkCounterText: {
+    ...font(600),
+    fontSize: 12.5,
+    color: colors.accentText,
+  },
+  topDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: "rgba(255,255,255,0.09)",
+    marginHorizontal: 3,
+  },
+  viewSegment: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    padding: 3,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  segmentBtn: {
+    minHeight: 30,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 10,
-    borderRadius: radius.sm,
+    paddingHorizontal: 9,
+    borderRadius: 7,
   },
-  topActionText: {
+  segmentBtnActive: {
+    backgroundColor: "rgba(70,104,232,0.2)",
+  },
+  segmentText: {
     ...font(500),
-    fontSize: 13.5,
+    fontSize: 13,
     color: colors.textMuted,
+  },
+  segmentTextActive: {
+    color: colors.accentText,
+  },
+  switcherPopover: {
+    position: "absolute",
+    top: 52,
+    left: 56,
+    width: 310,
+    maxWidth: "90%",
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    padding: 8,
+    ...(Platform.OS === "web" ? { boxShadow: "0 18px 48px rgba(0,0,0,0.65)" } : {}),
+    zIndex: 60,
+  },
+  switcherHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingBottom: 6,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  switcherHeadTitle: {
+    ...font(600),
+    fontSize: 12.5,
+    color: colors.textMuted,
+    letterSpacing: 0.2,
+  },
+  switcherNewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 7,
+  },
+  switcherNewText: {
+    ...font(600),
+    fontSize: 12.5,
+    color: colors.accentText,
+  },
+  switcherScroll: {
+    maxHeight: 300,
+  },
+  switcherRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minHeight: 40,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 9,
+  },
+  switcherRowActive: {
+    backgroundColor: "rgba(70,104,232,0.15)",
+  },
+  switcherRowEmoji: {
+    fontSize: 17,
+    width: 22,
+    textAlign: "center",
+  },
+  switcherRowTitle: {
+    ...font(500),
+    fontSize: 14,
+    color: "#DCE0EC",
+  },
+  switcherRowSub: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  switcherEmpty: {
+    fontSize: 13,
+    color: colors.textMuted,
+    padding: 12,
   },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 4,
     paddingBottom: spacing.xs,
   },
   backBtn: {
@@ -789,11 +1144,17 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconBtnLit: {
+    backgroundColor: "rgba(70,104,232,0.14)",
+    borderColor: "rgba(155,180,255,0.22)",
   },
   ghostHover: {
     backgroundColor: colors.surfaceHigh,
@@ -803,13 +1164,66 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl * 3,
     flexGrow: 1,
   },
+  topLinksStrip: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 7,
+    marginBottom: 18,
+  },
+  linkPill: {
+    minHeight: 28,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "rgba(70,104,232,0.13)",
+    borderColor: "rgba(155,180,255,0.22)",
+  },
+  tagPill: {
+    minHeight: 28,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceCard,
+    borderColor: colors.cardBorder,
+  },
+  desktopLinkPill: {
+    minHeight: 30,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
+  },
+  linkPillLabel: {
+    fontSize: 12.5,
+    ...font(500),
+  },
+  desktopLinkPillLabel: {
+    fontSize: 13.5,
+  },
+  ghostLinkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    minHeight: 28,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  ghostLinkLabel: {
+    ...font(500),
+    fontSize: 12.5,
+    color: colors.textMuted,
+  },
+  desktopGhostLinkLabel: {
+    fontSize: 13,
+  },
   emojiBtn: {
     alignSelf: "flex-start",
     minWidth: 52,
     minHeight: 52,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 6,
     marginLeft: -6,
   },
@@ -827,21 +1241,22 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 4,
     padding: 8,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
+    borderColor: "rgba(255,255,255,0.12)",
+    ...(Platform.OS === "web" ? { boxShadow: "0 14px 36px rgba(0,0,0,0.55)" } : {}),
+    marginBottom: 14,
   },
   iconOption: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
   iconOptionActive: {
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: "rgba(70,104,232,0.2)",
   },
   iconOptionText: {
     fontSize: 22,
@@ -851,59 +1266,33 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 40,
     color: colors.text,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.sm,
+    letterSpacing: -0.4,
+    paddingVertical: 4,
+    marginBottom: 4,
     outlineStyle: Platform.OS === "web" ? "none" : undefined,
   },
   desktopTitleInput: {
     fontSize: 38,
-    lineHeight: 48,
+    lineHeight: 46,
+    letterSpacing: -0.6,
   },
-  linksRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: spacing.md,
-  },
-  compactPill: {
-    minHeight: 28,
-    paddingVertical: 4,
-    paddingHorizontal: 9,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  desktopCompactPill: {
-    minHeight: 30,
-    paddingVertical: 5,
-    paddingHorizontal: 11,
-  },
-  compactPillLabel: {
-    fontSize: 12.5,
-    ...font(500),
-  },
-  desktopCompactPillLabel: {
-    fontSize: 13.5,
-  },
-  ghostLinkBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    minHeight: 28,
-    paddingHorizontal: 9,
-    borderRadius: 6,
-  },
-  ghostLinkLabel: {
-    fontSize: 12.5,
+  descriptionInput: {
+    ...font(400),
+    fontSize: 15,
+    lineHeight: 22,
     color: colors.textMuted,
+    paddingVertical: 4,
+    marginBottom: 14,
+    outlineStyle: Platform.OS === "web" ? "none" : undefined,
   },
-  desktopGhostLinkLabel: {
-    fontSize: 13.5,
+  desktopDescriptionInput: {
+    fontSize: 16.5,
+    lineHeight: 25,
+    marginBottom: 18,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: "rgba(255,255,255,0.07)",
     marginBottom: spacing.md,
   },
 });

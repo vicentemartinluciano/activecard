@@ -4,7 +4,7 @@ import { normalizeSearch } from "../lib/search";
 import { getDb } from "./client";
 import { withDbConnection, withDbTransaction } from "./transactions";
 
-const NOTE_LIST_COLS = "id, sync_id, title, excerpt, icon, pinned, created_at, updated_at";
+const NOTE_LIST_COLS = "id, sync_id, title, description, excerpt, icon, pinned, created_at, updated_at";
 
 export function buildNoteExcerpt(body = "") {
   return toPlainText(String(body || ""))
@@ -67,6 +67,7 @@ async function hydrateNotes(tx, rows = []) {
   }
   return rows.map((note) => ({
     ...note,
+    description: String(note.description || ""),
     pinned: note.pinned ? 1 : 0,
     decks: decksByNote.get(note.id) || [],
     folders: foldersByNote.get(note.id) || [],
@@ -198,6 +199,7 @@ export async function listNotes({ query = "", folderId = null, deckId = null, ta
       notes = notes.filter((note) => {
         const haystack = [
           note.title,
+          note.description,
           note.excerpt,
           ...note.decks.map((d) => d.name),
           ...note.folders.map((f) => f.name),
@@ -228,6 +230,7 @@ async function insertLinks(tx, table, column, noteId, ids) {
 
 export async function createNote({
   title = "",
+  description = "",
   body = "",
   icon = null,
   pinned = 0,
@@ -241,9 +244,18 @@ export async function createNote({
     const timestamp = isoDate(now);
     const cleanBody = String(body || "");
     const res = await tx.runAsync(
-      `INSERT INTO notes (title, body, excerpt, icon, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [String(title || ""), cleanBody, buildNoteExcerpt(cleanBody), icon || null, pinned ? 1 : 0, timestamp, timestamp]
+      `INSERT INTO notes (title, description, body, excerpt, icon, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        String(title || ""),
+        String(description || ""),
+        cleanBody,
+        buildNoteExcerpt(cleanBody),
+        icon || null,
+        pinned ? 1 : 0,
+        timestamp,
+        timestamp,
+      ]
     );
     const noteId = Number(res.lastInsertRowId);
     await insertLinks(tx, "note_decks", "deck_id", noteId, deckIds);
@@ -253,20 +265,22 @@ export async function createNote({
   });
 }
 
-export async function updateNote(id, { title, body, icon, pinned, now = new Date() } = {}) {
+export async function updateNote(id, { title, description, body, icon, pinned, now = new Date() } = {}) {
   const db = await getDb();
   return withDbTransaction(db, async (tx) => {
     const current = await tx.getFirstAsync("SELECT * FROM notes WHERE id = ?", [Number(id)]);
     if (!current) return null;
     const nextTitle = title !== undefined ? String(title ?? "") : current.title;
+    const nextDescription =
+      description !== undefined ? String(description ?? "") : String(current.description || "");
     const nextBody = body !== undefined ? String(body ?? "") : current.body;
     const nextExcerpt = body !== undefined ? buildNoteExcerpt(nextBody) : current.excerpt;
     const nextIcon = icon !== undefined ? (icon || null) : current.icon;
     const nextPinned = pinned !== undefined ? (pinned ? 1 : 0) : (current.pinned ? 1 : 0);
     const updatedAt = isoDate(now);
     await tx.runAsync(
-      `UPDATE notes SET title = ?, body = ?, excerpt = ?, icon = ?, pinned = ?, updated_at = ? WHERE id = ?`,
-      [nextTitle, nextBody, nextExcerpt, nextIcon, nextPinned, updatedAt, Number(id)]
+      `UPDATE notes SET title = ?, description = ?, body = ?, excerpt = ?, icon = ?, pinned = ?, updated_at = ? WHERE id = ?`,
+      [nextTitle, nextDescription, nextBody, nextExcerpt, nextIcon, nextPinned, updatedAt, Number(id)]
     );
     const updated = await tx.getFirstAsync("SELECT * FROM notes WHERE id = ?", [Number(id)]);
     const [hydrated] = await hydrateNotes(tx, [updated]);
@@ -301,6 +315,7 @@ export async function duplicateNote(id, { now = new Date() } = {}) {
   const baseTitle = source.title.trim() || "Nota sin título";
   return createNote({
     title: `${baseTitle} (copia)`,
+    description: source.description,
     body: source.body,
     icon: source.icon,
     pinned: 0,

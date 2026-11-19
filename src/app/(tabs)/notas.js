@@ -131,9 +131,19 @@ export default function Notas() {
             </View>
           ) : (
             <View style={styles.desktopStage}>
-              <Text style={styles.desktopStageTitle}>
-                {notes.length ? "Elegí una nota" : "Escribí tu primera nota"}
-              </Text>
+              <View style={styles.desktopStageBadge}>
+                <Feather name="file-text" size={26} color={colors.accentText} />
+              </View>
+              <View style={{ alignItems: "center", gap: 6 }}>
+                <Text style={styles.desktopStageTitle}>
+                  {notes.length ? "Elegí una nota" : "Escribí tu primera nota"}
+                </Text>
+                <Text style={styles.desktopStageSub}>
+                  {notes.length
+                    ? "Abrí una página desde el índice lateral o creá una nueva."
+                    : "Guardá mapas de estudio y vinculalos a tus mazos o carpetas."}
+                </Text>
+              </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Nueva nota"
@@ -141,8 +151,8 @@ export default function Notas() {
                 onPress={onCreateNote}
                 style={({ hovered, pressed }) => [
                   styles.desktopCreateBtn,
-                  hovered && { backgroundColor: "#D4D4D8" },
-                  pressed && { opacity: 0.85 },
+                  hovered && { backgroundColor: "#FFFFFF" },
+                  pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] },
                   creating && { opacity: 0.5 },
                 ]}
               >
@@ -277,9 +287,9 @@ export default function Notas() {
                         <Text style={styles.noteTitle} numberOfLines={1}>
                           {titleText}
                         </Text>
-                        {note.excerpt ? (
+                        {note.description?.trim() || note.excerpt ? (
                           <Text style={styles.noteExcerpt} numberOfLines={2}>
-                            {note.excerpt}
+                            {note.description?.trim() || note.excerpt}
                           </Text>
                         ) : null}
                       </View>
@@ -446,13 +456,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 40,
-    gap: 20,
+    gap: 18,
+  },
+  desktopStageBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "rgba(70,104,232,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(155,180,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   desktopStageTitle: {
-    ...font(600),
+    ...font(700),
     fontSize: 26,
+    letterSpacing: -0.4,
     color: colors.text,
     textAlign: "center",
+  },
+  desktopStageSub: {
+    ...font(400),
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textMuted,
+    textAlign: "center",
+    maxWidth: 380,
   },
   desktopCreateBtn: {
     backgroundColor: colors.text,
@@ -460,7 +489,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     minHeight: 46,
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: 10,
+    ...(Platform.OS === "web" ? { boxShadow: "0 6px 20px rgba(0,0,0,0.35)" } : {}),
   },
   desktopCreateBtnText: {
     ...font(600),

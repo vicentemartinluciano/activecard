@@ -11,7 +11,7 @@ export const COLUMNS = {
   connections: ["card_id", "final_text", "transcript", "hybrid_card_id", "created_at"],
   gym_chats: ["title", "origin_card_id", "draft_text", "created_at", "updated_at"],
   gym_messages: ["chat_id", "role", "text", "metadata", "created_at"],
-  notes: ["title", "body", "excerpt", "icon", "pinned", "created_at", "updated_at"],
+  notes: ["title", "description", "body", "excerpt", "icon", "pinned", "created_at", "updated_at"],
 };
 export const REFERENCES = {
   parent_id: "folders",
@@ -76,7 +76,11 @@ export function documentFromBackup(backup) {
     for (const row of backup[table] || []) {
       const next = {};
       for (const column of columns) {
-        next[column] = REFERENCES[column] ? maps[REFERENCES[column]].get(row[column]) ?? null : row[column] ?? null;
+        next[column] = REFERENCES[column]
+          ? maps[REFERENCES[column]].get(row[column]) ?? null
+          : table === "notes" && column === "description"
+            ? String(row[column] ?? "")
+            : row[column] ?? null;
       }
       if (table === "gym_messages") next.metadata = mapMetadata(row.metadata, maps);
       doc[table][maps[table].get(row.id)] = next;
@@ -109,11 +113,13 @@ export function validateDocument(doc) {
     const rows = doc[table];
     if (!rows || typeof rows !== "object" || Array.isArray(rows) || Object.keys(rows).length > 100000) fail();
     for (const [id, row] of Object.entries(rows)) {
-      const expectedColumns = table === "folders" && row && !Object.hasOwn(row, "parent_id") ? columns.filter((column) => column !== "parent_id") : columns;
+      let expectedColumns = columns;
+      if (table === "folders" && row && !Object.hasOwn(row, "parent_id")) expectedColumns = expectedColumns.filter((column) => column !== "parent_id");
+      if (table === "notes" && row && !Object.hasOwn(row, "description")) expectedColumns = expectedColumns.filter((column) => column !== "description");
       if (!id || id.length > 512 || ["__proto__", "constructor", "prototype"].includes(id) || !row || Object.keys(row).sort().join() !== [...expectedColumns].sort().join()) fail();
       for (const column of columns) {
         const value = row[column];
-        if (column === "parent_id" && value === undefined) continue;
+        if ((column === "parent_id" || (table === "notes" && column === "description")) && value === undefined) continue;
         if (value === null && NULLABLE.has(column)) continue;
         if (REFERENCES[column]) {
           if (typeof value !== "string" || !Object.hasOwn(doc[REFERENCES[column]], value)) fail();

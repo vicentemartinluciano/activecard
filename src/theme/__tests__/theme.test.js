@@ -17,12 +17,12 @@ describe("tokens de tema", () => {
     }
   });
 
-  test("el fondo es el obsidiana profundo del rediseño Obsidian Cobalt", () => {
-    expect(colors.bg).toBe("#09090B");
+  test("el fondo es el obsidiana tinta profundo de ActiveCard", () => {
+    expect(colors.bg).toBe("#060608");
   });
 
-  test("el acento es el azul profundo elegido por el usuario", () => {
-    expect(colors.accent).toBe("#3E63DD");
+  test("el acento es el cobalto luminoso elegido para la app", () => {
+    expect(colors.accent).toBe("#4668E8");
   });
 
   test("existen los tokens nuevos de la paleta flexible", () => {
@@ -87,7 +87,7 @@ describe("tokens de tema", () => {
   });
 
   test("el halo es cobalto (mismo tono que el acento), no cián", () => {
-    expect(glow.halo.boxShadow).toContain("62,99,221");
+    expect(glow.halo.boxShadow).toContain("70,104,232");
     expect(glow.halo.boxShadow).not.toContain("0,242,254");
   });
 

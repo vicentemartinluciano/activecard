@@ -6,19 +6,15 @@ La web funciona como un espacio de trabajo inspirado en REANCLA. Todas las secci
 siguen disponibles: Inicio, Biblioteca, Notas, Gimnasio, Progreso y Ajustes (Crear
 conserva redirección legacy). Android conserva sus pestañas y sus gestos.
 
-- Barra izquierda de 60 px sin logo e iconos de 26 px. Las cinco secciones
-  distribuyen el espacio vertical y Ajustes ocupa su franja inferior. El destino
-  seleccionado y el icono bajo el cursor cambian a azul. Solo Ajustes tiene una línea
-  separadora; los nombres aparecen al pasar el mouse o enfocar con
-  teclado, y un clic de mouse no deja el nombre ni un borde inferior persistentes.
+- Barra izquierda de 64 px (`#0C0D12`) con emblema `AC` arriba, columna compacta de botones de 44 × 44 px con indicador cobalto deslizante animado en el borde izquierdo y Ajustes anclado abajo con separador e indicador de sync. Los nombres aparecen en tooltips estilizados con animación al pasar el mouse o enfocar con teclado; en móvil/web angosta `AnimatedTabBar` replica el indicador cobalto deslizante con rebote táctil.
 - Biblioteca tiene un índice de 280 px: carpetas desplegables, mazos hijos y mazos
   sueltos en la raíz. Su encabezado es el buscador, con creación a su derecha. Abrir y plegar el índice
   o sus carpetas tiene transición; la ruta superior permite volver a Biblioteca,
   carpeta o mazo y respeta el guardado de la edición.
   Buscar un mazo encuentra también los hijos de carpetas plegadas.
-  Sus filas miden al menos 46 px, con texto de 14 px; la flecha de una carpeta aparece
+  Sus filas miden al menos 44 px, con texto de 15 px; la flecha de una carpeta aparece
   al pasar por su fila o al navegar con teclado.
-- Notas (`hasNotesIndex`) reutiliza el mismo panel lateral colapsable de 280 px en `/notas` y `/notas/[id]`, con buscador, botón `+` para crear nota al instante, sección plegable de `Fijadas`, escala legible en escritorio (`18 px` encabezado, `15.5 px` filas con emoji) y filas planas sin tarjetas. En `/notas/[id]` web desktop se unifica la barra superior de 52 px con la ruta `Notas / Título`, botón `Pantalla completa` (oculta riel e índice lateral), botón `Ancho completo` cuando el panel supera 1120 px y ajuste automático al 100% del ancho útil en pantalla semicompleta o con el índice contraído, con editor sin marco (`NotionField page` a `18 px`, título `38 px` y emoji `42 px`).
+- Notas (`hasNotesIndex`) reutiliza el mismo panel lateral colapsable de 280 px en `/notas` y `/notas/[id]`, con buscador (incluye título, descripción y extracto), botón `+` para crear nota al instante, sección plegable de `Fijadas`, escala legible en escritorio (`18 px` encabezado, `15.5 px` filas con emoji) y selección destacada en cobalto. En `/notas/[id]` web desktop se unifica el índice superior traslúcido de 54 px con selector desplegable rápido de notas en el título, indicador sutil de guardado, grupo segmentado de vista (`Ancho completo` cuando el panel supera 1120 px y `Pantalla completa` que oculta riel e índice lateral) y ajuste automático al 100% del ancho útil en pantalla semicompleta o con el índice contraído. En el lienzo, la franja de vínculos (`note-top-links`) va arriba del ícono (`42 px`), el título (`38 px`), la descripción persistente (`16.5 px`) y el editor sin marco (`NotionField page` a `18 px`).
 - El índice se puede fijar u ocultar. Su tirador lateral aparece únicamente al pasar
   el mouse o recibir foco. Con el índice oculto, pasar por su botón abre una vista
   flotante; no reduce el contenido. Escape y un clic fuera cierran la vista previa.

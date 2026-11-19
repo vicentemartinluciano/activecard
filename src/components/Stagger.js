@@ -11,14 +11,14 @@
 
 import { useFocusEffect } from "expo-router";
 import { Children, useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Platform } from "react-native";
+import { Animated, Easing, Platform } from "react-native";
 
 // react-native-web no tiene native driver: pedirlo deja la animacion quieta.
 const NATIVE_DRIVER = Platform.OS !== "web";
 
-const STEP = 45; // ms entre un hijo y el siguiente
-const DURATION = 260; // ms que dura cada entrada
-const OFFSET = 12; // px que sube cada hijo al entrar
+const STEP = 36; // ms entre un hijo y el siguiente
+const DURATION = 220; // ms que dura cada entrada
+const OFFSET = 8; // px que sube cada hijo al entrar
 const MAX_ANIMATED = 8; // a partir de acá entran sin animación
 
 function StaggerItem({ index, step, style, animate, focusKey, children }) {
@@ -39,6 +39,7 @@ function StaggerItem({ index, step, style, animate, focusKey, children }) {
       toValue: 1,
       duration: DURATION,
       delay: index * step,
+      ...(Easing?.out ? { easing: Easing.out(Easing.cubic) } : {}),
       useNativeDriver: NATIVE_DRIVER,
     });
     anim.start();

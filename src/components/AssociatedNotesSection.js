@@ -86,9 +86,16 @@ export default function AssociatedNotesSection({
                 ]}
               >
                 <Text style={styles.itemEmoji}>{note.icon || "📄"}</Text>
-                <Text style={styles.itemTitle} numberOfLines={1}>
-                  {note.title?.trim() || "Sin título"}
-                </Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>
+                    {note.title?.trim() || "Sin título"}
+                  </Text>
+                  {note.description?.trim() ? (
+                    <Text style={styles.itemDesc} numberOfLines={1}>
+                      {note.description.trim()}
+                    </Text>
+                  ) : null}
+                </View>
                 {originText ? (
                   <Text style={styles.originTag} numberOfLines={1}>
                     {originText}
@@ -162,13 +169,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   itemRow: {
-    minHeight: 46,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   rowHover: {
     backgroundColor: colors.surfaceHigh,
@@ -183,7 +193,11 @@ const styles = StyleSheet.create({
     ...font(500),
     color: colors.text,
     fontSize: 15,
-    flex: 1,
+  },
+  itemDesc: {
+    fontSize: 12.5,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   originTag: {
     fontSize: 12.5,

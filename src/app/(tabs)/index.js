@@ -31,6 +31,15 @@ function greeting(date = new Date()) {
   return "Buenas tardes";
 }
 
+function todayLabel(date = new Date()) {
+  try {
+    const raw = date.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  } catch {
+    return "";
+  }
+}
+
 function HomeDeckArea({ children }) {
   return <View style={{ flex: 1, gap: Platform.OS === "web" ? 24 : 28 }}>{children}</View>;
 }
@@ -140,6 +149,7 @@ export default function Inicio() {
             <Text style={styles.greeting}>
               {greeting()}, {userName}
             </Text>
+            <Text style={styles.dateSub}>{todayLabel()}</Text>
           </View>
         </Pressable>
 
@@ -256,9 +266,15 @@ export default function Inicio() {
                   accessibilityRole="button"
                   accessibilityLabel={`Abrir mazo ${d.name}`}
                   onPress={() => router.push(`/mazos/${d.id}`)}
-                  style={({ pressed }) => [styles.deckProgressMain, pressed && { opacity: 0.75 }]}
+                  style={({ pressed, hovered }) => [
+                    styles.deckProgressMain,
+                    hovered && { backgroundColor: "rgba(255,255,255,0.03)" },
+                    pressed && { opacity: 0.78 },
+                  ]}
                 >
-                  <Feather name={d.icon || "book"} size={22} color={colors.accentText} />
+                  <View style={styles.deckIconBadge}>
+                    <Feather name={d.icon || "book"} size={20} color={colors.accentText} />
+                  </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.deckName} numberOfLines={2}>{d.name}</Text>
                     <ProgressBar
@@ -275,9 +291,13 @@ export default function Inicio() {
                   accessibilityLabel={`Continuar estudio de ${d.name}`}
                   hitSlop={8}
                   onPress={() => router.push(`/mazos/${d.id}/estudiar`)}
-                  style={({ pressed }) => [styles.studyQuickBtn, pressed && { opacity: 0.7 }]}
+                  style={({ pressed, hovered }) => [
+                    styles.studyQuickBtn,
+                    hovered && styles.studyQuickBtnHover,
+                    pressed && { opacity: 0.75 },
+                  ]}
                 >
-                  <Feather name="play" size={16} color={colors.accentText} />
+                  <Feather name="play" size={15} color={colors.accentText} />
                 </Pressable>
               </Card>
             ))}
@@ -286,7 +306,7 @@ export default function Inicio() {
         {visibleRecent.length > 0 && <View style={styles.section}>
           <View style={styles.sectionHeader}><Text style={type.label}>MAZOS RECIENTES</Text><Pressable accessibilityRole="button" onPress={() => router.push('/biblioteca')}><Text style={styles.sectionLink}>Ver todos</Text></Pressable></View>
           {visibleRecent.map((deck) => <Card key={deck.id} onPress={() => router.push(`/mazos/${deck.id}`)} style={styles.deckRow}>
-            <Feather name={deck.icon || 'layers'} size={24} color={colors.accentText} /><View style={{ flex: 1, minWidth: 0 }}><Text style={styles.deckName} numberOfLines={2}>{deck.name}</Text><Text style={type.small}>{deck.card_count} {deck.card_count === 1 ? 'tarjeta' : 'tarjetas'}</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
+            <View style={styles.deckIconBadge}><Feather name={deck.icon || 'layers'} size={20} color={colors.accentText} /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={styles.deckName} numberOfLines={2}>{deck.name}</Text><Text style={type.small}>{deck.card_count} {deck.card_count === 1 ? 'tarjeta' : 'tarjetas'}</Text></View><Feather name="chevron-right" size={18} color={colors.textMuted} />
           </Card>)}
         </View>}
         </HomeDeckArea>
@@ -333,24 +353,31 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceHigh,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: "rgba(70,104,232,0.16)",
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: "rgba(155,180,255,0.28)",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarInitial: {
     fontSize: 16,
     ...font(700),
-    color: colors.text,
+    color: colors.accentText,
   },
   greeting: {
-    fontSize: 18,
+    fontSize: 19,
     ...font(700),
     color: colors.text,
+    letterSpacing: -0.3,
+  },
+  dateSub: {
+    fontSize: 13,
+    ...font(400),
+    color: colors.textMuted,
+    marginTop: 1,
   },
   streakRow: {
     flexDirection: "row",
@@ -383,27 +410,39 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     gap: spacing.sm,
     alignItems: "flex-start",
-    ...(Platform.OS === 'web' ? { flex: 1, minHeight: 380, padding: 32, justifyContent: 'center', gap: 24 } : {}),
+    borderWidth: 1,
+    borderColor: "rgba(155,180,255,0.20)",
+    borderTopColor: "rgba(186,204,255,0.34)",
+    ...(Platform.OS === 'web'
+      ? {
+          flex: 1,
+          minHeight: 380,
+          padding: 34,
+          justifyContent: 'center',
+          gap: 22,
+          boxShadow: "0 18px 48px rgba(10,16,42,0.52)",
+        }
+      : {}),
   },
   heroTitle: {
-    fontSize: 26,
+    fontSize: 27,
     ...font(800),
     color: colors.text,
-    ...(Platform.OS === 'web' ? { fontSize: 36, lineHeight: 46 } : {}),
+    letterSpacing: -0.5,
+    ...(Platform.OS === 'web' ? { fontSize: 38, lineHeight: 46, letterSpacing: -0.8 } : {}),
   },
   statRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.xs + 2,
+    gap: spacing.xs + 3,
     marginTop: 2,
   },
-  // Mismo fondo que traía el pill "ACTIVE RECALL", pero SIN borde marcado.
   statPill: {
-    backgroundColor: colors.accentSoft,
-    borderColor: "transparent",
+    backgroundColor: "rgba(70,104,232,0.18)",
+    borderColor: "rgba(155,180,255,0.22)",
     paddingVertical: 5,
     paddingHorizontal: 11,
-    ...(Platform.OS === 'web' ? { paddingVertical: 9, paddingHorizontal: 16 } : {}),
+    ...(Platform.OS === 'web' ? { paddingVertical: 8, paddingHorizontal: 15 } : {}),
   },
   statLabel: Platform.OS === 'web' ? { fontSize: 16, lineHeight: 24 } : {},
   statValue: {
@@ -464,17 +503,34 @@ const styles = StyleSheet.create({
     paddingRight: spacing.xs,
   },
   studyQuickBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accentSoft,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "rgba(70,104,232,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(155,180,255,0.24)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  studyQuickBtnHover: {
+    backgroundColor: "rgba(70,104,232,0.3)",
+    borderColor: "rgba(155,180,255,0.45)",
+  },
+  deckIconBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "rgba(70,104,232,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(155,180,255,0.20)",
     alignItems: "center",
     justifyContent: "center",
   },
   deckName: {
-    fontSize: 19,
+    fontSize: 18,
     ...font(600),
     color: colors.text,
+    letterSpacing: -0.2,
   },
   deckPct: {
     color: colors.accentText,

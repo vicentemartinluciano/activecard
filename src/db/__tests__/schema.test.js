@@ -90,7 +90,7 @@ describe("migraciones de esquema", () => {
   });
 
   test("la migración v7 agrega charlas y mensajes persistentes", () => {
-    expect(MIGRATIONS).toHaveLength(11);
+    expect(MIGRATIONS).toHaveLength(12);
     expect(MIGRATIONS[6]).toContain("CREATE TABLE IF NOT EXISTS gym_chats");
     expect(MIGRATIONS[6]).toContain("CREATE TABLE IF NOT EXISTS gym_messages");
     expect(MIGRATIONS[6]).toContain("REFERENCES gym_chats(id) ON DELETE CASCADE");
@@ -101,6 +101,10 @@ describe("migraciones de esquema", () => {
     expect(MIGRATIONS[10]).toContain("CREATE TABLE IF NOT EXISTS note_decks");
     expect(MIGRATIONS[10]).toContain("CREATE TABLE IF NOT EXISTS note_folders");
     expect(MIGRATIONS[10]).toContain("CREATE TABLE IF NOT EXISTS note_tags");
+  });
+
+  test("la migración v12 agrega descripción opcional a notas", () => {
+    expect(MIGRATIONS[11]).toContain("ALTER TABLE notes ADD COLUMN description TEXT NOT NULL DEFAULT ''");
   });
 
   test("el esquema inicial define todas las tablas del plan", () => {

@@ -62,15 +62,22 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
-            <Field accessibilityLabel={folderId == null ? 'Buscar en toda la biblioteca' : 'Buscar en esta carpeta y sus subcarpetas'} placeholder={folderId == null ? 'Buscar en la biblioteca…' : 'Buscar en esta carpeta…'} value={query} onChangeText={setQuery} style={query ? { paddingRight: 40 } : undefined} />
+            <Feather
+              pointerEvents="none"
+              name="search"
+              size={16}
+              color={colors.textMuted}
+              style={{ position: 'absolute', left: 13, zIndex: 1 }}
+            />
+            <Field accessibilityLabel={folderId == null ? 'Buscar en toda la biblioteca' : 'Buscar en esta carpeta y sus subcarpetas'} placeholder={folderId == null ? 'Buscar en la biblioteca…' : 'Buscar en esta carpeta…'} value={query} onChangeText={setQuery} style={[{ paddingLeft: 38 }, query && { paddingRight: 40 }]} />
             {!!query && (
               <Pressable accessibilityRole="button" accessibilityLabel="Limpiar búsqueda" hitSlop={8} onPress={() => setQuery('')}
-                style={{ position: 'absolute', right: 10, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="x" size={17} color={colors.textMuted} />
+                style={({ hovered }) => [{ position: 'absolute', right: 8, width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }, hovered && { backgroundColor: colors.surfaceHigh }]}>
+                <Feather name="x" size={16} color={colors.textMuted} />
               </Pressable>
             )}
           </View>
-          <Button label={`Filtros${tagIds.length + Number(all) ? ` (${tagIds.length + Number(all)})` : ''}`} kind={filtersOpen || tagIds.length > 0 || all ? 'primary' : 'ghost'} onPress={() => setFiltersOpen((open) => !open)} />
+          <Button label={`Filtros${tagIds.length + Number(all) ? ` (${tagIds.length + Number(all)})` : ''}`} kind={filtersOpen || tagIds.length > 0 || all ? 'primary' : 'default'} onPress={() => setFiltersOpen((open) => !open)} />
         </View>
         {(filtersOpen || tagIds.length > 0 || all) && <>
         {folderId == null && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -98,14 +105,16 @@ export default function LibraryContent({ folders, decks, cards = [], tags = [], 
         if (row.label) return <Text style={[type.label, { marginTop: spacing.md }]}>{row.label}</Text>;
         const item = row.item;
         if (row.kind === 'folder') return (
-          <Card style={{ padding: 0, flexDirection: 'row', alignItems: 'center' }}>
+          <Card style={{ padding: 0, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
             <Pressable accessibilityRole="button" accessibilityLabel={item.name} onPress={() => router.navigate(`/carpetas/${item.id}`)}
-              style={({ pressed }) => [{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md, paddingLeft: spacing.md, paddingRight: spacing.xs }, pressed && { opacity: 0.75 }]}>
-              <Feather name="folder" size={22} color={colors.accentText} />
+              style={({ pressed, hovered }) => [{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingLeft: spacing.md, paddingRight: spacing.xs }, hovered && { backgroundColor: 'rgba(255,255,255,0.03)' }, pressed && { opacity: 0.78 }]}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(70,104,232,0.13)', borderWidth: 1, borderColor: 'rgba(155,180,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="folder" size={20} color={colors.accentText} />
+              </View>
               <View style={{ flex: 1, minWidth: 0 }}><Text style={type.body}>{item.name}</Text><Text style={type.small}>{searching ? locationLabel(folders, item.parent_id) : `${item.deck_count ?? 0} ${item.deck_count === 1 ? 'mazo directo' : 'mazos directos'}`}</Text></View>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`Opciones de la carpeta ${item.name}`} hitSlop={8} onPress={() => setMenuFolder(item)}
-              style={({ pressed }) => [{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }, pressed && { opacity: 0.7 }]}>
+              style={({ pressed, hovered }) => [{ width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, hovered && { backgroundColor: colors.surfaceHigh }, pressed && { opacity: 0.7 }]}>
               <Feather name="more-horizontal" size={20} color={colors.textMuted} />
             </Pressable>
             <Pressable accessible={false} onPress={() => router.navigate(`/carpetas/${item.id}`)} style={{ paddingRight: spacing.md, paddingLeft: spacing.xs, paddingVertical: spacing.md }}>

@@ -42,7 +42,11 @@ export default function DeckListItem({ deck, progress, onPress, onOptions }) {
               accessibilityRole="button"
               accessibilityLabel={deck.name}
               onPress={onPress}
-              style={({ pressed }) => [styles.mainPress, pressed && { opacity: 0.75 }]}
+              style={({ pressed, hovered }) => [
+                styles.mainPress,
+                hovered && { opacity: 0.94 },
+                pressed && { opacity: 0.78 },
+              ]}
             >
               {rowContent}
             </Pressable>
@@ -55,7 +59,11 @@ export default function DeckListItem({ deck, progress, onPress, onOptions }) {
               accessibilityLabel={`Opciones del mazo ${deck.name}`}
               hitSlop={8}
               onPress={() => onOptions(deck)}
-              style={({ pressed }) => [styles.optionsBtn, pressed && { opacity: 0.7 }]}
+              style={({ pressed, hovered }) => [
+                styles.optionsBtn,
+                hovered && { backgroundColor: colors.surfaceHigh },
+                pressed && { opacity: 0.7 },
+              ]}
             >
               <Feather name="more-horizontal" size={20} color={colors.textMuted} />
             </Pressable>
@@ -113,10 +121,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   icon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceHigh,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "rgba(70,104,232,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(155,180,255,0.20)",
     alignItems: "center",
     justifyContent: "center",
   },

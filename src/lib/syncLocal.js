@@ -37,7 +37,13 @@ async function installDocument(tx, doc, current) {
   for (const table of ["note_tags", "note_folders", "note_decks", "notes", "gym_messages", "gym_chats", "connections", "review_logs", "deck_tags", "cards", "tags", "decks", "folders", "study_preferences"]) await tx.execAsync(`DELETE FROM ${table}`);
   for (const [table, columns] of Object.entries(COLUMNS)) {
     for (const [id, row] of Object.entries(doc[table])) {
-      const values = columns.map((column) => REFERENCES[column] ? maps[REFERENCES[column]].get(row[column]) ?? null : row[column]);
+      const values = columns.map((column) =>
+        REFERENCES[column]
+          ? maps[REFERENCES[column]].get(row[column]) ?? null
+          : table === "notes" && column === "description"
+            ? String(row[column] ?? "")
+            : row[column]
+      );
       if (table === "gym_messages") values[columns.indexOf("metadata")] = mapMetadata(row.metadata, maps);
       const names = ["id", "sync_id", ...columns];
       await tx.runAsync(`INSERT INTO ${table} (${names.join(", ")}) VALUES (${names.map(() => "?").join(", ")})`, [maps[table].get(id), id, ...values]);

@@ -38,23 +38,54 @@ export function useDesktopNotesLayout() {
   return useContext(DesktopNotesLayoutContext);
 }
 
-function RailButton({ label, icon, active, onPress, sync, separator = false }) {
+function RailButton({ label, icon, active, onPress, sync }) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
-  return <View style={[styles.railItem, separator && styles.settingsSeparator]}>
-    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }}
-      accessibilityHint={sync?.label}
-      onPress={onPress} onFocus={(event) => setFocused(!!event.currentTarget?.matches?.(':focus-visible'))} onBlur={() => setFocused(false)}
-      onPointerDown={() => setFocused(false)}
-      onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}
-      style={({ pressed }) => [styles.railButton, { backgroundColor: hovered || pressed ? colors.surfaceHigh : 'transparent', outlineStyle: focused ? 'solid' : 'none', outlineWidth: 2, outlineColor: colors.accentText, outlineOffset: -4 }]}>
-      <View pointerEvents="none" style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
-        <Feather name={icon} size={26} color={active || hovered || focused ? colors.accentText : colors.textMuted} />
-        {sync && <View testID="settings-sync-indicator" style={{ position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: sync.synced ? colors.successBright : colors.textMuted }} />}
-      </View>
-    </Pressable>
-    {(hovered || focused) && <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{sync ? `${label} · ${sync.label}` : label}</Text></View>}
-  </View>;
+  return (
+    <View style={styles.railItem}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected: active }}
+        accessibilityHint={sync?.label}
+        onPress={onPress}
+        onFocus={(event) => setFocused(!!event.currentTarget?.matches?.(':focus-visible'))}
+        onBlur={() => setFocused(false)}
+        onPointerDown={() => setFocused(false)}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        style={({ pressed }) => [
+          styles.railButton,
+          active && styles.railButtonActive,
+          hovered && !active && styles.railButtonHover,
+          pressed && { transform: [{ scale: 0.93 }] },
+          focused && styles.railFocusRing,
+        ]}
+      >
+        <View pointerEvents="none" style={styles.railIconWrap}>
+          <Feather
+            name={icon}
+            size={21}
+            color={active ? colors.accentText : hovered || focused ? colors.text : colors.textMuted}
+          />
+          {sync && (
+            <View
+              testID="settings-sync-indicator"
+              style={[
+                styles.syncDot,
+                { backgroundColor: sync.synced ? colors.successBright : colors.textMuted },
+              ]}
+            />
+          )}
+        </View>
+      </Pressable>
+      {(hovered || focused) && (
+        <View pointerEvents="none" dataSet={{ acTooltip: 'true' }} style={styles.tooltip}>
+          <Text style={styles.tooltipText}>{sync ? `${label} · ${sync.label}` : label}</Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 function FolderRow({ folder, isOpen, toggle, open }) {
@@ -161,7 +192,7 @@ function DesktopWorkspace({ children }) {
   const filteredNotes = needle
     ? notes.filter((note) =>
         normalizeSearch(
-          `${note.title || ''} ${note.excerpt || ''} ${(note.folders || []).map((f) => f.name).join(' ')} ${(note.decks || []).map((d) => d.name).join(' ')}`
+          `${note.title || ''} ${note.description || ''} ${note.excerpt || ''} ${(note.folders || []).map((f) => f.name).join(' ')} ${(note.decks || []).map((d) => d.name).join(' ')}`
         ).includes(needle)
       )
     : notes;
@@ -209,18 +240,31 @@ function DesktopWorkspace({ children }) {
         accessibilityLabel={`Abrir nota ${label}`}
         accessibilityState={{ selected }}
         onPress={() => open(`/notas/${note.id}`)}
-        style={({ hovered }) => [styles.noteRow, { backgroundColor: hovered || selected ? colors.surfaceHigh : 'transparent' }]}
+        style={({ hovered }) => [
+          styles.noteRow,
+          selected && styles.noteRowSelected,
+          hovered && !selected && { backgroundColor: colors.surfaceHigh },
+        ]}
       >
         <Text style={styles.noteEmoji}>{note.icon || '📄'}</Text>
-        <Text numberOfLines={1} style={[styles.noteRowText, selected && { ...font(600) }]}>{label}</Text>
+        <Text numberOfLines={1} style={[styles.noteRowText, selected && { ...font(600), color: colors.text }]}>{label}</Text>
       </Pressable>
     );
   };
+  const createAndOpenNote = async () => {
+    if (navigationGuard.current && await navigationGuard.current() === false) return;
+    const id = await createNote();
+    closePreview();
+    if (narrow) setPinned(false);
+    router.navigate(`/notas/${id}`);
+  };
+  const activeSectionIndex = sections.findIndex(([key]) => key === section);
   const notesLayoutValue = {
     pinned,
     shown,
     focused: activeNoteFocused,
     wide: noteWide,
+    notes,
     togglePinned: () => {
       closePreview();
       setPinned((value) => !value);
@@ -233,11 +277,35 @@ function DesktopWorkspace({ children }) {
     toggleFocused: () => setNoteFocused((value) => !value),
     toggleWide: () => setNoteWide((value) => !value),
     goNotesRoot: () => open('/notas', true),
+    openNote: (id) => open(`/notas/${id}`),
+    createNote: createAndOpenNote,
   };
   return <View style={styles.shell}>
     {!narrow && !activeNoteFocused && <View style={styles.rail}>
-      <View style={styles.sections}>{sections.map(([key, label, icon, route]) => <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />)}</View>
-      <RailButton separator label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
+      <View style={styles.railTop}>
+        <View style={styles.brandMark} accessible={false}>
+          <Text style={styles.brandMarkText}>AC</Text>
+        </View>
+        <View style={styles.sections}>
+          <View
+            pointerEvents="none"
+            style={[
+              styles.railIndicator,
+              {
+                opacity: activeSectionIndex >= 0 ? 1 : 0,
+                transform: [{ translateY: Math.max(0, activeSectionIndex) * 52 + 11 }],
+              },
+            ]}
+          />
+          {sections.map(([key, label, icon, route]) => (
+            <RailButton key={key} label={label} icon={icon} active={section === key} onPress={() => open(route)} />
+          ))}
+        </View>
+      </View>
+      <View style={styles.railBottom}>
+        <View style={styles.railDivider} />
+        <RailButton label="Ajustes" icon="settings" active={section === 'ajustes'} sync={syncIndicator(syncStatus)} onPress={() => open('/ajustes')} />
+      </View>
     </View>}
     <View style={{ width: hasSidebar && pinned && !narrow && !activeNoteFocused ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
       {hasSidebar && <View dataSet={{ libraryIndex: 'true' }} testID={notesIndex ? 'desktop-notes-index' : 'desktop-library-index'}
@@ -263,13 +331,7 @@ function DesktopWorkspace({ children }) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Crear nota"
-                  onPress={async () => {
-                    if (navigationGuard.current && await navigationGuard.current() === false) return;
-                    const id = await createNote();
-                    closePreview();
-                    if (narrow) setPinned(false);
-                    router.navigate(`/notas/${id}`);
-                  }}
+                  onPress={createAndOpenNote}
                   style={({ hovered }) => [styles.notesIconBtn, hovered && { backgroundColor: colors.surfaceHigh }]}
                 >
                   <Text style={styles.notesPlusGlyph}>+</Text>
@@ -366,45 +428,162 @@ export default function DesktopShell({ children }) {
 
 const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row', backgroundColor: colors.bg },
-  rail: { width: DESKTOP_RAIL_WIDTH, alignItems: 'center', borderRightWidth: 1, borderRightColor: colors.border, zIndex: 50 },
-  sections: { flex: 5, minHeight: 0, width: '100%' },
-  railItem: { position: 'relative', flex: 1, minHeight: 56, width: '100%', justifyContent: 'center' },
-  settingsSeparator: { borderTopWidth: 1, borderTopColor: colors.border },
-  railButton: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
-  tooltip: { position: 'absolute', left: DESKTOP_RAIL_WIDTH + 8, top: '50%', transform: [{ translateY: -16 }], paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: colors.surfaceHigh },
-  tooltipText: { ...font(600), color: colors.text, fontSize: 14, whiteSpace: 'nowrap' },
-  index: { position: 'absolute', left: 0, width: DESKTOP_INDEX_WIDTH, backgroundColor: colors.surface, borderRightWidth: 1, borderRightColor: colors.border },
-  floating: { borderRadius: 10, boxShadow: '8px 0 24px rgba(0,0,0,0.3)' },
+  rail: {
+    width: DESKTOP_RAIL_WIDTH,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.07)',
+    zIndex: 50,
+  },
+  railTop: { width: '100%', alignItems: 'center', gap: 18 },
+  brandMark: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(155,180,255,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 12px rgba(70,104,232,0.25)',
+  },
+  brandMarkText: { ...font(800), fontSize: 13, letterSpacing: 0.6, color: colors.accentText },
+  sections: { position: 'relative', width: '100%', alignItems: 'center', gap: 8 },
+  railIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 3,
+    height: 22,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    backgroundColor: colors.accent,
+    boxShadow: '0 0 10px rgba(70,104,232,0.8)',
+    transition: 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease',
+  },
+  railBottom: { width: '100%', alignItems: 'center', gap: 10 },
+  railDivider: { width: 28, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+  railItem: { position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'center' },
+  railButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  railButtonActive: {
+    backgroundColor: 'rgba(70,104,232,0.16)',
+    borderColor: 'rgba(155,180,255,0.26)',
+  },
+  railButtonHover: {
+    backgroundColor: colors.surfaceHigh,
+  },
+  railFocusRing: {
+    outlineStyle: 'solid',
+    outlineWidth: 2,
+    outlineColor: colors.accentText,
+    outlineOffset: 2,
+  },
+  railIconWrap: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  syncDot: {
+    position: 'absolute',
+    right: -2,
+    top: -2,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.surface,
+  },
+  tooltip: {
+    position: 'absolute',
+    left: DESKTOP_RAIL_WIDTH + 6,
+    top: '50%',
+    transform: [{ translateY: -17 }],
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    boxShadow: '0 10px 28px rgba(0,0,0,0.55)',
+    zIndex: 80,
+  },
+  tooltipText: { ...font(600), color: colors.text, fontSize: 13.5, whiteSpace: 'nowrap' },
+  index: {
+    position: 'absolute',
+    left: 0,
+    width: DESKTOP_INDEX_WIDTH,
+    backgroundColor: colors.surface,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.07)',
+  },
+  floating: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    boxShadow: '0 20px 50px rgba(0,0,0,0.58)',
+  },
   indexHeading: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 12 },
   notesHeader: { padding: 14, gap: 10 },
   notesHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  notesHeaderTitle: { ...font(600), fontSize: 18, color: colors.text },
+  notesHeaderTitle: { ...font(700), fontSize: 18, color: colors.text, letterSpacing: -0.2 },
   notesHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  notesIconBtn: { width: 34, height: 34, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  notesIconBtn: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   notesCollapseGlyph: { fontSize: 20, color: colors.textMuted, lineHeight: 22 },
   notesPlusGlyph: { fontSize: 20, color: colors.text, lineHeight: 22 },
-  notesSearch: { minHeight: 38, height: 38, paddingVertical: 7, paddingHorizontal: 12, fontSize: 14, borderRadius: 7, backgroundColor: colors.bg },
-  smallButton: { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  notesSearch: { minHeight: 38, height: 38, paddingVertical: 7, paddingHorizontal: 12, fontSize: 14, borderRadius: 9, backgroundColor: colors.bg },
+  smallButton: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   search: { flex: 1, minWidth: 0, fontSize: 14, paddingHorizontal: 10, paddingVertical: 10 },
-  treeRow: { width: '100%', flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 10, paddingRight: 16 },
-  treeText: { ...font(), color: colors.textMuted, fontSize: 15.5, lineHeight: 22, flex: 1 },
-  count: { ...font(), color: colors.textMuted, fontSize: 13 },
+  treeRow: { width: '100%', flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 10, paddingRight: 16, borderRadius: 8 },
+  treeText: { ...font(), color: colors.textMuted, fontSize: 15, lineHeight: 22, flex: 1 },
+  count: { ...font(500), color: colors.textMuted, fontSize: 12.5 },
   folderRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6 },
-  chevron: { width: 30, height: 46, justifyContent: 'center', alignItems: 'center' },
-  folderName: { flex: 1, flexDirection: 'row', minHeight: 46, alignItems: 'center', gap: 10, paddingRight: 16, borderRadius: 5 },
+  chevron: { width: 30, height: 44, justifyContent: 'center', alignItems: 'center' },
+  folderName: { flex: 1, flexDirection: 'row', minHeight: 44, alignItems: 'center', gap: 10, paddingRight: 16, borderRadius: 8 },
   emptyFolder: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, paddingLeft: 38, paddingVertical: 8 },
   noteGroup: { paddingHorizontal: 8, paddingBottom: 6, marginBottom: 4 },
-  noteGroupToggle: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 },
-  noteGroupLabel: { ...font(), fontSize: 13, color: colors.textMuted },
-  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, marginHorizontal: 8, paddingHorizontal: 10, borderRadius: 6 },
+  noteGroupToggle: { minHeight: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 },
+  noteGroupLabel: { ...font(600), fontSize: 12.5, color: colors.textMuted, letterSpacing: 0.3 },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 42,
+    marginHorizontal: 8,
+    marginVertical: 1,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  noteRowSelected: {
+    backgroundColor: 'rgba(70,104,232,0.14)',
+    borderColor: 'rgba(155,180,255,0.22)',
+  },
   noteEmoji: { width: 24, textAlign: 'center', fontSize: 19, lineHeight: 24 },
-  noteRowText: { ...font(), color: colors.text, fontSize: 15.5, lineHeight: 22, flex: 1 },
+  noteRowText: { ...font(), color: '#DCE0EC', fontSize: 15.5, lineHeight: 22, flex: 1 },
   error: { ...font(), color: colors.textMuted, fontSize: 14, lineHeight: 21, padding: 16 },
-  edgeHandle: { position: 'absolute', right: -6, top: 52, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
+  edgeHandle: { position: 'absolute', right: -6, top: 54, bottom: 0, width: 12, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, minHeight: 0 },
-  toolbar: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  toolbar: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(6,6,8,0.82)',
+    backdropFilter: 'blur(12px)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.07)',
+  },
   breadcrumbs: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
-  crumb: { flexShrink: 1, minWidth: 0, paddingHorizontal: 4, paddingVertical: 8 },
-  trail: { ...font(), color: colors.textMuted, fontSize: 15, lineHeight: 22 },
+  crumb: { flexShrink: 1, minWidth: 0, paddingHorizontal: 6, paddingVertical: 6, borderRadius: 7 },
+  trail: { ...font(500), color: colors.textMuted, fontSize: 15, lineHeight: 22 },
   navigator: { flex: 1, minWidth: 0, minHeight: 0 },
 });

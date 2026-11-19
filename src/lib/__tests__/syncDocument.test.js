@@ -94,7 +94,7 @@ test("un respaldo común conserva identidad aunque los IDs locales cambien", () 
 test("notas y sus vínculos con carpetas, mazos y etiquetas se combinan y limpian si cae un destino", () => {
   const base = document();
   base.tags["tag:examen"] = { name: "examen" };
-  base.notes.note1 = { title: "Resumen", body: "**Clave**", excerpt: "Clave", icon: null, pinned: 1, created_at: now, updated_at: now };
+  base.notes.note1 = { title: "Resumen", description: "Mapa previo", body: "**Clave**", excerpt: "Clave", icon: null, pinned: 1, created_at: now, updated_at: now };
   base.note_folders.push(["note1", "folder"]);
   base.note_decks.push(["note1", "deck"]);
   base.note_tags.push(["note1", "tag:examen"]);
@@ -103,8 +103,12 @@ test("notas y sus vínculos con carpetas, mazos y etiquetas se combinan y limpia
   delete legacy.notes; delete legacy.note_decks; delete legacy.note_folders; delete legacy.note_tags;
   expect(validateDocument(legacy).notes).toEqual({});
 
+  const withoutDescription = clone(base);
+  delete withoutDescription.notes.note1.description;
+  expect(validateDocument(withoutDescription)).toBe(withoutDescription);
+
   const local = clone(base);
-  local.notes.note2 = { title: "Nueva local", body: "Texto", excerpt: "Texto", icon: null, pinned: 0, created_at: now, updated_at: now };
+  local.notes.note2 = { title: "Nueva local", description: "", body: "Texto", excerpt: "Texto", icon: null, pinned: 0, created_at: now, updated_at: now };
   local.note_folders.push(["note2", "folder"]);
   local.note_decks.push(["note2", "deck"]);
 
