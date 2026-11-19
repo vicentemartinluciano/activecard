@@ -2,26 +2,22 @@ import Feather from "@expo/vector-icons/Feather";
 import { Tabs } from "expo-router";
 import { Platform, useWindowDimensions } from "react-native";
 
+import AnimatedTabBar from "../../components/AnimatedTabBar";
 import { colors, font } from "../../theme";
 
 export default function TabsLayout() {
   const { width } = useWindowDimensions();
   return (
     <Tabs
-      tabBar={Platform.OS === "web" && width >= 760 ? () => null : undefined}
+      tabBar={(props) =>
+        Platform.OS === "web" && width >= 760 ? null : <AnimatedTabBar {...props} />
+      }
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,
         headerShadowVisible: false,
         headerTitleStyle: { ...font(600) },
         sceneStyle: { backgroundColor: colors.bg },
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-        },
-        tabBarActiveTintColor: colors.accentText,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontSize: 12, ...font(600) },
       }}
     >
       <Tabs.Screen

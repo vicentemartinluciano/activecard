@@ -60,31 +60,37 @@ describe("notas y vínculos bidireccionales", () => {
     const t2 = new Date("2026-11-18T11:00:00.000Z");
     const t3 = new Date("2026-11-18T12:00:00.000Z");
 
-    const idA = await createNote({ title: "Nota A", body: "Primero **uno**", now: t1 });
+    const idA = await createNote({ title: "Nota A", description: "Mapa corto inicial", body: "Primero **uno**", now: t1 });
     const idB = await createNote({ title: "Nota B", body: "Segundo ==dos==", now: t2 });
 
     let all = await listNotes();
     expect(all.map((n) => n.id)).toEqual([idB, idA]);
+    expect(all[1].description).toBe("Mapa corto inicial");
 
     const updatedA = await updateNote(idA, {
       title: "Nota A fijada",
+      description: "Guía ejecutiva para repaso",
       body: "**Concepto** actualizado",
       pinned: 1,
       now: t3,
     });
     expect(updatedA.pinned).toBe(1);
+    expect(updatedA.description).toBe("Guía ejecutiva para repaso");
     expect(updatedA.excerpt).toBe("Concepto actualizado");
 
     all = await listNotes();
     expect(all.map((n) => n.id)).toEqual([idA, idB]);
     expect(all[0]).not.toHaveProperty("body");
+    expect((await listNotes({ query: "ejecutiva" })).map((n) => n.id)).toEqual([idA]);
 
     const fullA = await getNote(idA);
     expect(fullA.body).toBe("**Concepto** actualizado");
+    expect(fullA.description).toBe("Guía ejecutiva para repaso");
 
     const copyId = await duplicateNote(idA);
     const copy = await getNote(copyId);
     expect(copy.title).toBe("Nota A fijada (copia)");
+    expect(copy.description).toBe("Guía ejecutiva para repaso");
     expect(copy.pinned).toBe(0);
 
     await deleteNote(idB);

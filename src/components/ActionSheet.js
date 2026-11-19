@@ -69,7 +69,7 @@ export default function ActionSheet({ visible, onClose, title, options = [], chi
     >
       <Pressable style={[styles.backdrop, floating && { justifyContent: 'center', padding: spacing.md }, anchored && { backgroundColor: 'transparent', padding: 0 }]} onPress={onClose}>
         <Animated.View style={{ alignSelf: 'center', width: '100%', maxWidth: floating || anchored ? 320 : 480, flexShrink: 1, marginBottom: kbHeight, opacity: entry, transform: [{ translateY: entry.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }, { scale: entry.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) }], ...(anchored ? { position: 'absolute', width: 280, ...anchor } : {}) }}>
-        <Pressable accessibilityRole={anchored ? 'menu' : undefined} accessibilityViewIsModal onAccessibilityEscape={onClose} style={[styles.sheet, { maxHeight: Math.max(80, height - kbHeight - spacing.lg * 2) }, floating && { borderRadius: 16 }, anchored && { padding: 16, borderRadius: 16, backgroundColor: '#111217', boxShadow: '0 8px 28px rgba(0,0,0,0.45)' }]} onPress={() => {}}>
+        <Pressable accessibilityRole={anchored ? 'menu' : undefined} accessibilityViewIsModal onAccessibilityEscape={onClose} style={[styles.sheet, { maxHeight: Math.max(80, height - kbHeight - spacing.lg * 2) }, floating && { borderRadius: 18 }, anchored && { padding: 14, borderRadius: 16, backgroundColor: colors.surfaceCard, boxShadow: '0 14px 40px rgba(0,0,0,0.58)' }]} onPress={() => {}}>
           {!anchored && !floating && <View style={styles.handle} />}
           {title ? <Text style={[styles.title, anchored && { fontSize: 13, color: colors.textMuted, marginBottom: 4 }]}>{title}</Text> : null}
           {options.map((opt) => (
@@ -78,7 +78,12 @@ export default function ActionSheet({ visible, onClose, title, options = [], chi
               key={opt.label}
               disabled={opt.disabled}
               accessibilityState={{ disabled: !!opt.disabled }}
-              style={({ pressed }) => [styles.option, pressed && { opacity: 0.7 }, opt.disabled && { opacity: 0.4 }]}
+              style={({ pressed, hovered }) => [
+                styles.option,
+                hovered && !opt.disabled && styles.optionHover,
+                pressed && { opacity: 0.75 },
+                opt.disabled && { opacity: 0.4 },
+              ]}
               onPress={() => {
                 if (closeOnSelect) onClose();
                 opt.onPress();
@@ -105,19 +110,25 @@ export default function ActionSheet({ visible, onClose, title, options = [], chi
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "#00000099",
+    backgroundColor: "rgba(3, 4, 8, 0.72)",
     justifyContent: Platform.OS === 'web' ? "center" : "flex-end",
-    ...(Platform.OS === 'web' ? { padding: spacing.md } : {}),
+    ...(Platform.OS === 'web' ? { padding: spacing.md, backdropFilter: "blur(6px)" } : {}),
   },
   sheet: {
     backgroundColor: colors.surfaceCard,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
-    ...(Platform.OS === 'web' ? { borderRadius: radius.lg } : {}),
+    ...(Platform.OS === 'web'
+      ? {
+          borderRadius: radius.lg,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.62), 0 1px 0 rgba(255,255,255,0.06) inset",
+        }
+      : {}),
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderTopColor: "rgba(255,255,255,0.12)",
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.xs,
     width: "100%",
     // A propósito NO usa layout.maxWidth: en web ese token vale 840 y un bottom
     // sheet tan ancho se ve mal. El sheet se queda angosto en todos lados.
@@ -137,10 +148,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   option: {
-    minHeight: 48,
+    minHeight: 46,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: 12,
+    gap: spacing.sm + 2,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginHorizontal: -10,
+    borderRadius: radius.sm,
+  },
+  optionHover: {
+    backgroundColor: colors.surfaceHigh,
   },
 });

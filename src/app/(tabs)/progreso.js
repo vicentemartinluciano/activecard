@@ -294,9 +294,29 @@ export default function Progreso() {
                   ) : null}
                 </View>
 
-                {Platform.OS === 'web' ? <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 20 }}>
-                  {PAGINAS.map((label, index) => <Button key={label} label={label} kind={pagina === index ? 'primary' : undefined} onPress={() => setPagina(index)} />)}
-                </View> : <View style={styles.dots}>
+                {Platform.OS === 'web' ? (
+                  <View style={styles.webSegmentWrap}>
+                    <View style={styles.webSegment}>
+                      {PAGINAS.map((label, index) => (
+                        <Pressable
+                          key={label}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: pagina === index }}
+                          onPress={() => setPagina(index)}
+                          style={({ hovered }) => [
+                            styles.webSegmentBtn,
+                            pagina === index && styles.webSegmentBtnActive,
+                            hovered && pagina !== index && { backgroundColor: colors.surfaceHigh },
+                          ]}
+                        >
+                          <Text style={[styles.webSegmentLabel, pagina === index && styles.webSegmentLabelActive]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                ) : <View style={styles.dots}>
                   {PAGINAS.map((p, i) => (
                     <View key={p} style={[styles.dot, i === pagina && styles.dotOn]} />
                   ))}
@@ -354,17 +374,47 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   bigNum: {
-    fontSize: 38,
+    fontSize: 42,
     ...font(800),
     ...tabular,
     color: colors.successBright,
-    letterSpacing: -1,
+    letterSpacing: -1.2,
   },
   bigUnit: {
-    fontSize: 17,
+    fontSize: 18,
     ...font(700),
     // El porcentaje forma parte de la cifra.
     color: colors.successBright,
+  },
+  webSegmentWrap: {
+    alignItems: "center",
+    marginTop: 18,
+  },
+  webSegment: {
+    flexDirection: "row",
+    gap: 4,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  webSegmentBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  webSegmentBtnActive: {
+    backgroundColor: "rgba(70,104,232,0.2)",
+  },
+  webSegmentLabel: {
+    ...font(500),
+    fontSize: 13.5,
+    color: colors.textMuted,
+  },
+  webSegmentLabelActive: {
+    ...font(600),
+    color: colors.accentText,
   },
   dots: {
     flexDirection: "row",

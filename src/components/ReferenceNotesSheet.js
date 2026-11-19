@@ -48,12 +48,17 @@ export default function ReferenceNotesSheet({
           ) : null}
 
           <View style={styles.meta}>
-            <Text style={styles.noteTitle}>{active.title?.trim() || "Sin título"}</Text>
+            <Text style={styles.noteTitle}>
+              {`${active.icon || "📄"} ${active.title?.trim() || "Sin título"}`}
+            </Text>
             {active.origin?.label ? <Pill label={active.origin.label} color={colors.accentText} /> : null}
             {(active.tags || []).map((tag) => (
               <Pill key={tag.id} label={`#${tag.name}`} />
             ))}
           </View>
+          {active.description?.trim() ? (
+            <Text style={styles.noteDesc}>{active.description.trim()}</Text>
+          ) : null}
 
           <View style={styles.divider} />
 
@@ -95,6 +100,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: colors.text,
     marginRight: spacing.xs,
+  },
+  noteDesc: {
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: colors.textMuted,
   },
   divider: {
     height: 1,

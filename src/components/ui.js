@@ -54,7 +54,12 @@ export function Card({ children, onPress, level = "base", style, onLayout, acces
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
         onLayout={onLayout}
-        style={({ pressed, hovered, focused }) => [...base, hovered && { borderColor: colors.pillBorder }, Platform.OS === 'web' && focused && styles.focusRing, pressed && { opacity: 0.85 }]}
+        style={({ pressed, hovered, focused }) => [
+          ...base,
+          hovered && styles.cardHovered,
+          Platform.OS === "web" && focused && styles.focusRing,
+          pressed && { opacity: 0.88, transform: [{ scale: 0.995 }] },
+        ]}
       >
         {children}
       </Pressable>
@@ -81,7 +86,13 @@ export function Pill({ label, icon, color = colors.textMuted, onPress, style, la
         accessibilityRole="button"
         accessibilityLabel={label}
         onPress={onPress}
-        style={({ pressed }) => [styles.pill, { minHeight: control.minHeight }, pressed && { opacity: 0.7 }, style]}
+        style={({ pressed, hovered }) => [
+          styles.pill,
+          { minHeight: control.minHeight },
+          hovered && styles.pillHovered,
+          pressed && { opacity: 0.75 },
+          style,
+        ]}
       >
         {content}
       </Pressable>
@@ -114,11 +125,11 @@ export function Button({
   const scale = useRef(new Animated.Value(1)).current;
   const [focused, setFocused] = useState(false);
   const pressIn = () => {
-    Animated.spring(scale, { toValue: 0.96, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: 0 }).start();
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: Platform.OS !== 'web', speed: 48, bounciness: 0 }).start();
     onPressIn?.();
   };
   const pressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 4 }).start();
+    Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', speed: 42, bounciness: 2 }).start();
     onPressOut?.();
   };
 
@@ -142,9 +153,19 @@ export function Button({
           kind === "inverse" && styles.buttonInverse,
           size === "lg" && styles.buttonLg,
           Platform.OS === 'web' && focused && styles.focusRing,
-          hovered && !disabled && { borderColor: colors.accentText },
+          hovered && !disabled && (
+            kind === "primary"
+              ? styles.buttonPrimaryHover
+              : kind === "inverse"
+                ? styles.buttonInverseHover
+                : kind === "ghost"
+                  ? styles.buttonGhostHover
+                  : kind === "danger"
+                    ? styles.buttonDangerHover
+                    : styles.buttonDefaultHover
+          ),
           disabled && { opacity: 0.4 },
-          pressed && { opacity: 0.85 },
+          pressed && { opacity: 0.88 },
           halo && (pressed || hovered) && !disabled && halo,
         ]}
       >
@@ -180,7 +201,7 @@ export const Field = forwardRef(function Field(
       placeholder={placeholder}
       placeholderTextColor={colors.textMuted}
       multiline={multiline}
-      style={[styles.field, multiline && styles.fieldMultiline, focused && { borderColor: colors.accentText }, style]}
+      style={[styles.field, multiline && styles.fieldMultiline, focused && styles.fieldFocused, style]}
       onFocus={(event) => { setFocused(true); onFocus?.(event); }}
       onBlur={(event) => { setFocused(false); onBlur?.(event); }}
       {...inputProps}
@@ -195,10 +216,11 @@ export function Chip({ label, active, onPress }) {
       accessibilityLabel={label}
       accessibilityState={{ selected: !!active }}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }) => [
         styles.chip,
         active && styles.chipActive,
-        pressed && { opacity: 0.7 },
+        hovered && !active && styles.chipHovered,
+        pressed && { opacity: 0.78 },
       ]}
     >
       <Text style={[styles.chipLabel, active && { color: colors.accentText, ...font(600) }]}>{label}</Text>
@@ -269,34 +291,57 @@ const styles = StyleSheet.create({
   },
   button: {
     minHeight: control.minHeight,
-    backgroundColor: colors.pillBg, // secundario translúcido
+    backgroundColor: "#141722",
     borderWidth: 1,
-    borderColor: colors.pillBorder,
+    borderColor: colors.cardBorder,
     borderRadius: radius.sm,
-    paddingVertical: 12,
+    paddingVertical: 11,
     paddingHorizontal: spacing.md,
     alignItems: "center",
     justifyContent: "center",
-    ...(Platform.OS === 'web' ? { borderRadius: 10, paddingVertical: 14, paddingHorizontal: 22, minHeight: 48 } : {}),
+    ...(Platform.OS === 'web' ? { borderRadius: 10, paddingVertical: 12, paddingHorizontal: 20, minHeight: 44 } : {}),
+  },
+  buttonDefaultHover: {
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.cardBorderHover,
   },
   buttonPrimary: {
     backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    borderColor: "rgba(255,255,255,0.16)",
+    ...(Platform.OS === 'web' ? { boxShadow: "0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(70,104,232,0.28)" } : {}),
+  },
+  buttonPrimaryHover: {
+    backgroundColor: "#5476F2",
+    borderColor: "rgba(255,255,255,0.24)",
+    ...(Platform.OS === 'web' ? { boxShadow: "0 1px 0 rgba(255,255,255,0.22) inset, 0 6px 20px rgba(70,104,232,0.4)" } : {}),
   },
   buttonDanger: {
-    backgroundColor: "rgba(229,72,77,0.10)",
-    borderColor: "rgba(229,72,77,0.35)",
+    backgroundColor: "rgba(224,99,105,0.11)",
+    borderColor: "rgba(224,99,105,0.34)",
+  },
+  buttonDangerHover: {
+    backgroundColor: "rgba(224,99,105,0.18)",
+    borderColor: "rgba(224,99,105,0.5)",
   },
   buttonGhost: {
     backgroundColor: "transparent",
     borderColor: "transparent",
   },
+  buttonGhostHover: {
+    backgroundColor: colors.surfaceHigh,
+    borderColor: "transparent",
+  },
   buttonInverse: {
+    backgroundColor: colors.text,
+    borderColor: colors.text,
+    ...(Platform.OS === 'web' ? { boxShadow: "0 4px 16px rgba(0,0,0,0.28)" } : {}),
+  },
+  buttonInverseHover: {
     backgroundColor: "#FFFFFF",
     borderColor: "#FFFFFF",
   },
   buttonLg: {
-    paddingVertical: 16,
+    paddingVertical: 15,
   },
   buttonLabel: {
     fontSize: 15,
@@ -306,12 +351,12 @@ const styles = StyleSheet.create({
   buttonInverseLabel: {
     color: colors.bg,
     ...font(700),
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   buttonLgLabel: {
-    fontSize: 17,
+    fontSize: 16,
     ...font(700),
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   field: {
     minHeight: control.minHeight,
@@ -324,6 +369,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: spacing.sm + 4,
     fontSize: 16,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+  },
+  fieldFocused: {
+    borderColor: colors.accent,
+    ...(Platform.OS === 'web' ? { boxShadow: "0 0 0 3px rgba(70,104,232,0.2)" } : {}),
   },
   fieldMultiline: {
     minHeight: 100,
@@ -334,16 +384,26 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderTopColor: "rgba(255,255,255,0.10)",
     padding: spacing.md,
-    ...(Platform.OS === 'web' ? { padding: 24 } : {}),
+    ...(Platform.OS === 'web'
+      ? {
+          padding: 22,
+          boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.28)",
+        }
+      : {}),
   },
   cardHigh: {
     backgroundColor: colors.surfaceHigh,
   },
+  cardHovered: {
+    backgroundColor: "#151822",
+    borderColor: "rgba(155,180,255,0.28)",
+  },
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
     borderRadius: radius.pill,
     backgroundColor: colors.pillBg,
     borderWidth: 1,
@@ -351,6 +411,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     alignSelf: "flex-start",
+  },
+  pillHovered: {
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.cardBorderHover,
   },
   pillLabel: {
     fontSize: 12,
@@ -361,13 +425,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.pillBorder,
-    paddingVertical: 9,
-    paddingHorizontal: spacing.sm + 4,
-    backgroundColor: colors.pillBg,
+    borderColor: colors.cardBorder,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.sm + 5,
+    backgroundColor: colors.surfaceCard,
+  },
+  chipHovered: {
+    backgroundColor: colors.surfaceHigh,
+    borderColor: colors.cardBorderHover,
   },
   chipActive: {
-    borderColor: colors.accent,
+    borderColor: "rgba(155,180,255,0.42)",
     backgroundColor: colors.accentSoft,
   },
   chipLabel: {

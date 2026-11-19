@@ -290,6 +290,11 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
       .find((t) => t.props.accessibilityLabel === "Título de la nota");
     await act(async () => titleInput.props.onChangeText("Título editado"));
 
+    const descInput = tree.root
+      .findAllByType("TextInput")
+      .find((t) => t.props.accessibilityLabel === "Descripción de la nota");
+    await act(async () => descInput.props.onChangeText("Resumen corto de la unidad"));
+
     const editor = tree.root.findByType("notion-field");
     expect(editor.props.page).toBe(true);
     await act(async () => editor.props.onChangeText("Cuerpo **enriquecido**"));
@@ -301,6 +306,7 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
 
     expect(mockUpdateNote).toHaveBeenCalledWith(42, {
       title: "Título editado",
+      description: "Resumen corto de la unidad",
       body: "Cuerpo **enriquecido**",
       icon: null,
       pinned: 0,
@@ -315,6 +321,7 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
     });
     expect(mockUpdateNote).toHaveBeenCalledWith(42, {
       title: "Título editado",
+      description: "Resumen corto de la unidad",
       body: "Cuerpo **enriquecido**",
       icon: null,
       pinned: 1,
@@ -332,6 +339,7 @@ test("el editor de nota guarda cambios al vuelo antes de ir al mazo vinculado y 
     });
     expect(mockUpdateNote).toHaveBeenLastCalledWith(42, {
       title: "Título editado",
+      description: "Resumen corto de la unidad",
       body: "Cuerpo **enriquecido**",
       icon: "⚓",
       pinned: 1,
@@ -473,6 +481,67 @@ test("en monitor amplio ofrece Ancho completo y Pantalla completa delegan en el 
       .find((p) => p.props.accessibilityLabel === "Expandir nota");
     await act(async () => focusBtn.props.onPress());
     expect(toggleFocused).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => tree?.unmount());
+  }
+});
+
+test("en escritorio el índice superior abre el selector rápido de notas y la vinculación vive arriba del título", async () => {
+  mockWindowWidth = 1280;
+  const openNote = jest.fn();
+  mockDesktopNotesLayout = {
+    pinned: false,
+    shown: false,
+    focused: false,
+    wide: false,
+    notes: [
+      { id: 42, title: "Nota actual", description: "Mapa 1", icon: "🧭" },
+      { id: 88, title: "Segunda nota", description: "Resumen 2", icon: "📚" },
+    ],
+    togglePinned: jest.fn(),
+    previewEnter: jest.fn(),
+    previewLeave: jest.fn(),
+    toggleFocused: jest.fn(),
+    toggleWide: jest.fn(),
+    goNotesRoot: jest.fn(),
+    openNote,
+    createNote: jest.fn(),
+  };
+  mockGetNote.mockResolvedValue({
+    id: 42,
+    title: "Nota actual",
+    description: "Mapa 1",
+    body: "Cuerpo",
+    icon: "🧭",
+    pinned: 0,
+    folders: [{ id: 3, name: "Biología" }],
+    decks: [],
+    tags: [],
+  });
+
+  let tree;
+  try {
+    await act(async () => {
+      tree = create(<NotaDetalle />);
+    });
+    const serialized = JSON.stringify(tree.toJSON());
+    expect(serialized.indexOf("note-top-links")).toBeGreaterThan(-1);
+    expect(serialized.indexOf("note-top-links")).toBeLessThan(serialized.indexOf("Título de la nota"));
+    expect(serialized.indexOf("Título de la nota")).toBeLessThan(serialized.indexOf("Descripción de la nota"));
+
+    const switcherTrigger = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Cambiar de nota");
+    await act(async () => switcherTrigger.props.onPress());
+
+    expect(tree.root.findByProps({ testID: "note-top-switcher" })).toBeTruthy();
+    const targetBtn = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Ir a nota Segunda nota");
+    await act(async () => {
+      await targetBtn.props.onPress();
+    });
+    expect(openNote).toHaveBeenCalledWith(88);
   } finally {
     await act(async () => tree?.unmount());
   }

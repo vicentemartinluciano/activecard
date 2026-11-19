@@ -138,7 +138,7 @@ export function normalizeBackup(backup) {
     folders: backup.folders || [],
     gym_chats: backup.gym_chats || [],
     gym_messages: backup.gym_messages || [],
-    notes: backup.notes || [],
+    notes: (backup.notes || []).map((note) => (note && Object.hasOwn(note, "description") ? { ...note, description: String(note.description ?? "") } : note)),
     note_decks: backup.note_decks || [],
     note_folders: backup.note_folders || [],
     note_tags: backup.note_tags || [],
