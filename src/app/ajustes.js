@@ -1,12 +1,14 @@
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View } from "react-native";
 
 import ActionSheet from "../components/ActionSheet";
 import AccountPanel from "../components/AccountPanel";
+import { useCloudSync } from "../components/CloudSyncProvider";
 import Collapsible from "../components/Collapsible";
 import PercentSlider from "../components/PercentSlider";
 import Stagger from "../components/Stagger";
+import StudySoundHost from "../components/StudySoundHost";
 import { useSyncRefresh } from "../components/useSyncRefresh";
 import { Button, Card, confirmAsync, Field, Screen } from "../components/ui";
 import { listDecks, updateDeckPriority } from "../db/decks";
@@ -29,10 +31,27 @@ import {
   syncReviewReminder,
   updateReviewReminderEnabled,
 } from "../lib/notifications";
-import { colors, spacing, type } from "../theme";
+import { loadStudySoundsEnabled, playStudySound, setStudySoundsEnabled } from "../lib/studySounds";
+import { colors, font, radius, spacing, type } from "../theme";
+
+const MCP_CLI_COMMANDS = "npm run mcp:build\nnpm run mcp:login\nnpm run mcp:status";
+const MCP_CONFIG_SNIPPET = JSON.stringify(
+  {
+    mcpServers: {
+      activecard: {
+        command: "node",
+        args: ["<ruta-al-repo>/mcp/dist/server.mjs"],
+      },
+    },
+  },
+  null,
+  2
+);
 
 export default function Ajustes() {
   const router = useRouter();
+  const cloudSync = useCloudSync();
+  const syncUser = cloudSync?.status?.user || null;
   const [decks, setDecks] = useState([]);
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
   const [openAIKey, setOpenAIKeyInput] = useState("");
@@ -51,12 +70,22 @@ export default function Ajustes() {
   const [reminder, setReminder] = useState(DEFAULT_REMINDER);
   const [reminderTime, setReminderTime] = useState(DEFAULT_REMINDER.time);
   const [reminderStatus, setReminderStatus] = useState(null);
+  const [soundsEnabled, setSoundsEnabled] = useState(true);
+  const [mcpCopyStatus, setMcpCopyStatus] = useState(null);
+  const copyTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setDecks(await listDecks());
     setLimits(await getDailyLimits());
     setUserName(await getSetting("userName", "Martín"));
     setLastAuto(await getSetting("lastAutoBackup", null));
+    setSoundsEnabled(await loadStudySoundsEnabled());
     setOpenAIKeyInput(getOpenAIKey() || "");
     setNotionTokenInput(getNotionToken() || "");
     if (Platform.OS !== "web") {
@@ -148,6 +177,49 @@ export default function Ajustes() {
     await setNotionToken(notionToken);
     setKeysStatus("Guardadas ✓");
     setTimeout(() => setKeysStatus(null), 2500);
+  };
+
+  const toggleSounds = async (next) => {
+    setSoundsEnabled(Boolean(next));
+    const saved = await setStudySoundsEnabled(next);
+    setSoundsEnabled(saved);
+  };
+
+  const copyOrShareMcpConfig = async () => {
+    try {
+      if (Platform.OS === "web") {
+        let copied = false;
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(MCP_CONFIG_SNIPPET);
+          copied = true;
+        } else if (typeof document !== "undefined") {
+          const area = document.createElement("textarea");
+          area.value = MCP_CONFIG_SNIPPET;
+          area.setAttribute("readonly", "");
+          area.style.position = "absolute";
+          area.style.left = "-9999px";
+          document.body.appendChild(area);
+          area.select();
+          copied = document.execCommand("copy");
+          document.body.removeChild(area);
+        }
+        setMcpCopyStatus(
+          copied ? "JSON copiado al portapapeles ✓" : "Copialo manualmente desde el recuadro."
+        );
+      } else {
+        const result = await Share.share({
+          message: MCP_CONFIG_SNIPPET,
+          title: "Configuración ActiveCard MCP",
+        });
+        if (result?.action !== Share.dismissedAction) {
+          setMcpCopyStatus("Listo para pegar en tu cliente MCP ✓");
+        }
+      }
+    } catch (e) {
+      setMcpCopyStatus(e?.message || "No pudimos copiar la configuración.");
+    }
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setMcpCopyStatus(null), 3000);
   };
 
   const doExport = async () => {
@@ -350,6 +422,32 @@ export default function Ajustes() {
         ) : null}
 
         <Collapsible
+          icon="volume-2"
+          title="Sonidos de estudio"
+          summary={soundsEnabled ? "Activados · tonos suaves" : "Silenciados"}
+        >
+          <View style={styles.reminderToggle}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={type.body}>Feedback auditivo al estudiar</Text>
+              <Text style={type.small}>
+                Tonos suaves al girar la tarjeta, calificar (Bien, Más o menos, No la sabía) y completar la sesión.
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel="Sonidos de estudio"
+              value={soundsEnabled}
+              onValueChange={toggleSounds}
+              trackColor={{ false: colors.surfaceHigh, true: colors.accentSoft }}
+              thumbColor={soundsEnabled ? colors.accentText : colors.textMuted}
+            />
+          </View>
+          <Button
+            label="Probar sonido"
+            onPress={() => playStudySound("good", { force: true })}
+          />
+        </Collapsible>
+
+        <Collapsible
           icon="sliders"
           title="Prioridad de los mazos"
           summary={
@@ -401,6 +499,59 @@ export default function Ajustes() {
           <Button label="Guardar conexión" kind="primary" onPress={saveKeys} />
           {keysStatus ? <Text style={type.small}>{keysStatus}</Text> : null}
         </Card>
+
+        <Collapsible
+          icon="terminal"
+          title="Conexión con agentes (MCP)"
+          summary={syncUser?.email ? "Cuenta lista · 9 herramientas locales" : "Requiere conectar tu cuenta arriba"}
+        >
+          <View style={styles.mcpStatusBox}>
+            <View
+              style={[
+                styles.mcpStatusDot,
+                { backgroundColor: syncUser?.email ? colors.successBright : colors.streak },
+              ]}
+            />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.body, { fontSize: 15, ...font(600) }]}>
+                {syncUser?.email ? "Cuenta sincronizada lista" : "Falta conectar tu cuenta"}
+              </Text>
+              <Text style={type.small}>
+                {syncUser?.email
+                  ? `Vinculado a ${syncUser.email}. El servidor MCP corre local por stdio, respeta tu aislamiento RLS y guarda solo un refresh token (sin contraseña).`
+                  : "Conectá tu cuenta de REANCLA en Cuenta y sincronización antes de iniciar sesión en el servidor MCP."}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={type.small}>1. Compilá e iniciá sesión en consola (dentro del repo):</Text>
+          <View style={styles.mcpCodeBox}>
+            <Text selectable style={styles.mcpCodeText}>
+              {MCP_CLI_COMMANDS}
+            </Text>
+          </View>
+
+          <Text style={type.small}>2. Agregá este bloque a la configuración MCP de tu agente:</Text>
+          <View style={styles.mcpCodeBox}>
+            <Text selectable style={styles.mcpCodeText}>
+              {MCP_CONFIG_SNIPPET}
+            </Text>
+          </View>
+
+          <Button
+            label={Platform.OS === "web" ? "Copiar JSON MCP" : "Compartir JSON MCP"}
+            kind="primary"
+            onPress={copyOrShareMcpConfig}
+          />
+          {mcpCopyStatus ? (
+            <Text accessibilityLiveRegion="polite" style={type.small}>
+              {mcpCopyStatus}
+            </Text>
+          ) : null}
+          <Text style={type.small}>
+            Expone 9 herramientas para organizar carpetas, mazos, tarjetas, notas y límites diarios sin tocar repasos FSRS. Para revocar la sesión local usá npm run mcp:logout. Detalle en docs/MCP-SERVER.md.
+          </Text>
+        </Collapsible>
 
         <Text style={type.label}>Datos</Text>
         <Card style={styles.section}>
@@ -508,6 +659,7 @@ export default function Ajustes() {
         />
         <Button label="Exportar sin archivos" kind="ghost" onPress={() => finishExport([])} />
       </ActionSheet>
+      <StudySoundHost forceMount />
     </Screen>
   );
 }
@@ -579,5 +731,34 @@ const styles = StyleSheet.create({
   sourceCheckText: {
     color: "#FFFFFF",
     fontSize: 13,
+  },
+  mcpStatusBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    padding: spacing.sm + 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surfaceHigh,
+  },
+  mcpStatusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    marginTop: 6,
+  },
+  mcpCodeBox: {
+    padding: spacing.sm + 4,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.bg,
+  },
+  mcpCodeText: {
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 19,
+    color: colors.text,
   },
 });

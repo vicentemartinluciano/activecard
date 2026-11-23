@@ -4,7 +4,7 @@ import * as sessionStore from "./syncSession";
 
 // Configuración pública. Nunca se usa una service_role ni una clave de REANCLA.
 export const SYNC_URL = "https://grhgrlaltuolzlorgaeg.supabase.co";
-const PUBLIC_KEY = "sb_publishable_Z-QfsMW0V9DU6okYwWW4lQ_g-LTJCsD";
+export const PUBLIC_KEY = "sb_publishable_Z-QfsMW0V9DU6okYwWW4lQ_g-LTJCsD";
 const BUCKET = "activecard-private";
 const CHUNK = 256 * 1024;
 const MAX_DOCUMENT = 256 * 1024 * 1024;
@@ -52,7 +52,8 @@ export function validateManifest(manifest) {
   }
   return manifest;
 }
-export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash = hashText, uuid = () => Crypto.randomUUID() } = {}) {
+export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash = hashText, uuid = () => Crypto.randomUUID(), url = SYNC_URL, publicKey = PUBLIC_KEY, onSession = null } = {}) {
+  const baseUrl = String(url || SYNC_URL).replace(/\/+$/, "");
   let session = null;
   let generation = 0;
   let remember = false;
@@ -80,9 +81,9 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
     });
     try {
       return await Promise.race([timeout, (async () => {
-        const response = await fetcher(`${SYNC_URL}${path}`, {
+        const response = await fetcher(`${baseUrl}${path}`, {
           method, signal: controller.signal,
-          headers: { apikey: PUBLIC_KEY, ...(access ? { Authorization: `Bearer ${access}` } : {}), ...(body !== undefined ? { "Content-Type": text ? "text/plain; charset=utf-8" : "application/json" } : {}) },
+          headers: { apikey: publicKey, ...(access ? { Authorization: `Bearer ${access}` } : {}), ...(body !== undefined ? { "Content-Type": text ? "text/plain; charset=utf-8" : "application/json" } : {}) },
           ...(body !== undefined ? { body: text ? body : JSON.stringify(body) } : {}),
         });
         let failure = null;
@@ -133,6 +134,10 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
     if (epoch !== generation) throw new Error("La sesión cambió. Volvé a conectar la cuenta.");
     await persist(data.refresh_token, epoch);
     if (epoch !== generation) throw new Error("La sesión cambió.");
+    if (typeof onSession === "function") {
+      await onSession({ userId: data.user.id, email: data.user.email || "", refreshToken: data.refresh_token });
+      if (epoch !== generation) throw new Error("La sesión cambió.");
+    }
     session = { ...data, expires: Date.now() + Math.max(0, Number(data.expires_in || 3600)) * 1000 };
     return { id: data.user.id, email: data.user.email };
   }
@@ -191,7 +196,15 @@ export function createSyncRemote({ fetcher = fetch, store = sessionStore, hash =
       const token = await store.readRefreshToken();
       return token ? refresh(token) : null;
     },
-    async logout() { const epoch = ++generation; session = null; cachedBlobs.clear(); knownBlobs.clear(); lastCloud = null; confirmedBase = null; await persist(null, epoch); },
+    getSession() {
+      return session ? { userId: session.user.id, email: session.user.email || "" } : null;
+    },
+    async logout() {
+      const epoch = ++generation;
+      session = null; cachedBlobs.clear(); knownBlobs.clear(); lastCloud = null; confirmedBase = null;
+      await persist(null, epoch);
+      if (typeof onSession === "function") await onSession(null);
+    },
     async read(progress = () => {}, checkpoint = null) {
       const auth = await credentials();
       // El checkpoint vive en SQLite, no en la caché de esta pestaña. Consultar

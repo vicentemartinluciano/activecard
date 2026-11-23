@@ -7,7 +7,6 @@ import * as FileSystem from "expo-file-system/legacy";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Platform,
   Pressable,
   StyleSheet,
@@ -17,17 +16,20 @@ import {
 import { initWhisper } from "whisper.rn/index";
 
 import { composeTranscript, mergeTranscript } from "../lib/voiceTranscript";
-import { colors, font, radius, spacing, type } from "../theme";
+import { colors, font, radius, tabular, type } from "../theme";
 
 const MODEL_NAME = "ggml-base-q5_1.bin";
 const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`;
 const MODEL_PATH = `${FileSystem.documentDirectory}${MODEL_NAME}`;
 const MODEL_PART_PATH = `${MODEL_PATH}.part`;
-// Tamaño publicado del modelo. El chequeo anterior aceptaba cualquier archivo
-// mayor a 50 MiB, incluso una descarga cortada que Whisper no podía abrir.
+// Tamaño publicado del modelo. Evita aceptar descargas cortadas que Whisper no puede abrir.
 const MODEL_SIZE = 59_707_625;
 const AUDIO_HEADER_BYTES = 44;
 const EVENT_TIMEOUT_MS = 6000;
+const START_FALLBACK_MS = 900;
+const WAVE_BARS = 28;
+const METER_INTERVAL_MS = 65;
+const DEFAULT_LEVELS = Array.from({ length: WAVE_BARS }, () => 0.16);
 
 let whisperPromise = null;
 
@@ -46,6 +48,13 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const nativeSessionText = (session) =>
   mergeTranscript(session?.nativeFinal || "", session?.nativeInterim || "");
 
+const formatDuration = (seconds) => {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+};
+
 function voiceError(error) {
   const message = String(error?.message || error || "");
   if (/permission|not-allowed|denied/i.test(message)) {
@@ -54,48 +63,23 @@ function voiceError(error) {
   if (/download|network|fetch/i.test(message)) {
     return "No pude preparar la transcripción. Revisá internet y reintentá.";
   }
-  if (/audio|speech|detect/i.test(message)) {
+  if (/audio|speech|detect|empty/i.test(message)) {
     return "No detecté voz. Probá hablar un poco más cerca del micrófono.";
   }
   return "No pude transcribir este audio. Podés reintentarlo.";
 }
 
-function VoiceDots({ active }) {
-  const dots = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
-
-  useEffect(() => {
-    const animations = dots.map((dot, index) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(index * 90),
-          Animated.timing(dot, { toValue: 1, duration: 220, useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 0, duration: 220, useNativeDriver: true }),
-          Animated.delay((dots.length - index) * 90),
-        ])
-      )
-    );
-    if (active) animations.forEach((animation) => animation.start());
-    else dots.forEach((dot) => dot.setValue(0));
-    return () => animations.forEach((animation) => animation.stop());
-  }, [active, dots]);
-
+function VoiceWaveform({ levels, active }) {
   return (
-    <View style={styles.dots}>
-      {dots.map((dot, index) => (
-        <Animated.View
+    <View style={styles.waveform}>
+      {levels.map((level, index) => (
+        <View
           key={index}
           style={[
-            styles.voiceDot,
+            styles.waveBar,
             {
-              opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
-              transform: [
-                { translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [2, -3] }) },
-              ],
+              height: Math.round(4 + level * 24),
+              opacity: active ? 0.45 + level * 0.55 : 0.25,
             },
           ]}
         />
@@ -104,16 +88,23 @@ function VoiceDots({ active }) {
   );
 }
 
-export default function VoiceInput({ value, onChangeText, children, buttonStyle }) {
-  const [state, setState] = useState("idle"); // idle | recording | paused | processing
+export default function VoiceInput({
+  value,
+  onChangeText,
+  disabled = false,
+  children,
+  buttonStyle,
+}) {
+  const [state, setState] = useState("idle"); // idle | starting | recording | paused | processing
   const [progress, setProgress] = useState(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [levels, setLevels] = useState(DEFAULT_LEVELS);
   const [error, setError] = useState("");
 
   const mountedRef = useRef(true);
   const stateRef = useRef(state);
   const onChangeRef = useRef(onChangeText);
   const valueRef = useRef(value);
-  const lastPublishedRef = useRef(value);
   const baseRef = useRef("");
   const accumulatedRef = useRef("");
   const sessionRef = useRef(null);
@@ -124,6 +115,12 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
   const stopReasonRef = useRef(null);
   const audioResolverRef = useRef(null);
   const endResolverRef = useRef(null);
+  const startFallbackRef = useRef(null);
+  const meterTimerRef = useRef(null);
+  const clockTimerRef = useRef(null);
+  const speakingUntilRef = useRef(0);
+  const impulseRef = useRef(0);
+  const meterTickRef = useRef(0);
   const latestRef = useRef({ unexpectedEnd: null });
 
   stateRef.current = state;
@@ -135,25 +132,101 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
     if (mountedRef.current) setState(nextState);
   };
 
+  const stopVisualLoops = () => {
+    clearTimeout(startFallbackRef.current);
+    startFallbackRef.current = null;
+    clearInterval(meterTimerRef.current);
+    meterTimerRef.current = null;
+    clearInterval(clockTimerRef.current);
+    clockTimerRef.current = null;
+  };
+
+  const markAudioReady = () => {
+    clearTimeout(startFallbackRef.current);
+    startFallbackRef.current = null;
+    if (stateRef.current === "starting" && !stopReasonRef.current && mountedRef.current) {
+      changeState("recording");
+    }
+  };
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (recognizingRef.current) ExpoSpeechRecognitionModule.abort();
+      stopVisualLoops();
+      if (recognizingRef.current) {
+        try {
+          ExpoSpeechRecognitionModule.abort();
+        } catch {}
+      }
       const uri = sessionRef.current?.uri;
       if (uri) FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
     };
   }, []);
 
-  const publish = (current = nativeSessionText(sessionRef.current)) => {
-    if (!mountedRef.current) return;
-    const nextValue = composeTranscript(baseRef.current, accumulatedRef.current, current);
-    lastPublishedRef.current = nextValue;
-    valueRef.current = nextValue;
-    onChangeRef.current(nextValue);
-  };
+  useEffect(() => {
+    clearInterval(meterTimerRef.current);
+    clearInterval(clockTimerRef.current);
+    meterTimerRef.current = null;
+    clockTimerRef.current = null;
+    if (state !== "recording") return undefined;
+
+    clockTimerRef.current = setInterval(() => {
+      if (mountedRef.current) setElapsedSec((prev) => prev + 1);
+    }, 1000);
+
+    meterTimerRef.current = setInterval(() => {
+      if (!mountedRef.current || stateRef.current !== "recording") return;
+      meterTickRef.current += 1;
+      const tick = meterTickRef.current;
+      const speaking = Date.now() < speakingUntilRef.current;
+      const impulse = impulseRef.current;
+      impulseRef.current = Math.max(0, impulse * 0.72);
+      const base = speaking
+        ? 0.42 + Math.abs(Math.sin(tick * 0.65)) * 0.34 + impulse * 0.24
+        : 0.16 + Math.abs(Math.sin(tick * 0.35)) * 0.1;
+      const level = Math.max(0.14, Math.min(1, Number(base.toFixed(2))));
+      setLevels((prev) => [...prev.slice(1), level]);
+    }, METER_INTERVAL_MS);
+
+    return () => {
+      clearInterval(meterTimerRef.current);
+      clearInterval(clockTimerRef.current);
+      meterTimerRef.current = null;
+      clockTimerRef.current = null;
+    };
+  }, [state]);
+
+  useSpeechRecognitionEvent("audiostart", () => {
+    markAudioReady();
+  });
+
+  useSpeechRecognitionEvent("start", () => {
+    markAudioReady();
+  });
+
+  useSpeechRecognitionEvent("speechstart", () => {
+    markAudioReady();
+    speakingUntilRef.current = Date.now() + 900;
+    impulseRef.current = 0.9;
+  });
+
+  useSpeechRecognitionEvent("soundstart", () => {
+    markAudioReady();
+    speakingUntilRef.current = Date.now() + 700;
+    impulseRef.current = Math.max(impulseRef.current, 0.7);
+  });
+
+  useSpeechRecognitionEvent("speechend", () => {
+    speakingUntilRef.current = 0;
+  });
+
+  useSpeechRecognitionEvent("soundend", () => {
+    speakingUntilRef.current = 0;
+  });
 
   useSpeechRecognitionEvent("result", (event) => {
+    markAudioReady();
     const session = sessionRef.current;
     const text = event.results?.[0]?.transcript?.trim();
     const acceptingFinalResult =
@@ -164,28 +237,20 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       return;
     }
 
-    // Si el usuario escribió mientras grababa, esa edición pasa a ser la nueva
-    // base. Así un resultado tardío del reconocedor nunca pisa texto manual.
-    if (valueRef.current.trim() !== lastPublishedRef.current.trim()) {
-      baseRef.current = valueRef.current.trim();
-      accumulatedRef.current = "";
-      session.nativeFinal = "";
-      session.nativeInterim = "";
-    }
+    speakingUntilRef.current = Date.now() + 750;
+    impulseRef.current = 1;
+
     if (event.isFinal) {
       session.nativeFinal = mergeTranscript(session.nativeFinal, text);
       session.nativeInterim = "";
     } else {
       session.nativeInterim = text;
     }
-    publish();
   });
 
   useSpeechRecognitionEvent("error", (event) => {
     const session = sessionRef.current;
     if (!session) return;
-    // abort() es el cierre intencional que usamos para obtener el WAV. Algunos
-    // proveedores lo informan como "aborted" y otros como "client".
     if (stopReasonRef.current && ["aborted", "client"].includes(event.error)) return;
     session.nativeError = event.message || event.error;
   });
@@ -204,6 +269,9 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
   });
 
   useSpeechRecognitionEvent("end", () => {
+    clearTimeout(startFallbackRef.current);
+    startFallbackRef.current = null;
+    speakingUntilRef.current = 0;
     const session = sessionRef.current;
     if (session) {
       session.endObserved = true;
@@ -212,7 +280,7 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
     recognizingRef.current = false;
     endResolverRef.current?.();
     endResolverRef.current = null;
-    if (!stopReasonRef.current && stateRef.current === "recording") {
+    if (!stopReasonRef.current && ["starting", "recording"].includes(stateRef.current)) {
       latestRef.current.unexpectedEnd?.();
     }
   });
@@ -251,8 +319,8 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
   const transcribeSession = async (session) => {
     const nativeFinal = session?.nativeFinal?.trim() || "";
     const nativeText = nativeSessionText(session);
-    // Android suele entregar un resultado final al detener. Ese camino es
-    // inmediato; Whisper queda como respaldo real, no como paso obligatorio.
+    // Si el motor del sistema entregó resultado final limpio, se usa directo;
+    // Whisper queda como respaldo local sobre el WAV persistido.
     if (nativeFinal && !session.nativeError && !session.forceWhisper) return nativeText;
     if (!session?.uri) {
       if (nativeText) return nativeText;
@@ -285,6 +353,8 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
   };
 
   const closeCapture = async (reason) => {
+    clearTimeout(startFallbackRef.current);
+    startFallbackRef.current = null;
     const session = sessionRef.current;
     if (!session) return session;
     if (session.audioEnded && session.endObserved) return session;
@@ -313,8 +383,6 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       wait(EVENT_TIMEOUT_MS).then(() => false),
     ]);
 
-    // Algunos servicios de Android no responden a stop(). Recién entonces se
-    // cancela: el WAV persistido sigue quedando disponible para Whisper.
     if (!didComplete && shouldKeepNativeResult) {
       session.forceWhisper = true;
       ExpoSpeechRecognitionModule.abort();
@@ -333,13 +401,12 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
     return session;
   };
 
-  const processCapturedSession = async (session) => {
+  const processCapturedSession = async (session, { allowEmptyIfAccumulated = false } = {}) => {
     if (!session || session.processed) return true;
     try {
       const text = await transcribeSession(session);
       accumulatedRef.current = mergeTranscript(accumulatedRef.current, text);
       session.processed = true;
-      publish("");
       if (session.uri) {
         await FileSystem.deleteAsync(session.uri, { idempotent: true });
         session.uri = null;
@@ -349,6 +416,15 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       }
       return true;
     } catch (sessionError) {
+      if (allowEmptyIfAccumulated && accumulatedRef.current.trim()) {
+        session.processed = true;
+        if (session.uri) {
+          await FileSystem.deleteAsync(session.uri, { idempotent: true }).catch(() => {});
+          session.uri = null;
+        }
+        if (mountedRef.current) setError("");
+        return true;
+      }
       if (mountedRef.current) setError(voiceError(sessionError));
       return false;
     }
@@ -357,6 +433,7 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
   const finalizeCurrent = async ({ alreadyEnded = false, reason = "pause" } = {}) => {
     if (finalizingRef.current) return false;
     finalizingRef.current = true;
+    speakingUntilRef.current = 0;
     if (mountedRef.current) {
       changeState("processing");
       setError("");
@@ -365,7 +442,9 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       const session = alreadyEnded
         ? sessionRef.current
         : await closeCapture(reason);
-      const ok = await processCapturedSession(session);
+      const ok = await processCapturedSession(session, {
+        allowEmptyIfAccumulated: reason === "finish",
+      });
       changeState("paused");
       return ok;
     } catch (closeError) {
@@ -399,6 +478,7 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
     startingRef.current = true;
     try {
       setError("");
+      changeState("starting");
       const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
       if (!permission.granted) throw new Error("permission denied");
       if (!mountedRef.current) return;
@@ -421,7 +501,8 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       };
       stopReasonRef.current = null;
       recognizingRef.current = true;
-      changeState("recording");
+      speakingUntilRef.current = 0;
+      impulseRef.current = 0;
 
       const availableServices = Platform.OS === "android"
         ? ExpoSpeechRecognitionModule.getSpeechRecognitionServices()
@@ -431,6 +512,11 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
         ? "com.google.android.googlequicksearchbox"
         : undefined;
 
+      clearTimeout(startFallbackRef.current);
+      startFallbackRef.current = setTimeout(() => {
+        markAudioReady();
+      }, START_FALLBACK_MS);
+
       ExpoSpeechRecognitionModule.start({
         lang: "es-AR",
         interimResults: true,
@@ -438,11 +524,22 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
         maxAlternatives: 1,
         addsPunctuation: true,
         ...(googleService ? { androidRecognitionServicePackage: googleService } : {}),
+        ...(Platform.OS === "android"
+          ? {
+              androidIntentOptions: {
+                EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 4500,
+                EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 3000,
+                EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 10000,
+              },
+            }
+          : {}),
         ...(canPersist
           ? { recordingOptions: { persist: true, outputFileName: fileName } }
           : {}),
       });
     } catch (startError) {
+      clearTimeout(startFallbackRef.current);
+      startFallbackRef.current = null;
       recognizingRef.current = false;
       sessionRef.current = null;
       if (mountedRef.current) {
@@ -455,17 +552,17 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
   };
 
   const begin = async () => {
-    if (stateRef.current !== "idle") return;
-    baseRef.current = value.trim();
+    if (disabled || stateRef.current !== "idle") return;
+    baseRef.current = String(valueRef.current || "").trim();
     accumulatedRef.current = "";
-    valueRef.current = value;
-    lastPublishedRef.current = value;
+    setElapsedSec(0);
+    setLevels(DEFAULT_LEVELS);
     await startSegment();
   };
 
   const pause = async () => {
-    if (stateRef.current !== "recording") return;
-    await finalizeCurrent();
+    if (!["recording", "starting"].includes(stateRef.current)) return;
+    await finalizeCurrent({ reason: "pause" });
   };
 
   const resume = async () => {
@@ -501,7 +598,9 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       finalizingRef.current = true;
       changeState("processing");
       try {
-        ok = await processCapturedSession(sessionRef.current);
+        ok = await processCapturedSession(sessionRef.current, {
+          allowEmptyIfAccumulated: true,
+        });
       } finally {
         finalizingRef.current = false;
       }
@@ -510,13 +609,19 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       changeState("paused");
       return;
     }
-    lastPublishedRef.current = valueRef.current;
+    const finalSpoken = accumulatedRef.current.trim();
+    if (finalSpoken) {
+      const nextValue = composeTranscript(baseRef.current, finalSpoken);
+      onChangeRef.current?.(nextValue);
+    }
     baseRef.current = "";
     accumulatedRef.current = "";
     sessionRef.current = null;
     stopReasonRef.current = null;
     if (mountedRef.current) {
       setProgress(null);
+      setElapsedSec(0);
+      setLevels(DEFAULT_LEVELS);
       changeState("idle");
     }
   };
@@ -532,15 +637,14 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
       if (session?.uri) {
         await FileSystem.deleteAsync(session.uri, { idempotent: true }).catch(() => {});
       }
-      onChangeRef.current(baseRef.current);
-      valueRef.current = baseRef.current;
-      lastPublishedRef.current = baseRef.current;
       baseRef.current = "";
       accumulatedRef.current = "";
       sessionRef.current = null;
       if (mountedRef.current) {
         setError("");
         setProgress(null);
+        setElapsedSec(0);
+        setLevels(DEFAULT_LEVELS);
         changeState("idle");
       }
     } catch (discardError) {
@@ -554,139 +658,194 @@ export default function VoiceInput({ value, onChangeText, children, buttonStyle 
     }
   };
 
-  const active = ["recording", "paused", "processing"].includes(state);
+  const active = ["starting", "recording", "paused", "processing"].includes(state);
+  const lockedControl = state === "processing" || state === "starting";
+
   const micButton = active ? (
     <View style={styles.micPlaceholder} />
   ) : (
-    <Pressable accessibilityRole="button" accessibilityLabel="Dictar por voz" onPress={begin} style={[styles.mic, buttonStyle]}>
-      <Feather name="mic" size={18} color={buttonStyle ? colors.text : '#00F2FE'} />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Dictar por voz"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={begin}
+      style={({ pressed }) => [styles.mic, buttonStyle, disabled && styles.disabled, pressed && styles.pressed]}
+    >
+      <Feather name="mic" size={18} color={buttonStyle ? colors.text : "#00F2FE"} />
     </Pressable>
   );
 
+  const panel = active ? (
+    <View style={styles.bar} accessibilityLiveRegion="polite">
+      <View style={styles.leftMeta}>
+        {state === "starting" || state === "processing" ? (
+          <>
+            <ActivityIndicator color="#00F2FE" size="small" />
+            <Text style={styles.statusText} numberOfLines={1}>
+              {state === "starting"
+                ? "Preparando…"
+                : progress != null
+                  ? `${Math.round(progress * 100)}%`
+                  : "Procesando…"}
+            </Text>
+          </>
+        ) : (
+          <>
+            <View style={[styles.recDot, state === "paused" && styles.recDotPaused]} />
+            <Text style={styles.timer}>{formatDuration(elapsedSec)}</Text>
+          </>
+        )}
+      </View>
+      <VoiceWaveform levels={levels} active={state === "recording"} />
+      <View style={styles.actions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={state === "recording" ? "Pausar dictado" : "Continuar dictado"}
+          disabled={lockedControl}
+          onPress={state === "recording" ? pause : resume}
+          style={({ pressed }) => [styles.controlBtn, lockedControl && styles.disabled, pressed && styles.pressed]}
+        >
+          <Feather name={state === "recording" ? "pause" : "play"} size={16} color="#00F2FE" />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Eliminar dictado"
+          disabled={state === "processing"}
+          onPress={discard}
+          style={({ pressed }) => [styles.controlBtn, state === "processing" && styles.disabled, pressed && styles.pressed]}
+        >
+          <Feather name="x" size={17} color={colors.textMuted} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cargar transcripción"
+          disabled={lockedControl}
+          onPress={finish}
+          style={({ pressed }) => [styles.confirmBtn, lockedControl && styles.disabled, pressed && styles.pressed]}
+        >
+          <Feather name="check" size={18} color="#FFFFFF" />
+        </Pressable>
+      </View>
+    </View>
+  ) : null;
+
+  if (typeof children === "function") {
+    return children({ micButton, panel, active, error });
+  }
+
   return (
-    <View style={styles.area}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {active ? (
-        <View style={styles.audioPanel}>
-          <View style={styles.voicePill}>
-            {state === "processing" ? (
-              <>
-                <ActivityIndicator color="#00F2FE" size="small" />
-                {progress != null ? (
-                  <Text style={styles.progress}>{Math.round(progress * 100)}%</Text>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <View style={[styles.statusDot, state === "paused" && styles.statusDotPaused]} />
-                <VoiceDots active={state === "recording"} />
-              </>
-            )}
-          </View>
-          <Pressable
-            accessibilityLabel={state === "recording" ? "Pausar dictado" : "Continuar dictado"}
-            onPress={state === "recording" ? pause : resume}
-            disabled={state === "processing"}
-            style={[styles.control, state === "processing" && styles.disabled]}
-          >
-            <Feather name={state === "recording" ? "pause" : "play"} size={16} color="#00F2FE" />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Eliminar dictado"
-            onPress={discard}
-            disabled={state === "processing"}
-            style={[styles.quiet, state === "processing" && styles.disabled]}
-          >
-            <Feather name="trash-2" size={16} color={colors.textMuted} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Cargar transcripción"
-            onPress={finish}
-            disabled={state === "processing"}
-            style={[styles.finish, state === "processing" && styles.disabled]}
-          >
-            <Feather name="check" size={17} color="#fff" />
-          </Pressable>
-        </View>
-      ) : null}
-      {typeof children === "function" ? children({ micButton, active }) : micButton}
+    <View style={styles.fallbackArea}>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {panel || micButton}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  area: {
+  fallbackArea: {
     alignSelf: "stretch",
     gap: 4,
   },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    textAlign: "right",
+  },
   mic: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.cyanBorder,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(8,22,38,0.82)",
   },
-  micPlaceholder: { width: 38, height: 38 },
-  // Fila real dentro del layout: Android puede medir y tocar todos sus botones
-  // sin depender de overflow fuera del slot angosto del micrófono.
-  audioPanel: {
-    alignSelf: "flex-end",
-    marginRight: 4,
-    width: 182,
-    height: 38,
+  micPlaceholder: {
+    width: 40,
+    height: 40,
+  },
+  bar: {
+    flex: 1,
+    minHeight: 40,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 4,
-  },
-  voicePill: {
-    width: 72,
-    height: 32,
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
     borderRadius: radius.pill,
+  },
+  leftMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    minWidth: 52,
+  },
+  recDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#F05D62",
+  },
+  recDotPaused: {
+    backgroundColor: colors.textMuted,
+  },
+  timer: {
+    ...type.small,
+    fontSize: 12,
+    color: colors.text,
+    ...font(600),
+    ...tabular,
+  },
+  statusText: {
+    ...type.small,
+    fontSize: 12,
+    color: colors.text,
+    ...font(600),
+  },
+  waveform: {
+    flex: 1,
+    height: 30,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm,
-    backgroundColor: "#141822",
+    gap: 3,
+    paddingHorizontal: 4,
+    overflow: "hidden",
   },
-  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#F05D62" },
-  statusDotPaused: { backgroundColor: colors.textMuted },
-  dots: { height: 16, flexDirection: "row", alignItems: "center", gap: 4 },
-  voiceDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#00F2FE" },
-  progress: { ...type.small, ...font(600), fontSize: 9, color: "#00F2FE" },
-  control: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#141822",
+  waveBar: {
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: "#00F2FE",
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  controlBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
-  quiet: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#141822",
+  confirmBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-  },
-  finish: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
     backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  disabled: { opacity: 0.4 },
-  error: {
-    alignSelf: "flex-end",
-    maxWidth: "100%",
-    color: colors.danger,
-    fontSize: 10,
-    textAlign: "right",
+  disabled: {
+    opacity: 0.35,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

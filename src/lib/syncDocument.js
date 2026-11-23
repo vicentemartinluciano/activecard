@@ -1,4 +1,4 @@
-import { FSRS_COLS } from "../db/cards";
+import { FSRS_COLS } from "./fsrsCols";
 import { validateFolderTree } from "./folderTree";
 
 export const COLUMNS = {

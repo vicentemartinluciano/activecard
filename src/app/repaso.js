@@ -11,6 +11,7 @@ import FlipCard from "../components/FlipCard";
 import ProgressBar from "../components/ProgressBar";
 import ReferenceNotesSheet from "../components/ReferenceNotesSheet";
 import Skeleton from "../components/Skeleton";
+import StudySoundHost from "../components/StudySoundHost";
 import SwipeCard from "../components/SwipeCard";
 import useDeckReferenceNotes from "../components/useDeckReferenceNotes";
 import useStudyKeyboard from "../components/useStudyKeyboard";
@@ -22,6 +23,7 @@ import { getDailyQueue } from "../db/reviewQueue";
 import { syncReviewReminder } from "../lib/notifications";
 import { previewIntervals } from "../lib/scheduler";
 import { buildFailedRound } from "../lib/studySession";
+import { loadStudySoundsEnabled, playStudySound } from "../lib/studySounds";
 import {
   colors,
   font,
@@ -40,6 +42,7 @@ import {
 // render de la pantalla de repaso.
 function SummaryHaptic() {
   useEffect(() => {
+    playStudySound("complete");
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
@@ -87,6 +90,10 @@ export default function Repaso() {
   }, []);
 
   useEffect(() => {
+    loadStudySoundsEnabled().catch(() => {});
+  }, []);
+
+  useEffect(() => {
     let alive = true;
     Promise.all([getDailyQueue(), Promise.resolve(listDecks?.()).catch(() => [])]).then(([q, decks]) => {
       if (!alive) return;
@@ -107,6 +114,7 @@ export default function Repaso() {
   };
 
   const grade = async (rating) => {
+    playStudySound(rating);
     const card = round[index];
     const prev = snapshotFsrs(card);
     const updated = await reviewCard(card, rating, "daily");
@@ -202,7 +210,7 @@ export default function Repaso() {
   const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
   const activeCard = status === "studying" && index < round.length ? round[index] : null;
   const referenceNotes = useDeckReferenceNotes(activeCard?.deck_id, notesRefreshKey);
-  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && index < round.length && phase === 'card' && !referenceOpen, flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
+  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && index < round.length && phase === 'card' && !referenceOpen, flipped, flip: () => { playStudySound("flip"); setFlipped((value) => !value); }, grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
   useEffect(() => {
     if (!sessionComplete) return;
     syncReviewReminder().catch(() => {});
@@ -274,6 +282,7 @@ export default function Repaso() {
         </View>
         {hasReviews ? <ConfettiOverlay /> : null}
         {hasReviews ? <SummaryHaptic /> : null}
+        <StudySoundHost />
       </Screen>
     );
   }
@@ -284,7 +293,7 @@ export default function Repaso() {
 
   if (phase === "gym") {
     return (
-      <Screen>
+      <Screen safeTop>
         <Stack.Screen options={{ headerShown: false }} />
         <ChatAuditor card={card} onDone={finishGym} />
       </Screen>
@@ -340,7 +349,10 @@ export default function Repaso() {
             front={card.front}
             back={card.back}
             flipped={flipped}
-            onFlip={() => setFlipped((f) => !f)}
+            onFlip={() => {
+              playStudySound("flip");
+              setFlipped((f) => !f);
+            }}
             starred={!!card.starred}
             onToggleStar={async () => {
               const v = card.starred ? 0 : 1;
@@ -419,6 +431,7 @@ export default function Repaso() {
           router.push(`/notas/${noteId}`);
         }}
       />
+      <StudySoundHost />
     </Screen>
   );
 }

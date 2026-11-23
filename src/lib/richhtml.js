@@ -1,5 +1,6 @@
 import { validColumnWidths } from "./richTable";
 import { encodeFormatted, encodeList } from "./richContent";
+import { matchMathAt } from "./mathLatex";
 // Conversión entre las marcas de richtext.js y HTML (TipTap) — el puente del
 // editor Notion (NotionField). Sin DOM: un solo code path para jest-expo,
 // nativo y web. Reusa parseRich (única implementación marcas→spans de la app;
@@ -146,6 +147,51 @@ export function groupQuoteRuns(blocks) {
     }
   }
   return grouped;
+}
+
+// Reúne bloques de ecuación en bloque ($$...$$ o \[...\], en una línea o multilínea)
+// para que RichText los renderice centrados y sin partirse entre párrafos.
+export function groupDisplayMathBlocks(blocks) {
+  const out = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const block = blocks[i];
+    if (block.kind === "p" && Array.isArray(block.spans)) {
+      const plain = block.spans.map((s) => s.text).join("").trim();
+      const single = plain ? matchMathAt(plain, 0) : null;
+      if (single && single.display && single.end === plain.length) {
+        out.push({ kind: "mathBlock", latex: single.latex, align: block.align || null });
+        i += 1;
+        continue;
+      }
+      if ((plain.startsWith("$$") || plain.startsWith("\\[")) && !single) {
+        let matched = null;
+        let closeIdx = -1;
+        for (let j = i + 1; j < blocks.length; j += 1) {
+          if (blocks[j].kind !== "p" || !Array.isArray(blocks[j].spans)) break;
+          const combined = blocks
+            .slice(i, j + 1)
+            .map((item) => item.spans.map((s) => s.text).join(""))
+            .join("\n")
+            .trim();
+          const candidate = matchMathAt(combined, 0);
+          if (candidate && candidate.display && candidate.end === combined.length) {
+            matched = candidate;
+            closeIdx = j;
+            break;
+          }
+        }
+        if (matched && closeIdx !== -1) {
+          out.push({ kind: "mathBlock", latex: matched.latex, align: block.align || null });
+          i = closeIdx + 1;
+          continue;
+        }
+      }
+    }
+    out.push(block);
+    i += 1;
+  }
+  return out;
 }
 
 // style="text-align:..." para un bloque. Se emite para cualquier alineación

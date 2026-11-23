@@ -7,7 +7,8 @@ module.exports = defineConfig([
   expoConfig,
   {
     // assets/editor: bundle del editor GENERADO por scripts/build-editor.mjs.
-    ignores: ["dist/*", ".desktop-preview*/**", ".web-ci/**", ".expo/*", "assets/editor/*"],
+    // mcp/dist: bundle Node generado por scripts/build-mcp.mjs.
+    ignores: ["dist/*", ".desktop-preview*/**", ".web-ci/**", ".expo/*", "assets/editor/*", "mcp/dist/**"],
   },
   {
     rules: {
@@ -24,7 +25,7 @@ module.exports = defineConfig([
   },
   {
     // Scripts de Node puros (lanzadores y builds).
-    files: ["scripts/**/*.js", "scripts/**/*.mjs", "*.config.js"],
+    files: ["scripts/**/*.js", "scripts/**/*.mjs", "*.config.js", "mcp/src/**/*.ts"],
     languageOptions: {
       globals: {
         __dirname: "readonly",
@@ -32,7 +33,24 @@ module.exports = defineConfig([
         require: "readonly",
         module: "readonly",
         console: "readonly",
+        Buffer: "readonly",
+        fetch: "readonly",
+        URL: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        AbortController: "readonly",
+        structuredClone: "readonly",
       },
+    },
+    rules: {
+      "import/no-unresolved": ["error", { ignore: ["^node:"] }],
+    },
+  },
+  {
+    files: ["mcp/src/**/*.ts"],
+    rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" }],
     },
   },
   {

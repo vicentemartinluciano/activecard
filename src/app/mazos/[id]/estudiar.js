@@ -11,6 +11,7 @@ import FlipCard from "../../../components/FlipCard";
 import ProgressBar from "../../../components/ProgressBar";
 import ReferenceNotesSheet from "../../../components/ReferenceNotesSheet";
 import Skeleton from "../../../components/Skeleton";
+import StudySoundHost from "../../../components/StudySoundHost";
 import SwipeCard from "../../../components/SwipeCard";
 import useDeckReferenceNotes from "../../../components/useDeckReferenceNotes";
 import useStudyKeyboard from "../../../components/useStudyKeyboard";
@@ -22,6 +23,7 @@ import { listWeakCards } from "../../../db/stats";
 import { syncReviewReminder } from "../../../lib/notifications";
 import { previewIntervals } from "../../../lib/scheduler";
 import { buildFailedRound, shuffle } from "../../../lib/studySession";
+import { loadStudySoundsEnabled, playStudySound } from "../../../lib/studySounds";
 import {
   colors,
   font,
@@ -40,6 +42,7 @@ import {
 // render de la pantalla de estudio.
 function SummaryHaptic() {
   useEffect(() => {
+    playStudySound("complete");
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
@@ -103,6 +106,10 @@ export default function Estudiar() {
   }, []);
 
   useEffect(() => {
+    loadStudySoundsEnabled().catch(() => {});
+  }, []);
+
+  useEffect(() => {
     let alive = true;
     (async () => {
       // Puntos débiles: el pool son las tarjetas que más fallaste, sin filtro
@@ -137,6 +144,7 @@ export default function Estudiar() {
   }, [deckId, startRound, starsOnly, inMyOrder, esDebiles, syncReload]);
 
   const grade = async (rating) => {
+    playStudySound(rating);
     const card = round[index];
     const prev = snapshotFsrs(card);
     const updated = await reviewCard(card, rating, "quizlet");
@@ -240,7 +248,7 @@ export default function Estudiar() {
   const sessionComplete = status === "studying" && round.length > 0 && index >= round.length;
   const activeCard = status === "studying" && index < round.length ? round[index] : null;
   const referenceNotes = useDeckReferenceNotes(activeCard?.deck_id || (!esDebiles && deckId ? deckId : null), notesRefreshKey);
-  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && phase === 'card' && !sessionComplete && !referenceOpen && index < round.length, flipped, flip: () => setFlipped((value) => !value), grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
+  const keyboardError = useStudyKeyboard({ enabled: status === 'studying' && phase === 'card' && !sessionComplete && !referenceOpen && index < round.length, flipped, flip: () => { playStudySound("flip"); setFlipped((value) => !value); }, grade: (rating) => swipeRef.current?.swipe(rating), isBusy: () => swipeRef.current?.isBusy() });
   useEffect(() => {
     if (!sessionComplete) return;
     syncReviewReminder().catch(() => {});
@@ -318,6 +326,7 @@ export default function Estudiar() {
         </View>
         {hasReviews ? <ConfettiOverlay /> : null}
         {hasReviews ? <SummaryHaptic /> : null}
+        <StudySoundHost />
       </Screen>
     );
   }
@@ -326,7 +335,7 @@ export default function Estudiar() {
   const intervals = previewIntervals(card);
 
   if (phase === "gym") return (
-    <Screen><Stack.Screen options={{ headerShown: false }} /><ChatAuditor card={card} onDone={next} /></Screen>
+    <Screen safeTop><Stack.Screen options={{ headerShown: false }} /><ChatAuditor card={card} onDone={next} /></Screen>
   );
 
   return (
@@ -377,7 +386,10 @@ export default function Estudiar() {
             front={card.front}
             back={card.back}
             flipped={flipped}
-            onFlip={() => setFlipped((f) => !f)}
+            onFlip={() => {
+              playStudySound("flip");
+              setFlipped((f) => !f);
+            }}
             starred={!!card.starred}
             onToggleStar={() => toggleStar(card)}
             onEdit={() => editCard(card)}
@@ -448,6 +460,7 @@ export default function Estudiar() {
           router.push(`/notas/${noteId}`);
         }}
       />
+      <StudySoundHost />
     </Screen>
   );
 }
