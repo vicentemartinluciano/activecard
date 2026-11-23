@@ -14,7 +14,8 @@ import { Table, TableView, TableRow, TableCell, TableHeader } from "@tiptap/exte
 import katex from "katex";
 
 import { attachEditorTableControls } from "./editorTableControls";
-import { splitMathSegments } from "./mathLatex";
+import { clipboardToEditorHtml, endsWithDisplayMathParagraph } from "./editorPaste";
+import { matchMathAt, splitMathSegments } from "./mathLatex";
 
 import { compressFile } from "./imageCompress";
 import { Image } from "./tiptapImage";
@@ -177,6 +178,37 @@ function collectTextRuns(textblock, blockStartPos) {
   return runs;
 }
 
+function createMathWidget(editor, latex, display, key, widgetPos, editPos) {
+  const html = renderMathDecorationHtml(latex, display);
+  if (!html) return null;
+  return Decoration.widget(
+    widgetPos,
+    (view) => {
+      const el = document.createElement("span");
+      el.className = display ? "nf-math-widget nf-math-block" : "nf-math-widget nf-math-inline";
+      el.contentEditable = "false";
+      el.innerHTML = html;
+      el.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+      });
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const targetPos = Math.min(editPos, view.state.doc.content.size);
+        view.dispatch(
+          view.state.tr
+            .setSelection(TextSelection.create(view.state.doc, targetPos))
+            .setMeta(mathLiveKey, true)
+            .setMeta("addToHistory", false)
+        );
+        editor.commands.focus();
+      });
+      return el;
+    },
+    { side: -1, key }
+  );
+}
+
 const MathLivePreview = Extension.create({
   name: "mathLivePreview",
   addProseMirrorPlugins() {
@@ -205,10 +237,121 @@ const MathLivePreview = Extension.create({
           decorations(state) {
             const focused = Boolean(mathLiveKey.getState(state)?.focused);
             const { from: selFrom, to: selTo } = state.selection;
+            const isRangeActive = (from, to) =>
+              focused && (selFrom === selTo ? selFrom > from && selFrom < to : selFrom < to && selTo > from);
             const decorations = [];
+            const consumedParagraphPositions = new Set();
+
+            const scanMultilineContainer = (container, contentStartPos) => {
+              const children = [];
+              let offset = 0;
+              container.forEach((child) => {
+                children.push({ node: child, pos: contentStartPos + offset });
+                offset += child.nodeSize;
+              });
+
+              let i = 0;
+              while (i < children.length) {
+                const startItem = children[i];
+                if (startItem.node.type.name !== "paragraph") {
+                  i += 1;
+                  continue;
+                }
+                const trimmed = startItem.node.textContent.trim();
+                const opensMultiline =
+                  (trimmed.startsWith("$$") || trimmed.startsWith("\\[")) && !matchMathAt(trimmed, 0);
+                if (!opensMultiline) {
+                  i += 1;
+                  continue;
+                }
+
+                let closeIdx = -1;
+                let matched = null;
+                const maxEnd = Math.min(children.length, i + 40);
+                for (let j = i + 1; j < maxEnd; j += 1) {
+                  if (children[j].node.type.name !== "paragraph") break;
+                  const combined = children
+                    .slice(i, j + 1)
+                    .map((item) => item.node.textContent)
+                    .join("\n")
+                    .trim();
+                  const cand = matchMathAt(combined, 0);
+                  if (cand && cand.display && cand.end === combined.length) {
+                    closeIdx = j;
+                    matched = cand;
+                    break;
+                  }
+                }
+
+                if (closeIdx !== -1 && matched) {
+                  const first = children[i];
+                  const last = children[closeIdx];
+                  const blockFrom = first.pos + 1;
+                  const blockTo = last.pos + last.node.nodeSize - 1;
+                  for (let k = i; k <= closeIdx; k += 1) {
+                    consumedParagraphPositions.add(children[k].pos);
+                  }
+                  if (isRangeActive(blockFrom, blockTo)) {
+                    for (let k = i; k <= closeIdx; k += 1) {
+                      const item = children[k];
+                      if (item.node.content.size > 0) {
+                        decorations.push(
+                          Decoration.inline(item.pos + 1, item.pos + 1 + item.node.content.size, {
+                            class: "nf-math-source",
+                          })
+                        );
+                      }
+                    }
+                  } else {
+                    const editPos =
+                      closeIdx > i + 1 && children[i + 1].node.content.size > 0
+                        ? children[i + 1].pos + 1
+                        : Math.min(blockFrom + 1, blockTo);
+                    const widget = createMathWidget(
+                      editor,
+                      matched.latex,
+                      true,
+                      `${blockFrom}:multi:${matched.raw}`,
+                      blockFrom,
+                      editPos
+                    );
+                    if (widget) {
+                      if (first.node.content.size > 0) {
+                        decorations.push(
+                          Decoration.inline(blockFrom, blockFrom + first.node.content.size, {
+                            class: "nf-math-hidden-src",
+                            "aria-hidden": "true",
+                          })
+                        );
+                      }
+                      for (let k = i + 1; k <= closeIdx; k += 1) {
+                        const item = children[k];
+                        decorations.push(
+                          Decoration.node(item.pos, item.pos + item.node.nodeSize, {
+                            class: "nf-math-hidden-line",
+                            "aria-hidden": "true",
+                          })
+                        );
+                      }
+                      decorations.push(widget);
+                    }
+                  }
+                  i = closeIdx + 1;
+                  continue;
+                }
+                i += 1;
+              }
+            };
+
+            scanMultilineContainer(state.doc, 0);
 
             state.doc.descendants((node, pos) => {
-              if (!node.isTextblock) return true;
+              if (!node.isTextblock) {
+                if (node.childCount > 0) scanMultilineContainer(node, pos + 1);
+                return true;
+              }
+              if (consumedParagraphPositions.has(pos)) return false;
+
               const blockStart = pos + 1;
               const runs = collectTextRuns(node, blockStart);
               for (const run of runs) {
@@ -217,49 +360,78 @@ const MathLivePreview = Extension.create({
                   if (seg.type !== "math") continue;
                   const matchFrom = run.docPos + seg.from;
                   const matchTo = run.docPos + seg.to;
-                  const active = focused && selFrom <= matchTo && selTo >= matchFrom;
-                  if (active) {
+                  if (isRangeActive(matchFrom, matchTo)) {
                     decorations.push(
                       Decoration.inline(matchFrom, matchTo, { class: "nf-math-source" })
                     );
                     continue;
                   }
-                  const html = renderMathDecorationHtml(seg.latex, seg.display);
-                  if (!html) continue;
+                  const widget = createMathWidget(
+                    editor,
+                    seg.latex,
+                    seg.display,
+                    `${matchFrom}:${seg.raw}`,
+                    matchFrom,
+                    Math.min(matchFrom + 1, state.doc.content.size)
+                  );
+                  if (!widget) continue;
                   decorations.push(
                     Decoration.inline(matchFrom, matchTo, {
                       class: "nf-math-hidden-src",
                       "aria-hidden": "true",
                     })
                   );
-                  decorations.push(
-                    Decoration.widget(
-                      matchFrom,
-                      (view) => {
-                        const el = document.createElement("span");
-                        el.className = seg.display ? "nf-math-widget nf-math-block" : "nf-math-widget nf-math-inline";
-                        el.contentEditable = "false";
-                        el.innerHTML = html;
-                        el.addEventListener("mousedown", (event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          const targetPos = Math.min(matchFrom + 1, view.state.doc.content.size);
-                          view.dispatch(
-                            view.state.tr.setSelection(TextSelection.create(view.state.doc, targetPos))
-                          );
-                          editor.commands.focus();
-                        });
-                        return el;
-                      },
-                      { side: -1, key: `${matchFrom}:${seg.raw}` }
-                    )
-                  );
+                  decorations.push(widget);
                 }
               }
               return false;
             });
 
             return decorations.length ? DecorationSet.create(state.doc, decorations) : DecorationSet.empty;
+          },
+        },
+      }),
+    ];
+  },
+});
+
+const RichClipboard = Extension.create({
+  name: "activecardRichClipboard",
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    return [
+      new Plugin({
+        props: {
+          handlePaste(_view, event) {
+            if (!event.clipboardData || event.defaultPrevented) return false;
+            const payload = clipboardToEditorHtml(event.clipboardData);
+            if (!payload) return false;
+            if (payload.kind === "image") {
+              event.preventDefault();
+              insertImageFile(editor, payload.file);
+              return true;
+            }
+            if (payload.kind === "html") {
+              const atDocEnd = editor.state.selection.to >= editor.state.doc.content.size - 1;
+              const html =
+                atDocEnd && endsWithDisplayMathParagraph(payload.html)
+                  ? `${payload.html}<p></p>`
+                  : payload.html;
+              editor.commands.command(({ tr }) => {
+                closeHistory(tr);
+                return true;
+              });
+              const inserted = editor.commands.insertContent(html);
+              if (inserted) {
+                editor.commands.command(({ tr }) => {
+                  closeHistory(tr);
+                  return true;
+                });
+                event.preventDefault();
+              }
+              return inserted;
+            }
+            return false;
           },
         },
       }),
@@ -344,6 +516,7 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left", table
     TextAlign.configure({ types: ["paragraph", "heading", "blockquote"], defaultAlignment: defaultAlign }),
     Image,
     Placeholder.configure({ placeholder }),
+    RichClipboard,
     MathLivePreview,
     Shortcuts,
   ];
@@ -383,6 +556,7 @@ export function setImageWidth(editor, pct) {
 // Pegar una imagen desde el portapapeles: la detecta, la comprime e inserta.
 // Devuelve true si consumió el evento (para no pegar además como texto/HTML).
 export function handleImagePaste(editor, event) {
+  if (!event || event.defaultPrevented) return false;
   const items = event.clipboardData && event.clipboardData.items;
   if (!items) return false;
   for (const item of items) {

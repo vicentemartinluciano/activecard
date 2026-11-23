@@ -235,10 +235,27 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 }
 /* Fórmulas LaTeX (Live Preview sobre KaTeX MathML) */
 .nf-root .nf-math-hidden-src {
+  display: inline-block;
+  max-width: 0;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
   font-size: 0 !important;
   line-height: 0 !important;
   color: transparent !important;
-  letter-spacing: -999px;
+  vertical-align: top;
+  pointer-events: none;
+  user-select: none;
+}
+.nf-root .nf-math-hidden-line {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-height: 0 !important;
+  min-height: 0 !important;
+  line-height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0;
+  pointer-events: none;
 }
 .nf-root .nf-math-source {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
