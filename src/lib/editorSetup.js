@@ -4,14 +4,17 @@
 
 import { Extension, textInputRule, wrappingInputRule } from "@tiptap/core";
 import { Blockquote } from "@tiptap/extension-blockquote";
-import { Plugin, TextSelection } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { closeHistory } from "@tiptap/pm/history";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Placeholder } from "@tiptap/extensions";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Table, TableView, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+import katex from "katex";
 
 import { attachEditorTableControls } from "./editorTableControls";
+import { splitMathSegments } from "./mathLatex";
 
 import { compressFile } from "./imageCompress";
 import { Image } from "./tiptapImage";
@@ -132,6 +135,138 @@ const WritingStarterKit = StarterKit.extend({
   },
 });
 
+const mathLiveKey = new PluginKey("activecardMathLive");
+
+function renderMathDecorationHtml(latex, display) {
+  try {
+    return katex.renderToString(latex || "", {
+      displayMode: display,
+      output: "mathml",
+      throwOnError: false,
+      strict: "ignore",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function collectTextRuns(textblock, blockStartPos) {
+  const runs = [];
+  let text = "";
+  let runStart = null;
+  let offset = 0;
+
+  const flush = () => {
+    if (text && runStart != null) {
+      runs.push({ text, docPos: runStart });
+    }
+    text = "";
+    runStart = null;
+  };
+
+  textblock.forEach((child) => {
+    if (child.isText) {
+      if (runStart == null) runStart = blockStartPos + offset;
+      text += child.text;
+    } else {
+      flush();
+    }
+    offset += child.nodeSize;
+  });
+  flush();
+  return runs;
+}
+
+const MathLivePreview = Extension.create({
+  name: "mathLivePreview",
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    return [
+      new Plugin({
+        key: mathLiveKey,
+        state: {
+          init: () => ({ focused: false }),
+          apply(tr, value) {
+            const meta = tr.getMeta(mathLiveKey);
+            return meta !== undefined ? { focused: Boolean(meta) } : value;
+          },
+        },
+        props: {
+          handleDOMEvents: {
+            focus: (view) => {
+              view.dispatch(view.state.tr.setMeta(mathLiveKey, true).setMeta("addToHistory", false));
+              return false;
+            },
+            blur: (view) => {
+              view.dispatch(view.state.tr.setMeta(mathLiveKey, false).setMeta("addToHistory", false));
+              return false;
+            },
+          },
+          decorations(state) {
+            const focused = Boolean(mathLiveKey.getState(state)?.focused);
+            const { from: selFrom, to: selTo } = state.selection;
+            const decorations = [];
+
+            state.doc.descendants((node, pos) => {
+              if (!node.isTextblock) return true;
+              const blockStart = pos + 1;
+              const runs = collectTextRuns(node, blockStart);
+              for (const run of runs) {
+                const segments = splitMathSegments(run.text);
+                for (const seg of segments) {
+                  if (seg.type !== "math") continue;
+                  const matchFrom = run.docPos + seg.from;
+                  const matchTo = run.docPos + seg.to;
+                  const active = focused && selFrom <= matchTo && selTo >= matchFrom;
+                  if (active) {
+                    decorations.push(
+                      Decoration.inline(matchFrom, matchTo, { class: "nf-math-source" })
+                    );
+                    continue;
+                  }
+                  const html = renderMathDecorationHtml(seg.latex, seg.display);
+                  if (!html) continue;
+                  decorations.push(
+                    Decoration.inline(matchFrom, matchTo, {
+                      class: "nf-math-hidden-src",
+                      "aria-hidden": "true",
+                    })
+                  );
+                  decorations.push(
+                    Decoration.widget(
+                      matchFrom,
+                      (view) => {
+                        const el = document.createElement("span");
+                        el.className = seg.display ? "nf-math-widget nf-math-block" : "nf-math-widget nf-math-inline";
+                        el.contentEditable = "false";
+                        el.innerHTML = html;
+                        el.addEventListener("mousedown", (event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          const targetPos = Math.min(matchFrom + 1, view.state.doc.content.size);
+                          view.dispatch(
+                            view.state.tr.setSelection(TextSelection.create(view.state.doc, targetPos))
+                          );
+                          editor.commands.focus();
+                        });
+                        return el;
+                      },
+                      { side: -1, key: `${matchFrom}:${seg.raw}` }
+                    )
+                  );
+                }
+              }
+              return false;
+            });
+
+            return decorations.length ? DecorationSet.create(state.doc, decorations) : DecorationSet.empty;
+          },
+        },
+      }),
+    ];
+  },
+});
+
 // En celular el ancho es de presentación: no modificar los colwidth guardados
 // en escritorio al ampliar columnas pequeñas para lectura y scroll lateral.
 function readableColumns(node, minWidth) {
@@ -209,6 +344,7 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left", table
     TextAlign.configure({ types: ["paragraph", "heading", "blockquote"], defaultAlignment: defaultAlign }),
     Image,
     Placeholder.configure({ placeholder }),
+    MathLivePreview,
     Shortcuts,
   ];
 }

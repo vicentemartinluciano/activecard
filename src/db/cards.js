@@ -2,20 +2,10 @@ import { withDbTransaction } from "./transactions";
 // Repositorio de tarjetas: CRUD + estado FSRS + registro de repasos (async).
 
 import { newCardState, rate } from "../lib/scheduler";
+import { FSRS_COLS } from "../lib/fsrsCols";
 import { getDb } from "./client";
 
-export const FSRS_COLS = [
-  "due",
-  "stability",
-  "difficulty",
-  "elapsed_days",
-  "scheduled_days",
-  "reps",
-  "lapses",
-  "learning_steps",
-  "state",
-  "last_review",
-];
+export { FSRS_COLS };
 
 export async function createCard({ deckId, front, back, source = "manual", originCardId = null, draftKey = null, generationDraft = null }) {
   const db = await getDb();

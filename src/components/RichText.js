@@ -1,16 +1,18 @@
 // Renderiza el formato liviano de src/lib/richtext.js: negrita, cursiva,
-// subrayado, resaltado, color de texto, viñetas, listas numeradas ("N. ")
-// y divisor ("---"). La forma de cada bloque la decide describeBlock
-// (richhtml.js), la misma que usa el editor — así lo que se ve al estudiar
-// es exactamente lo que se ve al editar.
+// subrayado, resaltado, color de texto, viñetas, listas numeradas ("N. "),
+// divisor ("---") y fórmulas LaTeX ($...$, $$...$$, \(...\), \[...\]).
+// La forma de cada bloque la decide describeBlock (richhtml.js), la misma que
+// usa el editor — así lo que se ve al estudiar es exactamente lo que se ve al editar.
 
 import { useContext, useEffect, useMemo, useState } from "react";
 import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { describeBlock, groupQuoteRuns } from "../lib/richhtml";
+import { hasMathSyntax, splitMathSegments } from "../lib/mathLatex";
+import { describeBlock, groupDisplayMathBlocks, groupQuoteRuns } from "../lib/richhtml";
 import { tableGrid, tableColumnWidths } from "../lib/richTable";
 import { parseRich } from "../lib/richtext";
 import { colors, font, radius, spacing, textColors } from "../theme";
+import MathFormula from "./MathFormula";
 import { StudyInteractionContext } from "./StudyInteractionContext";
 import RichToggle from "./RichToggle";
 
@@ -129,15 +131,128 @@ function spanStyle(span) {
   ];
 }
 
+function spansHaveMath(spans) {
+  return Array.isArray(spans) && spans.some((span) => hasMathSyntax(span.text));
+}
+
+function buildMathChunks(spans) {
+  const chunks = [];
+  let inlineParts = [];
+
+  const flushInline = () => {
+    if (inlineParts.length) {
+      chunks.push({ kind: "inline", parts: inlineParts });
+      inlineParts = [];
+    }
+  };
+
+  for (const span of spans) {
+    const segments = splitMathSegments(span.text);
+    for (const seg of segments) {
+      if (seg.type === "math" && seg.display) {
+        flushInline();
+        chunks.push({ kind: "display", latex: seg.latex, span });
+      } else if (seg.type === "math") {
+        inlineParts.push({ kind: "math", latex: seg.latex, span });
+      } else if (seg.text) {
+        inlineParts.push({ kind: "text", text: seg.text, span });
+      }
+    }
+  }
+  flushInline();
+  return chunks;
+}
+
+function RichLineWithMath({ spans, baseStyle, align = "left", flexContainer = false }) {
+  const chunks = buildMathChunks(spans);
+  const justify = align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
+
+  const nodes = chunks.map((chunk, cIdx) => {
+    if (chunk.kind === "display") {
+      return (
+        <MathFormula
+          key={`d-${cIdx}`}
+          latex={chunk.latex}
+          display
+          style={[baseStyle, spanStyle(chunk.span)]}
+        />
+      );
+    }
+
+    if (Platform.OS === "web") {
+      return (
+        <Text
+          key={`i-${cIdx}`}
+          style={[baseStyle, align !== "left" && { textAlign: align }, flexContainer && styles.liContent]}
+        >
+          {chunk.parts.map((part, pIdx) =>
+            part.kind === "math" ? (
+              <MathFormula
+                key={pIdx}
+                latex={part.latex}
+                display={false}
+                style={[baseStyle, spanStyle(part.span)]}
+              />
+            ) : (
+              <Text key={pIdx} style={spanStyle(part.span)}>
+                {part.text}
+              </Text>
+            )
+          )}
+        </Text>
+      );
+    }
+
+    return (
+      <View
+        key={`i-${cIdx}`}
+        style={[
+          styles.inlineMathRow,
+          flexContainer && styles.liContent,
+          { justifyContent: justify },
+        ]}
+      >
+        {chunk.parts.map((part, pIdx) => {
+          if (part.kind === "math") {
+            return (
+              <MathFormula
+                key={pIdx}
+                latex={part.latex}
+                display={false}
+                style={[baseStyle, spanStyle(part.span)]}
+              />
+            );
+          }
+          const tokens = part.text.split(/(\s+)/).filter(Boolean);
+          return tokens.map((token, tIdx) => (
+            <Text key={`${pIdx}-${tIdx}`} style={[baseStyle, spanStyle(part.span)]}>
+              {token}
+            </Text>
+          ));
+        })}
+      </View>
+    );
+  });
+
+  if (chunks.length === 1 && !flexContainer) return nodes[0];
+  return <View style={flexContainer ? styles.liContent : undefined}>{nodes}</View>;
+}
+
 // defaultAlign: alineación de los bloques SIN alineación explícita (el default
 // por cara — el dorso arranca centrado). Las listas nunca heredan el default
 // (siempre a la izquierda).
 export default function RichText({ text, style, containerStyle, defaultAlign = "left" }) {
   const baseSize = StyleSheet.flatten(style)?.fontSize || 16;
-  const blocks = useMemo(() => groupQuoteRuns(parseRich(text).map(describeBlock)), [text]);
+  const blocks = useMemo(
+    () => groupDisplayMathBlocks(groupQuoteRuns(parseRich(text).map(describeBlock))),
+    [text]
+  );
   return (
     <View style={[styles.container, containerStyle]}>
       {blocks.map((block, i) => {
+        if (block.kind === "mathBlock") {
+          return <MathFormula key={i} latex={block.latex} display style={style} />;
+        }
         if (block.kind === "list") return (
           <View key={i}>
             {block.items.map((item, index) => <View key={index} style={styles.liRow}>
@@ -162,6 +277,16 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
             <View key={i} style={styles.quoteWrap}>
               {block.blocks.map((quote, j) => {
                 const align = quote.align || defaultAlign;
+                if (spansHaveMath(quote.spans)) {
+                  return (
+                    <RichLineWithMath
+                      key={j}
+                      spans={quote.spans}
+                      baseStyle={[style, styles.quoteText]}
+                      align={align}
+                    />
+                  );
+                }
                 return (
                   <Text
                     key={j}
@@ -197,8 +322,15 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
           ? { ...font(700), fontSize: baseSize * headingScale, lineHeight: baseSize * headingScale * 1.22, marginVertical: 4 }
           : { marginBottom: 2 };
 
-
-        const line = (
+        const line = spansHaveMath(block.spans) ? (
+          <RichLineWithMath
+            key={i}
+            spans={block.spans}
+            baseStyle={[style, blockTextStyle]}
+            align={align}
+            flexContainer={isList}
+          />
+        ) : (
           <Text
             style={[style, blockTextStyle, align !== "left" && { textAlign: align }, isList && styles.liContent]}
             key={i}
@@ -230,6 +362,12 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+  },
+  inlineMathRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    marginBottom: 2,
   },
   bold: { ...font(700) },
   italic: { fontStyle: "italic" },

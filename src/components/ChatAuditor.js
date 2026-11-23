@@ -1,6 +1,6 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSyncHold, useSyncRefresh } from "./useSyncRefresh";
 import {
   ActivityIndicator,
@@ -12,7 +12,9 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { createCard, deleteCard, getCard, updateCardText } from "../db/cards";
 import { saveConnection } from "../db/connections";
@@ -43,6 +45,17 @@ const titleFrom = (text) => {
   const clean = text.trim().replace(/\s+/g, " ");
   return clean.length > 44 ? `${clean.slice(0, 44)}…` : clean || "Nueva charla";
 };
+
+export function isGymSendShortcut(event) {
+  if (!event) return false;
+  return (
+    event.key === "Enter" &&
+    !event.shiftKey &&
+    !event.altKey &&
+    !event.isComposing &&
+    event.keyCode !== 229
+  );
+}
 
 function AttachmentPills({ items = [], onRemove }) {
   if (!items.length) return null;
@@ -220,6 +233,8 @@ function ActionPreview({ message, onConfirm, onChoose, onToggleDeleteDeck, busy 
 export default function ChatAuditor({ card = null, chatId = null, onDone = null, root = false }) {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const routeChatId = params.chatId ? Number(params.chatId) : null;
   const originCardId = card?.id || null;
   const hasEmbeddedCard = originCardId != null;
@@ -234,7 +249,9 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
   const [error, setError] = useState("");
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [composerFocused, setComposerFocused] = useState(false);
+  const [nativeInputHeight, setNativeInputHeight] = useState(44);
   const addButtonRef = useRef(null);
+  const composerInputRef = useRef(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -243,6 +260,44 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
   const [destructiveText, setDestructiveText] = useState("");
   const scrollRef = useRef(null);
   const saveTimer = useRef(null);
+  const composerExpanded = composerFocused || input.includes("\n") || input.length > 48;
+
+  const collapseComposer = useCallback(() => {
+    composerInputRef.current?.blur?.();
+    if (Platform.OS !== "web") Keyboard.dismiss();
+    setComposerFocused(false);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (Platform.OS !== "web") return undefined;
+    const node = composerInputRef.current;
+    if (!node?.style) return undefined;
+    if (!composerExpanded) {
+      node.style.height = "";
+      node.style.overflowY = "";
+      return undefined;
+    }
+    const resize = () => {
+      const prevMin = node.style.minHeight;
+      node.style.minHeight = "0px";
+      node.style.height = "0px";
+      const natural = Math.max(44, node.scrollHeight);
+      node.style.minHeight = prevMin;
+      const target = Math.min(220, natural);
+      node.style.height = `${target}px`;
+      node.style.overflowY = natural > 220 ? "auto" : "hidden";
+    };
+    resize();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    let lastWidth = node.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (node.clientWidth === lastWidth) return;
+      lastWidth = node.clientWidth;
+      resize();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [composerExpanded, input, windowWidth]);
   useSyncHold(busy);
   useSyncRefresh(useCallback(() => {
     if (!session?.id) return; // La nueva charla sin enviar conserva su borrador.
@@ -343,6 +398,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
   }, []);
 
   const changeInput = (value) => {
+    if (!value) setNativeInputHeight(44);
     setInput(value);
     clearTimeout(saveTimer.current);
     if (session?.id) saveTimer.current = setTimeout(() => setGymChatDraft(session.id, value).catch(() => {}), 250);
@@ -393,6 +449,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
       const next = [...messages, userMessage];
       setMessages(next);
       setInput("");
+      setNativeInputHeight(44);
       setAttachments([]);
       setSourceAttachments([]);
       await setGymChatDraft(chat.id, "");
@@ -608,7 +665,7 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
     <KeyboardAvoidingView
       style={[styles.root, keyboardOpen && styles.rootKeyboard]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "android" ? 16 : 0}
+      keyboardVerticalOffset={Platform.OS === "android" ? (root ? 0 : 12) : 0}
     >
       <StarField />
       <View style={styles.header}>
@@ -617,7 +674,6 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
         </Pressable>}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><BrainMark size={26} /><Text style={styles.title}>Gimnasio</Text></View>
-          <Text style={styles.saved}>Conversá, investigá y trabajá con tus tarjetas</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Ver ideas" onPress={() => router.push("/gimnasio/ideas")} style={styles.iconButton}><Feather name="zap" size={20} color={colors.text} /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Historial de conversaciones" onPress={() => router.push("/gimnasio/historial")} style={styles.iconButton}>
@@ -633,72 +689,88 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
           <Text style={styles.contextText} numberOfLines={1}>{toPlainText(card?.front || session.origin_front)}</Text>
         </View>
       ) : null}
+      <View
+        style={{ flex: 1, minHeight: 0 }}
+        onTouchStart={collapseComposer}
+        {...(Platform.OS === "web" ? { onPointerDown: collapseComposer } : {})}
+      >
       <ScrollView
         ref={scrollRef}
         style={styles.chat}
         contentContainerStyle={styles.chatContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onScrollBeginDrag={collapseComposer}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.length === 0 && !busy ? (
           <View style={styles.emptyChat}>
-            <BrainMark size={38} />
+            <View style={styles.emptyBrainHalo}>
+              <BrainMark size={30} />
+            </View>
             <Text style={styles.emptyTitle}>
-              {card || session.origin_front ? "Trabajemos sobre esta tarjeta" : "¿Qué querés explorar hoy?"}
+              {card || session.origin_front ? "Trabajemos esta tarjeta" : "¿Qué querés explorar?"}
             </Text>
             <Text style={styles.emptySubtitle}>
-              Podés conversar libremente, adjuntar archivos o elegir tarjetas de tu biblioteca.
+              {card || session.origin_front
+                ? "Los cambios en tus tarjetas se aplican cuando los confirmás."
+                : "Conversá libremente, adjuntá archivos o elegí tarjetas cuando quieras."}
             </Text>
-            <View style={styles.emptyQuickRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Referenciar tarjetas"
-                onPress={() => setAttachmentSheetOpen(true)}
-                style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
-              >
-                <Feather name="layers" size={14} color={colors.accentText} />
-                <Text style={styles.quickChipText}>Referenciar tarjetas</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Añadir fuente"
-                onPress={addSources}
-                style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
-              >
-                <Feather name="paperclip" size={14} color={colors.accentText} />
-                <Text style={styles.quickChipText}>Añadir fuente</Text>
-              </Pressable>
-              {(card || session.origin_front) ? (
-                <>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Explicame la idea central"
-                    onPress={() => changeInput("Explicame la idea central de esta tarjeta con un ejemplo concreto.")}
-                    style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
-                  >
-                    <Feather name="zap" size={14} color="#C9A8FF" />
-                    <Text style={styles.quickChipText}>Explicame la idea central</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Mejorar o sumar desplegable"
-                    onPress={() => changeInput("Proponé mejorar esta tarjeta o sumar un desplegable en el dorso con un ejemplo o aclaración clave, conservando mis mnemotecnias.")}
-                    style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
-                  >
-                    <Feather name="edit-3" size={14} color={colors.accentText} />
-                    <Text style={styles.quickChipText}>Mejorar o sumar desplegable</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Busquemos una conexión"
-                    onPress={() => changeInput("Busquemos una conexión con otro concepto para crear una tarjeta idea.")}
-                    style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.7 }]}
-                  >
-                    <Feather name="git-branch" size={14} color="#C9A8FF" />
-                    <Text style={styles.quickChipText}>Busquemos una conexión</Text>
-                  </Pressable>
-                </>
-              ) : null}
+            <View style={styles.emptyPromptList}>
+              {(card || session.origin_front
+                ? [
+                    {
+                      label: "Explicame la idea central",
+                      icon: "zap",
+                      color: "#C9A8FF",
+                      onPress: () => changeInput("Explicame la idea central de esta tarjeta con un ejemplo concreto."),
+                    },
+                    {
+                      label: "Mejorar o sumar desplegable",
+                      icon: "edit-3",
+                      color: colors.accentText,
+                      onPress: () => changeInput("Proponé mejorar esta tarjeta o sumar un desplegable en el dorso con un ejemplo o aclaración clave, conservando mis mnemotecnias."),
+                    },
+                    {
+                      label: "Busquemos una conexión",
+                      icon: "git-branch",
+                      color: "#C9A8FF",
+                      onPress: () => changeInput("Busquemos una conexión con otro concepto para crear una tarjeta idea."),
+                    },
+                  ]
+                : [
+                    {
+                      label: "Referenciar tarjetas",
+                      icon: "layers",
+                      color: colors.accentText,
+                      onPress: () => setAttachmentSheetOpen(true),
+                    },
+                    {
+                      label: "Añadir fuente",
+                      icon: "paperclip",
+                      color: colors.accentText,
+                      onPress: addSources,
+                    },
+                  ]
+              ).map((item) => (
+                <Pressable
+                  key={item.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                  onPress={item.onPress}
+                  style={({ pressed, hovered }) => [
+                    styles.emptyPromptCard,
+                    hovered && styles.emptyPromptCardHover,
+                    pressed && { opacity: 0.72 },
+                  ]}
+                >
+                  <View style={styles.emptyPromptIcon}>
+                    <Feather name={item.icon} size={15} color={item.color} />
+                  </View>
+                  <Text style={styles.emptyPromptText}>{item.label}</Text>
+                  <Feather name="chevron-right" size={16} color={colors.textMuted} />
+                </Pressable>
+              ))}
             </View>
           </View>
         ) : null}
@@ -737,7 +809,19 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
           </View>
         ) : null}
       </ScrollView>
-      <View style={styles.footer}>
+      </View>
+      <View
+        style={[
+          styles.footer,
+          Platform.OS === "android" && {
+            paddingBottom: keyboardOpen
+              ? spacing.sm
+              : root || onDone
+                ? spacing.sm
+                : Math.max(insets.bottom + spacing.xs, spacing.md),
+          },
+        ]}
+      >
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <AttachmentPills
         items={attachments}
@@ -747,32 +831,115 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
         items={sourceAttachments}
         onRemove={(index) => setSourceAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
       />
-      <VoiceInput value={input} onChangeText={changeInput} buttonStyle={styles.voiceButton}>
-        {({ micButton, active }) => (
-          <View dataSet={Platform.OS === 'web' ? { gymComposer: 'true' } : undefined} style={[styles.composer, composerFocused && styles.composerExpanded]}
-            onBlur={Platform.OS === 'web' ? (event) => { if (!addMenuOpen && !event.currentTarget.contains(event.relatedTarget)) setComposerFocused(false); } : undefined}>
+      <VoiceInput value={input} onChangeText={changeInput} disabled={busy} buttonStyle={styles.voiceButton}>
+        {({ micButton, panel, active, error: voiceError }) => {
+          const canSend = (Boolean(input.trim()) || attachments.length > 0 || sourceAttachments.length > 0) && !busy && !active;
+          const plusButton = (
             <Pressable
               ref={addButtonRef}
-              accessibilityRole="button" accessibilityLabel="Añadir al chat"
+              accessibilityRole="button"
+              accessibilityLabel="Añadir al chat"
               onPress={() => setAddMenuOpen((value) => !value)}
               disabled={active || busy}
-              style={[styles.attachButton, composerFocused && styles.attachButtonExpanded, (active || busy) && { opacity: 0.35 }]}
+              style={({ pressed }) => [
+                styles.attachButton,
+                (active || busy) && { opacity: 0.35 },
+                pressed && { opacity: 0.7 },
+              ]}
               hitSlop={6}
             >
-              <Feather name="plus" size={21} color={colors.text} />
+              <Feather name="plus" size={20} color={colors.text} />
             </Pressable>
-            <Field value={input} onChangeText={changeInput} accessibilityLabel="Mensaje al Gimnasio" placeholder={composerFocused ? 'Escribí lo que querés trabajar…' : 'Conversá…'} multiline editable={!active} style={[styles.field, composerFocused && styles.fieldExpanded]}
-              onFocus={() => setComposerFocused(true)}
-              onBlur={Platform.OS !== 'web' ? () => setComposerFocused(false) : undefined}
-              onKeyPress={Platform.OS === "web" ? (event) => {
-                if (event.nativeEvent.key === "Enter" && (event.nativeEvent.ctrlKey || event.nativeEvent.metaKey) && !busy && !active) { event.preventDefault(); send(); }
-              } : undefined} />
-            {micButton}
-            <Pressable accessibilityRole="button" accessibilityLabel="Enviar mensaje" onPress={send} disabled={(!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active} style={[styles.send, ((!input.trim() && attachments.length === 0 && sourceAttachments.length === 0) || busy || active) && { opacity: 0.35 }]}>
+          );
+          const sendButton = (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Enviar mensaje"
+              onPress={send}
+              disabled={!canSend}
+              style={({ pressed }) => [
+                styles.send,
+                !canSend && { opacity: 0.35 },
+                pressed && { opacity: 0.75 },
+              ]}
+            >
               <Feather name="send" size={19} color="#fff" />
             </Pressable>
-          </View>
-        )}
+          );
+          return (
+            <View style={styles.voiceArea}>
+              {voiceError ? <Text style={styles.error}>{voiceError}</Text> : null}
+              <View
+                dataSet={Platform.OS === "web" ? { gymComposer: "true" } : undefined}
+                style={[
+                  styles.composer,
+                  active && styles.composerVoice,
+                  !active && composerExpanded && styles.composerExpanded,
+                ]}
+                onBlur={
+                  Platform.OS === "web"
+                    ? (event) => {
+                        if (!addMenuOpen && !event.currentTarget.contains(event.relatedTarget)) {
+                          setComposerFocused(false);
+                        }
+                      }
+                    : undefined
+                }
+              >
+                {active ? (
+                  panel
+                ) : (
+                  <>
+                    {!composerExpanded ? plusButton : null}
+                    <Field
+                      ref={composerInputRef}
+                      value={input}
+                      onChangeText={changeInput}
+                      accessibilityLabel="Mensaje al Gimnasio"
+                      placeholder={composerExpanded ? "Escribí lo que querés trabajar…" : "Conversá…"}
+                      multiline
+                      editable={!active}
+                      style={[
+                        styles.field,
+                        composerExpanded ? styles.fieldExpanded : styles.fieldCollapsed,
+                        Platform.OS !== "web" && composerExpanded
+                          ? { height: Math.max(44, Math.min(180, nativeInputHeight)) }
+                          : null,
+                      ]}
+                      onFocus={() => setComposerFocused(true)}
+                      onBlur={Platform.OS !== "web" ? () => setComposerFocused(false) : undefined}
+                      onContentSizeChange={
+                        Platform.OS !== "web"
+                          ? (event) => {
+                              const h = Math.ceil(event?.nativeEvent?.contentSize?.height || 44);
+                              setNativeInputHeight(Math.max(44, Math.min(180, h)));
+                            }
+                          : undefined
+                      }
+                      onKeyPress={
+                        Platform.OS === "web"
+                          ? (event) => {
+                              if (isGymSendShortcut(event.nativeEvent) && !busy && !active) {
+                                event.preventDefault();
+                                send();
+                              }
+                            }
+                          : undefined
+                      }
+                    />
+                    <View style={[styles.composerControls, composerExpanded && styles.composerFooter]}>
+                      {composerExpanded ? plusButton : null}
+                      <View style={styles.composerActions}>
+                        {micButton}
+                        {sendButton}
+                      </View>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          );
+        }}
       </VoiceInput>
       </View>
       <ActionSheet
@@ -822,11 +989,13 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
         onConfirm={setAttachments}
       />
       {onDone && !keyboardOpen ? (
-        <Button
-          label="Continuar el repaso"
-          kind="ghost"
-          onPress={close}
-        />
+        <View style={Platform.OS === "android" ? { paddingBottom: Math.max(insets.bottom, spacing.xs) } : undefined}>
+          <Button
+            label="Continuar el repaso"
+            kind="ghost"
+            onPress={close}
+          />
+        </View>
       ) : null}
     </KeyboardAvoidingView>
   );
@@ -834,59 +1003,82 @@ export default function ChatAuditor({ card = null, chatId = null, onDone = null,
 
 const styles = StyleSheet.create({
   root: { flex: 1, gap: spacing.sm, overflow: "hidden", backgroundColor: colors.bg },
-  rootKeyboard: { paddingBottom: spacing.md },
-  header: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
+  rootKeyboard: { paddingBottom: spacing.sm },
+  header: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
   backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  title: { ...type.heading, fontSize: 22 },
-  saved: { ...type.small, fontSize: 13 },
+  title: { ...type.heading, fontSize: 21 },
   iconButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.cardBorder, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(21,21,24,0.7)" },
   contextPill: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: "rgba(62,99,221,0.42)", backgroundColor: "rgba(12,18,31,0.78)" },
   contextText: { ...type.small, ...font(600), color: colors.text, flexShrink: 1 },
   chat: { flex: 1 },
-  chatContent: { flexGrow: 1, gap: spacing.md, paddingVertical: spacing.sm, ...(Platform.OS === "web" ? { width: '100%', maxWidth: 880, alignSelf: 'center', paddingTop: 32 } : {}) },
+  chatContent: { flexGrow: 1, gap: spacing.md, paddingVertical: spacing.sm, ...(Platform.OS === "web" ? { width: '100%', maxWidth: 880, alignSelf: 'center', paddingTop: 28 } : {}) },
   emptyChat: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xl,
-    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    gap: 10,
+  },
+  emptyBrainHalo: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(70,104,232,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(155,180,255,0.20)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyTitle: {
     ...type.heading,
-    fontSize: 19,
+    fontSize: 18,
     textAlign: "center",
     marginTop: spacing.xs,
   },
   emptySubtitle: {
     ...type.small,
+    fontSize: 13,
     textAlign: "center",
     maxWidth: 380,
-    lineHeight: 20,
+    lineHeight: 19,
+    marginBottom: spacing.xs,
   },
-  emptyQuickRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.xs + 2,
-    marginTop: spacing.sm,
-    maxWidth: 520,
+  emptyPromptList: {
+    width: "100%",
+    maxWidth: 420,
+    gap: 8,
   },
-  quickChip: {
+  emptyPromptCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: spacing.md - 2,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
+    gap: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
-    backgroundColor: "rgba(21,21,24,0.82)",
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(14,17,24,0.88)",
   },
-  quickChipText: {
+  emptyPromptCardHover: {
+    backgroundColor: "rgba(22,27,38,0.94)",
+    borderColor: "rgba(155,180,255,0.22)",
+  },
+  emptyPromptIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyPromptText: {
     ...type.small,
     ...font(600),
     color: colors.text,
+    flex: 1,
+    fontSize: 13.5,
+    lineHeight: 18,
   },
   assistantWrap: { alignItems: "flex-start", gap: spacing.xs, alignSelf: "stretch" },
   userWrap: { alignSelf: "stretch", alignItems: "flex-end" },
@@ -921,13 +1113,18 @@ const styles = StyleSheet.create({
   attachmentCopy: { flex: 1, gap: 1 },
   attachmentTitle: { ...type.small, ...font(600), color: colors.text, fontSize: 13, lineHeight: 18 },
   attachmentDeck: { ...type.small, fontSize: 12, lineHeight: 16, color: colors.textMuted },
-  footer: { gap: spacing.sm, paddingVertical: spacing.sm, backgroundColor: 'transparent', width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 880, alignSelf: 'center', marginBottom: 8 } : {}) },
-  composer: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 60, width: '100%', alignSelf: 'center', padding: 8, borderRadius: 28, borderWidth: 1, borderColor: '#1E2028', backgroundColor: '#101115' },
-  composerExpanded: { minHeight: 140, alignItems: 'flex-end', borderRadius: 24 },
-  attachButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  attachButtonExpanded: { marginRight: 'auto', marginTop: 80 },
-  voiceButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 0, backgroundColor: 'transparent' },
-  field: { flex: 1, height: 44, minHeight: 44, maxHeight: 44, borderWidth: 0, backgroundColor: "transparent", paddingVertical: 8, paddingHorizontal: 4, ...(Platform.OS === 'web' ? { outlineStyle: 'none', boxShadow: 'none' } : {}) },
-  fieldExpanded: { position: 'absolute', top: 12, left: 16, right: 16, height: 66, minHeight: 66, maxHeight: 66, paddingHorizontal: 0, paddingVertical: 4 },
-  send: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#25304A', alignItems: "center", justifyContent: "center" },
+  footer: { gap: spacing.sm, paddingTop: spacing.xs, paddingBottom: spacing.sm, backgroundColor: 'transparent', width: '100%', ...(Platform.OS === 'web' ? { maxWidth: 880, alignSelf: 'center', marginBottom: 8 } : {}) },
+  voiceArea: { gap: spacing.xs },
+  composer: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 52, width: '100%', alignSelf: 'center', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 26, borderWidth: 1, borderColor: '#1E2028', backgroundColor: '#101115' },
+  composerVoice: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 24, borderColor: "rgba(128,154,210,0.3)", backgroundColor: "#0E121C" },
+  composerExpanded: { flexDirection: "column", alignItems: "stretch", gap: spacing.sm, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8, borderRadius: 24, borderColor: "rgba(128,154,210,0.28)" },
+  composerControls: { flexDirection: "row", alignItems: "center", gap: 6 },
+  composerFooter: { justifyContent: "space-between" },
+  composerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  attachButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  voiceButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 0, backgroundColor: 'transparent' },
+  field: { borderWidth: 0, backgroundColor: "transparent", paddingVertical: 6, paddingHorizontal: 4, ...(Platform.OS === 'web' ? { outlineStyle: 'none', boxShadow: 'none' } : {}) },
+  fieldCollapsed: { flex: 1, height: 40, minHeight: 40, maxHeight: 40 },
+  fieldExpanded: { width: "100%", minHeight: 44, maxHeight: 220, paddingHorizontal: 0, paddingVertical: 4, textAlignVertical: "top" },
+  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#25304A', alignItems: "center", justifyContent: "center" },
 });

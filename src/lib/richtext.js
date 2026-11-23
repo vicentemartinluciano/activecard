@@ -1,5 +1,6 @@
 import { validColumnWidths } from "./richTable";
 import { decodeFormatted, decodeList, LIST_SENTINEL, FORMATTED_SENTINEL } from "./richContent";
+import { matchMathAt } from "./mathLatex";
 
 // Formato liviano tipo Notion, guardado como marcas dentro del mismo TEXT
 // de front/back — sin migración de esquema, 100% compatible con tarjetas
@@ -103,6 +104,17 @@ function parseLine(line, inherited) {
 
   let buffer = "";
   while (i < line.length) {
+    // Fórmulas LaTeX ($...$, $$...$$, \(...\), \[...\]): las marcas (*, _, ~~, ==)
+    // adentro del modo matemático se conservan literales sin abrir estilos rich text.
+    if (line[i] === "$" || (line[i] === "\\" && (line[i + 1] === "(" || line[i + 1] === "["))) {
+      const mathMatch = matchMathAt(line, i);
+      if (mathMatch) {
+        buffer += mathMatch.raw;
+        i = mathMatch.end;
+        continue;
+      }
+    }
+
     // Color: [[clave:contenido]]
     if (line[i] === "[" && line[i + 1] === "[") {
       const m = COLOR_RE.exec(line.slice(i));
@@ -171,22 +183,57 @@ export function parseRich(text) {
     lines.splice(i, 1);
     i--;
   }
-  return lines.map((line) => {
+  const isSentinelLine = (line) =>
+    [QUOTE_START_SENTINEL, IMG_SENTINEL, TABLE_SENTINEL, TOGGLE_SENTINEL, LIST_SENTINEL, FORMATTED_SENTINEL].some(
+      (prefix) => line.startsWith(prefix)
+    );
+
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
     const formatted = decodeFormatted(line);
-    if (formatted) return { type: "formatted", ...formatted };
+    if (formatted) { out.push({ type: "formatted", ...formatted }); i += 1; continue; }
     const list = decodeList(line);
-    if (list) return { type: "list", ...list, spans: [] };
+    if (list) { out.push({ type: "list", ...list, spans: [] }); i += 1; continue; }
     const toggle = decodeToggle(line);
-    if (toggle) return { type: "toggle", ...toggle, spans: [] };
+    if (toggle) { out.push({ type: "toggle", ...toggle, spans: [] }); i += 1; continue; }
     const rows = decodeTable(line);
-    if (rows) return { type: "table", rows, spans: [] };
+    if (rows) { out.push({ type: "table", rows, spans: [] }); i += 1; continue; }
+
+    const stripped = line.replace(ALIGN_STRIP_RE, "").trim();
+    const opensMultilineDisplay =
+      (stripped.startsWith("$$") && !matchMathAt(stripped, 0)) ||
+      (stripped.startsWith("\\[") && !matchMathAt(stripped, 0));
+    if (opensMultilineDisplay) {
+      const closer = stripped.startsWith("$$") ? "$$" : "\\]";
+      let closeIdx = -1;
+      for (let j = i + 1; j < lines.length; j += 1) {
+        if (isSentinelLine(lines[j])) break;
+        const candidate = lines.slice(i, j + 1).join("\n").replace(ALIGN_STRIP_RE, "").trim();
+        if (lines[j].trim().endsWith(closer) && matchMathAt(candidate, 0)) {
+          closeIdx = j;
+          break;
+        }
+      }
+      if (closeIdx !== -1) {
+        for (let k = i; k <= closeIdx; k += 1) {
+          out.push({ type: "p", spans: lines[k] ? [{ text: lines[k] }] : [] });
+        }
+        i = closeIdx + 1;
+        continue;
+      }
+    }
+
     const isListItem = line.startsWith("- ");
     const content = isListItem ? line.slice(2) : line;
-    return {
+    out.push({
       type: isListItem ? "li" : "p",
       spans: parseLine(content, {}),
-    };
-  });
+    });
+    i += 1;
+  }
+  return out;
 }
 
 // Texto sin ninguna marca — para previews de una línea, para el contexto

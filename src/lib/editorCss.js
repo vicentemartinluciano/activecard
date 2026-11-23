@@ -233,6 +233,53 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 @media (prefers-reduced-motion: reduce) {
   .nf-bubble:not([hidden]), .nf-formats.open, .nf-swatches.open, .nf-inserting .nf-insert-menu { animation: none; }
 }
+/* Fórmulas LaTeX (Live Preview sobre KaTeX MathML) */
+.nf-root .nf-math-hidden-src {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  letter-spacing: -999px;
+}
+.nf-root .nf-math-source {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+  color: #9BB4FF;
+  background: rgba(70, 104, 232, 0.14);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+.nf-root .nf-math-widget {
+  cursor: pointer;
+  user-select: none;
+}
+.nf-root .nf-math-inline {
+  display: inline-flex;
+  align-items: baseline;
+  vertical-align: middle;
+  margin: 0 2px;
+  padding: 1px 3px;
+  border-radius: 5px;
+}
+.nf-root .nf-math-inline:hover {
+  background: rgba(70, 104, 232, 0.12);
+}
+.nf-root .nf-math-block {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  margin: 8px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(70, 104, 232, 0.06);
+  border: 1px solid rgba(155, 180, 255, 0.16);
+}
+.nf-root .nf-math-widget math {
+  font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", "Times New Roman", serif;
+  font-size: 1.08em;
+  color: inherit;
+}
 `;
 
 // Solo para la página del WebView (nativo): ahí el editor ES toda la página.

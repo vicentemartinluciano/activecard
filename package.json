@@ -36,6 +36,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.3",
     "expo-updates": "~57.0.19",
+    "katex": "^0.19.1",
     "lottie-react-native": "~7.3.8",
     "lottie-web": "5.13.0",
     "react": "19.2.3",
@@ -74,13 +75,18 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "editor:build": "node scripts/build-editor.mjs"
+    "editor:build": "node scripts/build-editor.mjs",
+    "mcp:build": "node scripts/build-mcp.mjs",
+    "mcp:login": "node mcp/dist/server.mjs login",
+    "mcp:status": "node mcp/dist/server.mjs status",
+    "mcp:logout": "node mcp/dist/server.mjs logout"
   },
   "jest": {
     "preset": "jest-expo",
     "modulePathIgnorePatterns": [
       "<rootDir>/.desktop-preview/",
-      "<rootDir>/.web-ci/"
+      "<rootDir>/.web-ci/",
+      "<rootDir>/mcp/dist/"
     ],
     "testMatch": [
       "**/__tests__/**/*.test.js"

@@ -164,7 +164,8 @@ function DesktopWorkspace({ children }) {
   }, []);
   const closePreview = useCallback(() => { clearTimeout(timer.current); setPreview(false); }, []);
   const leavePreview = () => { clearTimeout(timer.current); timer.current = setTimeout(() => setPreview(false), 180); };
-  useEffect(() => { refresh(); closePreview(); }, [path, refresh, closePreview]);
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { closePreview(); }, [path, closePreview]);
   useEffect(() => {
     let alive = true;
     let unsubscribe;
@@ -348,12 +349,12 @@ function DesktopWorkspace({ children }) {
         })()}
       </View>
     </View>}
-    <View style={{ width: hasSidebar && pinned && !narrow && !activeNoteFocused ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 220ms ease' }}>
+    <View style={{ width: hasSidebar && pinned && !narrow && !activeNoteFocused ? DESKTOP_INDEX_WIDTH : 0, zIndex: 30, transition: 'width 150ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       {hasSidebar && <View dataSet={{ libraryIndex: 'true' }} testID={notesIndex ? 'desktop-notes-index' : 'desktop-library-index'}
         onPointerEnter={() => { clearTimeout(timer.current); refresh(); }} onPointerLeave={leavePreview}
         // visibility also removes hidden links from keyboard navigation.
         pointerEvents={shown ? 'auto' : 'none'}
-        style={[styles.index, { visibility: shown ? 'visible' : 'hidden', opacity: shown ? 1 : 0, transform: [{ translateX: shown ? 0 : -16 }], transition: `opacity 180ms ease, transform 220ms ease, visibility 0s ${shown ? '0s' : '220ms'}`, top: floating ? 48 : 0, bottom: floating ? 12 : 0 }, floating && styles.floating]}>
+        style={[styles.index, { visibility: shown ? 'visible' : 'hidden', opacity: shown ? 1 : 0, transform: [{ translateX: shown ? 0 : -16 }], transition: `opacity 140ms ease, transform 160ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s ${shown ? '0s' : '160ms'}`, top: floating ? 48 : 0, bottom: floating ? 12 : 0 }, floating && styles.floating]}>
         {notesIndex ? (
           <View style={styles.notesHeader}>
             <View style={styles.notesHeaderRow}>
@@ -488,7 +489,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     boxShadow: '0 0 10px rgba(70,104,232,0.8)',
     transform: [{ translateY: -13 }],
-    transition: 'top 240ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease',
+    transition: 'top 160ms cubic-bezier(0.16, 1, 0.3, 1), opacity 140ms ease',
   },
   railBottom: {
     width: '100%',

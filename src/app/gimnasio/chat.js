@@ -27,7 +27,7 @@ export default function ChatGimnasio() {
   }, [cardId]);
 
   return (
-    <Screen style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 24, paddingTop: 20 } : undefined}>
+    <Screen safeTop style={Platform.OS === 'web' ? { maxWidth: undefined, paddingHorizontal: 24, paddingTop: 20 } : undefined}>
       <Stack.Screen options={{ title: "Gimnasio Mental", headerShown: false }} />
       {loading ? <ActivityIndicator color={colors.accent} style={{ flex: 1 }} /> : (
         <ChatAuditor card={card} chatId={id ? Number(id) : null} />
