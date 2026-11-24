@@ -1,4 +1,5 @@
 import { hasMathSyntax, matchMathAt, splitMathSegments } from "./mathLatex";
+import { isStandaloneUrl, matchMarkdownLinkAt, sanitizeLinkUrl } from "./richLink";
 
 const HTML_ESCAPES = {
   "&": "&amp;",
@@ -482,6 +483,21 @@ function stripUnsafeAttrs(doc, root) {
       }
     }
 
+    if (tag === "a") {
+      const href = sanitizeLinkUrl(el.getAttribute("href"));
+      if (!href) {
+        el.replaceWith(...Array.from(el.childNodes));
+        continue;
+      }
+      const display = el.getAttribute("data-link-display") === "mention" ? "mention" : "inline";
+      for (const attr of Array.from(el.attributes)) {
+        el.removeAttribute(attr.name);
+      }
+      el.setAttribute("href", href);
+      el.setAttribute("data-link-display", display);
+      continue;
+    }
+
     if (tag === "span") {
       const dataColor = el.getAttribute("data-color");
       if (dataColor && VALID_COLORS.has(dataColor)) {
@@ -499,6 +515,26 @@ function stripUnsafeAttrs(doc, root) {
     if (tag === "div") {
       const dataType = el.getAttribute("data-type");
       if (dataType === "toggle-content" || el.hasAttribute("data-nf-toggle-content")) {
+        continue;
+      }
+      if (el.hasAttribute("data-link-url")) {
+        const url = sanitizeLinkUrl(el.getAttribute("data-link-url"));
+        if (!url) {
+          el.remove();
+          continue;
+        }
+        const saved = {
+          url,
+          title: el.getAttribute("data-link-title") || "",
+          desc: el.getAttribute("data-link-desc") || "",
+          variant: el.getAttribute("data-link-variant") === "card" ? "card" : "bookmark",
+        };
+        for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+        el.setAttribute("data-link-url", saved.url);
+        el.setAttribute("data-link-title", saved.title);
+        el.setAttribute("data-link-desc", saved.desc);
+        el.setAttribute("data-link-variant", saved.variant);
+        el.replaceChildren();
         continue;
       }
       const hasBlockChild = Array.from(el.children || []).some((child) =>
@@ -539,6 +575,8 @@ function stripUnsafeAttrs(doc, root) {
     const savedRowspan = tag === "td" || tag === "th" ? el.getAttribute("rowspan") : null;
     const savedColwidth = tag === "td" || tag === "th" ? el.getAttribute("colwidth") : null;
     const savedType = tag === "details" ? el.getAttribute("data-type") : null;
+    const savedOpen = tag === "details" && el.hasAttribute("open");
+    const savedToggleAttr = tag === "details" && el.hasAttribute("data-nf-toggle");
 
     for (const attr of Array.from(el.attributes)) {
       el.removeAttribute(attr.name);
@@ -549,6 +587,8 @@ function stripUnsafeAttrs(doc, root) {
     if (savedRowspan) el.setAttribute("rowspan", savedRowspan);
     if (savedColwidth) el.setAttribute("colwidth", savedColwidth);
     if (savedType) el.setAttribute("data-type", savedType);
+    if (savedOpen) el.setAttribute("open", "");
+    if (savedToggleAttr) el.setAttribute("data-nf-toggle", "");
   }
 }
 
@@ -925,7 +965,6 @@ function isLikelyKatexDuplicateLine(rawLatexLine, candidateVisualLine) {
 }
 
 function inlineMarkdownSegmentToHtml(segment) {
-  let text = escapeHtml(segment);
   const tokens = [];
   const hold = (html) => {
     const token = `\uE070${tokens.length}\uE071`;
@@ -933,26 +972,43 @@ function inlineMarkdownSegmentToHtml(segment) {
     return token;
   };
 
+  // Extraer [texto](url) antes de escapar HTML/marcas para proteger guiones bajos en URLs.
+  let withLinkTokens = "";
+  let idx = 0;
+  while (idx < segment.length) {
+    if (segment[idx] === "[" && segment[idx + 1] !== "[") {
+      const linkMatch = matchMarkdownLinkAt(segment, idx);
+      if (linkMatch) {
+        const innerHtml = inlineMarkdownSegmentToHtml(linkMatch.label);
+        withLinkTokens += hold(
+          `<a href="${escapeHtml(linkMatch.href)}" data-link-display="${linkMatch.display}">${innerHtml}</a>`
+        );
+        idx = linkMatch.end;
+        continue;
+      }
+    }
+    withLinkTokens += segment[idx];
+    idx += 1;
+  }
+
+  let text = escapeHtml(withLinkTokens);
+
   text = text.replace(/\*\*([^*\n]+?)\*\*/g, (_, inner) => hold(`<strong>${inlineMarkdownSegmentToHtmlRaw(inner)}</strong>`));
   text = text.replace(/==([^=\n]+?)==/g, (_, inner) => hold(`<mark>${inlineMarkdownSegmentToHtmlRaw(inner)}</mark>`));
   text = text.replace(/__([^_\n]+?)__/g, (_, inner) => hold(`<u>${inlineMarkdownSegmentToHtmlRaw(inner)}</u>`));
   text = text.replace(/~~([^~\n]+?)~~/g, (_, inner) => hold(`<s>${inlineMarkdownSegmentToHtmlRaw(inner)}</s>`));
   text = text.replace(/(^|[^\w*])\*([^\s*](?:[^*\n]*?[^\s*])?)\*(?=[^\w*]|$)/g, (_, pre, inner) => {
-    return `${pre}${hold(`<em>${escapeHtmlUnescapedSafe(inner)}</em>`)}`;
+    return `${pre}${hold(`<em>${inner}</em>`)}`;
   });
 
   // Restaurar tokens desde afuera/adentro
   let prev;
   do {
     prev = text;
-    text = text.replace(/\uE070(\d+)\uE071/g, (_, idx) => tokens[Number(idx)] || "");
+    text = text.replace(/\uE070(\d+)\uE071/g, (_, tIdx) => tokens[Number(tIdx)] || "");
   } while (text !== prev);
 
   return text;
-}
-
-function escapeHtmlUnescapedSafe(alreadyEscaped) {
-  return alreadyEscaped;
 }
 
 function inlineMarkdownSegmentToHtmlRaw(rawInnerEscaped) {
@@ -1009,12 +1065,22 @@ function parseTableCells(line) {
   return values;
 }
 
+function hasMarkdownLink(text) {
+  let idx = text.indexOf("[");
+  while (idx !== -1) {
+    if (matchMarkdownLinkAt(text, idx)) return true;
+    idx = text.indexOf("[", idx + 1);
+  }
+  return false;
+}
+
 function hasMarkdownOrMathSignal(text) {
   if (hasMathSyntax(text)) return true;
   if (/(?:^|\n)\s*(?:\$\$|\\\[)/.test(text)) return true;
   if (/(?:^|\n)\s*#{1,6}\s+\S/.test(text)) return true;
   if (/\*\*[^*\n]+\*\*|==[^=\n]+==|~~[^~\n]+~~|__[^_\n]+__/.test(text)) return true;
   if (/(?:^|\n)\s*(?:[-*•]\s+\S|\d{1,4}\.\s+\S|>\s+\S|---+$)/.test(text)) return true;
+  if (hasMarkdownLink(text)) return true;
   const lines = text.split("\n");
   if (lines.some((line) => isStandaloneRawLatexLine(line) || isStandaloneUnicodeMathLine(line))) {
     return true;
@@ -1221,7 +1287,7 @@ export function markdownClipboardToHtml(plain) {
 }
 
 const MATH_OR_SEMANTIC_HTML_RE =
-  /(?:data-(?:math|latex|tex|equation)\b|\bkatex(?:-display|-mathml)?\b|\bmath-(?:block|inline|display)\b|\bmwe-math-element\b|\bac-math-(?:block|inline)\b|<mjx-container\b|<math[\s>]|type\s*=\s*["']math\/tex|<(?:strong|em|u|s|del|mark|h[1-6]|ul|ol|li|table|blockquote|details)\b)/i;
+  /(?:data-(?:math|latex|tex|equation|link-url)\b|\bkatex(?:-display|-mathml)?\b|\bmath-(?:block|inline|display)\b|\bmwe-math-element\b|\b(?:ac|nf)-math-(?:block|inline)\b|<mjx-container\b|<math[\s>]|type\s*=\s*["']math\/tex|<(?:strong|em|u|s|del|mark|a|h[1-6]|ul|ol|li|table|blockquote|details)\b)/i;
 
 function isPlainTextOnlyHtml(html, plain) {
   if (!html) return false;
@@ -1239,6 +1305,17 @@ function isPlainTextOnlyHtml(html, plain) {
   return !hasRealBold && Boolean(plain && plain.trim());
 }
 
+function isSingleAnchorForSameUrl(html, plainTrimmed) {
+  if (!html || !plainTrimmed || typeof DOMParser === "undefined") return false;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const anchors = Array.from(doc?.body?.querySelectorAll("a[href]") || []);
+  if (anchors.length !== 1) return false;
+  const bodyText = (doc.body.textContent || "").trim();
+  const anchorText = (anchors[0].textContent || "").trim();
+  const href = sanitizeLinkUrl(anchors[0].getAttribute("href"));
+  return Boolean(href && bodyText === plainTrimmed && anchorText === plainTrimmed);
+}
+
 function htmlHasVisibleTextOrMath(html) {
   if (!html) return false;
   if (MATH_OR_SEMANTIC_HTML_RE.test(html)) return true;
@@ -1250,6 +1327,7 @@ function htmlHasVisibleTextOrMath(html) {
 /**
  * Decide la mejor representación para pegar clipboardData en TipTap:
  *  - { kind: "image", file } para imágenes / capturas puras
+ *  - { kind: "url", url } para URLs independientes (auto-enlace sobre selección o popover)
  *  - { kind: "html", html } para fórmulas LaTeX/MathML/HTML/Markdown rico
  *  - null para delegar al comportamiento nativo
  */
@@ -1269,6 +1347,16 @@ export function clipboardToEditorHtml(clipboardData) {
     }
   }
 
+  const trimmedPlain = plain.trim();
+  if (
+    trimmedPlain &&
+    isStandaloneUrl(trimmedPlain) &&
+    (!html || isPlainTextOnlyHtml(html, plain) || isSingleAnchorForSameUrl(html, trimmedPlain))
+  ) {
+    const safe = sanitizeLinkUrl(trimmedPlain);
+    if (safe) return { kind: "url", url: safe };
+  }
+
   if (html && !isPlainTextOnlyHtml(html, plain)) {
     const hasRichSignal =
       MATH_OR_SEMANTIC_HTML_RE.test(html) ||
@@ -1280,7 +1368,7 @@ export function clipboardToEditorHtml(clipboardData) {
     }
   }
 
-  if (plain.trim()) {
+  if (trimmedPlain) {
     const mdHtml = markdownClipboardToHtml(plain);
     if (mdHtml) return { kind: "html", html: mdHtml };
   }

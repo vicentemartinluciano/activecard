@@ -4,7 +4,7 @@
 
 import { Extension, textInputRule, wrappingInputRule } from "@tiptap/core";
 import { Blockquote } from "@tiptap/extension-blockquote";
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { closeHistory } from "@tiptap/pm/history";
 import { Highlight } from "@tiptap/extension-highlight";
@@ -17,12 +17,39 @@ import { attachEditorTableControls } from "./editorTableControls";
 import { clipboardToEditorHtml, endsWithDisplayMathParagraph } from "./editorPaste";
 import { positionEditorPanel } from "./editorGeometry";
 import { matchMathAt, splitMathSegments } from "./mathLatex";
+import { linkDisplayTitle, openExternalLink, sanitizeLinkUrl } from "./richLink";
 
 import { compressFile } from "./imageCompress";
 import { Image } from "./tiptapImage";
+import { WebBookmark, WebLink } from "./tiptapLink";
 import { EDITOR_TEXT_COLORS, TColor } from "./tiptapTColor";
 import { ALIGNMENTS, TextAlign } from "./tiptapTextAlign";
 import { Toggle, ToggleContent, ToggleSummary, toggleSummaryDepth } from "./tiptapToggle";
+
+export function focusEditorBottom(editor) {
+  if (!editor || editor.isDestroyed || !editor.isEditable) return false;
+  const { doc } = editor.state;
+  const last = doc.lastChild;
+  if (last && last.type.name === "paragraph" && last.content.size === 0) {
+    const pos = Math.max(0, doc.content.size - 1);
+    return editor.chain().focus().setTextSelection(pos).scrollIntoView().run();
+  }
+  const paragraph = editor.state.schema.nodes.paragraph?.create?.();
+  if (!paragraph) return false;
+  return editor
+    .chain()
+    .focus()
+    .command(({ tr }) => {
+      closeHistory(tr);
+      tr.insert(tr.doc.content.size, paragraph);
+      const targetPos = Math.max(0, tr.doc.content.size - 1);
+      tr.setSelection(TextSelection.create(tr.doc, targetPos));
+      closeHistory(tr);
+      return true;
+    })
+    .scrollIntoView()
+    .run();
+}
 
 // Atajos de tipeo propios. "->" se transforma en la flecha → (el conector de
 // las tarjetas). Los otros ya vienen de StarterKit: "---" = divisor,
@@ -37,6 +64,50 @@ const Shortcuts = Extension.create({
   },
   addKeyboardShortcuts() {
     return {
+      Enter: () => {
+        const { selection } = this.editor.state;
+        if (!(selection instanceof NodeSelection) || !selection.node.isAtom) return false;
+        const paragraph = this.editor.state.schema.nodes.paragraph?.create?.();
+        if (!paragraph) return false;
+        return this.editor
+          .chain()
+          .command(({ tr }) => {
+            closeHistory(tr);
+            tr.insert(selection.to, paragraph);
+            const pos = Math.min(selection.to + 1, tr.doc.content.size);
+            tr.setSelection(TextSelection.create(tr.doc, pos));
+            closeHistory(tr);
+            return true;
+          })
+          .scrollIntoView()
+          .run();
+      },
+      ArrowDown: () => {
+        const { selection, doc } = this.editor.state;
+        if (!(selection instanceof NodeSelection) || selection.to < doc.content.size) return false;
+        return focusEditorBottom(this.editor);
+      },
+      ArrowUp: () => {
+        const { selection } = this.editor.state;
+        if (!(selection instanceof NodeSelection) || selection.from !== 0) return false;
+        const paragraph = this.editor.state.schema.nodes.paragraph?.create?.();
+        if (!paragraph) return false;
+        return this.editor
+          .chain()
+          .command(({ tr }) => {
+            closeHistory(tr);
+            tr.insert(0, paragraph);
+            tr.setSelection(TextSelection.create(tr.doc, 1));
+            closeHistory(tr);
+            return true;
+          })
+          .scrollIntoView()
+          .run();
+      },
+      "Mod-k": () => {
+        openLinkEditor(this.editor);
+        return true;
+      },
       "Mod-Alt-f": () => {
         if (!hasCopiedFormat()) return Boolean(copyFormatFromEditor(this.editor));
         if (isSameCopyOrigin(this.editor)) {
@@ -137,7 +208,13 @@ const WritingStarterKit = StarterKit.extend({
   },
 });
 
+const ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+function escapeAttrHtml(value) {
+  return String(value || "").replace(/[&<>"]/g, (ch) => ESCAPE_MAP[ch]);
+}
+
 const mathLiveKey = new PluginKey("activecardMathLive");
+const linkPopoverKey = new PluginKey("activecardLinkPopover");
 
 function renderMathDecorationHtml(latex, display) {
   try {
@@ -278,6 +355,32 @@ function collectMathEntries(doc) {
 }
 
 const mathControllers = new WeakMap();
+const linkControllers = new WeakMap();
+
+function createHostTracker(view, { onAttach, onDetach } = {}) {
+  const resolveHost = () => view.dom.closest?.(".nf-root") || view.dom.parentElement || null;
+  let host = null;
+
+  const ensureHost = () => {
+    const nextHost = resolveHost();
+    if (!nextHost || nextHost === host) return host;
+    if (host) onDetach?.(host);
+    host = nextHost;
+    onAttach?.(host);
+    return host;
+  };
+
+  ensureHost();
+
+  return {
+    getHost: () => host,
+    ensureHost,
+    destroy() {
+      if (host) onDetach?.(host);
+      host = null;
+    },
+  };
+}
 
 const MathLivePreview = Extension.create({
   name: "mathLivePreview",
@@ -365,8 +468,6 @@ const MathLivePreview = Extension.create({
         },
         view(view) {
           if (typeof document === "undefined") return {};
-          const host = view.dom.closest?.(".nf-root") || view.dom.parentElement;
-          if (!host) return {};
 
           const popover = document.createElement("div");
           popover.className = "nf-math-popover";
@@ -401,10 +502,25 @@ const MathLivePreview = Extension.create({
 
           actions.append(delBtn, doneBtn);
           popover.append(preview, input, actions);
-          host.appendChild(popover);
 
           let current = null;
           let currentAnchor = null;
+
+          const hostTracker = createHostTracker(view, {
+            onAttach(nextHost) {
+              if (popover.parentElement !== nextHost) nextHost.appendChild(popover);
+              if (current) nextHost.classList.add("nf-math-editing");
+              nextHost.addEventListener("nf:viewport", onViewport);
+            },
+            onDetach(prevHost) {
+              prevHost.classList.remove("nf-math-editing");
+              prevHost.removeEventListener("nf:viewport", onViewport);
+            },
+          });
+
+          popover.addEventListener("focusin", () => {
+            hostTracker.ensureHost()?.dispatchEvent(new Event("nf:restore-scroll", { bubbles: true }));
+          });
 
           const updatePreview = (raw, display) => {
             const cleaned = String(raw || "").trim();
@@ -416,7 +532,8 @@ const MathLivePreview = Extension.create({
           };
 
           const positionPopover = () => {
-            if (!current || popover.hidden || !host.isConnected) return;
+            const host = hostTracker.ensureHost();
+            if (!current || popover.hidden || !host || !host.isConnected) return;
             const anchorEl =
               currentAnchor && currentAnchor.isConnected
                 ? currentAnchor
@@ -434,28 +551,45 @@ const MathLivePreview = Extension.create({
             positionEditorPanel(host, popover, anchor, false, coarse ? 12 : 8);
           };
 
+          const revealPopover = () => {
+            const host = hostTracker.getHost();
+            if (!host || popover.hidden) return;
+            const rootRect = host.getBoundingClientRect();
+            const box = popover.getBoundingClientRect();
+            const top = box.height
+              ? Math.max(0, box.top - rootRect.top)
+              : Math.max(0, parseFloat(popover.style.top) || 0);
+            const bottom = box.height ? Math.max(top, box.bottom - rootRect.top) : top + (popover.offsetHeight || 120);
+            host.dispatchEvent(new CustomEvent("nf:reveal-panel", { bubbles: true, detail: { top, bottom } }));
+          };
+
           const close = ({ focusEditor = false } = {}) => {
+            const host = hostTracker.getHost();
             if (!current && popover.hidden) return;
             current = null;
             currentAnchor = null;
             popover.hidden = true;
-            host.classList.remove("nf-math-editing");
+            host?.classList.remove("nf-math-editing");
             if (!editor.isDestroyed) {
               view.dispatch(view.state.tr.setMeta(mathLiveKey, null).setMeta("addToHistory", false));
               if (focusEditor) editor.commands.focus();
             }
-            host.dispatchEvent(new Event("nf:layout"));
+            host?.dispatchEvent(new Event("nf:layout"));
           };
 
-          const open = (entry, anchorEl) => {
-            if (!editor.isEditable) return;
-            if (current && current.from === entry.from && current.to === entry.to) {
+          const open = (entry, anchorEl, { selectAll = false } = {}) => {
+            const host = hostTracker.ensureHost();
+            if (!host || !editor.isEditable) return;
+            if (current && current.from === entry.from && current.to === entry.to && !selectAll) {
               close({ focusEditor: true });
               return;
             }
             if (current) {
               commit({ focusEditor: false });
             }
+            const linkCtrl = linkControllers.get(editor);
+            if (linkCtrl?.isOpen()) linkCtrl.close({ focusEditor: false });
+
             const refreshed =
               collectMathEntries(editor.state.doc).find(
                 (item) => item.latex === entry.latex && item.display === entry.display && item.from === entry.from
@@ -473,13 +607,15 @@ const MathLivePreview = Extension.create({
                 .setMeta("addToHistory", false)
             );
             positionPopover();
-            input.focus();
-            input.setSelectionRange(input.value.length, input.value.length);
+            input.focus({ preventScroll: true });
+            input.setSelectionRange(selectAll ? 0 : input.value.length, input.value.length);
+            revealPopover();
             host.dispatchEvent(new Event("nf:layout"));
           };
 
           const commit = ({ focusEditor = true } = {}) => {
             if (!current) return;
+            const host = hostTracker.getHost();
             const snapshot = current;
             const normalizedInput = input.value.replace(/\r\n?/g, "\n").replace(/\s*\n+\s*/g, " ").trim();
             const normalizedOrig = (snapshot.latex || "").replace(/\r\n?/g, "\n").replace(/\s*\n+\s*/g, " ").trim();
@@ -489,7 +625,7 @@ const MathLivePreview = Extension.create({
             current = null;
             currentAnchor = null;
             popover.hidden = true;
-            host.classList.remove("nf-math-editing");
+            host?.classList.remove("nf-math-editing");
 
             if (validRange && !normalizedInput) {
               const chain = editor
@@ -526,18 +662,19 @@ const MathLivePreview = Extension.create({
               view.dispatch(view.state.tr.setMeta(mathLiveKey, null).setMeta("addToHistory", false));
               if (focusEditor) editor.commands.focus();
             }
-            host.dispatchEvent(new Event("nf:layout"));
+            host?.dispatchEvent(new Event("nf:layout"));
           };
 
           const removeFormula = () => {
             if (!current) return;
+            const host = hostTracker.getHost();
             const snapshot = current;
             const docSize = editor.state.doc.content.size;
             const validRange = snapshot.from >= 0 && snapshot.to <= docSize && snapshot.from <= snapshot.to;
             current = null;
             currentAnchor = null;
             popover.hidden = true;
-            host.classList.remove("nf-math-editing");
+            host?.classList.remove("nf-math-editing");
             if (validRange) {
               editor
                 .chain()
@@ -554,7 +691,7 @@ const MathLivePreview = Extension.create({
               view.dispatch(view.state.tr.setMeta(mathLiveKey, null).setMeta("addToHistory", false));
               editor.commands.focus();
             }
-            host.dispatchEvent(new Event("nf:layout"));
+            host?.dispatchEvent(new Event("nf:layout"));
           };
 
           const controller = {
@@ -569,7 +706,7 @@ const MathLivePreview = Extension.create({
             if (!current) return;
             updatePreview(input.value, current.display);
             positionPopover();
-            host.dispatchEvent(new Event("nf:layout"));
+            hostTracker.getHost()?.dispatchEvent(new Event("nf:layout"));
           });
 
           input.addEventListener("keydown", (event) => {
@@ -603,31 +740,33 @@ const MathLivePreview = Extension.create({
             if (event.target.closest?.(".nf-math-widget")) return;
             commit({ focusEditor: false });
           };
-          const onViewport = () => positionPopover();
+          function onViewport() {
+            positionPopover();
+          }
           document.addEventListener("pointerdown", onOutsidePointer, true);
           window.addEventListener("resize", onViewport);
           window.addEventListener("scroll", onViewport, true);
           window.visualViewport?.addEventListener("resize", onViewport);
-          host.addEventListener("nf:viewport", onViewport);
 
           return {
             update(nextView, prevState) {
+              hostTracker.ensureHost();
               if (!current) return;
               if (nextView.state.doc !== prevState.doc && !mathLiveKey.getState(nextView.state)?.activeMath) {
                 current = null;
                 currentAnchor = null;
                 popover.hidden = true;
-                host.classList.remove("nf-math-editing");
-                host.dispatchEvent(new Event("nf:layout"));
+                hostTracker.getHost()?.classList.remove("nf-math-editing");
+                hostTracker.getHost()?.dispatchEvent(new Event("nf:layout"));
               }
             },
             destroy() {
               mathControllers.delete(editor);
+              hostTracker.destroy();
               document.removeEventListener("pointerdown", onOutsidePointer, true);
               window.removeEventListener("resize", onViewport);
               window.removeEventListener("scroll", onViewport, true);
               window.visualViewport?.removeEventListener("resize", onViewport);
-              host.removeEventListener("nf:viewport", onViewport);
               popover.remove();
             },
           };
@@ -721,6 +860,897 @@ const MathLivePreview = Extension.create({
   },
 });
 
+function getWebLinkMark(node) {
+  if (!node?.isText) return null;
+  return node.marks.find((m) => m.type.name === "webLink") || null;
+}
+
+function findLinkRangeAtPos(doc, pos) {
+  if (pos < 0 || pos > doc.content.size) return null;
+  const $pos = doc.resolve(pos);
+  const parent = $pos.parent;
+  if (!parent || !parent.isTextblock) return null;
+
+  const blockStart = $pos.start();
+  const children = [];
+  let offset = 0;
+  parent.forEach((child) => {
+    children.push({ node: child, from: blockStart + offset, to: blockStart + offset + child.nodeSize });
+    offset += child.nodeSize;
+  });
+
+  let hitIdx = children.findIndex((c) => c.node.isText && pos >= c.from && pos <= c.to && getWebLinkMark(c.node));
+  if (hitIdx === -1 && pos > blockStart) {
+    hitIdx = children.findIndex((c) => c.node.isText && pos - 1 >= c.from && pos - 1 < c.to && getWebLinkMark(c.node));
+  }
+  if (hitIdx === -1) return null;
+
+  const targetMark = getWebLinkMark(children[hitIdx].node);
+  const targetHref = targetMark.attrs.href;
+  const targetDisplay = targetMark.attrs.display === "mention" ? "mention" : "inline";
+
+  let from = children[hitIdx].from;
+  let to = children[hitIdx].to;
+  for (let i = hitIdx - 1; i >= 0; i -= 1) {
+    const m = getWebLinkMark(children[i].node);
+    if (!m || m.attrs.href !== targetHref || (m.attrs.display === "mention" ? "mention" : "inline") !== targetDisplay)
+      break;
+    from = children[i].from;
+  }
+  for (let i = hitIdx + 1; i < children.length; i += 1) {
+    const m = getWebLinkMark(children[i].node);
+    if (!m || m.attrs.href !== targetHref || (m.attrs.display === "mention" ? "mention" : "inline") !== targetDisplay)
+      break;
+    to = children[i].to;
+  }
+
+  return {
+    kind: "inline",
+    from,
+    to,
+    url: targetHref,
+    title: doc.textBetween(from, to, " ", " "),
+    description: "",
+    mode: targetDisplay,
+    existing: true,
+  };
+}
+
+const LINK_MODES = [
+  { key: "inline", label: "URL" },
+  { key: "mention", label: "Mención" },
+  { key: "bookmark", label: "Marcador" },
+  { key: "card", label: "Tarjeta" },
+];
+
+const LinkInteractions = Extension.create({
+  name: "activecardLinkInteractions",
+  addKeyboardShortcuts() {
+    return {
+      Escape: () => {
+        const ctrl = linkControllers.get(this.editor);
+        if (ctrl?.isOpen()) {
+          ctrl.close({ focusEditor: true });
+          return true;
+        }
+        return false;
+      },
+    };
+  },
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    return [
+      new Plugin({
+        key: linkPopoverKey,
+        view(view) {
+          if (typeof document === "undefined") return {};
+
+          const popover = document.createElement("div");
+          popover.className = "nf-link-popover";
+          popover.setAttribute("role", "dialog");
+          popover.setAttribute("aria-label", "Editar enlace");
+          popover.hidden = true;
+
+          const modesRow = document.createElement("div");
+          modesRow.className = "nf-link-modes";
+          const modeButtons = {};
+          for (const def of LINK_MODES) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "nf-link-mode-btn";
+            btn.dataset.mode = def.key;
+            btn.textContent = def.label;
+            modesRow.appendChild(btn);
+            modeButtons[def.key] = btn;
+          }
+
+          const expandBtn = document.createElement("button");
+          expandBtn.type = "button";
+          expandBtn.className = "nf-link-mode-expand";
+          expandBtn.textContent = "✎";
+          expandBtn.setAttribute("aria-label", "Editar enlace");
+          expandBtn.title = "Editar enlace";
+          expandBtn.hidden = true;
+          modesRow.appendChild(expandBtn);
+
+          const urlInput = document.createElement("input");
+          urlInput.type = "url";
+          urlInput.className = "nf-link-input nf-link-input-url";
+          urlInput.placeholder = "https://ejemplo.com";
+          urlInput.setAttribute("aria-label", "URL del enlace");
+          urlInput.spellcheck = false;
+          urlInput.autocomplete = "off";
+          urlInput.setAttribute("autocapitalize", "off");
+
+          const titleInput = document.createElement("input");
+          titleInput.type = "text";
+          titleInput.className = "nf-link-input nf-link-input-title";
+          titleInput.placeholder = "Texto o título visible";
+          titleInput.setAttribute("aria-label", "Texto visible del enlace");
+
+          const descInput = document.createElement("input");
+          descInput.type = "text";
+          descInput.className = "nf-link-input nf-link-input-desc";
+          descInput.placeholder = "Descripción breve (opcional)";
+          descInput.setAttribute("aria-label", "Descripción del enlace");
+          descInput.hidden = true;
+
+          const errorEl = document.createElement("div");
+          errorEl.className = "nf-link-error";
+          errorEl.hidden = true;
+
+          const actions = document.createElement("div");
+          actions.className = "nf-link-actions";
+
+          const openBtn = document.createElement("button");
+          openBtn.type = "button";
+          openBtn.className = "nf-link-popover-btn nf-link-popover-open";
+          openBtn.textContent = "Abrir ↗";
+
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "nf-link-popover-btn nf-link-popover-delete";
+          delBtn.textContent = "Quitar";
+
+          const doneBtn = document.createElement("button");
+          doneBtn.type = "button";
+          doneBtn.className = "nf-link-popover-btn nf-link-popover-done";
+          doneBtn.textContent = "Listo";
+
+          actions.append(openBtn, delBtn, doneBtn);
+          popover.append(modesRow, urlInput, titleInput, descInput, errorEl, actions);
+
+          const hoverBar = document.createElement("div");
+          hoverBar.className = "nf-link-hover";
+          hoverBar.setAttribute("role", "toolbar");
+          hoverBar.setAttribute("aria-label", "Acciones del enlace");
+          hoverBar.hidden = true;
+
+          const hoverEditBtn = document.createElement("button");
+          hoverEditBtn.type = "button";
+          hoverEditBtn.className = "nf-link-hover-btn nf-link-hover-edit";
+          hoverEditBtn.textContent = "Editar ✎";
+          hoverEditBtn.setAttribute("aria-label", "Editar enlace");
+
+          const hoverDelBtn = document.createElement("button");
+          hoverDelBtn.type = "button";
+          hoverDelBtn.className = "nf-link-hover-btn nf-link-hover-delete";
+          hoverDelBtn.textContent = "Quitar";
+          hoverDelBtn.setAttribute("aria-label", "Quitar enlace");
+
+          hoverBar.append(hoverEditBtn, hoverDelBtn);
+
+          let current = null;
+          let currentAnchor = null;
+          let selectedMode = "inline";
+          let isCompact = false;
+          let applyingLinkChange = false;
+          let hoverTarget = null;
+          let hoverAnchor = null;
+          let hoverHideTimer = null;
+          let touchPressTimer = null;
+          let touchStartPos = null;
+          let longPressTriggered = false;
+          let longPressResetTimer = null;
+
+          const clearTouchPress = () => {
+            if (touchPressTimer != null) {
+              clearTimeout(touchPressTimer);
+              touchPressTimer = null;
+            }
+            touchStartPos = null;
+          };
+
+          const hostTracker = createHostTracker(view, {
+            onAttach(nextHost) {
+              if (popover.parentElement !== nextHost) nextHost.appendChild(popover);
+              if (hoverBar.parentElement !== nextHost) nextHost.appendChild(hoverBar);
+              if (current) nextHost.classList.add("nf-link-editing");
+              nextHost.addEventListener("nf:viewport", onViewport);
+            },
+            onDetach(prevHost) {
+              prevHost.classList.remove("nf-link-editing");
+              prevHost.removeEventListener("nf:viewport", onViewport);
+            },
+          });
+
+          popover.addEventListener("focusin", () => {
+            hostTracker.ensureHost()?.dispatchEvent(new Event("nf:restore-scroll", { bubbles: true }));
+          });
+
+          const resolveAnchorElement = (target) => {
+            if (!target) return null;
+            try {
+              if (target.kind === "block") {
+                const nodeDom = view.nodeDOM(target.pos);
+                return nodeDom?.nodeType === 1 ? nodeDom : null;
+              }
+              const clamped = Math.min(target.from + 1, editor.state.doc.content.size);
+              const domPos = view.domAtPos(clamped);
+              const baseEl = domPos.node?.nodeType === 1 ? domPos.node : domPos.node?.parentElement;
+              return baseEl?.closest?.("a.nf-link") || null;
+            } catch {
+              return null;
+            }
+          };
+
+          const syncModeUi = () => {
+            for (const def of LINK_MODES) {
+              const active = selectedMode === def.key;
+              modeButtons[def.key].classList.toggle("is-active", active);
+              modeButtons[def.key].setAttribute("aria-pressed", String(active));
+            }
+            popover.classList.toggle("is-compact", isCompact);
+            expandBtn.hidden = !isCompact;
+            urlInput.hidden = isCompact;
+            titleInput.hidden = isCompact;
+            descInput.hidden = isCompact || selectedMode === "inline" || selectedMode === "mention";
+            actions.hidden = isCompact;
+            if (isCompact) errorEl.hidden = true;
+            const parsedUrl = sanitizeLinkUrl(urlInput.value, { autoScheme: true });
+            openBtn.hidden = isCompact || !parsedUrl;
+          };
+
+          const showError = (msg) => {
+            errorEl.textContent = msg || "";
+            errorEl.hidden = !msg;
+          };
+
+          const cancelHoverHide = () => {
+            if (hoverHideTimer != null) {
+              clearTimeout(hoverHideTimer);
+              hoverHideTimer = null;
+            }
+          };
+
+          const hideHover = () => {
+            cancelHoverHide();
+            hoverTarget = null;
+            hoverAnchor = null;
+            if (!hoverBar.hidden) {
+              hoverBar.hidden = true;
+              hostTracker.getHost()?.dispatchEvent(new Event("nf:layout"));
+            }
+          };
+
+          const scheduleHideHover = () => {
+            cancelHoverHide();
+            hoverHideTimer = setTimeout(hideHover, 180);
+          };
+
+          const positionHover = () => {
+            const host = hostTracker.ensureHost();
+            if (!hoverTarget || hoverBar.hidden || !host || !host.isConnected) return;
+            if (!hoverAnchor || !hoverAnchor.isConnected) {
+              hideHover();
+              return;
+            }
+            const root = host.getBoundingClientRect();
+            const anchor = hoverAnchor.getBoundingClientRect();
+            const available = Math.max(140, (root.width || 320) - 16);
+            hoverBar.style.maxWidth = `${available}px`;
+            const measuredWidth = Math.min(
+              available,
+              hoverBar.offsetWidth || hoverBar.getBoundingClientRect().width || 156
+            );
+            const left = Math.min(
+              Math.max(8, (anchor.left + anchor.right) / 2 - root.left - measuredWidth / 2),
+              Math.max(8, (root.width || measuredWidth + 16) - measuredWidth - 8)
+            );
+            hoverBar.style.left = `${left}px`;
+            positionEditorPanel(host, hoverBar, anchor, true, 6);
+          };
+
+          const showHoverForAnchor = (anchorEl) => {
+            if (!editor.isEditable || current || editor.isDestroyed) return;
+            if (window.matchMedia?.("(pointer: coarse)")?.matches) return;
+            let pos = null;
+            try {
+              pos = view.posAtDOM(anchorEl, 0);
+            } catch {
+              pos = null;
+            }
+            const target = pos != null ? findLinkRangeAtPos(view.state.doc, pos) : null;
+            if (!target) return;
+            const host = hostTracker.ensureHost();
+            if (!host) return;
+            cancelHoverHide();
+            hoverTarget = target;
+            hoverAnchor = anchorEl;
+            hoverBar.hidden = false;
+            positionHover();
+          };
+
+          const positionPopover = () => {
+            const host = hostTracker.ensureHost();
+            if (!current || popover.hidden || !host || !host.isConnected) return;
+            const anchorEl = currentAnchor && currentAnchor.isConnected ? currentAnchor : resolveAnchorElement(current);
+            const root = host.getBoundingClientRect();
+            const pos = current.kind === "block" ? current.pos : current.from;
+            const clamped = Math.max(0, Math.min(pos, editor.state.doc.content.size));
+            const anchor = anchorEl?.getBoundingClientRect?.() || view.coordsAtPos(clamped);
+            const available = Math.max(240, (root.width || 320) - 16);
+            const targetWidth = isCompact ? Math.min(380, available) : Math.min(360, available);
+            popover.style.width = isCompact ? "max-content" : `${targetWidth}px`;
+            popover.style.maxWidth = `${targetWidth}px`;
+            const measuredWidth = Math.min(
+              targetWidth,
+              popover.offsetWidth || popover.getBoundingClientRect().width || targetWidth
+            );
+            const left = Math.min(
+              Math.max(8, (anchor.left + anchor.right) / 2 - root.left - measuredWidth / 2),
+              Math.max(8, (root.width || measuredWidth + 16) - measuredWidth - 8)
+            );
+            popover.style.left = `${left}px`;
+            const coarse = !!window.matchMedia?.("(pointer: coarse)")?.matches;
+            positionEditorPanel(host, popover, anchor, false, coarse ? 12 : 8);
+          };
+
+          const revealPopover = () => {
+            const host = hostTracker.getHost();
+            if (!host || popover.hidden) return;
+            const rootRect = host.getBoundingClientRect();
+            const box = popover.getBoundingClientRect();
+            const top = box.height
+              ? Math.max(0, box.top - rootRect.top)
+              : Math.max(0, parseFloat(popover.style.top) || 0);
+            const bottom = box.height ? Math.max(top, box.bottom - rootRect.top) : top + (popover.offsetHeight || 120);
+            host.dispatchEvent(new CustomEvent("nf:reveal-panel", { bubbles: true, detail: { top, bottom } }));
+          };
+
+          const close = ({ focusEditor = false } = {}) => {
+            const host = hostTracker.getHost();
+            if (!current && popover.hidden) return;
+            current = null;
+            currentAnchor = null;
+            isCompact = false;
+            popover.hidden = true;
+            popover.classList.remove("is-compact");
+            showError("");
+            host?.classList.remove("nf-link-editing");
+            if (focusEditor && !editor.isDestroyed) editor.commands.focus();
+            host?.dispatchEvent(new Event("nf:layout"));
+          };
+
+          const applyTarget = ({ focusEditor = false, keepOpen = false } = {}) => {
+            if (!current) return false;
+            const safeUrl = sanitizeLinkUrl(urlInput.value, { autoScheme: true });
+            if (!safeUrl) {
+              showError("Ingresá un enlace válido (http:// o https://)");
+              syncModeUi();
+              positionPopover();
+              hostTracker.getHost()?.dispatchEvent(new Event("nf:layout"));
+              return false;
+            }
+            showError("");
+
+            const mode = selectedMode;
+            const resolvedTitle = linkDisplayTitle(safeUrl, titleInput.value);
+            const cleanDesc = descInput.value.replace(/\r\n?/g, " ").trim();
+            const isBlockMode = mode === "bookmark" || mode === "card";
+            const schema = editor.state.schema;
+            const snapshot = current;
+            let nextTarget = null;
+            let applied = false;
+
+            applyingLinkChange = true;
+            try {
+              applied = editor
+                .chain()
+                .command(({ tr }) => {
+                  closeHistory(tr);
+                  const docSize = tr.doc.content.size;
+                  if (snapshot.kind === "block") {
+                    const pos = snapshot.pos;
+                    const node = tr.doc.nodeAt(pos);
+                    if (!node || node.type.name !== "webBookmark") return false;
+                    if (isBlockMode) {
+                      tr.setNodeMarkup(pos, undefined, {
+                        url: safeUrl,
+                        title: resolvedTitle,
+                        description: cleanDesc,
+                        variant: mode,
+                      });
+                      nextTarget = {
+                        kind: "block",
+                        pos,
+                        url: safeUrl,
+                        title: resolvedTitle,
+                        description: cleanDesc,
+                        mode,
+                        existing: true,
+                      };
+                    } else {
+                      const mark = schema.marks.webLink.create({ href: safeUrl, display: mode });
+                      const pNode = schema.nodes.paragraph.create(null, schema.text(resolvedTitle, [mark]));
+                      tr.replaceWith(pos, pos + node.nodeSize, pNode);
+                      const from = pos + 1;
+                      const to = from + resolvedTitle.length;
+                      tr.setSelection(TextSelection.create(tr.doc, to));
+                      nextTarget = {
+                        kind: "inline",
+                        from,
+                        to,
+                        url: safeUrl,
+                        title: resolvedTitle,
+                        description: "",
+                        mode,
+                        existing: true,
+                      };
+                    }
+                  } else {
+                    const from = Math.max(0, Math.min(snapshot.from, docSize));
+                    const to = Math.max(from, Math.min(snapshot.to, docSize));
+                    if (!isBlockMode) {
+                      const mark = schema.marks.webLink.create({ href: safeUrl, display: mode });
+                      const textNode = schema.text(resolvedTitle, [mark]);
+                      tr.replaceWith(from, to, textNode);
+                      const newTo = from + resolvedTitle.length;
+                      tr.setSelection(TextSelection.create(tr.doc, newTo));
+                      nextTarget = {
+                        kind: "inline",
+                        from,
+                        to: newTo,
+                        url: safeUrl,
+                        title: resolvedTitle,
+                        description: "",
+                        mode,
+                        existing: true,
+                      };
+                    } else {
+                      const $from = tr.doc.resolve(from);
+                      const bookmarkNode = schema.nodes.webBookmark.create({
+                        url: safeUrl,
+                        title: resolvedTitle,
+                        description: cleanDesc,
+                        variant: mode,
+                      });
+                      const wholeTopParagraph =
+                        $from.depth === 1 &&
+                        $from.parent.type.name === "paragraph" &&
+                        from <= $from.start(1) &&
+                        to >= $from.end(1);
+                      if (wholeTopParagraph) {
+                        const blockFrom = $from.before(1);
+                        const blockTo = $from.after(1);
+                        const atDocEnd = blockTo >= tr.doc.content.size;
+                        const replacement = atDocEnd ? [bookmarkNode, schema.nodes.paragraph.create()] : bookmarkNode;
+                        tr.replaceWith(blockFrom, blockTo, replacement);
+                        tr.setSelection(NodeSelection.create(tr.doc, blockFrom));
+                        nextTarget = {
+                          kind: "block",
+                          pos: blockFrom,
+                          url: safeUrl,
+                          title: resolvedTitle,
+                          description: cleanDesc,
+                          mode,
+                          existing: true,
+                        };
+                      } else {
+                        if (snapshot.existing && to > from) {
+                          tr.delete(from, to);
+                        }
+                        const mappedFrom = Math.min(tr.mapping.map(from), tr.doc.content.size);
+                        const $mapped = tr.doc.resolve(mappedFrom);
+                        const topIdx = $mapped.index(0);
+                        let insertAt = 0;
+                        for (let i = 0; i <= topIdx; i += 1) insertAt += tr.doc.child(i).nodeSize;
+                        const atDocEnd = insertAt >= tr.doc.content.size;
+                        const nodes = atDocEnd ? [bookmarkNode, schema.nodes.paragraph.create()] : bookmarkNode;
+                        tr.insert(insertAt, nodes);
+                        tr.setSelection(NodeSelection.create(tr.doc, insertAt));
+                        nextTarget = {
+                          kind: "block",
+                          pos: insertAt,
+                          url: safeUrl,
+                          title: resolvedTitle,
+                          description: cleanDesc,
+                          mode,
+                          existing: true,
+                        };
+                      }
+                    }
+                  }
+                  closeHistory(tr);
+                  return true;
+                })
+                .run();
+            } finally {
+              applyingLinkChange = false;
+            }
+
+            if (!applied) return false;
+            if (keepOpen && nextTarget) {
+              current = nextTarget;
+              currentAnchor = resolveAnchorElement(nextTarget);
+              titleInput.value = nextTarget.title || "";
+              descInput.value = nextTarget.description || "";
+              syncModeUi();
+              positionPopover();
+              revealPopover();
+              hostTracker.getHost()?.dispatchEvent(new Event("nf:layout"));
+              return true;
+            }
+            close({ focusEditor });
+            return true;
+          };
+
+          const schemaHasMark = (tr, markType, from, to) => {
+            if (!markType) return false;
+            let found = false;
+            tr.doc.nodesBetween(from, to, (node) => {
+              if (node.isText && markType.isInSet(node.marks)) found = true;
+            });
+            return found;
+          };
+          const schemaMark = (ed) => ed.state.schema.marks.webLink;
+
+          const removeTargetLink = (snapshot, { focusEditor = true } = {}) => {
+            if (!snapshot?.existing) {
+              if (focusEditor && !editor.isDestroyed) editor.commands.focus();
+              return;
+            }
+            const chain = editor.chain();
+            if (focusEditor) chain.focus();
+            chain
+              .command(({ tr }) => {
+                closeHistory(tr);
+                if (snapshot.kind === "block") {
+                  const node = tr.doc.nodeAt(snapshot.pos);
+                  if (node && node.type.name === "webBookmark") {
+                    tr.delete(snapshot.pos, snapshot.pos + node.nodeSize);
+                  }
+                } else {
+                  const from = Math.max(0, Math.min(snapshot.from, tr.doc.content.size));
+                  const to = Math.max(from, Math.min(snapshot.to, tr.doc.content.size));
+                  if (to > from && schemaHasMark(tr, schemaMark(editor), from, to)) {
+                    tr.removeMark(from, to, editor.state.schema.marks.webLink);
+                  }
+                }
+                closeHistory(tr);
+                return true;
+              })
+              .run();
+          };
+
+          const removeLink = () => {
+            if (!current) return;
+            const snapshot = current;
+            close({ focusEditor: false });
+            removeTargetLink(snapshot, { focusEditor: true });
+          };
+
+          const open = (target, anchorEl = null, { compact = false } = {}) => {
+            const host = hostTracker.ensureHost();
+            if (!host || !editor.isEditable || !target) return;
+            const mathCtrl = mathControllers.get(editor);
+            if (mathCtrl?.isOpen()) mathCtrl.close({ focusEditor: false });
+            hideHover();
+
+            current = { ...target };
+            currentAnchor = anchorEl || resolveAnchorElement(target);
+            selectedMode = target.mode || "inline";
+            isCompact = Boolean(compact);
+            urlInput.value = target.url || "";
+            titleInput.value = target.title || "";
+            descInput.value = target.description || "";
+            showError("");
+            delBtn.textContent = target.existing ? "Quitar" : "Cancelar";
+            syncModeUi();
+
+            host.classList.add("nf-link-editing");
+            host.dispatchEvent(new Event("nf:dismiss-controls"));
+            popover.hidden = false;
+            positionPopover();
+            if (!isCompact) {
+              if (!target.existing && !urlInput.value) {
+                urlInput.focus({ preventScroll: true });
+              } else {
+                titleInput.focus({ preventScroll: true });
+                titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
+              }
+              revealPopover();
+            }
+            host.dispatchEvent(new Event("nf:layout"));
+          };
+
+          linkControllers.set(editor, {
+            open,
+            close,
+            applyTarget,
+            isOpen: () => Boolean(current),
+          });
+
+          hoverBar.addEventListener("mouseenter", cancelHoverHide);
+          hoverBar.addEventListener("mouseleave", (event) => {
+            if (hoverAnchor && event.relatedTarget && hoverAnchor.contains(event.relatedTarget)) return;
+            scheduleHideHover();
+          });
+          hoverEditBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          hoverEditBtn.addEventListener("mousedown", (event) => event.preventDefault());
+          hoverEditBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const target = hoverTarget;
+            const anchor = hoverAnchor;
+            hideHover();
+            if (target) open(target, anchor, { compact: false });
+          });
+          hoverDelBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          hoverDelBtn.addEventListener("mousedown", (event) => event.preventDefault());
+          hoverDelBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const target = hoverTarget;
+            hideHover();
+            if (target) removeTargetLink(target, { focusEditor: true });
+          });
+
+          expandBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          expandBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!current) return;
+            isCompact = false;
+            syncModeUi();
+            positionPopover();
+            titleInput.focus({ preventScroll: true });
+            titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
+            revealPopover();
+            hostTracker.getHost()?.dispatchEvent(new Event("nf:layout"));
+          });
+
+          for (const def of LINK_MODES) {
+            const btn = modeButtons[def.key];
+            btn.addEventListener("pointerdown", (event) => event.preventDefault());
+            btn.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!current || selectedMode === def.key) return;
+              selectedMode = def.key;
+              syncModeUi();
+              if (current.existing && sanitizeLinkUrl(urlInput.value, { autoScheme: true })) {
+                applyTarget({ focusEditor: false, keepOpen: true });
+              } else {
+                positionPopover();
+                hostTracker.getHost()?.dispatchEvent(new Event("nf:layout"));
+              }
+            });
+          }
+
+          urlInput.addEventListener("input", () => {
+            showError("");
+            syncModeUi();
+          });
+
+          const onInputKeydown = (event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              close({ focusEditor: true });
+            } else if (event.key === "Enter") {
+              event.preventDefault();
+              event.stopPropagation();
+              applyTarget({ focusEditor: true, keepOpen: false });
+            }
+          };
+          urlInput.addEventListener("keydown", onInputKeydown);
+          titleInput.addEventListener("keydown", onInputKeydown);
+          descInput.addEventListener("keydown", onInputKeydown);
+
+          openBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          openBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openExternalLink(urlInput.value, hostTracker.ensureHost());
+          });
+
+          doneBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          doneBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            applyTarget({ focusEditor: true, keepOpen: false });
+          });
+
+          delBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          delBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            removeLink();
+          });
+
+          const onEditBlockEvent = (event) => {
+            const liveHost = hostTracker.ensureHost();
+            if (!liveHost || event.target !== liveHost) return;
+            const detail = event.detail;
+            if (!detail || !detail.node) return;
+            open(
+              {
+                kind: "block",
+                pos: detail.pos,
+                url: detail.node.attrs.url || "",
+                title: detail.node.attrs.title || "",
+                description: detail.node.attrs.description || "",
+                mode: detail.node.attrs.variant === "card" ? "card" : "bookmark",
+                existing: true,
+              },
+              detail.anchor || null,
+              { compact: false }
+            );
+          };
+          document.addEventListener("nf:edit-link-block", onEditBlockEvent);
+
+          const onOutsidePointer = (event) => {
+            if (!current || popover.contains(event.target)) return;
+            if (event.target.closest?.(".nf-link-block-edit, .nf-link-hover")) return;
+            if (isCompact) {
+              close({ focusEditor: false });
+              return;
+            }
+            if (sanitizeLinkUrl(urlInput.value, { autoScheme: true })) {
+              applyTarget({ focusEditor: false, keepOpen: false });
+            } else {
+              close({ focusEditor: false });
+            }
+          };
+          function onViewport() {
+            positionPopover();
+            positionHover();
+          }
+          document.addEventListener("pointerdown", onOutsidePointer, true);
+          window.addEventListener("resize", onViewport);
+          window.addEventListener("scroll", onViewport, true);
+          window.visualViewport?.addEventListener("resize", onViewport);
+
+          const onDomMouseOver = (event) => {
+            const anchor = event.target?.closest?.("a.nf-link");
+            if (anchor && view.dom.contains(anchor)) {
+              showHoverForAnchor(anchor);
+            }
+          };
+          const onDomMouseOut = (event) => {
+            if (hoverBar.hidden) return;
+            const fromAnchor = event.target?.closest?.("a.nf-link");
+            if (!fromAnchor) return;
+            const related = event.relatedTarget;
+            if (related && (fromAnchor.contains(related) || hoverBar.contains(related))) return;
+            scheduleHideHover();
+          };
+          const onDomPointerDown = (event) => {
+            clearTouchPress();
+            if (event.pointerType === "touch" && view.editable) {
+              const anchor = event.target?.closest?.("a.nf-link");
+              if (anchor && view.dom.contains(anchor)) {
+                touchStartPos = { x: event.clientX, y: event.clientY };
+                touchPressTimer = setTimeout(() => {
+                  touchPressTimer = null;
+                  longPressTriggered = true;
+                  if (longPressResetTimer != null) clearTimeout(longPressResetTimer);
+                  longPressResetTimer = setTimeout(() => {
+                    longPressResetTimer = null;
+                    longPressTriggered = false;
+                  }, 800);
+                  let pos = null;
+                  try {
+                    pos = view.posAtDOM(anchor, 0);
+                  } catch {
+                    pos = null;
+                  }
+                  const target = pos != null ? findLinkRangeAtPos(view.state.doc, pos) : null;
+                  if (target) {
+                    open(target, anchor, { compact: false });
+                  }
+                }, 380);
+              }
+            }
+          };
+          const onDomPointerMove = (event) => {
+            if (touchPressTimer != null && touchStartPos) {
+              if (Math.hypot(event.clientX - touchStartPos.x, event.clientY - touchStartPos.y) > 8) {
+                clearTouchPress();
+              }
+            }
+          };
+          const onDomPointerEnd = () => clearTouchPress();
+          const onDomContextMenu = (event) => {
+            if (longPressTriggered && event.target?.closest?.("a.nf-link")) {
+              event.preventDefault();
+            }
+          };
+          const onDomKeydown = () => {
+            hideHover();
+          };
+
+          view.dom.addEventListener("mouseover", onDomMouseOver);
+          view.dom.addEventListener("mouseout", onDomMouseOut);
+          view.dom.addEventListener("pointerdown", onDomPointerDown);
+          view.dom.addEventListener("pointermove", onDomPointerMove);
+          view.dom.addEventListener("pointerup", onDomPointerEnd);
+          view.dom.addEventListener("pointercancel", onDomPointerEnd);
+          view.dom.addEventListener("contextmenu", onDomContextMenu);
+          view.dom.addEventListener("keydown", onDomKeydown);
+
+          const onClickLink = (event) => {
+            const anchor = event.target?.closest?.("a.nf-link");
+            if (!anchor || !view.dom.contains(anchor)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            hideHover();
+            if (longPressTriggered) {
+              longPressTriggered = false;
+              if (longPressResetTimer != null) {
+                clearTimeout(longPressResetTimer);
+                longPressResetTimer = null;
+              }
+              return;
+            }
+            const safeUrl = sanitizeLinkUrl(anchor.getAttribute("href"));
+            if (safeUrl) {
+              openExternalLink(safeUrl, anchor);
+            }
+          };
+          view.dom.addEventListener("click", onClickLink);
+
+          return {
+            update(nextView, prevState) {
+              hostTracker.ensureHost();
+              if (current && isCompact && nextView.state.doc !== prevState.doc && !applyingLinkChange) {
+                close({ focusEditor: false });
+              }
+            },
+            destroy() {
+              clearTouchPress();
+              cancelHoverHide();
+              if (longPressResetTimer != null) {
+                clearTimeout(longPressResetTimer);
+                longPressResetTimer = null;
+              }
+              linkControllers.delete(editor);
+              hostTracker.destroy();
+              document.removeEventListener("nf:edit-link-block", onEditBlockEvent);
+              document.removeEventListener("pointerdown", onOutsidePointer, true);
+              window.removeEventListener("resize", onViewport);
+              window.removeEventListener("scroll", onViewport, true);
+              window.visualViewport?.removeEventListener("resize", onViewport);
+              view.dom.removeEventListener("mouseover", onDomMouseOver);
+              view.dom.removeEventListener("mouseout", onDomMouseOut);
+              view.dom.removeEventListener("pointerdown", onDomPointerDown);
+              view.dom.removeEventListener("pointermove", onDomPointerMove);
+              view.dom.removeEventListener("pointerup", onDomPointerEnd);
+              view.dom.removeEventListener("pointercancel", onDomPointerEnd);
+              view.dom.removeEventListener("contextmenu", onDomContextMenu);
+              view.dom.removeEventListener("keydown", onDomKeydown);
+              view.dom.removeEventListener("click", onClickLink);
+              hoverBar.remove();
+              popover.remove();
+            },
+          };
+        },
+      }),
+    ];
+  },
+});
+
 const RichClipboard = Extension.create({
   name: "activecardRichClipboard",
   addProseMirrorPlugins() {
@@ -736,6 +1766,51 @@ const RichClipboard = Extension.create({
               event.preventDefault();
               insertImageFile(editor, payload.file);
               return true;
+            }
+            if (payload.kind === "url") {
+              const { from, to, empty, $from } = editor.state.selection;
+              if (!empty && $from.parent.isTextblock) {
+                const applied = editor
+                  .chain()
+                  .command(({ tr }) => {
+                    closeHistory(tr);
+                    const mark = editor.state.schema.marks.webLink.create({ href: payload.url, display: "inline" });
+                    tr.addMark(from, to, mark);
+                    closeHistory(tr);
+                    return true;
+                  })
+                  .run();
+                if (applied) event.preventDefault();
+                return applied;
+              }
+
+              const title = linkDisplayTitle(payload.url);
+              const linkHtml = `<a href="${escapeAttrHtml(payload.url)}" data-link-display="inline">${escapeAttrHtml(title)}</a>`;
+              editor.commands.command(({ tr }) => {
+                closeHistory(tr);
+                return true;
+              });
+              const inserted = editor.commands.insertContent(linkHtml);
+              if (inserted) {
+                editor.commands.command(({ tr }) => {
+                  closeHistory(tr);
+                  return true;
+                });
+                event.preventDefault();
+                const linkRange = findLinkRangeAtPos(editor.state.doc, editor.state.selection.from);
+                if (linkRange) {
+                  let anchorEl = null;
+                  try {
+                    const domPos = editor.view.domAtPos(Math.min(linkRange.from + 1, editor.state.doc.content.size));
+                    const baseEl = domPos.node?.nodeType === 1 ? domPos.node : domPos.node?.parentElement;
+                    anchorEl = baseEl?.closest?.("a.nf-link") || null;
+                  } catch {
+                    anchorEl = null;
+                  }
+                  linkControllers.get(editor)?.open(linkRange, anchorEl, { compact: true });
+                }
+              }
+              return inserted;
             }
             if (payload.kind === "html") {
               const atDocEnd = editor.state.selection.to >= editor.state.doc.content.size - 1;
@@ -764,6 +1839,86 @@ const RichClipboard = Extension.create({
     ];
   },
 });
+
+export function openLinkEditor(editor, { defaultMode = "inline" } = {}) {
+  if (!editor || !editor.isEditable) return false;
+  const ctrl = linkControllers.get(editor);
+  if (!ctrl) return false;
+
+  const { selection, doc } = editor.state;
+  if (selection instanceof NodeSelection && selection.node.type.name === "webBookmark") {
+    const attrs = selection.node.attrs;
+    ctrl.open({
+      kind: "block",
+      pos: selection.from,
+      url: attrs.url || "",
+      title: attrs.title || "",
+      description: attrs.description || "",
+      mode: attrs.variant === "card" ? "card" : "bookmark",
+      existing: true,
+    });
+    return true;
+  }
+
+  const existingInline = findLinkRangeAtPos(doc, selection.from);
+  if (existingInline) {
+    ctrl.open(existingInline);
+    return true;
+  }
+
+  const selectedText = !selection.empty ? doc.textBetween(selection.from, selection.to, " ", " ") : "";
+  ctrl.open({
+    kind: "inline",
+    from: selection.from,
+    to: selection.to,
+    url: "",
+    title: selectedText,
+    description: "",
+    mode: defaultMode,
+    existing: false,
+  });
+  return true;
+}
+
+export function insertMathFormula(editor) {
+  if (!editor || !editor.isEditable) return false;
+  const linkCtrl = linkControllers.get(editor);
+  if (linkCtrl?.isOpen()) linkCtrl.close({ focusEditor: false });
+
+  const { from, to, empty, $from } = editor.state.selection;
+  const selected =
+    !empty && $from.sameParent(editor.state.selection.$to)
+      ? editor.state.doc.textBetween(from, to, " ", " ").trim()
+      : "";
+  const latex = selected || "x";
+  const core = `$${latex}$`;
+  const charBefore = from > $from.start() ? editor.state.doc.textBetween(from - 1, from, "", "") : "";
+  const charAfter = to < $from.end() ? editor.state.doc.textBetween(to, to + 1, "", "") : "";
+  const padLeft = /[0-9A-Za-zÀ-ÿ]/.test(charBefore) ? " " : "";
+  const padRight = /[0-9A-Za-zÀ-ÿ]/.test(charAfter) ? " " : "";
+  const raw = `${padLeft}${core}${padRight}`;
+  const insertAt = from + padLeft.length;
+  const endPos = insertAt + core.length;
+
+  const inserted = editor
+    .chain()
+    .focus()
+    .command(({ tr }) => {
+      closeHistory(tr);
+      tr.insertText(raw, from, to);
+      tr.setSelection(TextSelection.create(tr.doc, Math.min(endPos, tr.doc.content.size)));
+      closeHistory(tr);
+      return true;
+    })
+    .run();
+
+  if (!inserted) return false;
+  const entry = collectMathEntries(editor.state.doc).find((item) => item.from === insertAt && item.to === endPos);
+  if (entry) {
+    mathControllers.get(editor)?.open(entry, null, { selectAll: !selected });
+  }
+  return true;
+}
 
 // En celular el ancho es de presentación: no modificar los colwidth guardados
 // en escritorio al ampliar columnas pequeñas para lectura y scroll lateral.
@@ -841,9 +1996,12 @@ export function buildExtensions({ placeholder = "", defaultAlign = "left", table
     TColor,
     TextAlign.configure({ types: ["paragraph", "heading", "blockquote"], defaultAlignment: defaultAlign }),
     Image,
+    WebLink,
+    WebBookmark,
     Placeholder.configure({ placeholder }),
     RichClipboard,
     MathLivePreview,
+    LinkInteractions,
     Shortcuts,
   ];
 }
@@ -911,6 +2069,8 @@ export const CLEAR_FORMAT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="cu
 export const OUTDENT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H11"/><path d="M21 12H11"/><path d="M21 18H11"/><path d="m7 8-4 4 4 4"/></svg>`;
 export const INDENT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H11"/><path d="M21 12H11"/><path d="M21 18H11"/><path d="m3 8 4 4-4 4"/></svg>`;
 export const PLUS_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`;
+export const LINK_BTN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+export const MATH_BTN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6H7l6 6-6 6h11"/></svg>`;
 
 const CHEVRON_SVG = `<svg class="nf-chevron" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 4.5 3 3 3-3"/></svg>`;
 const FORMAT_BADGES = {
@@ -954,6 +2114,7 @@ export const BUBBLE_BUTTONS = [
   { key: "underline", label: "Subrayado", html: '<u style="font-size:15px">U</u>' },
   { key: "strike", label: "Tachado", html: '<s style="font-size:15px">S</s>' },
   { key: "highlight", label: "Resaltado", html: HIGHLIGHTER_SVG },
+  { key: "link", label: "Enlace", html: LINK_BTN_SVG },
   { key: "align", label: "Alineación", html: ALIGN_SVG },
 ];
 
@@ -1271,7 +2432,10 @@ export const COLOR_BUTTON = {
 // Estado activo de cada botón, para pintarlos en el bubble.
 export function activeStates(editor) {
   const state = {};
-  for (const b of BUBBLE_BUTTONS) state[b.key] = editor.isActive(b.key);
+  for (const b of BUBBLE_BUTTONS) {
+    state[b.key] =
+      b.key === "link" ? editor.isActive("webLink") || editor.isActive("webBookmark") : editor.isActive(b.key);
+  }
   // "align" no es una marca: se ilumina cuando el bloque está centrado o a la
   // derecha (izquierda = default, sin resaltar).
   state.align =
@@ -1352,6 +2516,10 @@ export function applyFormat(editor, key) {
 export function runBubbleAction(editor, key) {
   if (key === "copyFormat") {
     copyFormatFromEditor(editor, { toggle: true });
+    return;
+  }
+  if (key === "link") {
+    openLinkEditor(editor);
     return;
   }
   const chain = editor.chain().focus().command(({ tr }) => { closeHistory(tr); return true; });

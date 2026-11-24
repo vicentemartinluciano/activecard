@@ -7,7 +7,9 @@
 //   web → RN:  postMessage {type:"ready"} | {type:"change", html} | {type:"height", height}
 
 import { Editor } from "@tiptap/core";
+import { attachEditorBlockControls } from "../src/lib/editorBlockSelection";
 import { attachEditorToolbar } from "../src/lib/editorToolbar";
+import { sanitizeLinkUrl } from "../src/lib/richLink";
 import { TOGGLE_ICON } from "../src/lib/tiptapToggle";
 
 import { EDITOR_BODY_CSS, EDITOR_CSS } from "../src/lib/editorCss";
@@ -22,6 +24,7 @@ import {
   COLOR_KEYS,
   currentImageWidth,
   EDITOR_TEXT_COLORS,
+  focusEditorBottom,
   FORMAT_BUTTON,
   formatButtonHtml,
   FORMAT_OPTIONS,
@@ -29,7 +32,11 @@ import {
   IMAGE_BTN_SVG,
   IMAGE_SIZES,
   insertImageFile,
+  insertMathFormula,
   isImageSelected,
+  LINK_BTN_SVG,
+  MATH_BTN_SVG,
+  openLinkEditor,
   PLUS_SVG,
   runBubbleAction,
   setImageWidth,
@@ -38,6 +45,7 @@ import {
 } from "../src/lib/editorSetup";
 
 const post = (msg) => window.ReactNativeWebView?.postMessage(JSON.stringify(msg));
+document.documentElement.classList.add("nf-native-document");
 
 // --- estilos ---------------------------------------------------------------
 const style = document.createElement("style");
@@ -194,6 +202,20 @@ toggleBtn.innerHTML = TOGGLE_ICON + "<span>Desplegable</span>";
 toggleBtn.addEventListener("pointerdown", (event) => event.preventDefault());
 toggleBtn.addEventListener("click", () => { editor.chain().focus().insertToggle().run(); host.classList.remove("nf-inserting"); });
 insertMenu.appendChild(toggleBtn);
+const linkMenuBtn = document.createElement("button");
+linkMenuBtn.type = "button"; linkMenuBtn.className = "nf-btn";
+linkMenuBtn.setAttribute("aria-label", "Insertar enlace");
+linkMenuBtn.innerHTML = LINK_BTN_SVG + "<span>Enlace</span>";
+linkMenuBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+linkMenuBtn.addEventListener("click", () => { host.classList.remove("nf-inserting"); openLinkEditor(editor, { defaultMode: "bookmark" }); });
+insertMenu.appendChild(linkMenuBtn);
+const mathMenuBtn = document.createElement("button");
+mathMenuBtn.type = "button"; mathMenuBtn.className = "nf-btn";
+mathMenuBtn.setAttribute("aria-label", "Insertar fórmula");
+mathMenuBtn.innerHTML = MATH_BTN_SVG + "<span>Fórmula</span>";
+mathMenuBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+mathMenuBtn.addEventListener("click", () => { host.classList.remove("nf-inserting"); insertMathFormula(editor); });
+insertMenu.appendChild(mathMenuBtn);
 
 const formatEls = {};
 for (const def of FORMAT_OPTIONS) {
@@ -313,6 +335,7 @@ const editor = new Editor({
 mountTableToolbar(editor, host);
 
 attachEditorToolbar(editor, host, bubble);
+attachEditorBlockControls(editor, host);
 
 subscribeCopiedFormat((format) => {
   post({ type: "copyFormat", format });
@@ -320,6 +343,10 @@ subscribeCopiedFormat((format) => {
 
 // Pegar imágenes desde el portapapeles (además del botón de archivo).
 editor.view.dom.addEventListener("paste", (e) => handleImagePaste(editor, e));
+host.addEventListener("nf:open-url", (event) => {
+  const safeUrl = sanitizeLinkUrl(event.detail?.url);
+  if (safeUrl) post({ type: "openUrl", url: safeUrl });
+});
 
 // --- alto dinámico ---------------------------------------------------------
 let lastHeight = 0;
@@ -328,8 +355,10 @@ const reportHeight = () => {
   // El WebView crece mientras están abiertos y vuelve al contenido al cerrar,
   // de modo que el menú completo sea tocable incluso en un campo de una línea.
   let bottom = host.getBoundingClientRect().height;
-  for (const panel of host.querySelectorAll(".nf-bubble,.nf-table-panel,.nf-math-popover")) {
-    if (!panel.hidden) bottom = Math.max(bottom, panel.offsetTop + panel.scrollHeight + 8);
+  for (const panel of host.querySelectorAll(".nf-bubble,.nf-table-panel,.nf-math-popover,.nf-link-popover,.nf-link-hover,.nf-multi-bar")) {
+    if (!panel.hidden && getComputedStyle(panel).display !== "none") {
+      bottom = Math.max(bottom, panel.offsetTop + panel.scrollHeight + 8);
+    }
   }
   const height = Math.ceil(bottom);
   if (height && height !== lastHeight) {
@@ -361,6 +390,14 @@ window.__editor = {
   },
   focus() {
     editor.commands.focus("end");
+  },
+  focusBottom() {
+    focusEditorBottom(editor);
+    requestAnimationFrame(reportHeight);
+  },
+  dismissControls() {
+    host.dispatchEvent(new Event("nf:dismiss-controls"));
+    editor.commands.blur();
   },
   setCopiedFormat(format) {
     setCopiedFormat(format, { notify: false });
