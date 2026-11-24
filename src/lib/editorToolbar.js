@@ -68,7 +68,13 @@ export function attachEditorToolbar(editor, host, bubble) {
       host.classList.contains("nf-inserting") ||
       host.classList.contains("nf-picking")
     );
-    if (host.classList.contains("nf-block-format") || host.classList.contains("nf-dragging")) bubble.hidden = true;
+    if (
+      host.classList.contains("nf-block-format") ||
+      host.classList.contains("nf-dragging") ||
+      host.classList.contains("nf-math-editing")
+    ) {
+      bubble.hidden = true;
+    }
     if (getComputedStyle(bubble).display === "none") {
       host.dispatchEvent(new Event("nf:layout"));
       return;
