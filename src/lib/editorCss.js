@@ -268,6 +268,101 @@ export const EDITOR_CSS = TOGGLE_CSS + `
 .nf-root .nf-math-widget {
   cursor: pointer;
   user-select: none;
+  transition: background 0.14s ease, box-shadow 0.14s ease;
+}
+.nf-root .nf-math-widget.is-editing {
+  background: rgba(70, 104, 232, 0.16);
+  box-shadow: 0 0 0 1.5px rgba(70, 104, 232, 0.72);
+  border-radius: 8px;
+}
+.nf-math-popover {
+  position: absolute;
+  z-index: 68;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(17, 19, 26, 0.98);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.68), 0 2px 8px rgba(0, 0, 0, 0.42);
+  overflow-y: auto;
+  animation: nf-reveal 120ms ease-out;
+}
+.nf-math-popover[hidden] { display: none !important; }
+.nf-math-popover-preview {
+  min-height: 36px;
+  max-height: 120px;
+  overflow-x: auto;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(70, 104, 232, 0.08);
+  border: 1px solid rgba(155, 180, 255, 0.16);
+  color: #F3F4F8;
+}
+.nf-math-popover-preview math {
+  font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", "Times New Roman", serif;
+  font-size: 1.08em;
+  color: inherit;
+}
+.nf-math-popover-empty {
+  color: #8F94A8;
+  font-size: 12.5px;
+}
+.nf-math-popover-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0C0D12;
+  color: #F3F4F8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  outline: none;
+}
+.nf-math-popover-input:focus {
+  border-color: #4668E8;
+  box-shadow: 0 0 0 1px rgba(70, 104, 232, 0.45);
+}
+.nf-math-popover-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.nf-math-popover-btn {
+  border: none;
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.nf-math-popover-delete {
+  background: rgba(229, 72, 77, 0.14);
+  color: #FF8B8E;
+}
+.nf-math-popover-done {
+  background: #4668E8;
+  color: #FFFFFF;
+}
+@media (pointer: coarse) {
+  .nf-math-popover-btn { height: 36px; padding: 0 14px; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-math-popover { animation: none; }
 }
 .nf-root .nf-math-inline {
   display: inline-flex;

@@ -15,6 +15,7 @@ import katex from "katex";
 
 import { attachEditorTableControls } from "./editorTableControls";
 import { clipboardToEditorHtml, endsWithDisplayMathParagraph } from "./editorPaste";
+import { positionEditorPanel } from "./editorGeometry";
 import { matchMathAt, splitMathSegments } from "./mathLatex";
 
 import { compressFile } from "./imageCompress";
@@ -178,214 +179,539 @@ function collectTextRuns(textblock, blockStartPos) {
   return runs;
 }
 
-function createMathWidget(editor, latex, display, key, widgetPos, editPos) {
-  const html = renderMathDecorationHtml(latex, display);
-  if (!html) return null;
-  return Decoration.widget(
-    widgetPos,
-    (view) => {
-      const el = document.createElement("span");
-      el.className = display ? "nf-math-widget nf-math-block" : "nf-math-widget nf-math-inline";
-      el.contentEditable = "false";
-      el.innerHTML = html;
-      el.addEventListener("mousedown", (event) => {
-        event.preventDefault();
-      });
-      el.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const targetPos = Math.min(editPos, view.state.doc.content.size);
-        view.dispatch(
-          view.state.tr
-            .setSelection(TextSelection.create(view.state.doc, targetPos))
-            .setMeta(mathLiveKey, true)
-            .setMeta("addToHistory", false)
-        );
-        editor.commands.focus();
-      });
-      return el;
-    },
-    { side: -1, key }
-  );
+function collectMathEntries(doc) {
+  const entries = [];
+  const consumedParagraphPositions = new Set();
+
+  const scanMultilineContainer = (container, contentStartPos) => {
+    const children = [];
+    let offset = 0;
+    container.forEach((child) => {
+      children.push({ node: child, pos: contentStartPos + offset });
+      offset += child.nodeSize;
+    });
+
+    let i = 0;
+    while (i < children.length) {
+      const startItem = children[i];
+      if (startItem.node.type.name !== "paragraph") {
+        i += 1;
+        continue;
+      }
+      const trimmed = startItem.node.textContent.trim();
+      const opensMultiline =
+        (trimmed.startsWith("$$") || trimmed.startsWith("\\[")) && !matchMathAt(trimmed, 0);
+      if (!opensMultiline) {
+        i += 1;
+        continue;
+      }
+
+      let closeIdx = -1;
+      let matched = null;
+      const maxEnd = Math.min(children.length, i + 40);
+      for (let j = i + 1; j < maxEnd; j += 1) {
+        if (children[j].node.type.name !== "paragraph") break;
+        const combined = children
+          .slice(i, j + 1)
+          .map((item) => item.node.textContent)
+          .join("\n")
+          .trim();
+        const cand = matchMathAt(combined, 0);
+        if (cand && cand.display && cand.end === combined.length) {
+          closeIdx = j;
+          matched = cand;
+          break;
+        }
+      }
+
+      if (closeIdx !== -1 && matched) {
+        const groupItems = children.slice(i, closeIdx + 1);
+        const first = groupItems[0];
+        const last = groupItems[groupItems.length - 1];
+        for (const item of groupItems) consumedParagraphPositions.add(item.pos);
+        entries.push({
+          from: first.pos + 1,
+          to: last.pos + last.node.nodeSize - 1,
+          latex: matched.latex,
+          raw: matched.raw,
+          display: true,
+          isMultiline: true,
+          firstSize: first.node.content.size,
+          secondaryItems: groupItems.slice(1),
+        });
+        i = closeIdx + 1;
+        continue;
+      }
+      i += 1;
+    }
+  };
+
+  scanMultilineContainer(doc, 0);
+
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) {
+      if (node.childCount > 0) scanMultilineContainer(node, pos + 1);
+      return true;
+    }
+    if (consumedParagraphPositions.has(pos)) return false;
+
+    const blockStart = pos + 1;
+    const runs = collectTextRuns(node, blockStart);
+    for (const run of runs) {
+      const segments = splitMathSegments(run.text);
+      for (const seg of segments) {
+        if (seg.type !== "math") continue;
+        entries.push({
+          from: run.docPos + seg.from,
+          to: run.docPos + seg.to,
+          latex: seg.latex,
+          raw: seg.raw,
+          display: seg.display,
+          isMultiline: false,
+        });
+      }
+    }
+    return false;
+  });
+
+  return entries;
 }
+
+const mathControllers = new WeakMap();
 
 const MathLivePreview = Extension.create({
   name: "mathLivePreview",
+  addKeyboardShortcuts() {
+    const deleteMathAtomic = (from, to) => {
+      const editor = this.editor;
+      const ctrl = mathControllers.get(editor);
+      if (ctrl?.isOpen()) ctrl.close({ focusEditor: false });
+      return editor
+        .chain()
+        .focus()
+        .command(({ tr }) => {
+          closeHistory(tr);
+          tr.delete(from, to);
+          closeHistory(tr);
+          return true;
+        })
+        .run();
+    };
+
+    return {
+      Escape: () => {
+        const ctrl = mathControllers.get(this.editor);
+        if (ctrl?.isOpen()) {
+          ctrl.close({ focusEditor: true });
+          return true;
+        }
+        return false;
+      },
+      ArrowLeft: () => {
+        const { selection, doc } = this.editor.state;
+        if (!selection.empty) return false;
+        const pos = selection.from;
+        const hit = collectMathEntries(doc).find((entry) => pos > entry.from && pos <= entry.to);
+        if (!hit) return false;
+        this.editor.view.dispatch(
+          this.editor.state.tr.setSelection(TextSelection.create(doc, hit.from)).scrollIntoView()
+        );
+        return true;
+      },
+      ArrowRight: () => {
+        const { selection, doc } = this.editor.state;
+        if (!selection.empty) return false;
+        const pos = selection.from;
+        const hit = collectMathEntries(doc).find((entry) => pos >= entry.from && pos < entry.to);
+        if (!hit) return false;
+        this.editor.view.dispatch(
+          this.editor.state.tr.setSelection(TextSelection.create(doc, hit.to)).scrollIntoView()
+        );
+        return true;
+      },
+      Backspace: () => {
+        const { selection, doc } = this.editor.state;
+        if (!selection.empty) return false;
+        const pos = selection.from;
+        const hit = collectMathEntries(doc).find((entry) => pos > entry.from && pos <= entry.to);
+        if (!hit) return false;
+        return deleteMathAtomic(hit.from, hit.to);
+      },
+      Delete: () => {
+        const { selection, doc } = this.editor.state;
+        if (!selection.empty) return false;
+        const pos = selection.from;
+        const hit = collectMathEntries(doc).find((entry) => pos >= entry.from && pos < entry.to);
+        if (!hit) return false;
+        return deleteMathAtomic(hit.from, hit.to);
+      },
+    };
+  },
   addProseMirrorPlugins() {
     const editor = this.editor;
     return [
       new Plugin({
         key: mathLiveKey,
         state: {
-          init: () => ({ focused: false }),
+          init: () => ({ activeMath: null }),
           apply(tr, value) {
             const meta = tr.getMeta(mathLiveKey);
-            return meta !== undefined ? { focused: Boolean(meta) } : value;
+            if (meta !== undefined) return { activeMath: meta };
+            if (value.activeMath && tr.docChanged) {
+              return { activeMath: null };
+            }
+            return value;
           },
+        },
+        view(view) {
+          if (typeof document === "undefined") return {};
+          const host = view.dom.closest?.(".nf-root") || view.dom.parentElement;
+          if (!host) return {};
+
+          const popover = document.createElement("div");
+          popover.className = "nf-math-popover";
+          popover.setAttribute("role", "dialog");
+          popover.setAttribute("aria-label", "Editar fórmula");
+          popover.hidden = true;
+
+          const preview = document.createElement("div");
+          preview.className = "nf-math-popover-preview";
+
+          const input = document.createElement("textarea");
+          input.className = "nf-math-popover-input";
+          input.rows = 2;
+          input.spellcheck = false;
+          input.autocomplete = "off";
+          input.setAttribute("autocapitalize", "off");
+          input.placeholder = "Escribí la fórmula en LaTeX...";
+          input.setAttribute("aria-label", "Código LaTeX de la fórmula");
+
+          const actions = document.createElement("div");
+          actions.className = "nf-math-popover-actions";
+
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "nf-math-popover-btn nf-math-popover-delete";
+          delBtn.textContent = "Eliminar";
+
+          const doneBtn = document.createElement("button");
+          doneBtn.type = "button";
+          doneBtn.className = "nf-math-popover-btn nf-math-popover-done";
+          doneBtn.textContent = "Listo";
+
+          actions.append(delBtn, doneBtn);
+          popover.append(preview, input, actions);
+          host.appendChild(popover);
+
+          let current = null;
+          let currentAnchor = null;
+
+          const updatePreview = (raw, display) => {
+            const cleaned = String(raw || "").trim();
+            if (!cleaned) {
+              preview.innerHTML = '<span class="nf-math-popover-empty">Fórmula vacía</span>';
+              return;
+            }
+            preview.innerHTML = renderMathDecorationHtml(cleaned, display) || "";
+          };
+
+          const positionPopover = () => {
+            if (!current || popover.hidden || !host.isConnected) return;
+            const anchorEl =
+              currentAnchor && currentAnchor.isConnected
+                ? currentAnchor
+                : host.querySelector(".nf-math-widget.is-editing");
+            const root = host.getBoundingClientRect();
+            const anchor = anchorEl?.getBoundingClientRect?.() || view.coordsAtPos(current.from);
+            const maxWidth = Math.max(220, Math.min(360, (root.width || 320) - 16));
+            popover.style.width = `${maxWidth}px`;
+            const left = Math.min(
+              Math.max(8, (anchor.left + anchor.right) / 2 - root.left - maxWidth / 2),
+              Math.max(8, (root.width || maxWidth + 16) - maxWidth - 8)
+            );
+            popover.style.left = `${left}px`;
+            const coarse = !!window.matchMedia?.("(pointer: coarse)")?.matches;
+            positionEditorPanel(host, popover, anchor, false, coarse ? 12 : 8);
+          };
+
+          const close = ({ focusEditor = false } = {}) => {
+            if (!current && popover.hidden) return;
+            current = null;
+            currentAnchor = null;
+            popover.hidden = true;
+            host.classList.remove("nf-math-editing");
+            if (!editor.isDestroyed) {
+              view.dispatch(view.state.tr.setMeta(mathLiveKey, null).setMeta("addToHistory", false));
+              if (focusEditor) editor.commands.focus();
+            }
+            host.dispatchEvent(new Event("nf:layout"));
+          };
+
+          const open = (entry, anchorEl) => {
+            if (!editor.isEditable) return;
+            if (current && current.from === entry.from && current.to === entry.to) {
+              close({ focusEditor: true });
+              return;
+            }
+            if (current) {
+              commit({ focusEditor: false });
+            }
+            const refreshed =
+              collectMathEntries(editor.state.doc).find(
+                (item) => item.latex === entry.latex && item.display === entry.display && item.from === entry.from
+              ) || entry;
+            current = { ...refreshed };
+            currentAnchor = anchorEl;
+            input.value = refreshed.latex || "";
+            updatePreview(input.value, refreshed.display);
+            host.classList.add("nf-math-editing");
+            host.dispatchEvent(new Event("nf:dismiss-controls"));
+            popover.hidden = false;
+            view.dispatch(
+              view.state.tr
+                .setMeta(mathLiveKey, { from: refreshed.from, to: refreshed.to })
+                .setMeta("addToHistory", false)
+            );
+            positionPopover();
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+            host.dispatchEvent(new Event("nf:layout"));
+          };
+
+          const commit = ({ focusEditor = true } = {}) => {
+            if (!current) return;
+            const snapshot = current;
+            const normalizedInput = input.value.replace(/\r\n?/g, "\n").replace(/\s*\n+\s*/g, " ").trim();
+            const normalizedOrig = (snapshot.latex || "").replace(/\r\n?/g, "\n").replace(/\s*\n+\s*/g, " ").trim();
+            const docSize = editor.state.doc.content.size;
+            const validRange = snapshot.from >= 0 && snapshot.to <= docSize && snapshot.from <= snapshot.to;
+
+            current = null;
+            currentAnchor = null;
+            popover.hidden = true;
+            host.classList.remove("nf-math-editing");
+
+            if (validRange && !normalizedInput) {
+              const chain = editor
+                .chain()
+                .command(({ tr }) => {
+                  closeHistory(tr);
+                  tr.delete(snapshot.from, snapshot.to);
+                  closeHistory(tr);
+                  return true;
+                })
+                .command(({ tr }) => {
+                  tr.setMeta(mathLiveKey, null);
+                  return true;
+                });
+              if (focusEditor) chain.focus();
+              chain.run();
+            } else if (validRange && normalizedInput !== normalizedOrig) {
+              const replacement = snapshot.display ? `$$${normalizedInput}$$` : `$${normalizedInput}$`;
+              const afterPos = snapshot.from + replacement.length;
+              const chain = editor
+                .chain()
+                .command(({ tr }) => {
+                  closeHistory(tr);
+                  tr.insertText(replacement, snapshot.from, snapshot.to);
+                  const clamped = Math.min(afterPos, tr.doc.content.size);
+                  tr.setSelection(TextSelection.create(tr.doc, clamped));
+                  closeHistory(tr);
+                  tr.setMeta(mathLiveKey, null);
+                  return true;
+                });
+              if (focusEditor) chain.focus();
+              chain.run();
+            } else if (!editor.isDestroyed) {
+              view.dispatch(view.state.tr.setMeta(mathLiveKey, null).setMeta("addToHistory", false));
+              if (focusEditor) editor.commands.focus();
+            }
+            host.dispatchEvent(new Event("nf:layout"));
+          };
+
+          const removeFormula = () => {
+            if (!current) return;
+            const snapshot = current;
+            const docSize = editor.state.doc.content.size;
+            const validRange = snapshot.from >= 0 && snapshot.to <= docSize && snapshot.from <= snapshot.to;
+            current = null;
+            currentAnchor = null;
+            popover.hidden = true;
+            host.classList.remove("nf-math-editing");
+            if (validRange) {
+              editor
+                .chain()
+                .focus()
+                .command(({ tr }) => {
+                  closeHistory(tr);
+                  tr.delete(snapshot.from, snapshot.to);
+                  closeHistory(tr);
+                  tr.setMeta(mathLiveKey, null);
+                  return true;
+                })
+                .run();
+            } else {
+              view.dispatch(view.state.tr.setMeta(mathLiveKey, null).setMeta("addToHistory", false));
+              editor.commands.focus();
+            }
+            host.dispatchEvent(new Event("nf:layout"));
+          };
+
+          const controller = {
+            open,
+            close,
+            commit,
+            isOpen: () => Boolean(current),
+          };
+          mathControllers.set(editor, controller);
+
+          input.addEventListener("input", () => {
+            if (!current) return;
+            updatePreview(input.value, current.display);
+            positionPopover();
+            host.dispatchEvent(new Event("nf:layout"));
+          });
+
+          input.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              close({ focusEditor: true });
+            } else if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              event.stopPropagation();
+              commit({ focusEditor: true });
+            }
+          });
+
+          doneBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          doneBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            commit({ focusEditor: true });
+          });
+
+          delBtn.addEventListener("pointerdown", (event) => event.preventDefault());
+          delBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            removeFormula();
+          });
+
+          const onOutsidePointer = (event) => {
+            if (!current || popover.contains(event.target)) return;
+            if (event.target.closest?.(".nf-math-widget")) return;
+            commit({ focusEditor: false });
+          };
+          const onViewport = () => positionPopover();
+          document.addEventListener("pointerdown", onOutsidePointer, true);
+          window.addEventListener("resize", onViewport);
+          window.addEventListener("scroll", onViewport, true);
+          window.visualViewport?.addEventListener("resize", onViewport);
+          host.addEventListener("nf:viewport", onViewport);
+
+          return {
+            update(nextView, prevState) {
+              if (!current) return;
+              if (nextView.state.doc !== prevState.doc && !mathLiveKey.getState(nextView.state)?.activeMath) {
+                current = null;
+                currentAnchor = null;
+                popover.hidden = true;
+                host.classList.remove("nf-math-editing");
+                host.dispatchEvent(new Event("nf:layout"));
+              }
+            },
+            destroy() {
+              mathControllers.delete(editor);
+              document.removeEventListener("pointerdown", onOutsidePointer, true);
+              window.removeEventListener("resize", onViewport);
+              window.removeEventListener("scroll", onViewport, true);
+              window.visualViewport?.removeEventListener("resize", onViewport);
+              host.removeEventListener("nf:viewport", onViewport);
+              popover.remove();
+            },
+          };
         },
         props: {
           handleDOMEvents: {
-            focus: (view) => {
-              view.dispatch(view.state.tr.setMeta(mathLiveKey, true).setMeta("addToHistory", false));
-              return false;
-            },
-            blur: (view) => {
-              view.dispatch(view.state.tr.setMeta(mathLiveKey, false).setMeta("addToHistory", false));
-              return false;
+            beforeinput: (_view, event) => {
+              if (event.inputType !== "deleteContentBackward" || event.isComposing || !event.cancelable) {
+                return false;
+              }
+              const { selection, doc } = editor.state;
+              if (!selection.empty) return false;
+              const pos = selection.from;
+              const hit = collectMathEntries(doc).find((entry) => pos > entry.from && pos <= entry.to);
+              if (!hit) return false;
+              event.preventDefault();
+              return editor
+                .chain()
+                .focus()
+                .command(({ tr }) => {
+                  closeHistory(tr);
+                  tr.delete(hit.from, hit.to);
+                  closeHistory(tr);
+                  return true;
+                })
+                .run();
             },
           },
           decorations(state) {
-            const focused = Boolean(mathLiveKey.getState(state)?.focused);
-            const { from: selFrom, to: selTo } = state.selection;
-            const isRangeActive = (from, to) =>
-              focused && (selFrom === selTo ? selFrom > from && selFrom < to : selFrom < to && selTo > from);
+            const activeMath = mathLiveKey.getState(state)?.activeMath;
+            const entries = collectMathEntries(state.doc);
             const decorations = [];
-            const consumedParagraphPositions = new Set();
 
-            const scanMultilineContainer = (container, contentStartPos) => {
-              const children = [];
-              let offset = 0;
-              container.forEach((child) => {
-                children.push({ node: child, pos: contentStartPos + offset });
-                offset += child.nodeSize;
-              });
-
-              let i = 0;
-              while (i < children.length) {
-                const startItem = children[i];
-                if (startItem.node.type.name !== "paragraph") {
-                  i += 1;
-                  continue;
-                }
-                const trimmed = startItem.node.textContent.trim();
-                const opensMultiline =
-                  (trimmed.startsWith("$$") || trimmed.startsWith("\\[")) && !matchMathAt(trimmed, 0);
-                if (!opensMultiline) {
-                  i += 1;
-                  continue;
-                }
-
-                let closeIdx = -1;
-                let matched = null;
-                const maxEnd = Math.min(children.length, i + 40);
-                for (let j = i + 1; j < maxEnd; j += 1) {
-                  if (children[j].node.type.name !== "paragraph") break;
-                  const combined = children
-                    .slice(i, j + 1)
-                    .map((item) => item.node.textContent)
-                    .join("\n")
-                    .trim();
-                  const cand = matchMathAt(combined, 0);
-                  if (cand && cand.display && cand.end === combined.length) {
-                    closeIdx = j;
-                    matched = cand;
-                    break;
-                  }
-                }
-
-                if (closeIdx !== -1 && matched) {
-                  const first = children[i];
-                  const last = children[closeIdx];
-                  const blockFrom = first.pos + 1;
-                  const blockTo = last.pos + last.node.nodeSize - 1;
-                  for (let k = i; k <= closeIdx; k += 1) {
-                    consumedParagraphPositions.add(children[k].pos);
-                  }
-                  if (isRangeActive(blockFrom, blockTo)) {
-                    for (let k = i; k <= closeIdx; k += 1) {
-                      const item = children[k];
-                      if (item.node.content.size > 0) {
-                        decorations.push(
-                          Decoration.inline(item.pos + 1, item.pos + 1 + item.node.content.size, {
-                            class: "nf-math-source",
-                          })
-                        );
-                      }
-                    }
-                  } else {
-                    const editPos =
-                      closeIdx > i + 1 && children[i + 1].node.content.size > 0
-                        ? children[i + 1].pos + 1
-                        : Math.min(blockFrom + 1, blockTo);
-                    const widget = createMathWidget(
-                      editor,
-                      matched.latex,
-                      true,
-                      `${blockFrom}:multi:${matched.raw}`,
-                      blockFrom,
-                      editPos
-                    );
-                    if (widget) {
-                      if (first.node.content.size > 0) {
-                        decorations.push(
-                          Decoration.inline(blockFrom, blockFrom + first.node.content.size, {
-                            class: "nf-math-hidden-src",
-                            "aria-hidden": "true",
-                          })
-                        );
-                      }
-                      for (let k = i + 1; k <= closeIdx; k += 1) {
-                        const item = children[k];
-                        decorations.push(
-                          Decoration.node(item.pos, item.pos + item.node.nodeSize, {
-                            class: "nf-math-hidden-line",
-                            "aria-hidden": "true",
-                          })
-                        );
-                      }
-                      decorations.push(widget);
-                    }
-                  }
-                  i = closeIdx + 1;
-                  continue;
-                }
-                i += 1;
-              }
-            };
-
-            scanMultilineContainer(state.doc, 0);
-
-            state.doc.descendants((node, pos) => {
-              if (!node.isTextblock) {
-                if (node.childCount > 0) scanMultilineContainer(node, pos + 1);
-                return true;
-              }
-              if (consumedParagraphPositions.has(pos)) return false;
-
-              const blockStart = pos + 1;
-              const runs = collectTextRuns(node, blockStart);
-              for (const run of runs) {
-                const segments = splitMathSegments(run.text);
-                for (const seg of segments) {
-                  if (seg.type !== "math") continue;
-                  const matchFrom = run.docPos + seg.from;
-                  const matchTo = run.docPos + seg.to;
-                  if (isRangeActive(matchFrom, matchTo)) {
-                    decorations.push(
-                      Decoration.inline(matchFrom, matchTo, { class: "nf-math-source" })
-                    );
-                    continue;
-                  }
-                  const widget = createMathWidget(
-                    editor,
-                    seg.latex,
-                    seg.display,
-                    `${matchFrom}:${seg.raw}`,
-                    matchFrom,
-                    Math.min(matchFrom + 1, state.doc.content.size)
-                  );
-                  if (!widget) continue;
+            for (const entry of entries) {
+              const html = renderMathDecorationHtml(entry.latex, entry.display);
+              if (!html) continue;
+              const editing = Boolean(activeMath && activeMath.from === entry.from && activeMath.to === entry.to);
+              if (entry.isMultiline) {
+                if (entry.firstSize > 0) {
                   decorations.push(
-                    Decoration.inline(matchFrom, matchTo, {
+                    Decoration.inline(entry.from, entry.from + entry.firstSize, {
                       class: "nf-math-hidden-src",
                       "aria-hidden": "true",
                     })
                   );
-                  decorations.push(widget);
                 }
+                for (const item of entry.secondaryItems) {
+                  decorations.push(
+                    Decoration.node(item.pos, item.pos + item.node.nodeSize, {
+                      class: "nf-math-hidden-line",
+                      "aria-hidden": "true",
+                    })
+                  );
+                }
+              } else {
+                decorations.push(
+                  Decoration.inline(entry.from, entry.to, {
+                    class: "nf-math-hidden-src",
+                    "aria-hidden": "true",
+                  })
+                );
               }
-              return false;
-            });
+              decorations.push(
+                Decoration.widget(
+                  entry.from,
+                  () => {
+                    const el = document.createElement("span");
+                    el.className = `${entry.display ? "nf-math-widget nf-math-block" : "nf-math-widget nf-math-inline"}${editing ? " is-editing" : ""}`;
+                    el.contentEditable = "false";
+                    el.innerHTML = html;
+                    el.addEventListener("mousedown", (event) => {
+                      event.preventDefault();
+                    });
+                    el.addEventListener("click", (event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      mathControllers.get(editor)?.open(entry, el);
+                    });
+                    return el;
+                  },
+                  { side: -1, key: `${entry.from}:${entry.to}:${entry.raw}:${editing ? "1" : "0"}` }
+                )
+              );
+            }
 
             return decorations.length ? DecorationSet.create(state.doc, decorations) : DecorationSet.empty;
           },

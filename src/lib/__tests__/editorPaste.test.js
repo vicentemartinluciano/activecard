@@ -227,22 +227,68 @@ describe("editorPaste — normalización de fórmulas y formato rico al pegar", 
     expect(insertImageFile).toBeDefined();
   });
 
-  test("MathLivePreview renderiza bloques multilínea $$...$$ y permite editar al hacer click en el widget", () => {
+  test("MathLivePreview nunca entra en modo código inline; edita mediante popover flotante y navega/borra atómicamente", () => {
     editor.view.focus();
-    editor.commands.setContent("<p>$$</p><p>V = c(1+i)^{-1}</p><p>$$</p><p>Siguiente</p>");
-    const lastBlockPos = editor.state.doc.content.size - 2;
-    editor.commands.setTextSelection(lastBlockPos);
+    editor.commands.setContent("<p>$$</p><p>V = c(1+i)^{-1}</p><p>$$</p><p>Siguiente $x_1$ fin</p>");
 
     const widget = editor.view.dom.querySelector(".nf-math-widget.nf-math-block");
+    const inlineWidget = editor.view.dom.querySelector(".nf-math-widget.nf-math-inline");
     expect(widget).not.toBeNull();
-    expect(editor.view.dom.querySelectorAll(".nf-math-hidden-line")).toHaveLength(2);
+    expect(inlineWidget).not.toBeNull();
+    expect(container.querySelectorAll(".nf-math-hidden-line")).toHaveLength(2);
 
+    // Tocar o mover el cursor cerca de la fórmula jamás muestra código LaTeX crudo inline.
     widget.click();
-    expect(editor.view.dom.querySelector(".nf-math-source")).not.toBeNull();
-    expect(editor.view.dom.querySelector(".nf-math-widget")).toBeNull();
+    expect(editor.view.dom.querySelector(".nf-math-source")).toBeNull();
+    expect(editor.view.dom.querySelector(".nf-math-widget.nf-math-block.is-editing")).not.toBeNull();
 
-    // Al mover el cursor al párrafo siguiente vuelve a renderizar como bloque visual.
-    editor.commands.setTextSelection(editor.state.doc.content.size - 2);
-    expect(editor.view.dom.querySelector(".nf-math-widget.nf-math-block")).not.toBeNull();
+    const popover = container.querySelector(".nf-math-popover");
+    const input = container.querySelector(".nf-math-popover-input");
+    const doneBtn = container.querySelector(".nf-math-popover-done");
+    const delBtn = container.querySelector(".nf-math-popover-delete");
+    expect(popover.hidden).toBe(false);
+    expect(input.value).toBe("V = c(1+i)^{-1}");
+
+    // Escape cancela sin modificar el documento.
+    input.value = "NO_GUARDAR";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(popover.hidden).toBe(true);
+    expect(editor.getHTML()).toContain("V = c(1+i)^{-1}");
+
+    // Volver a tocar la fórmula, editar en vivo y confirmar con Listo.
+    container.querySelector(".nf-math-widget.nf-math-block").click();
+    expect(popover.hidden).toBe(false);
+    input.value = "V = \\frac{c}{i}";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(container.querySelector(".nf-math-popover-preview math")).not.toBeNull();
+    doneBtn.click();
+    expect(popover.hidden).toBe(true);
+    expect(editor.getHTML()).toContain("$$V = \\frac{c}{i}$$");
+    expect(editor.view.dom.querySelector(".nf-math-source")).toBeNull();
+
+    // Tocar la fórmula inline y eliminarla desde el popover.
+    container.querySelector(".nf-math-widget.nf-math-inline").click();
+    expect(popover.hidden).toBe(false);
+    expect(input.value).toBe("x_1");
+    delBtn.click();
+    expect(popover.hidden).toBe(true);
+    expect(editor.getHTML()).not.toContain("$x_1$");
+
+    // Navegación y borrado atómico por teclado sobre el bloque restante $$V = \frac{c}{i}$$.
+    const blockEnd = 1 + "$$V = \\frac{c}{i}$$".length;
+    editor.commands.setTextSelection(blockEnd);
+    const keyDown = (k) =>
+      editor.view.someProp("handleKeyDown", (fn) =>
+        fn(editor.view, new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }))
+      );
+    expect(keyDown("ArrowLeft")).toBe(true);
+    expect(editor.state.selection.from).toBe(1);
+    expect(keyDown("ArrowRight")).toBe(true);
+    expect(editor.state.selection.from).toBe(blockEnd);
+
+    expect(keyDown("Backspace")).toBe(true);
+    expect(editor.getHTML()).not.toContain("\\frac{c}{i}");
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.getHTML()).toContain("$$V = \\frac{c}{i}$$");
   });
 });

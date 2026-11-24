@@ -328,7 +328,7 @@ const reportHeight = () => {
   // El WebView crece mientras están abiertos y vuelve al contenido al cerrar,
   // de modo que el menú completo sea tocable incluso en un campo de una línea.
   let bottom = host.getBoundingClientRect().height;
-  for (const panel of host.querySelectorAll(".nf-bubble,.nf-table-panel")) {
+  for (const panel of host.querySelectorAll(".nf-bubble,.nf-table-panel,.nf-math-popover")) {
     if (!panel.hidden) bottom = Math.max(bottom, panel.offsetTop + panel.scrollHeight + 8);
   }
   const height = Math.ceil(bottom);
