@@ -1,3 +1,5 @@
+import { sanitizeLinkUrl } from "./richLink";
+
 // Extensiones del formato de texto: se usan solo donde las marcas anteriores
 // no pueden representar el contenido sin pérdidas. Los lectores nuevos siguen
 // leyendo todas las tarjetas anteriores; un cliente viejo debe actualizarse.
@@ -23,9 +25,14 @@ function normalizeFormatted(value) {
       value.spans.some(span => typeof span?.text !== "string")) return null;
   if (value.kind === "ol" && (!Number.isSafeInteger(value.number) || value.number < 1)) return null;
   return { kind: value.kind, align: value.align, ...(value.kind === "ol" ? { number: value.number } : {}),
-    ...(value.quoteStart ? { quoteStart: true } : {}), spans: value.spans.map(span => ({ text: span.text,
-      ...Object.fromEntries(["bold", "italic", "underline", "strike", "highlight"].filter(flag => span[flag] === true).map(flag => [flag, true])),
-      ...(["rojo", "naranja", "amarillo", "verde", "azul", "violeta"].includes(span.color) ? { color: span.color } : {}),
-    })) };
+    ...(value.quoteStart ? { quoteStart: true } : {}), spans: value.spans.map(span => {
+      const linkHref = span.link?.href ? sanitizeLinkUrl(span.link.href) : null;
+      return {
+        text: span.text,
+        ...Object.fromEntries(["bold", "italic", "underline", "strike", "highlight"].filter(flag => span[flag] === true).map(flag => [flag, true])),
+        ...(["rojo", "naranja", "amarillo", "verde", "azul", "violeta"].includes(span.color) ? { color: span.color } : {}),
+        ...(linkHref ? { link: { href: linkHref, display: span.link.display === "mention" ? "mention" : "inline" } } : {}),
+      };
+    }) };
 }
 export const decodeFormatted = line => normalizeFormatted(decode(line, FORMATTED_SENTINEL));

@@ -7,12 +7,13 @@
 // API (idéntica en ambas plataformas): value/onChangeText SIEMPRE hablan
 // MARCAS (el formato de richtext.js). richhtml.js convierte en el borde.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { Linking, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 
 import editorHtml from "../../assets/editor/editorHtml";
 import { htmlToMarks, marksToHtml } from "../lib/richhtml";
+import { sanitizeLinkUrl } from "../lib/richLink";
 import { colors, radius } from "../theme";
 
 let sharedCopiedFormat = null;
@@ -25,6 +26,7 @@ export default function NotionField({
   minHeight = 110,
   defaultAlign = "left",
   page = false,
+  editorActionsRef = null,
 }) {
   const webRef = useRef(null);
   const [height, setHeight] = useState(minHeight);
@@ -60,6 +62,19 @@ export default function NotionField({
     inject(`window.__editor.setMinHeight(${minHeight})`);
   }, [ready, placeholder, minHeight, inject]);
 
+  useImperativeHandle(
+    editorActionsRef,
+    () => ({
+      focusBottom: () => {
+        if (ready) inject("window.__editor.focusBottom()");
+      },
+      blur: () => {
+        if (ready) inject("window.__editor.dismissControls()");
+      },
+    }),
+    [ready, inject]
+  );
+
   const onMessage = (event) => {
     let msg;
     try {
@@ -75,6 +90,9 @@ export default function NotionField({
       onChangeText(marcas);
     } else if (msg.type === "height") {
       setHeight(Math.max(minHeight, msg.height));
+    } else if (msg.type === "openUrl") {
+      const safeUrl = sanitizeLinkUrl(msg.url);
+      if (safeUrl) Linking.openURL(safeUrl).catch(() => {});
     } else if (msg.type === "copyFormat") {
       sharedCopiedFormat = msg.format || null;
       const payload = `window.__editor.setCopiedFormat(${JSON.stringify(sharedCopiedFormat)})`;
@@ -102,6 +120,15 @@ export default function NotionField({
         textZoom={100}
         keyboardDisplayRequiresUserAction={false}
         setSupportMultipleWindows={false}
+        onShouldStartLoadWithRequest={(req) => {
+          const reqUrl = req?.url || "";
+          if (!reqUrl || reqUrl === "about:blank" || reqUrl.startsWith("data:") || reqUrl.startsWith("file:")) {
+            return true;
+          }
+          const safeUrl = sanitizeLinkUrl(reqUrl);
+          if (safeUrl) Linking.openURL(safeUrl).catch(() => {});
+          return false;
+        }}
         androidLayerType="hardware"
         style={styles.web}
       />

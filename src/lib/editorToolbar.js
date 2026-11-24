@@ -71,7 +71,9 @@ export function attachEditorToolbar(editor, host, bubble) {
     if (
       host.classList.contains("nf-block-format") ||
       host.classList.contains("nf-dragging") ||
-      host.classList.contains("nf-math-editing")
+      host.classList.contains("nf-math-editing") ||
+      host.classList.contains("nf-link-editing") ||
+      host.classList.contains("nf-multi-selecting")
     ) {
       bubble.hidden = true;
     }

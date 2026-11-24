@@ -1,5 +1,6 @@
 import { validColumnWidths } from "./richTable";
 import { encodeFormatted, encodeList } from "./richContent";
+import { encodeLinkBlock, sanitizeLinkUrl } from "./richLink";
 import { matchMathAt } from "./mathLatex";
 // Conversión entre las marcas de richtext.js y HTML (TipTap) — el puente del
 // editor Notion (NotionField). Sin DOM: un solo code path para jest-expo,
@@ -52,6 +53,10 @@ function spanToHtml(span) {
   if (span.color && textColors[span.color]) {
     html = `<span data-color="${span.color}" style="color: ${textColors[span.color]}">${html}</span>`;
   }
+  if (span.link?.href) {
+    const display = span.link.display === "mention" ? "mention" : "inline";
+    html = `<a href="${escapeHtml(span.link.href)}" data-link-display="${display}">${html}</a>`;
+  }
   return html;
 }
 
@@ -85,6 +90,7 @@ export function describeBlock(block) {
   if (block.type === "list") return { kind: "list", ordered: block.ordered, start: block.start, items: block.items, spans: [] };
   if (block.type === "toggle") return { kind: "toggle", summary: block.summary, content: block.content, spans: [] };
   if (block.type === "table") return { kind: "table", rows: block.rows, spans: [] };
+  if (block.type === "linkBlock") return { kind: "linkBlock", link: block.link, spans: [], align: null };
   // Las listas nunca llevan alineación (align null → el render las deja a la
   // izquierda, no heredan el default de la cara).
   if (block.type === "li") return { kind: "li", spans: block.spans, align: null };
@@ -231,6 +237,14 @@ export function marksToHtml(marcas) {
       continue;
     }
 
+    if (block.kind === "linkBlock") {
+      out.push(
+        `<div data-link-url="${escapeHtml(block.link.url)}" data-link-title="${escapeHtml(block.link.title || "")}" data-link-desc="${escapeHtml(block.link.description || "")}" data-link-variant="${block.link.variant === "card" ? "card" : "bookmark"}"></div>`
+      );
+      i++;
+      continue;
+    }
+
     if (block.kind === "hr") {
       out.push("<hr>");
       i++;
@@ -307,6 +321,11 @@ function decodeEntities(s) {
     }
     return Object.prototype.hasOwnProperty.call(ENTITIES, code) ? ENTITIES[code] : all;
   });
+}
+
+function attrFromAttrs(attrs, name) {
+  const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(attrs);
+  return m ? decodeEntities(m[1] != null ? m[1] : m[2]) : "";
 }
 
 // Clave de color a partir de data-color o de style="color: hex|rgb(...)".
@@ -416,7 +435,10 @@ export function htmlToMarks(html) {
       if (listDepth++ === 0) { listStart = match.index; listBody = match.index + match[0].length; listTag = match[2].toLowerCase(); listAttrs = match[3]; }
     } else if (listDepth > 0 && --listDepth === 0) {
       const body = src.slice(listBody, match.index);
-      const complex = /<(?:ul|ol|blockquote|h[1-3]|actoggle|actable|img|hr)\b/i.test(body) || /<\/p>\s*<p\b/i.test(body);
+      const complex =
+        /<(?:ul|ol|blockquote|h[1-3]|actoggle|actable|img|hr)\b/i.test(body) ||
+        /<div\b[^>]*\bdata-link-url\s*=/i.test(body) ||
+        /<\/p>\s*<p\b/i.test(body);
       if (!complex) continue;
       const items = [];
       let itemDepth = 0, itemStart = 0;
@@ -487,6 +509,36 @@ export function htmlToMarks(html) {
       if (tag === "actable") {
         closeBlock();
         blocks.push({ prefix: "table", rows: tables[Number(/data-index="(\d+)"/.exec(attrs)?.[1])], spans: [] });
+        continue;
+      }
+      if (tag === "div" && /\bdata-link-url\s*=/.test(attrs)) {
+        closeBlock();
+        const url = sanitizeLinkUrl(attrFromAttrs(attrs, "data-link-url"));
+        if (url) {
+          blocks.push({
+            prefix: "linkBlock",
+            link: {
+              url,
+              title: attrFromAttrs(attrs, "data-link-title"),
+              description: attrFromAttrs(attrs, "data-link-desc"),
+              variant: attrFromAttrs(attrs, "data-link-variant") === "card" ? "card" : "bookmark",
+            },
+            spans: [],
+          });
+        }
+        let divDepth = 1;
+        let endLast = TAG_RE.lastIndex;
+        let token;
+        while ((token = TAG_RE.exec(src))) {
+          if (token[2].toLowerCase() !== "div") continue;
+          divDepth += token[1] === "/" ? -1 : 1;
+          if (!divDepth) {
+            endLast = TAG_RE.lastIndex;
+            break;
+          }
+        }
+        last = divDepth ? src.length : endLast;
+        if (divDepth) break;
         continue;
       }
       if (tag === "br") {
@@ -565,6 +617,14 @@ export function htmlToMarks(html) {
       else if (tag === "span") {
         const color = colorFromAttrs(attrs);
         if (color) style = { ...style, color };
+      } else if (tag === "a") {
+        const hrefMatch = /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(attrs);
+        const rawHref = hrefMatch ? decodeEntities(hrefMatch[1] ?? hrefMatch[2]) : "";
+        const href = sanitizeLinkUrl(rawHref);
+        if (href) {
+          const display = attrFromAttrs(attrs, "data-link-display") === "mention" ? "mention" : "inline";
+          style = { ...style, link: { href, display } };
+        }
       }
       stack.push({ tag, style });
       continue;
@@ -606,7 +666,8 @@ export function htmlToMarks(html) {
 // spans → marcas (serialización canónica)
 
 function flagsKey(s) {
-  return `${!!s.bold}|${!!s.italic}|${!!s.underline}|${!!s.highlight}|${!!s.strike}|${s.color || ""}`;
+  const linkKey = s.link?.href ? `${s.link.display === "mention" ? "mention" : "inline"}:${s.link.href}` : "";
+  return `${!!s.bold}|${!!s.italic}|${!!s.underline}|${!!s.highlight}|${!!s.strike}|${s.color || ""}|${linkKey}`;
 }
 
 function mergeSpans(spans) {
@@ -620,15 +681,17 @@ function mergeSpans(spans) {
   return out;
 }
 
-// Orden canónico (afuera → adentro): [[color: == __ ** *
+// Orden canónico (afuera → adentro): link → [[color: == __ ** *
 const RANK = { "==": 1, "__": 2, "~~": 3, "**": 4, "*": 5 };
-const rankOf = (mark) => (mark.startsWith("color:") ? 0 : RANK[mark]);
+const rankOf = (mark) => (mark.startsWith("link:") ? -1 : mark.startsWith("color:") ? 0 : RANK[mark]);
 
 // Marcadores presentes en un span, en orden canónico.
 // ***a*** NO es expresable en la gramática de richtext.js: si el span tiene
 // bold+italic y ninguna marca intermedia, el candidato anterior no alcanza.
 // blocksToMarks detecta la diferencia y conserva ambos en una línea estructurada.
 function marksOf(span) {
+  const linkHref = span.link?.href ? sanitizeLinkUrl(span.link.href) : null;
+  const linkDisplay = span.link?.display === "mention" ? "mention" : "inline";
   const colorKey = span.color && textColors[span.color] ? span.color : null;
   const bold = !!span.bold;
   const underline = !!span.underline;
@@ -638,6 +701,7 @@ function marksOf(span) {
   const italic = bold && span.italic && !hasSeparator ? false : !!span.italic;
 
   const out = [];
+  if (linkHref) out.push(`link:${linkDisplay}:${linkHref}`);
   if (colorKey) out.push(`color:${colorKey}`);
   if (highlight) out.push("==");
   if (underline) out.push("__");
@@ -648,6 +712,13 @@ function marksOf(span) {
 }
 
 function wrapMark(mark, inner) {
+  if (mark.startsWith("link:")) {
+    const first = mark.indexOf(":");
+    const second = mark.indexOf(":", first + 1);
+    const display = mark.slice(first + 1, second);
+    const href = mark.slice(second + 1);
+    return display === "mention" ? `[${inner}](${href} "mention")` : `[${inner}](${href})`;
+  }
   return mark.startsWith("color:") ? `[[${mark.slice(6)}:${inner}]]` : `${mark}${inner}${mark}`;
 }
 
@@ -658,7 +729,7 @@ function wrapMark(mark, inner) {
 function choosableMarks(marks, applied) {
   const remaining = marks.filter((m) => !applied.includes(m));
   if (remaining.length === 0) return [];
-  const seps = remaining.filter((m) => m !== "**" && m !== "*");
+  const seps = remaining.filter((m) => m !== "**" && m !== "*" && !m.startsWith("link:"));
   const reserved =
     remaining.includes("**") && remaining.includes("*") && seps.length === 1 ? seps[0] : null;
   let out = remaining.filter((m) => m !== reserved);
@@ -707,6 +778,7 @@ function blocksToMarks(blocks) {
     if (b.prefix === "list") return encodeList(b.list);
     if (b.prefix === "toggle") return encodeToggle(b.summary, b.content);
     if (b.prefix === "table") return encodeTable(b.rows);
+    if (b.prefix === "linkBlock") return encodeLinkBlock(b.link);
     if (b.prefix === "hr") return "---";
     if (b.prefix === "img") return `${IMG_SENTINEL}${b.width || 100} ${b.src}`;
     const spans = mergeSpans(b.spans);

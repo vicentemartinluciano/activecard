@@ -4,8 +4,9 @@
 // src/lib/editorSetup.js, así se ven y se comportan igual.
 
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef } from "react";
 
+import { attachEditorBlockControls } from "../lib/editorBlockSelection";
 import { attachEditorToolbar } from "../lib/editorToolbar";
 
 import { EDITOR_CSS } from "../lib/editorCss";
@@ -20,6 +21,7 @@ import {
   COLOR_KEYS,
   currentImageWidth,
   EDITOR_TEXT_COLORS,
+  focusEditorBottom,
   FORMAT_BUTTON,
   formatButtonHtml,
   FORMAT_OPTIONS,
@@ -27,7 +29,11 @@ import {
   IMAGE_BTN_SVG,
   IMAGE_SIZES,
   insertImageFile,
+  insertMathFormula,
   isImageSelected,
+  LINK_BTN_SVG,
+  MATH_BTN_SVG,
+  openLinkEditor,
   PLUS_SVG,
   runBubbleAction,
   setImageWidth,
@@ -56,6 +62,7 @@ export default function NotionField({
   minHeight = 110,
   defaultAlign = "left",
   page = false,
+  editorActionsRef = null,
 }) {
   ensureCss();
   const lastEmitted = useRef(null);
@@ -109,6 +116,22 @@ export default function NotionField({
   useEffect(() => {
     if (editor && tableToolbarRef.current && bubbleRef.current) return attachEditorToolbar(editor, tableToolbarRef.current, bubbleRef.current);
   }, [editor]);
+
+  useEffect(() => {
+    if (!editor || !tableToolbarRef.current) return undefined;
+    return attachEditorBlockControls(editor, tableToolbarRef.current);
+  }, [editor]);
+
+  useImperativeHandle(
+    editorActionsRef,
+    () => ({
+      focusBottom: () => {
+        if (editor) focusEditorBottom(editor);
+      },
+      blur: () => editor?.commands?.blur(),
+    }),
+    [editor]
+  );
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -315,6 +338,10 @@ export default function NotionField({
                   onClick={(e) => { stop(e); tableToolbarRef.current.classList.add("nf-picking"); fileInputRef.current?.click(); }} dangerouslySetInnerHTML={{ __html: IMAGE_BTN_SVG + "<span>Imagen</span>" }} />
             <button type="button" className="nf-btn" aria-label="Insertar tabla" onPointerDown={stop}
                   onClick={(e) => { stop(e); insertTable(editor); tableToolbarRef.current.classList.remove("nf-inserting"); }} dangerouslySetInnerHTML={{ __html: TABLE_BTN_SVG + "<span>Tabla</span>" }} />
+            <button type="button" className="nf-btn" aria-label="Insertar enlace" onPointerDown={stop}
+                  onClick={(e) => { stop(e); tableToolbarRef.current.classList.remove("nf-inserting"); openLinkEditor(editor, { defaultMode: "bookmark" }); }} dangerouslySetInnerHTML={{ __html: LINK_BTN_SVG + "<span>Enlace</span>" }} />
+            <button type="button" className="nf-btn" aria-label="Insertar fórmula" onPointerDown={stop}
+                  onClick={(e) => { stop(e); tableToolbarRef.current.classList.remove("nf-inserting"); insertMathFormula(editor); }} dangerouslySetInnerHTML={{ __html: MATH_BTN_SVG + "<span>Fórmula</span>" }} />
           </div>
         </div>
       <EditorContent editor={editor} />

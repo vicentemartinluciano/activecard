@@ -1,5 +1,6 @@
 import { validColumnWidths } from "./richTable";
 import { decodeFormatted, decodeList, LIST_SENTINEL, FORMATTED_SENTINEL } from "./richContent";
+import { decodeLinkBlock, LINK_BLOCK_SENTINEL, matchMarkdownLinkAt } from "./richLink";
 import { matchMathAt } from "./mathLatex";
 
 // Formato liviano tipo Notion, guardado como marcas dentro del mismo TEXT
@@ -131,6 +132,23 @@ function parseLine(line, inherited) {
       }
     }
 
+    // Enlaces inline ([texto](https://...)) y menciones ([texto](https://... "mention")).
+    if (line[i] === "[" && line[i + 1] !== "[" && !inherited.link) {
+      const linkMatch = matchMarkdownLinkAt(line, i);
+      if (linkMatch) {
+        flushText(buffer);
+        buffer = "";
+        spans.push(
+          ...parseLine(linkMatch.label, {
+            ...inherited,
+            link: { href: linkMatch.href, display: linkMatch.display },
+          })
+        );
+        i = linkMatch.end;
+        continue;
+      }
+    }
+
     // Marcas de estilo (probar las de 2 chars antes que las de 1, para que
     // ** no se interprete como dos *).
     let matched = false;
@@ -177,14 +195,14 @@ export function parseRich(text) {
 
     const nextAlign = ALIGN_BY_CHAR[lines[i + 1][0]] ? lines[i + 1][0] : "";
     const nextContent = nextAlign ? lines[i + 1].slice(1) : lines[i + 1];
-    if (BLOCK_BY_CHAR[nextContent[0]] || [QUOTE_START_SENTINEL, IMG_SENTINEL, TABLE_SENTINEL, TOGGLE_SENTINEL, LIST_SENTINEL, FORMATTED_SENTINEL].some(prefix => nextContent.startsWith(prefix))) continue;
+    if (BLOCK_BY_CHAR[nextContent[0]] || [QUOTE_START_SENTINEL, IMG_SENTINEL, TABLE_SENTINEL, TOGGLE_SENTINEL, LIST_SENTINEL, FORMATTED_SENTINEL, LINK_BLOCK_SENTINEL].some(prefix => nextContent.startsWith(prefix))) continue;
 
     lines[i + 1] = `${nextAlign || legacy[1]}${BLOCK_SENTINELS.quote}${nextContent}`;
     lines.splice(i, 1);
     i--;
   }
   const isSentinelLine = (line) =>
-    [QUOTE_START_SENTINEL, IMG_SENTINEL, TABLE_SENTINEL, TOGGLE_SENTINEL, LIST_SENTINEL, FORMATTED_SENTINEL].some(
+    [QUOTE_START_SENTINEL, IMG_SENTINEL, TABLE_SENTINEL, TOGGLE_SENTINEL, LIST_SENTINEL, FORMATTED_SENTINEL, LINK_BLOCK_SENTINEL].some(
       (prefix) => line.startsWith(prefix)
     );
 
@@ -200,6 +218,8 @@ export function parseRich(text) {
     if (toggle) { out.push({ type: "toggle", ...toggle, spans: [] }); i += 1; continue; }
     const rows = decodeTable(line);
     if (rows) { out.push({ type: "table", rows, spans: [] }); i += 1; continue; }
+    const linkBlock = decodeLinkBlock(line);
+    if (linkBlock) { out.push({ type: "linkBlock", link: linkBlock, spans: [] }); i += 1; continue; }
 
     const stripped = line.replace(ALIGN_STRIP_RE, "").trim();
     const opensMultilineDisplay =
@@ -245,6 +265,7 @@ export function toPlainText(text) {
       if (block.type === "formatted") return block.spans.map(span => span.text).join("");
       if (block.type === "toggle") return [toPlainText(block.summary), toPlainText(block.content)].filter(Boolean).join("\n");
       if (block.type === "table") return block.rows.map((row) => row.map((cell) => toPlainText(cell.text)).join(" | ")).join("\n");
+      if (block.type === "linkBlock") return block.link.title ? `${block.link.title} (${block.link.url})` : block.link.url;
       const plain = block.spans.map((s) => s.text).join("")
         .replace(ALIGN_STRIP_RE, "")
         .replace(BLOCK_STRIP_RE, "");
@@ -261,6 +282,7 @@ export function hasRichContent(text) {
   return Boolean(toPlainText(text).trim()) || parseRich(text).some((block) =>
     (block.type === "list" && block.items.some(hasRichContent)) ||
     block.type === "table" ||
+    block.type === "linkBlock" ||
     (block.type === "toggle" && hasRichContent(block.content)) ||
     block.spans.some((span) => span.text.includes(IMG_SENTINEL)));
 }

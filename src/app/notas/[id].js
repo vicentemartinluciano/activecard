@@ -94,6 +94,7 @@ export default function NotaDetalle() {
   const deletedRef = useRef(false);
   const allowNavRef = useRef(false);
   const navSavingRef = useRef(false);
+  const editorActionsRef = useRef(null);
 
   useSyncRefresh(useCallback(() => setSyncReload((v) => v + 1), []));
 
@@ -840,6 +841,12 @@ export default function NotaDetalle() {
               onChangeText={handleBodyChange}
               placeholder="Escribí algo…"
               minHeight={440}
+              editorActionsRef={editorActionsRef}
+            />
+            <Pressable
+              accessibilityLabel="Escribir al final de la nota"
+              onPress={() => editorActionsRef.current?.focusBottom?.()}
+              style={styles.noteTail}
             />
           </View>
         </ScrollView>
@@ -1294,5 +1301,8 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "rgba(255,255,255,0.07)",
     marginBottom: spacing.md,
+  },
+  noteTail: {
+    minHeight: 180,
   },
 });

@@ -5,10 +5,11 @@
 // usa el editor — así lo que se ve al estudiar es exactamente lo que se ve al editar.
 
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { hasMathSyntax, splitMathSegments } from "../lib/mathLatex";
 import { describeBlock, groupDisplayMathBlocks, groupQuoteRuns } from "../lib/richhtml";
+import { linkDisplayTitle, linkDomain, linkPlatformInfo, sanitizeLinkUrl } from "../lib/richLink";
 import { tableGrid, tableColumnWidths } from "../lib/richTable";
 import { parseRich } from "../lib/richtext";
 import { colors, font, radius, spacing, textColors } from "../theme";
@@ -120,6 +121,11 @@ function TableBlock({ rows, style }) {
   );
 }
 
+function openSafeUrl(url) {
+  const safe = sanitizeLinkUrl(url);
+  if (safe) Linking.openURL(safe).catch?.(() => {});
+}
+
 function spanStyle(span) {
   return [
     span.bold && styles.bold,
@@ -129,6 +135,92 @@ function spanStyle(span) {
     span.highlight && styles.highlight,
     span.color && textColors[span.color] ? { color: textColors[span.color] } : null,
   ];
+}
+
+function renderInlineSpan(span, key, textOverride = null, interactionRef = null) {
+  const label = textOverride != null ? textOverride : span.text;
+  if (span.link?.href) {
+    const isMention = span.link.display === "mention";
+    const platform = linkPlatformInfo(span.link.href);
+    return (
+      <Text
+        key={key}
+        accessibilityRole="link"
+        onPress={(event) => {
+          event?.stopPropagation?.();
+          if (interactionRef) interactionRef.suppressFlipUntil = Date.now() + 450;
+          openSafeUrl(span.link.href);
+        }}
+        style={[spanStyle(span), isMention ? styles.linkMention : styles.linkInline]}
+      >
+        {isMention ? `${platform.icon} ${label}` : label}
+      </Text>
+    );
+  }
+  return (
+    <Text key={key} style={spanStyle(span)}>
+      {label}
+    </Text>
+  );
+}
+
+function LinkBlock({ link }) {
+  const interactionRef = useContext(StudyInteractionContext);
+  const platform = linkPlatformInfo(link.url);
+  const domain = linkDomain(link.url) || link.url;
+  const titleText = linkDisplayTitle(link.url, link.title);
+  const descText = String(link.description || "").trim();
+  const isCard = link.variant === "card";
+  const guard = (active) => {
+    if (!interactionRef) return;
+    interactionRef.current = active;
+    interactionRef.suppressFlipUntil = Date.now() + 450;
+  };
+
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={titleText}
+      onTouchStart={() => guard(true)}
+      onTouchEnd={() => guard(false)}
+      onTouchCancel={() => guard(false)}
+      onPress={(event) => {
+        event?.stopPropagation?.();
+        guard(false);
+        openSafeUrl(link.url);
+      }}
+      style={({ pressed }) => [styles.linkBlock, isCard && styles.linkBlockCard, pressed && styles.linkBlockPressed]}
+    >
+      {isCard && (
+        <View style={styles.linkCardHeader}>
+          <View style={styles.linkCardBadge}>
+            <Text style={[styles.linkBlockIcon, { color: platform.accent }]}>{platform.icon}</Text>
+            <Text style={styles.linkCardPlatform}>{platform.name}</Text>
+          </View>
+          <Text style={styles.linkBlockOpenText}>Abrir ↗</Text>
+        </View>
+      )}
+      <View style={styles.linkBlockInner}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.linkBlockTitle} numberOfLines={2}>
+            {titleText}
+          </Text>
+          {descText ? (
+            <Text style={styles.linkBlockDesc} numberOfLines={2}>
+              {descText}
+            </Text>
+          ) : null}
+          <View style={styles.linkBlockMetaRow}>
+            {!isCard && <Text style={[styles.linkBlockIcon, { color: platform.accent }]}>{platform.icon}</Text>}
+            <Text style={styles.linkBlockDomain} numberOfLines={1}>
+              {domain}
+            </Text>
+          </View>
+        </View>
+        {!isCard && <Text style={styles.linkBlockArrow}>↗</Text>}
+      </View>
+    </Pressable>
+  );
 }
 
 function spansHaveMath(spans) {
@@ -163,7 +255,7 @@ function buildMathChunks(spans) {
   return chunks;
 }
 
-function RichLineWithMath({ spans, baseStyle, align = "left", flexContainer = false }) {
+function RichLineWithMath({ spans, baseStyle, align = "left", flexContainer = false, interactionRef = null }) {
   const chunks = buildMathChunks(spans);
   const justify = align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
 
@@ -194,9 +286,7 @@ function RichLineWithMath({ spans, baseStyle, align = "left", flexContainer = fa
                 style={[baseStyle, spanStyle(part.span)]}
               />
             ) : (
-              <Text key={pIdx} style={spanStyle(part.span)}>
-                {part.text}
-              </Text>
+              renderInlineSpan(part.span, pIdx, part.text, interactionRef)
             )
           )}
         </Text>
@@ -223,6 +313,9 @@ function RichLineWithMath({ spans, baseStyle, align = "left", flexContainer = fa
               />
             );
           }
+          if (part.span.link?.href) {
+            return renderInlineSpan(part.span, pIdx, part.text, interactionRef);
+          }
           const tokens = part.text.split(/(\s+)/).filter(Boolean);
           return tokens.map((token, tIdx) => (
             <Text key={`${pIdx}-${tIdx}`} style={[baseStyle, spanStyle(part.span)]}>
@@ -242,6 +335,7 @@ function RichLineWithMath({ spans, baseStyle, align = "left", flexContainer = fa
 // por cara — el dorso arranca centrado). Las listas nunca heredan el default
 // (siempre a la izquierda).
 export default function RichText({ text, style, containerStyle, defaultAlign = "left" }) {
+  const interactionRef = useContext(StudyInteractionContext);
   const baseSize = StyleSheet.flatten(style)?.fontSize || 16;
   const blocks = useMemo(
     () => groupDisplayMathBlocks(groupQuoteRuns(parseRich(text).map(describeBlock))),
@@ -252,6 +346,9 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
       {blocks.map((block, i) => {
         if (block.kind === "mathBlock") {
           return <MathFormula key={i} latex={block.latex} display style={style} />;
+        }
+        if (block.kind === "linkBlock") {
+          return <LinkBlock key={i} link={block.link} />;
         }
         if (block.kind === "list") return (
           <View key={i}>
@@ -284,6 +381,7 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
                       spans={quote.spans}
                       baseStyle={[style, styles.quoteText]}
                       align={align}
+                      interactionRef={interactionRef}
                     />
                   );
                 }
@@ -293,9 +391,7 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
                     style={[style, styles.quoteText, align !== "left" && { textAlign: align }]}
                   >
                     {quote.spans.length === 0 ? "\u00a0" : quote.spans.map((span, k) => (
-                      <Text key={k} style={spanStyle(span)}>
-                        {span.text}
-                      </Text>
+                      renderInlineSpan(span, k, null, interactionRef)
                     ))}
                   </Text>
                 );
@@ -329,6 +425,7 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
             baseStyle={[style, blockTextStyle]}
             align={align}
             flexContainer={isList}
+            interactionRef={interactionRef}
           />
         ) : (
           <Text
@@ -336,9 +433,7 @@ export default function RichText({ text, style, containerStyle, defaultAlign = "
             key={i}
           >
             {block.spans.length === 0 ? "\u00a0" : block.spans.map((span, j) => (
-              <Text key={j} style={spanStyle(span)}>
-                {span.text}
-              </Text>
+              renderInlineSpan(span, j, null, interactionRef)
             ))}
           </Text>
         );
@@ -416,5 +511,95 @@ const styles = StyleSheet.create({
   lightboxImg: {
     width: "100%",
     height: "100%",
+  },
+  linkInline: {
+    color: colors.accentText,
+    textDecorationLine: "underline",
+    textDecorationColor: "rgba(155,180,255,0.55)",
+  },
+  linkMention: {
+    color: colors.text,
+    backgroundColor: "rgba(70,104,232,0.16)",
+    borderRadius: 6,
+    overflow: "hidden",
+    ...font(600),
+  },
+  linkBlock: {
+    marginVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: colors.surfaceCard,
+    overflow: "hidden",
+  },
+  linkBlockCard: {
+    borderColor: "rgba(70,104,232,0.35)",
+  },
+  linkBlockPressed: {
+    opacity: 0.85,
+  },
+  linkCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "rgba(70,104,232,0.10)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  linkCardBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  linkCardPlatform: {
+    color: colors.text,
+    fontSize: 12,
+    ...font(600),
+  },
+  linkBlockInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  linkBlockTitle: {
+    color: colors.text,
+    fontSize: 14.5,
+    lineHeight: 20,
+    ...font(600),
+  },
+  linkBlockDesc: {
+    color: colors.textMuted,
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  linkBlockMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  linkBlockIcon: {
+    fontSize: 12.5,
+    ...font(700),
+  },
+  linkBlockDomain: {
+    color: colors.textMuted,
+    fontSize: 12,
+    flexShrink: 1,
+  },
+  linkBlockOpenText: {
+    color: colors.accentText,
+    fontSize: 12,
+    ...font(600),
+  },
+  linkBlockArrow: {
+    color: colors.accentText,
+    fontSize: 17,
+    paddingLeft: 4,
   },
 });
